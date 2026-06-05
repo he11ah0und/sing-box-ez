@@ -18,6 +18,10 @@ func setProcessGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
+func setNoWindow(cmd *exec.Cmd) {
+	// no-op on Unix
+}
+
 func KillProcess(pid int, elevated bool) error {
 	if elevated {
 		return killTreeElevated(pid)

@@ -66,10 +66,11 @@ type AppConfig struct {
 	WatchCoreLogs    bool   `json:"watch_core_logs"`
 	LogLimit         int    `json:"log_limit"`
 	Language         string `json:"language"`
-	PluginsEnabled   bool   `json:"plugins_enabled"`
-	PluginsDeveloper bool   `json:"plugins_developer"`
-	CoreAutoRestart  bool   `json:"core_auto_restart"`
-	FirstRunDone     bool   `json:"first_run_done"`
+	PluginsEnabled       bool   `json:"plugins_enabled"`
+	PluginsDeveloper     bool   `json:"plugins_developer"`
+	CoreAutoRestart      bool   `json:"core_auto_restart"`
+	DesktopNotifications bool   `json:"desktop_notifications"`
+	FirstRunDone         bool   `json:"first_run_done"`
 
 	mu       sync.RWMutex
 	profiles *Profiles
@@ -77,12 +78,13 @@ type AppConfig struct {
 
 func defaultAppConfig() *AppConfig {
 	return &AppConfig{
-		UpdateIntervalHours: 2,
-		RunAsAdmin:          false,
-		ShowLogs:            false,
-		WatchCoreLogs:       true,
-		LogLimit:            100,
-		CoreAutoRestart:     true,
+		UpdateIntervalHours:  2,
+		RunAsAdmin:           false,
+		ShowLogs:             false,
+		WatchCoreLogs:        true,
+		LogLimit:             100,
+		CoreAutoRestart:      true,
+		DesktopNotifications: true,
 	}
 }
 
@@ -360,6 +362,18 @@ func (c *AppConfig) GetCoreAutoRestart() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.CoreAutoRestart
+}
+
+func (c *AppConfig) SetDesktopNotifications(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.DesktopNotifications = v
+}
+
+func (c *AppConfig) GetDesktopNotifications() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.DesktopNotifications
 }
 
 func (c *AppConfig) SetFirstRunDone(v bool) {

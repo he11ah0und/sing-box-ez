@@ -170,5 +170,12 @@
   "dialog.privileges.btn_run_as_admin": "Включить запуск от администратора",
   "dialog.privileges.btn_restart_admin": "Перезапустить от администратора",
   "settings.reload_ui.title": "Интерфейс",
-  "settings.reload_ui.btn": "Перезагрузить интерфейс"
+  "settings.reload_ui.btn": "Перезагрузить интерфейс",
+  "settings.desktop_notifications": "Уведомления на рабочий стол",
+  "notify.core_started.title": "Sing-box EZ",
+  "notify.core_started.body": "Ядро успешно запущено",
+  "notify.core_stopped.title": "Sing-box EZ",
+  "notify.core_stopped.body": "Ядро остановлено",
+  "notify.core_crashed.title": "Sing-box EZ — авария ядра",
+  "notify.core_crashed.body": "Обнаружена фатальная ошибка. Авто-перезапуск..."
 }
