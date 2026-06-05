@@ -94,7 +94,7 @@ func (c *AppConfig) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(paths.AppConfig(), data, 0644)
+	return os.WriteFile(paths.AppConfig(), data, 0600)
 }
 
 func (c *AppConfig) GetConfigs() []ConfigRecord {

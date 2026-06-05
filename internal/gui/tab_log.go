@@ -12,18 +12,24 @@ func (g *GUI) buildLogTab() *container.TabItem {
 	g.logEntry = widget.NewMultiLineEntry()
 	g.logEntry.Wrapping = fyne.TextWrapBreak
 	g.logEntry.OnChanged = func(s string) {
-		if !g.updatingLog {
-			g.updatingLog = true
-			g.logEntry.SetText(strings.Join(g.logLines, "\n"))
-			g.updatingLog = false
+		g.logMu.Lock()
+		updating := g.updatingLog
+		g.logMu.Unlock()
+		if !updating {
+			g.logMu.Lock()
+			text := strings.Join(g.logLines, "\n")
+			g.logMu.Unlock()
+			g.logEntry.SetText(text)
 		}
 	}
 
 	copyBtn := widget.NewButton("Copy all", func() {
-		g.window.Clipboard().SetContent(g.logEntry.Text)
+		g.app.Clipboard().SetContent(g.logEntry.Text)
 	})
 	clearBtn := widget.NewButton("Clear", func() {
+		g.logMu.Lock()
 		g.logLines = []string{}
+		g.logMu.Unlock()
 		g.logEntry.SetText("")
 	})
 
