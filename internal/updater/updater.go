@@ -20,6 +20,7 @@ type Release struct {
 	Body        string    `json:"body"`
 	PublishedAt time.Time `json:"published_at"`
 	HTMLURL     string    `json:"html_url"`
+	Prerelease  bool      `json:"prerelease"`
 	Assets      []Asset   `json:"assets"`
 }
 
@@ -87,6 +88,9 @@ func CheckUpdate(current string) (*UpdateInfo, error) {
 
 	var newer []Release
 	for _, r := range releases {
+		if r.Prerelease {
+			continue
+		}
 		if versionLess(current, r.TagName) {
 			newer = append(newer, r)
 		}

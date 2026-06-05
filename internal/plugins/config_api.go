@@ -278,4 +278,3 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 
 	L.SetGlobal("config", mod)
 }
-
