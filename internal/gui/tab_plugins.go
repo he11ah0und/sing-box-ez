@@ -1,3 +1,5 @@
+//go:build !noplugins
+
 package gui
 
 import (
@@ -59,6 +61,10 @@ func (c *pluginCell) TappedSecondary(_ *fyne.PointEvent) {
 }
 
 func (g *GUI) buildPluginsTab() *container.TabItem {
+	if !g.cfg.GetPluginsEnabled() {
+		return nil
+	}
+
 	refreshBtn := widget.NewButton("Refresh", func() {
 		g.pluginManager.Close()
 		if err := g.pluginManager.Discover(); err != nil {
@@ -75,29 +81,34 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 		g.showInstallPluginDialog()
 	})
 
-	genDocsBtn := widget.NewButton("Generate API Docs", func() {
-		outDir := paths.PluginDocsDir()
-		if err := plugins.GenerateDocs(outDir); err != nil {
-			g.log("[plugins] docs generation failed: " + err.Error())
-		} else {
-			g.log("[plugins] API docs generated: " + outDir)
-		}
-	})
+	var btnRow fyne.CanvasObject
+	if g.cfg.GetPluginsDeveloper() {
+		genDocsBtn := widget.NewButton("Generate API Docs", func() {
+			outDir := paths.PluginDocsDir()
+			if err := plugins.GenerateDocs(outDir); err != nil {
+				g.log("[plugins] docs generation failed: " + err.Error())
+			} else {
+				g.log("[plugins] API docs generated: " + outDir)
+			}
+		})
 
-	genDefsBtn := widget.NewButton("Generate VS Code Defs", func() {
-		outDir := paths.PluginDefsDir()
-		if err := plugins.GenerateLuaDefs(outDir); err != nil {
-			g.log("[plugins] defs generation failed: " + err.Error())
-		} else {
-			g.log("[plugins] VS Code Lua defs generated: " + outDir)
-		}
-	})
+		genDefsBtn := widget.NewButton("Generate VS Code Defs", func() {
+			outDir := paths.PluginDefsDir()
+			if err := plugins.GenerateLuaDefs(outDir); err != nil {
+				g.log("[plugins] defs generation failed: " + err.Error())
+			} else {
+				g.log("[plugins] VS Code Lua defs generated: " + outDir)
+			}
+		})
 
-	genTmplBtn := widget.NewButton("Generate Template", func() {
-		g.showGenerateTemplateDialog()
-	})
+		genTmplBtn := widget.NewButton("Generate Template", func() {
+			g.showGenerateTemplateDialog()
+		})
 
-	btnRow := container.NewHBox(refreshBtn, checkUpdatesBtn, installBtn, genDocsBtn, genDefsBtn, genTmplBtn)
+		btnRow = container.NewHBox(refreshBtn, checkUpdatesBtn, installBtn, genDocsBtn, genDefsBtn, genTmplBtn)
+	} else {
+		btnRow = container.NewHBox(refreshBtn, checkUpdatesBtn, installBtn)
+	}
 
 	g.pluginsList = widget.NewList(
 		func() int {
