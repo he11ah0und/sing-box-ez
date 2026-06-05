@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
+	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/updater"
 	"sing-box-ez/internal/version"
@@ -200,4 +201,75 @@ func (g *GUI) doSelfUpdate(assetURL string) {
 		g.log("Self-update failed: " + err.Error())
 		dialog.ShowError(err, g.window)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// First-run wizard
+// ---------------------------------------------------------------------------
+
+func (g *GUI) showFirstRunDialog() {
+	var d dialog.Dialog
+
+	coreInstalled := core.CoreExists()
+	statusText := widget.NewLabel("Welcome to Sing-box EZ!")
+	if coreInstalled {
+		statusText.SetText("✓ sing-box core is already installed.")
+	} else {
+		statusText.SetText("sing-box core is not installed.")
+	}
+
+	urlEntry := widget.NewEntry()
+	urlEntry.SetPlaceHolder("https://example.com/config.json")
+
+	downloadBtn := widget.NewButton("Download sing-box core", func() {
+		go g.onDownloadCore()
+	})
+	if coreInstalled {
+		downloadBtn.Disable()
+	}
+
+	addBtn := widget.NewButton("Add config", func() {
+		url := urlEntry.Text
+		if url == "" {
+			g.log("First run: empty config URL")
+			return
+		}
+		name := "default"
+		rec := config.ConfigRecord{
+			Name:                name,
+			URL:                 url,
+			UpdateIntervalHours: g.cfg.UpdateIntervalHours,
+			Parent:              "user",
+		}
+		g.cfg.AddConfig(rec)
+		g.cfg.SetActiveName(name)
+		g.cfg.SetFirstRunDone(true)
+		_ = g.cfg.Save()
+		g.manager.SetConfigURL(url)
+		g.manager.SetConfigName(name)
+		g.refreshConfigData()
+		g.configTable.Refresh()
+		g.refreshActiveLabel()
+		g.updateButtons()
+		g.log("First config added: " + name)
+		fyne.Do(func() { d.Hide() })
+	})
+
+	content := container.NewVBox(
+		widget.NewLabelWithStyle("Welcome", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabel("To get started, download sing-box core and add your first config."),
+		widget.NewSeparator(),
+		statusText,
+		downloadBtn,
+		widget.NewSeparator(),
+		widget.NewLabel("Config URL"),
+		urlEntry,
+		addBtn,
+	)
+
+	fyne.DoAndWait(func() {
+		d = dialog.NewCustomWithoutButtons("First Run", content, g.window)
+		d.Resize(fyne.NewSize(480, 320))
+		d.Show()
+	})
 }
