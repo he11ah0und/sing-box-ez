@@ -34,11 +34,19 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	})
 	g.showLogsCheck.SetChecked(g.cfg.GetShowLogs())
 
-	g.showCoreLogsCheck = widget.NewCheck(i18n.T("settings.show_core_logs"), func(checked bool) {
-		g.cfg.SetShowCoreLogs(checked)
+	// --- Language block ---
+	langs := i18n.AvailableLanguages()
+	langSelect := widget.NewSelect(langs, func(selected string) {
+		g.cfg.SetLanguage(selected)
 		_ = g.cfg.Save()
+		i18n.SetLanguage(selected)
+		g.rebuildUI()
 	})
-	g.showCoreLogsCheck.SetChecked(g.cfg.GetShowCoreLogs())
+	currentLang := g.cfg.GetLanguage()
+	if currentLang == "" {
+		currentLang = "en"
+	}
+	langSelect.SetSelected(currentLang)
 
 	// --- Config block ---
 	g.defaultIntervalEntry = widget.NewEntry()
@@ -83,11 +91,14 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		widget.NewLabelWithStyle(i18n.T("settings.logging.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		logLimitRow,
 		g.showLogsCheck,
-		g.showCoreLogsCheck,
 		widget.NewSeparator(),
 
 		widget.NewLabelWithStyle(i18n.T("settings.config.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		intervalRow,
+		widget.NewSeparator(),
+
+		widget.NewLabelWithStyle(i18n.T("settings.language.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		langSelect,
 		widget.NewSeparator(),
 
 		widget.NewLabelWithStyle(i18n.T("settings.plugins.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
