@@ -133,8 +133,7 @@ func New(cfg *config.AppConfig) *GUI {
 	}
 	g.updateButtons()
 	g.refreshCoreVersion()
-	go g.checkStartupUpdate()
-	go g.checkSelfUpdate()
+	go g.checkUpdatesOnStartup()
 	go g.updateChecker()
 	go g.statusChecker()
 
@@ -334,7 +333,18 @@ func (g *GUI) checkLatestVersion() {
 	})
 }
 
-func (g *GUI) checkStartupUpdate() {
+func (g *GUI) checkUpdatesOnStartup() {
+	modal := g.showInfiniteDialog("Checking for updates...")
+
+	// Check self-update first
+	info, err := updater.CheckUpdate(version.Branch)
+	if err == nil && info.ReleaseCount > 0 {
+		fyne.Do(func() { modal.Hide() })
+		fyne.Do(func() { g.showSelfUpdateDialog(info) })
+		return
+	}
+
+	// Check core update
 	ver, err := core.GetLatestVersion()
 	if err != nil {
 		fyne.Do(func() {
@@ -342,6 +352,7 @@ func (g *GUI) checkStartupUpdate() {
 			g.latestText.Color = colRed
 			g.latestText.Refresh()
 		})
+		fyne.Do(func() { modal.Hide() })
 		return
 	}
 	g.latestVersion = ver
@@ -352,26 +363,14 @@ func (g *GUI) checkStartupUpdate() {
 	})
 
 	currentVer, err := core.GetCoreVersion(core.GetCorePath())
-	if err != nil || currentVer == "" {
+	if err != nil || currentVer == "" || currentVer == ver {
+		fyne.Do(func() { modal.Hide() })
 		return
 	}
 
-	if currentVer == ver {
-		return
-	}
-
+	fyne.Do(func() { modal.Hide() })
 	fyne.Do(func() {
 		g.showUpdatePrompt(ver, currentVer)
-	})
-}
-
-func (g *GUI) checkSelfUpdate() {
-	info, err := updater.CheckUpdate(version.Branch)
-	if err != nil || info.ReleaseCount == 0 {
-		return
-	}
-	fyne.Do(func() {
-		g.showSelfUpdateDialog(info)
 	})
 }
 
