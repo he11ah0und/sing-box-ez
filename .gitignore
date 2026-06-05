@@ -1,0 +1,8 @@
+# Kimi project memory
+.kimi-memory/
+
+# Generated plugin API docs
+docs/plugin-api/
+docs/plugin-defs/
+site/
+
