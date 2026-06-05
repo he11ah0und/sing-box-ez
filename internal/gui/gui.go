@@ -384,20 +384,10 @@ func (g *GUI) checkUpdatesOnStartup() {
 
 	ver, err := core.GetLatestVersion()
 	if err != nil {
-		fyne.Do(func() {
-			g.latestText.Text = g.t("core.latest.error")
-			g.latestText.Color = colRed
-			g.latestText.Refresh()
-		})
 		fyne.Do(func() { modal.Hide() })
 		return
 	}
 	g.latestVersion = ver
-	fyne.Do(func() {
-		g.latestText.Text = g.t("core.latest.prefix") + ver
-		g.latestText.Color = colGreen
-		g.latestText.Refresh()
-	})
 
 	if currentVer == ver {
 		fyne.Do(func() { modal.Hide() })
