@@ -375,7 +375,13 @@ func (g *GUI) checkUpdatesOnStartup() {
 		return
 	}
 
-	// Check core update
+	// Check core update only if core is installed.
+	currentVer, err := core.GetCoreVersion(core.GetCorePath())
+	if err != nil || currentVer == "" {
+		fyne.Do(func() { modal.Hide() })
+		return
+	}
+
 	ver, err := core.GetLatestVersion()
 	if err != nil {
 		fyne.Do(func() {
@@ -393,8 +399,7 @@ func (g *GUI) checkUpdatesOnStartup() {
 		g.latestText.Refresh()
 	})
 
-	currentVer, err := core.GetCoreVersion(core.GetCorePath())
-	if err != nil || currentVer == "" || currentVer == ver {
+	if currentVer == ver {
 		fyne.Do(func() { modal.Hide() })
 		return
 	}
