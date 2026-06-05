@@ -27,7 +27,9 @@ func KillProcess(pid int, elevated bool) error {
 	// for processes owned by the same user. The elevated flag is kept
 	// for API consistency with the Unix implementation.
 	_ = elevated
-	return exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(pid)).Run()
+	cmd := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(pid))
+	setNoWindow(cmd)
+	return cmd.Run()
 }
 
 func SetNetAdminCapabilityGUI(path string) error {
