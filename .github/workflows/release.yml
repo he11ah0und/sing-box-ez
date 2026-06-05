@@ -24,9 +24,26 @@ jobs:
         id: commit
         run: |
           echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$last_tag" ]; then
+            range="${last_tag}..HEAD"
+          else
+            range="HEAD"
+          fi
+
           {
             echo 'message<<EOF'
-            git log -1 --pretty=%B
+            echo "## Changes since last release"
+            echo ""
+            git log "$range" --pretty=format:'- `%h` %s (%an, %ad)' --date=format:'%Y-%m-%d %H:%M'
+            echo ""
+            echo ""
+            echo "## Commit Info"
+            echo ""
+            echo "- **Hash:** $(git rev-parse HEAD)"
+            echo "- **Author:** $(git log -1 --pretty=%an)"
+            echo "- **Date:** $(git log -1 --pretty=%ad --date=format:'%Y-%m-%d %H:%M')"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 

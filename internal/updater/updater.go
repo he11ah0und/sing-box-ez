@@ -33,11 +33,12 @@ type Asset struct {
 
 // UpdateInfo holds the result of an update check.
 type UpdateInfo struct {
-	Current   string
-	Latest    string
-	Releases  []Release // all releases newer than current
-	AssetURL  string
-	AssetName string
+	Current      string
+	Latest       string
+	ReleaseCount int    // how many stable releases behind
+	LatestBody   string // body of the latest stable release
+	AssetURL     string
+	AssetName    string
 }
 
 // GetReleases fetches all releases from GitHub.
@@ -102,10 +103,11 @@ func CheckUpdate(current string) (*UpdateInfo, error) {
 
 	assetName := guessAssetName()
 	info := &UpdateInfo{
-		Current:   current,
-		Latest:    newer[0].TagName,
-		Releases:  newer,
-		AssetName: assetName,
+		Current:      current,
+		Latest:       newer[0].TagName,
+		ReleaseCount: len(newer),
+		LatestBody:   newer[0].Body,
+		AssetName:    assetName,
 	}
 
 	for _, a := range newer[0].Assets {
