@@ -37,7 +37,7 @@ LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
 	-X 'sing-box-ez/internal/version.BuildOS=$(GOOS)' \
 	-X 'sing-box-ez/internal/version.BuildArch=$(GOARCH)' \
 	-X 'sing-box-ez/internal/version.BuildGUI=$(GUI)' \
-	-X 'sing-box-ez/internal/version.BuildBackend=$(GUI_BACKEND)' \
+	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(filter linux,$(GOOS)),$(GUI_BACKEND),)' \
 	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)'"
 
 # Lazy-evaluated variables so target-specific overrides are respected.
