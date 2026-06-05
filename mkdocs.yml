@@ -1,0 +1,14 @@
+site_name: Sing-box EZ Plugin API
+site_dir: site
+docs_dir: docs
+theme: readthedocs
+
+nav:
+  - Home: plugin-api/index.md
+  - Development Guide: plugin-api/dev-guide.md
+  - Plugin API:
+      - Overview: plugin-api/api-overview.md
+      - HTTP: plugin-api/api/http.md
+      - Log: plugin-api/api/log.md
+      - UI: plugin-api/api/ui.md
+      - Config: plugin-api/api/config.md

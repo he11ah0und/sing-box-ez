@@ -1,0 +1,242 @@
+{
+  "dns": {
+    "final": "proxy-dns",
+    "rules": [
+      {
+        "action": "route",
+        "clash_mode": "Global",
+        "server": "proxy-dns",
+        "source_ip_cidr": [
+          "172.19.0.0/30",
+          "fdfe:dcba:9876::1/126"
+        ]
+      },
+      {
+        "action": "route",
+        "domain_keyword": [
+          "lark",
+          "wechat",
+          "alibaba",
+          "aliyun",
+          "weixin",
+          "deepseek",
+          "kimi",
+          "weixin",
+          "1688",
+          "meituan",
+          "jd"
+        ],
+        "domain_suffix": [
+          ".cn"
+        ],
+        "server": "local-dns"
+      },
+      {
+        "action": "route",
+        "server": "proxy-dns",
+        "source_ip_cidr": [
+          "172.19.0.0/30",
+          "fdfe:dcba:9876::1/126"
+        ]
+      }
+    ],
+    "servers": [
+      {
+        "detour": "proxy",
+        "domain_resolver": "local-dns",
+        "server": "1.1.1.1",
+        "server_port": 53,
+        "tag": "proxy-dns",
+        "type": "udp"
+      },
+      {
+        "tag": "local-dns",
+        "type": "local"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "inbounds": [
+    {
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "endpoint_independent_nat": false,
+      "exclude_package": [],
+      "mtu": 9000,
+      "platform": {
+        "http_proxy": {
+          "enabled": true,
+          "server": "127.0.0.1",
+          "server_port": 2080
+        }
+      },
+      "stack": "mixed",
+      "strict_route": false,
+      "type": "tun"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 2080,
+      "type": "mixed",
+      "users": []
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "outbounds": [
+    {
+      "outbounds": [
+        "auto",
+        "direct",
+        "1.vless-ws.direct",
+        "2.vless-ws.cloudflare-lowspeed"
+      ],
+      "tag": "proxy",
+      "type": "selector"
+    },
+    {
+      "interval": "10m",
+      "outbounds": [
+        "1.vless-ws.direct",
+        "2.vless-ws.cloudflare-lowspeed"
+      ],
+      "tag": "auto",
+      "tolerance": 50,
+      "type": "urltest",
+      "url": "http://www.gstatic.com/generate_204"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "packet_encoding": "xudp",
+      "server": "147.79.20.81",
+      "server_port": 443,
+      "tag": "1.vless-ws.direct",
+      "tls": {
+        "certificate": "-----BEGIN CERTIFICATE-----\nMIIB+TCCAZ6gAwIBAgIIWTIxZ0Gc4gowCgYIKoZIzj0EAwIwSTEPMA0GA1UECBMG\nR2xvYmFsMQwwCgYDVQQHEwNOZXQxDDAKBgNVBAoTA05ldDEMMAoGA1UECxMDTmV0\nMQwwCgYDVQQDEwNOZXQwHhcNMjYwNTE2MjAxMDAwWhcNMzEwNTE2MjAxMDAwWjAX\nMRUwEwYDVQQDEwwxNDcuNzkuMjAuODEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNC\nAAROKY3zXTjnkzCd91tTGkC3aGX0zj8oOi4ckBEmXEgz9165VMr2M/8OZJWXqyRb\nm4peDvIEXrf1achmvQHjQoGno4GhMIGeMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYE\nFPGionaJug9eNTw7qOS9bRkgW57iMB8GA1UdIwQYMBaAFDBhGyKmjFN4wz/dxgBA\nKOCVcu31MAsGA1UdDwQEAwID6DAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUH\nAwIwDwYDVR0RBAgwBocEk08UUTARBglghkgBhvhCAQEEBAMCBkAwCgYIKoZIzj0E\nAwIDSQAwRgIhAMyHgR9HriAwkCldox0R/Os4PYV48ipxqXfHGxCfYdLrAiEA6U/S\nLDsKLdtPuhARhqVC+JmBEn+8A0+qSkT3upaT5TY=\n-----END CERTIFICATE-----",
+        "enabled": true,
+        "min_version": "1.3",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "early_data_header_name": "",
+        "headers": {
+          "Host": [
+            "147.79.20.81",
+            "dopavibe.live"
+          ]
+        },
+        "path": "/1b88ce7a-e0f8-4a0a-80f9-81ea53f0c330/ws",
+        "type": "ws"
+      },
+      "type": "vless",
+      "uuid": "d583898d-0441-4ca2-b012-034a7d96574f"
+    },
+    {
+      "packet_encoding": "xudp",
+      "server": "dopavibe.live",
+      "server_port": 443,
+      "tag": "2.vless-ws.cloudflare-lowspeed",
+      "tls": {
+        "enabled": true,
+        "min_version": "1.3",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "early_data_header_name": "",
+        "headers": {
+          "Host": [
+            "147.79.20.81",
+            "dopavibe.live"
+          ]
+        },
+        "path": "/1b88ce7a-e0f8-4a0a-80f9-81ea53f0c330/ws",
+        "type": "ws"
+      },
+      "type": "vless",
+      "uuid": "d583898d-0441-4ca2-b012-034a7d96574f"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": "proxy-dns",
+    "final": "proxy",
+    "rule_set": [
+      {
+        "download_detour": "proxy",
+        "format": "binary",
+        "tag": "geoip-cn",
+        "type": "remote",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs"
+      }
+    ],
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "route",
+        "clash_mode": "Direct",
+        "outbound": "direct"
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": "dns"
+      },
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "route",
+        "domain_keyword": [
+          "lark",
+          "wechat",
+          "alibaba",
+          "aliyun",
+          "weixin",
+          "deepseek",
+          "kimi",
+          "weixin",
+          "1688",
+          "meituan",
+          "jd"
+        ],
+        "domain_suffix": [
+          ".cn"
+        ],
+        "ip_is_private": true,
+        "outbound": "direct",
+        "rule_set": [
+          "geoip-cn"
+        ]
+      },
+      {
+        "network": [
+          "udp"
+        ],
+        "outbound": "direct",
+        "port_range": [
+          "1024:65535"
+        ]
+      },
+      {
+        "action": "route",
+        "clash_mode": "Global",
+        "outbound": "proxy"
+      }
+    ]
+  }
+}
