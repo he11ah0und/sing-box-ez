@@ -234,32 +234,23 @@ func (g *GUI) appendLogLines(newLines []string) {
 	text := strings.Join(g.logLines, "\n")
 	g.logMu.Unlock()
 	fyne.Do(func() {
-		g.logEntry.SetText(text)
-		g.logEntry.CursorRow = 999999
+		if g.logEntry != nil {
+			g.logEntry.SetText(text)
+			g.logEntry.CursorRow = 999999
+		}
 	})
 }
 
 func (g *GUI) log(msg string) {
-	if !g.cfg.GetShowLogs() {
-		return
-	}
 	g.stopMu.Lock()
 	stopped := g.stopped
 	g.stopMu.Unlock()
 	if stopped {
 		return
 	}
-	g.logMu.Lock()
-	if g.logEntry == nil {
-		g.logMu.Unlock()
-		return
-	}
-	g.logMu.Unlock()
 	timestamp := time.Now().Format("15:04:05")
 	line := fmt.Sprintf("[%s] %s", timestamp, msg)
-	fyne.Do(func() {
-		g.appendLogLines([]string{line})
-	})
+	g.appendLogLines([]string{line})
 }
 
 func isCoreFatalError(line string) bool {
@@ -311,18 +302,10 @@ func (g *GUI) logCore(msg string) {
 	if !g.cfg.GetWatchCoreLogs() {
 		return
 	}
-	g.logMu.Lock()
-	if g.logEntry == nil {
-		g.logMu.Unlock()
-		return
-	}
-	g.logMu.Unlock()
 	if len(valid) == 0 {
 		return
 	}
-	fyne.Do(func() {
-		g.appendLogLines(valid)
-	})
+	g.appendLogLines(valid)
 }
 
 func (g *GUI) refreshCoreVersion() {
@@ -483,6 +466,11 @@ func (g *GUI) onStart() {
 		}
 	}
 
+	if !g.hasRequiredPrivileges() {
+		g.showPrivilegeDialog()
+		return
+	}
+
 	if err := g.manager.Start(); err != nil {
 		g.log("Failed to start: " + err.Error())
 		return
@@ -615,6 +603,20 @@ func (g *GUI) Run() {
 	}()
 	go g.repaintLoop()
 	g.app.Run()
+}
+
+func (g *GUI) hasRequiredPrivileges() bool {
+	switch runtime.GOOS {
+	case "linux":
+		if core.HasNetAdminCapability(core.GetCorePath()) {
+			return true
+		}
+		return g.cfg.RunAsAdmin
+	case "windows":
+		return core.IsAdmin()
+	default:
+		return true
+	}
 }
 
 func (g *GUI) restartAsAdmin() {

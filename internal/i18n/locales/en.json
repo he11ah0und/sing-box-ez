@@ -162,5 +162,13 @@
   "plugins.template.title": "Generate Plugin Template",
   "first_run.welcome_title": "Welcome to Sing-box EZ!",
   "dialog.unknown": "unknown",
-  "dialog.error.no_matching_asset": "No matching asset found"
+  "dialog.error.no_matching_asset": "No matching asset found",
+  "dialog.privileges.title": "Privileges Required",
+  "dialog.privileges.msg_linux": "sing-box needs elevated privileges to create the TUN device.\n\nChoose an option below:",
+  "dialog.privileges.msg_windows": "sing-box needs administrator privileges to create the TUN device.\n\nPlease restart the application as administrator.",
+  "dialog.privileges.btn_setcap": "Apply setcap (recommended)",
+  "dialog.privileges.btn_run_as_admin": "Enable run as admin",
+  "dialog.privileges.btn_restart_admin": "Restart as administrator",
+  "settings.reload_ui.title": "Interface",
+  "settings.reload_ui.btn": "Reload UI"
 }
