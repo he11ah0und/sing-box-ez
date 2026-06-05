@@ -18,6 +18,7 @@ ARCH         ?= $(shell go env GOARCH)
 GUI          ?= 1
 GUI_BACKEND  ?= wayland
 COMPILER     ?= gcc
+PLUGINS      ?= 1
 
 GOOS    := $(OS)
 GOARCH  := $(ARCH)
@@ -29,12 +30,21 @@ COMPILER_SUFFIX := $(if $(filter musl,$(COMPILER)),-musl,)
 WIN_GUI_FLAG := $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(GUI))),-H windowsgui,)
 # Static link MinGW runtime on Windows so no extra DLLs are needed.
 WIN_STATIC = $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(CGO_ENABLED))),-linkmode external -extldflags "-static",)
-LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) -X 'sing-box-ez/internal/version.Version=$(VERSION)' -X 'sing-box-ez/internal/version.BuildDate=$(BUILD_DATE)' -X 'sing-box-ez/internal/version.Commit=$(BUILD_COMMIT)'"
+LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
+	-X 'sing-box-ez/internal/version.Version=$(VERSION)' \
+	-X 'sing-box-ez/internal/version.BuildDate=$(BUILD_DATE)' \
+	-X 'sing-box-ez/internal/version.Commit=$(BUILD_COMMIT)' \
+	-X 'sing-box-ez/internal/version.BuildOS=$(GOOS)' \
+	-X 'sing-box-ez/internal/version.BuildArch=$(GOARCH)' \
+	-X 'sing-box-ez/internal/version.BuildGUI=$(GUI)' \
+	-X 'sing-box-ez/internal/version.BuildBackend=$(GUI_BACKEND)' \
+	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)'"
 
 # Lazy-evaluated variables so target-specific overrides are respected.
 # GUI_BACKEND only affects Linux (Wayland vs X11); Windows/macOS use native GLFW.
 CGO_ENABLED = $(if $(filter 1,$(GUI)),1,0)
 BUILD_TAGS  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),-tags wayland,),),-tags nogui)
+BUILD_TAGS += $(if $(filter 0,$(PLUGINS)),-tags noplugins,)
 GUI_SUFFIX  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),),-cli)
 EXT         = $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)

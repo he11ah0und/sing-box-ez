@@ -1,3 +1,5 @@
+//go:build !noplugins
+
 package plugins
 
 // LuaArgDef describes a single function argument.
