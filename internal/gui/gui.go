@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/plugins"
 	"sing-box-ez/internal/updater"
 	"sing-box-ez/internal/version"
@@ -101,7 +102,7 @@ type GUI struct {
 
 func New(cfg *config.AppConfig) *GUI {
 	a := app.New()
-	w := a.NewWindow("Sing-box EZ")
+	w := a.NewWindow(i18n.T("app.title"))
 	w.Resize(fyne.NewSize(800, 600))
 
 	g := &GUI{
@@ -141,6 +142,10 @@ func New(cfg *config.AppConfig) *GUI {
 	go g.statusChecker()
 
 	return g
+}
+
+func (g *GUI) t(id string, data ...map[string]interface{}) string {
+	return i18n.T(id, data...)
 }
 
 func (g *GUI) buildUI() {
@@ -194,9 +199,9 @@ func (g *GUI) logReader() {
 func (g *GUI) refreshActiveLabel() {
 	active := g.cfg.GetActiveConfig()
 	if active != nil {
-		g.activeLbl.SetText("Active config: " + active.Name)
+		g.activeLbl.SetText(g.t("main.active.prefix") + active.Name)
 	} else {
-		g.activeLbl.SetText("No config selected — select one in the Configs tab")
+		g.activeLbl.SetText(g.t("main.no.config"))
 	}
 }
 
@@ -305,13 +310,13 @@ func (g *GUI) refreshCoreVersion() {
 	ver, err := core.GetCoreVersion(core.GetCorePath())
 	if err == nil && ver != "" {
 		fyne.Do(func() {
-			g.versionText.Text = "Core: v" + ver
+			g.versionText.Text = g.t("core.version.installed") + ver
 			g.versionText.Color = colGreen
 			g.versionText.Refresh()
 		})
 	} else {
 		fyne.Do(func() {
-			g.versionText.Text = "Core: not installed"
+			g.versionText.Text = g.t("core.version.not_installed")
 			g.versionText.Color = colRed
 			g.versionText.Refresh()
 		})
@@ -322,7 +327,7 @@ func (g *GUI) checkLatestVersion() {
 	ver, err := core.GetLatestVersion()
 	if err != nil {
 		fyne.Do(func() {
-			g.latestText.Text = "Latest: error"
+			g.latestText.Text = g.t("core.latest.error")
 			g.latestText.Color = colRed
 			g.latestText.Refresh()
 		})
@@ -330,14 +335,14 @@ func (g *GUI) checkLatestVersion() {
 	}
 	g.latestVersion = ver
 	fyne.Do(func() {
-		g.latestText.Text = "Latest: v" + ver
+		g.latestText.Text = g.t("core.latest.prefix") + ver
 		g.latestText.Color = colGreen
 		g.latestText.Refresh()
 	})
 }
 
 func (g *GUI) checkUpdatesOnStartup() {
-	modal := g.showInfiniteDialog("Checking for updates...")
+	modal := g.showInfiniteDialog(g.t("progress.checking_updates"))
 
 	// Check self-update first
 	info, err := updater.CheckUpdate(version.Branch)
@@ -351,7 +356,7 @@ func (g *GUI) checkUpdatesOnStartup() {
 	ver, err := core.GetLatestVersion()
 	if err != nil {
 		fyne.Do(func() {
-			g.latestText.Text = "Latest: error"
+			g.latestText.Text = g.t("core.latest.error")
 			g.latestText.Color = colRed
 			g.latestText.Refresh()
 		})
@@ -360,7 +365,7 @@ func (g *GUI) checkUpdatesOnStartup() {
 	}
 	g.latestVersion = ver
 	fyne.Do(func() {
-		g.latestText.Text = "Latest: v" + ver
+		g.latestText.Text = g.t("core.latest.prefix") + ver
 		g.latestText.Color = colGreen
 		g.latestText.Refresh()
 	})
@@ -387,10 +392,10 @@ func (g *GUI) refreshPrivilegeStatus() {
 	active := core.HasNetAdminCapability(core.GetCorePath())
 	fyne.Do(func() {
 		if active {
-			g.privilegeText.Text = "Privileges: setcap active (TUN without root)"
+			g.privilegeText.Text = g.t("core.privileges.setcap_active")
 			g.privilegeText.Color = colGreen
 		} else {
-			g.privilegeText.Text = "Privileges: root required for TUN"
+			g.privilegeText.Text = g.t("core.privileges.root_required")
 			g.privilegeText.Color = colYellow
 		}
 		g.privilegeText.Refresh()
@@ -398,7 +403,7 @@ func (g *GUI) refreshPrivilegeStatus() {
 }
 
 func (g *GUI) onDownloadCore() {
-	modal := g.showInfiniteDialog("Checking latest version...")
+	modal := g.showInfiniteDialog(g.t("progress.checking_version"))
 	ver, err := core.GetLatestVersion()
 	fyne.Do(func() { modal.Hide() })
 	if err != nil {
@@ -407,7 +412,7 @@ func (g *GUI) onDownloadCore() {
 	}
 	g.log("Latest version: v" + ver)
 
-	progressModal, progress := g.showProgressDialog("Downloading sing-box core v" + ver + "...")
+	progressModal, progress := g.showProgressDialog(fmt.Sprintf(g.t("progress.downloading_core"), ver))
 	defer fyne.Do(func() { progressModal.Hide() })
 	var lastLog time.Time
 	corePath, err := core.DownloadCore("", func(downloaded, total int64) {
@@ -498,7 +503,7 @@ func (g *GUI) updateButtons() {
 			g.startBtn.Disable()
 			g.stopBtn.Enable()
 			g.restartBtn.Enable()
-			g.statusText.Text = "Status: running"
+			g.statusText.Text = g.t("main.status.running")
 			g.statusText.Color = colGreen
 			g.statusText.Refresh()
 		} else {
@@ -509,7 +514,7 @@ func (g *GUI) updateButtons() {
 			}
 			g.stopBtn.Disable()
 			g.restartBtn.Disable()
-			g.statusText.Text = "Status: stopped"
+			g.statusText.Text = g.t("main.status.stopped")
 			g.statusText.Color = colRed
 			g.statusText.Refresh()
 		}

@@ -6,6 +6,7 @@ import (
 	"runtime"
 
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/i18n"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -16,18 +17,18 @@ import (
 
 func (g *GUI) buildCoreTab() *container.TabItem {
 	// --- Core block ---
-	g.versionText = canvas.NewText("Core: not installed", color.Black)
+	g.versionText = canvas.NewText(i18n.T("core.version.not_installed"), color.Black)
 	g.versionText.TextSize = theme.TextSize()
-	g.latestText = canvas.NewText("Latest: checking...", color.Black)
+	g.latestText = canvas.NewText(i18n.T("core.latest.checking"), color.Black)
 	g.latestText.TextSize = theme.TextSize()
 
-	downloadBtn := widget.NewButton("Download latest sing-box core", func() {
+	downloadBtn := widget.NewButton(i18n.T("core.btn.download"), func() {
 		go g.onDownloadCore()
 	})
 
-	checkBtn := widget.NewButton("Check latest version", func() {
+	checkBtn := widget.NewButton(i18n.T("core.btn.check"), func() {
 		go func() {
-			modal := g.showInfiniteDialog("Checking latest version...")
+			modal := g.showInfiniteDialog(i18n.T("progress.checking_version"))
 			ver, err := core.GetLatestVersion()
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
@@ -36,7 +37,7 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 			}
 			g.latestVersion = ver
 			fyne.Do(func() {
-				g.latestText.Text = "Latest: v" + ver
+				g.latestText.Text = i18n.T("core.latest.prefix") + ver
 				g.latestText.Color = colGreen
 				g.latestText.Refresh()
 			})
@@ -44,7 +45,7 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 		}()
 	})
 
-	g.coreAutoRestartCheck = widget.NewCheck("Auto-restart core on fatal errors", func(checked bool) {
+	g.coreAutoRestartCheck = widget.NewCheck(i18n.T("core.auto_restart"), func(checked bool) {
 		g.cfg.SetCoreAutoRestart(checked)
 		_ = g.cfg.Save()
 	})
@@ -56,13 +57,13 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 		adminStatus := canvas.NewText("", color.Black)
 		adminStatus.TextSize = theme.TextSize()
 		if core.IsAdmin() {
-			adminStatus.Text = "Privileges: running as administrator"
+			adminStatus.Text = i18n.T("core.privileges.admin")
 			adminStatus.Color = colGreen
 		} else {
-			adminStatus.Text = "Privileges: running as user"
+			adminStatus.Text = i18n.T("core.privileges.user")
 			adminStatus.Color = colYellow
 		}
-		restartBtn := widget.NewButton("Restart as administrator", func() {
+		restartBtn := widget.NewButton(i18n.T("core.btn.restart_admin"), func() {
 			go g.restartAsAdmin()
 		})
 		if core.IsAdmin() {
@@ -71,12 +72,12 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 		privilegesContent = container.NewVBox(adminStatus, restartBtn)
 	} else {
 		// Linux / macOS
-		adminLabel := "Run as administrator"
+		adminLabel := i18n.T("core.admin.label")
 		if runtime.GOOS == "linux" {
 			if core.HasNetAdminCapability(core.GetCorePath()) {
-				adminLabel = "Run as root (setcap active, TUN without root)"
+				adminLabel = i18n.T("core.admin.label_root_setcap")
 			} else {
-				adminLabel = "Run as root (pkexec, for TUN)"
+				adminLabel = i18n.T("core.admin.label_root_pkexec")
 			}
 		}
 		g.adminCheck = widget.NewCheck(adminLabel, func(checked bool) {
@@ -96,9 +97,9 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 
 		var setcapRow fyne.CanvasObject
 		if runtime.GOOS == "linux" {
-			setcapBtn := widget.NewButton("Apply setcap (TUN without root)", func() {
+			setcapBtn := widget.NewButton(i18n.T("core.btn.apply_setcap"), func() {
 				go func() {
-					modal := g.showInfiniteDialog("Applying setcap...")
+					modal := g.showInfiniteDialog(i18n.T("progress.applying_setcap"))
 					err := core.SetNetAdminCapabilityGUI(core.GetCorePath())
 					fyne.Do(func() { modal.Hide() })
 					if err != nil {
@@ -112,22 +113,22 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 			})
 			setcapRow = setcapBtn
 		} else {
-			setcapRow = widget.NewLabel("setcap not available on this OS")
+			setcapRow = widget.NewLabel(i18n.T("core.setcap.unavailable"))
 		}
 		privilegesContent = container.NewVBox(g.adminCheck, g.privilegeText, setcapRow)
 	}
 
 	content := container.NewVBox(
-		widget.NewLabelWithStyle("Core", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(i18n.T("tab.core"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		container.NewHBox(g.versionText, g.latestText),
 		downloadBtn,
 		checkBtn,
 		g.coreAutoRestartCheck,
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle("Privileges", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(i18n.T("core.privileges.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		privilegesContent,
 	)
 
-	return container.NewTabItem("Core", container.NewScroll(content))
+	return container.NewTabItem(i18n.T("tab.core"), container.NewScroll(content))
 }

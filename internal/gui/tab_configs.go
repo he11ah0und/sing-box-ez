@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -49,7 +50,7 @@ func (c *cell) TappedSecondary(_ *fyne.PointEvent) {
 func (g *GUI) buildConfigsTab() *container.TabItem {
 	g.refreshConfigData()
 
-	headers := []string{"Name", "Source", "Last Update", "Next Update", "Period", "Cached"}
+	headers := []string{g.t("configs.table.name"), g.t("configs.table.source"), g.t("configs.table.last_update"), g.t("configs.table.next_update"), g.t("configs.table.period"), g.t("configs.table.cached")}
 	colWidths := []float32{140, 100, 120, 120, 60, 60}
 	cols := len(headers)
 
@@ -76,21 +77,21 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 			case 1:
 				src := rec.Parent
 				if src == "" || src == "user" {
-					src = "user"
+					src = g.t("configs.table.user")
 				} else if len(src) > 3 && src[:3] == "pl-" {
 					src = src[3:]
 				}
 				c.SetText(src)
 			case 2:
 				if rec.LastUpdate.IsZero() {
-					c.SetText("never")
+					c.SetText(g.t("configs.table.never"))
 				} else {
 					c.SetText(rec.LastUpdate.Format(timeLayout))
 				}
 			case 3:
 				next := rec.NextUpdate()
 				if next.IsZero() {
-					c.SetText("now")
+					c.SetText(g.t("configs.table.now"))
 				} else {
 					c.SetText(next.Format(timeLayout))
 				}
@@ -98,9 +99,9 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 				c.SetText(fmt.Sprintf("%dh", rec.UpdateIntervalHours))
 			case 5:
 				if core.HasCachedConfig(rec.Name) {
-					c.SetText("yes")
+					c.SetText(g.t("configs.table.yes"))
 				} else {
-					c.SetText("no")
+					c.SetText(g.t("configs.table.no"))
 				}
 			}
 			// Double-click activates the config; right-click opens edit dialog.
@@ -136,11 +137,11 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 		}
 	}
 
-	g.addBtn = widget.NewButton("Add", g.onAddConfig)
-	g.editBtn = widget.NewButton("Edit", g.onEditConfig)
-	g.delBtn = widget.NewButton("Delete", g.onDeleteConfig)
-	g.activateBtn = widget.NewButton("Activate", g.onActivateConfig)
-	g.updateAllBtn = widget.NewButton("Update all", g.onUpdateAllConfigs)
+	g.addBtn = widget.NewButton(g.t("configs.btn.add"), g.onAddConfig)
+	g.editBtn = widget.NewButton(g.t("configs.btn.edit"), g.onEditConfig)
+	g.delBtn = widget.NewButton(g.t("configs.btn.delete"), g.onDeleteConfig)
+	g.activateBtn = widget.NewButton(g.t("configs.btn.activate"), g.onActivateConfig)
+	g.updateAllBtn = widget.NewButton(g.t("configs.btn.update_all"), g.onUpdateAllConfigs)
 	btnRow := container.NewHBox(g.addBtn, g.editBtn, g.delBtn, g.activateBtn, g.updateAllBtn)
 
 	content := container.NewBorder(
@@ -149,7 +150,7 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 		g.configTable,
 	)
 
-	return container.NewTabItem("Configs", container.NewScroll(content))
+	return container.NewTabItem(g.t("tab.configs"), container.NewScroll(content))
 }
 
 func (g *GUI) refreshConfigData() {
@@ -172,17 +173,17 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 	}
 
 	content := container.NewVBox(
-		widget.NewLabel("Name"),
+		widget.NewLabel(g.t("configs.dialog.name")),
 		nameEntry,
-		widget.NewLabel("URL"),
+		widget.NewLabel(g.t("configs.dialog.url")),
 		urlEntry,
-		widget.NewLabel("Period (hours)"),
+		widget.NewLabel(g.t("configs.dialog.period")),
 		periodEntry,
 	)
 
 	var d dialog.Dialog
 
-	saveBtn := widget.NewButton("Save", func() {
+	saveBtn := widget.NewButton(g.t("configs.dialog.btn.save"), func() {
 		var hours int
 		fmt.Sscanf(periodEntry.Text, "%d", &hours)
 		if hours <= 0 {
@@ -203,7 +204,7 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 
 	var footer *fyne.Container
 	if existing != nil && onDelete != nil {
-		updateBtn := widget.NewButton("Update now", func() {
+		updateBtn := widget.NewButton(g.t("configs.dialog.btn.update_now"), func() {
 			d.Hide()
 			if err := core.DownloadConfigFor(existing.Name, urlEntry.Text); err != nil {
 				g.log("Update failed: " + err.Error())
@@ -215,17 +216,17 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 				g.log("Config updated: " + existing.Name)
 			}
 		})
-		delBtn := widget.NewButton("Delete", func() {
+		delBtn := widget.NewButton(g.t("configs.dialog.btn.delete"), func() {
 			d.Hide()
 			onDelete()
 		})
-		footer = container.NewHBox(saveBtn, updateBtn, delBtn, widget.NewButton("Cancel", func() { d.Hide() }))
+		footer = container.NewHBox(saveBtn, updateBtn, delBtn, widget.NewButton(g.t("configs.dialog.btn.cancel"), func() { d.Hide() }))
 	} else {
-		footer = container.NewHBox(saveBtn, widget.NewButton("Cancel", func() { d.Hide() }))
+		footer = container.NewHBox(saveBtn, widget.NewButton(g.t("configs.dialog.btn.cancel"), func() { d.Hide() }))
 	}
 
 	full := container.NewBorder(nil, footer, nil, nil, content)
-	d = dialog.NewCustom("Config", "", full, g.window)
+	d = dialog.NewCustom(g.t("configs.dialog.title"), "", full, g.window)
 	d.Resize(fyne.NewSize(500, 280))
 	d.Show()
 }
@@ -298,7 +299,7 @@ func (g *GUI) onDeleteConfig() {
 		return
 	}
 	name := g.configData[g.configSelected].Name
-	dialog.ShowConfirm("Delete", "Delete config \""+name+"\"?", func(ok bool) {
+	dialog.ShowConfirm(g.t("configs.dialog.delete_title"), g.t("configs.dialog.delete_msg")+" \""+name+"\"?", func(ok bool) {
 		if !ok {
 			return
 		}
@@ -352,7 +353,7 @@ func (g *GUI) onUpdateAllConfigs() {
 			return
 		}
 
-		progressModal, progress := g.showProgressDialog("Updating all configs...")
+		progressModal, progress := g.showProgressDialog(g.t("progress.updating_configs"))
 		updated := 0
 		for _, rec := range configs {
 			if rec.URL == "" {

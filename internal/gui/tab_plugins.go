@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
+	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/paths"
 	"sing-box-ez/internal/plugins"
 )
@@ -65,7 +66,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 		return nil
 	}
 
-	refreshBtn := widget.NewButton("Refresh", func() {
+	refreshBtn := widget.NewButton(i18n.T("plugins.btn.refresh"), func() {
 		g.pluginManager.Close()
 		if err := g.pluginManager.Discover(); err != nil {
 			g.log("[plugins] discover error: " + err.Error())
@@ -73,17 +74,17 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 		g.refreshPluginsList()
 	})
 
-	checkUpdatesBtn := widget.NewButton("Check All Updates", func() {
+	checkUpdatesBtn := widget.NewButton(i18n.T("plugins.btn.check_all_updates"), func() {
 		go g.pluginManager.CheckAllUpdates()
 	})
 
-	installBtn := widget.NewButton("Install from URL", func() {
+	installBtn := widget.NewButton(i18n.T("plugins.btn.install_from_url"), func() {
 		g.showInstallPluginDialog()
 	})
 
 	var btnRow fyne.CanvasObject
 	if g.cfg.GetPluginsDeveloper() {
-		genDocsBtn := widget.NewButton("Generate API Docs", func() {
+		genDocsBtn := widget.NewButton(i18n.T("plugins.btn.generate_api_docs"), func() {
 			outDir := paths.PluginDocsDir()
 			if err := plugins.GenerateDocs(outDir); err != nil {
 				g.log("[plugins] docs generation failed: " + err.Error())
@@ -92,7 +93,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 			}
 		})
 
-		genDefsBtn := widget.NewButton("Generate VS Code Defs", func() {
+		genDefsBtn := widget.NewButton(i18n.T("plugins.btn.generate_vscode_defs"), func() {
 			outDir := paths.PluginDefsDir()
 			if err := plugins.GenerateLuaDefs(outDir); err != nil {
 				g.log("[plugins] defs generation failed: " + err.Error())
@@ -101,7 +102,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 			}
 		})
 
-		genTmplBtn := widget.NewButton("Generate Template", func() {
+		genTmplBtn := widget.NewButton(i18n.T("plugins.btn.generate_template"), func() {
 			g.showGenerateTemplateDialog()
 		})
 
@@ -160,7 +161,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 	)
 
 	content := container.NewBorder(btnRow, nil, nil, nil, g.pluginsList)
-	return container.NewTabItem("Plugins", content)
+	return container.NewTabItem(i18n.T("tab.plugins"), content)
 }
 
 func (g *GUI) togglePlugin(name string) {
@@ -209,32 +210,36 @@ func (g *GUI) showPluginInfo(name string) {
 		))
 	}
 
-	addRow("Name", mf.Name)
-	addRow("Version", mf.Version)
+	addRow(i18n.T("plugins.info.name"), mf.Name)
+	addRow(i18n.T("plugins.info.version"), mf.Version)
 	if mf.LatestVersion != "" {
-		addRow("Latest (remote)", mf.LatestVersion)
+		addRow(i18n.T("plugins.info.latest_remote"), mf.LatestVersion)
 	}
-	addRow("Author", mf.Author)
-	addRow("Description", mf.Description)
-	addRow("Entrypoint", mf.Entry)
-	addRow("Source", mf.SourceType)
+	addRow(i18n.T("plugins.info.author"), mf.Author)
+	addRow(i18n.T("plugins.info.description"), mf.Description)
+	addRow(i18n.T("plugins.info.entrypoint"), mf.Entry)
+	addRow(i18n.T("plugins.info.source"), mf.SourceType)
 	if mf.SourceType == "package" && mf.SourceURL != "" {
-		addRow("Package URL", mf.SourceURL)
+		addRow(i18n.T("plugins.info.package_url"), mf.SourceURL)
 	}
 	if len(mf.Relations) > 0 {
-		addRow("Relation", strings.Join([]string(mf.Relations), ", "))
+		addRow(i18n.T("plugins.info.relation"), strings.Join([]string(mf.Relations), ", "))
 	}
 	if mf.UpdateURL != "" {
-		addRow("Update URL", mf.UpdateURL)
+		addRow(i18n.T("plugins.info.update_url"), mf.UpdateURL)
 	}
-	addRow("Status", map[bool]string{true: "enabled", false: "disabled"}[mf.Enabled])
+	statusKey := "plugins.status.disabled"
+	if mf.Enabled {
+		statusKey = "plugins.status.enabled"
+	}
+	addRow(i18n.T("plugins.info.status"), i18n.T(statusKey))
 
 	// If it's a folder without update_url, show a note.
 	if mf.SourceType == "folder" {
-		info.Add(widget.NewLabelWithStyle("Note: folder plugins cannot be auto-updated.", fyne.TextAlignLeading, fyne.TextStyle{Italic: true}))
+		info.Add(widget.NewLabelWithStyle(i18n.T("plugins.note.folder_no_update"), fyne.TextAlignLeading, fyne.TextStyle{Italic: true}))
 	}
 
-	checkBtn := widget.NewButton("Check Update", func() {
+	checkBtn := widget.NewButton(i18n.T("plugins.btn.check_update"), func() {
 		go func() {
 			hasUpdate, latest, err := g.pluginManager.CheckUpdate(name)
 			if err != nil {
@@ -248,22 +253,22 @@ func (g *GUI) showPluginInfo(name string) {
 		}()
 	})
 
-	toggleLabel := "Enable"
+	toggleLabel := i18n.T("plugins.btn.enable")
 	if mf.Enabled {
-		toggleLabel = "Disable"
+		toggleLabel = i18n.T("plugins.btn.disable")
 	}
 	toggleBtn := widget.NewButton(toggleLabel, func() {
 		g.togglePlugin(name)
 	})
 
-	unloadBtn := widget.NewButton("Unload", func() {
+	unloadBtn := widget.NewButton(i18n.T("plugins.btn.unload"), func() {
 		g.pluginManager.Unload(name)
 		g.refreshPluginsList()
 	})
 
 	footer := container.NewHBox(checkBtn, toggleBtn, unloadBtn)
 	full := container.NewBorder(nil, footer, nil, nil, container.NewScroll(info))
-	d := dialog.NewCustom("Plugin: "+name, "Close", full, g.window)
+	d := dialog.NewCustom(fmt.Sprintf(i18n.T("plugins.dialog.title"), name), i18n.T("about.dialog.close"), full, g.window)
 	d.Resize(fyne.NewSize(480, 420))
 	d.Show()
 }
@@ -273,12 +278,12 @@ func (g *GUI) showInstallPluginDialog() {
 	urlEntry.SetPlaceHolder("https://example.com/my-plugin.zip")
 
 	content := container.NewVBox(
-		widget.NewLabel("Plugin package URL (zip or tar.gz)"),
+		widget.NewLabel(i18n.T("plugins.install.url_label")),
 		urlEntry,
 	)
 
 	var d dialog.Dialog
-	saveBtn := widget.NewButton("Install", func() {
+	saveBtn := widget.NewButton(i18n.T("plugins.btn.install"), func() {
 		url := urlEntry.Text
 		if url == "" {
 			g.log("[plugins] install: URL is required")
@@ -295,10 +300,10 @@ func (g *GUI) showInstallPluginDialog() {
 		d.Hide()
 	})
 
-	cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
+	cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() { d.Hide() })
 	footer := container.NewHBox(saveBtn, cancelBtn)
 	full := container.NewBorder(nil, footer, nil, nil, content)
-	d = dialog.NewCustom("Install Plugin", "", full, g.window)
+	d = dialog.NewCustom(i18n.T("plugins.install.title"), "", full, g.window)
 	d.Resize(fyne.NewSize(500, 180))
 	d.Show()
 }
@@ -311,14 +316,14 @@ func (g *GUI) showGenerateTemplateDialog() {
 	relationSelect.SetSelected("client")
 
 	content := container.NewVBox(
-		widget.NewLabel("Plugin name"),
+		widget.NewLabel(i18n.T("plugins.template.name")),
 		nameEntry,
-		widget.NewLabel("Relation"),
+		widget.NewLabel(i18n.T("plugins.template.relation")),
 		relationSelect,
 	)
 
 	var d dialog.Dialog
-	saveBtn := widget.NewButton("Generate", func() {
+	saveBtn := widget.NewButton(i18n.T("plugins.btn.generate"), func() {
 		name := nameEntry.Text
 		if name == "" {
 			g.log("[plugins] template: name is required")
@@ -338,10 +343,10 @@ func (g *GUI) showGenerateTemplateDialog() {
 		d.Hide()
 	})
 
-	cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
+	cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() { d.Hide() })
 	footer := container.NewHBox(saveBtn, cancelBtn)
 	full := container.NewBorder(nil, footer, nil, nil, content)
-	d = dialog.NewCustom("Generate Plugin Template", "", full, g.window)
+	d = dialog.NewCustom(i18n.T("plugins.template.title"), "", full, g.window)
 	d.Resize(fyne.NewSize(400, 220))
 	d.Show()
 }
