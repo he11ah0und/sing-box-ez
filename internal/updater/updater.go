@@ -97,7 +97,26 @@ func GetLatestRelease() (Release, error) {
 }
 
 // CheckUpdate compares the current version against GitHub releases.
+func isReleaseVersion(s string) bool {
+	if s == "" || s == "dev" {
+		return false
+	}
+	for i, c := range s {
+		if i == 0 && c == 'v' {
+			continue
+		}
+		if (c < '0' || c > '9') && c != '.' {
+			return false
+		}
+	}
+	return true
+}
+
 func CheckUpdate(current string) (*UpdateInfo, error) {
+	if !isReleaseVersion(current) {
+		return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
+	}
+
 	releases, err := GetReleases()
 	if err != nil {
 		return nil, err
@@ -114,7 +133,7 @@ func CheckUpdate(current string) (*UpdateInfo, error) {
 	}
 
 	if len(newer) == 0 {
-		return &UpdateInfo{Current: current, Latest: current}, nil
+		return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
 	}
 
 	assetName := guessAssetName()
