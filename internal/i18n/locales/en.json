@@ -116,6 +116,7 @@
   "first_run.description": "To get started, download sing-box core and add your first config.",
   "first_run.core.installed": "✓ sing-box core is already installed.",
   "first_run.core.not_installed": "sing-box core is not installed.",
+  "first_run.core.version": "Version: v%s",
   "first_run.btn.download_core": "Download sing-box core",
   "first_run.config_url": "Config URL",
   "first_run.btn.add_config": "Add config",

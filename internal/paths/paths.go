@@ -67,6 +67,11 @@ func AppConfig() string {
 	return Data("config.json")
 }
 
+// Profiles returns the path to the profiles config file.
+func Profiles() string {
+	return Data("profiles.json")
+}
+
 // CachedConfig returns the path to a cached config by profile name.
 func CachedConfig(name string) string {
 	return Data(filepath.Join("configs", name+".json"))
