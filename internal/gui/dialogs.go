@@ -22,7 +22,10 @@ func (g *GUI) showProgressDialog(title string) (dialog.Dialog, *widget.ProgressB
 	var progress *widget.ProgressBar
 	fyne.DoAndWait(func() {
 		progress = widget.NewProgressBar()
-		content := container.NewVBox(widget.NewLabel(title), progress)
+		cancelBtn := widget.NewButton("Cancel", func() {
+			d.Hide()
+		})
+		content := container.NewVBox(widget.NewLabel(title), progress, cancelBtn)
 		d = dialog.NewCustomWithoutButtons(title, content, g.window)
 		d.Show()
 	})
@@ -33,7 +36,10 @@ func (g *GUI) showInfiniteDialog(title string) dialog.Dialog {
 	var d dialog.Dialog
 	fyne.DoAndWait(func() {
 		progress := widget.NewProgressBarInfinite()
-		content := container.NewVBox(widget.NewLabel(title), progress)
+		cancelBtn := widget.NewButton("Cancel", func() {
+			d.Hide()
+		})
+		content := container.NewVBox(widget.NewLabel(title), progress, cancelBtn)
 		d = dialog.NewCustomWithoutButtons(title, content, g.window)
 		d.Show()
 	})
