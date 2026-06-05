@@ -162,5 +162,13 @@
   "plugins.template.title": "Сгенерировать шаблон плагина",
   "first_run.welcome_title": "Добро пожаловать в Sing-box EZ!",
   "dialog.unknown": "неизвестно",
-  "dialog.error.no_matching_asset": "Подходящий файл не найден"
+  "dialog.error.no_matching_asset": "Подходящий файл не найден",
+  "dialog.privileges.title": "Требуются привилегии",
+  "dialog.privileges.msg_linux": "sing-box нуждается в повышенных привилегиях для создания TUN-устройства.\n\nВыберите вариант ниже:",
+  "dialog.privileges.msg_windows": "sing-box нуждается в правах администратора для создания TUN-устройства.\n\nПожалуйста, перезапустите приложение от администратора.",
+  "dialog.privileges.btn_setcap": "Применить setcap (рекомендуется)",
+  "dialog.privileges.btn_run_as_admin": "Включить запуск от администратора",
+  "dialog.privileges.btn_restart_admin": "Перезапустить от администратора",
+  "settings.reload_ui.title": "Интерфейс",
+  "settings.reload_ui.btn": "Перезагрузить интерфейс"
 }
