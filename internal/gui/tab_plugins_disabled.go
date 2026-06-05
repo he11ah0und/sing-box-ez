@@ -18,3 +18,5 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 }
 
 func (g *GUI) initPlugins() {}
+
+func (g *GUI) refreshPluginsList() {}
