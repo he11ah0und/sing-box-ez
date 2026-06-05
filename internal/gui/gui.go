@@ -134,7 +134,7 @@ func New(cfg *config.AppConfig) *GUI {
 	}
 	g.manager.SetElevated(cfg.RunAsAdmin)
 
-	g.logWriter = core.NewCoreLogWriter(g.logCore)
+	g.logWriter = core.NewCoreLogWriter()
 	g.manager.SetLogOutput(g.logWriter)
 	go g.logReader()
 
@@ -205,14 +205,25 @@ func (g *GUI) onWindowClosed() {
 }
 
 func (g *GUI) logReader() {
-	for line := range g.logWriter.Ch {
-		g.stopMu.Lock()
-		stopped := g.stopped
-		g.stopMu.Unlock()
-		if stopped {
-			return
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	batch := make([]string, 0, 128)
+	for {
+		select {
+		case line, ok := <-g.logWriter.Ch:
+			if !ok {
+				if len(batch) > 0 {
+					g.processCoreLogs(batch)
+				}
+				return
+			}
+			batch = append(batch, line)
+		case <-ticker.C:
+			if len(batch) > 0 {
+				g.processCoreLogs(batch)
+				batch = batch[:0]
+			}
 		}
-		g.logCore("[core] " + line)
 	}
 }
 
@@ -236,7 +247,7 @@ func (g *GUI) appendLogLines(newLines []string) {
 }
 
 func (g *GUI) logFlushLoop() {
-	ticker := time.NewTicker(200 * time.Millisecond)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
 		g.stopMu.Lock()
@@ -290,7 +301,7 @@ func isCoreFatalError(line string) bool {
 		strings.Contains(lower, "save rule-set")
 }
 
-func (g *GUI) logCore(msg string) {
+func (g *GUI) processCoreLogs(lines []string) {
 	g.stopMu.Lock()
 	stopped := g.stopped
 	g.stopMu.Unlock()
@@ -298,43 +309,42 @@ func (g *GUI) logCore(msg string) {
 		return
 	}
 
-	lines := strings.Split(strings.TrimRight(msg, "\n"), "\n")
-	var valid []string
-	for _, l := range lines {
-		if l != "" {
-			valid = append(valid, l)
-		}
+	watch := g.cfg.GetWatchCoreLogs()
+	restart := g.cfg.GetCoreAutoRestart()
+	if !watch && !restart {
+		return
 	}
 
-	if g.cfg.GetCoreAutoRestart() && len(valid) > 0 {
-		for _, l := range valid {
-			if isCoreFatalError(l) {
-				g.autoRestartMu.Lock()
-				if time.Since(g.lastAutoRestart) > 30*time.Second {
-					g.lastAutoRestart = time.Now()
-					g.autoRestartMu.Unlock()
-					g.log("Detected core fatal error, auto-restarting...")
-					g.sendNotification(i18n.T("notify.core_crashed.title"), i18n.T("notify.core_crashed.body"))
-					go func() {
-						if err := g.manager.Restart(); err != nil {
-							g.log("Auto-restart failed: " + err.Error())
-						}
-					}()
-				} else {
-					g.autoRestartMu.Unlock()
-				}
-				break
+	var valid []string
+	for _, msg := range lines {
+		msg = strings.TrimRight(msg, "\n")
+		if msg == "" {
+			continue
+		}
+		if restart && isCoreFatalError(msg) {
+			g.autoRestartMu.Lock()
+			if time.Since(g.lastAutoRestart) > 30*time.Second {
+				g.lastAutoRestart = time.Now()
+				g.autoRestartMu.Unlock()
+				g.log("Detected core fatal error, auto-restarting...")
+				g.sendNotification(i18n.T("notify.core_crashed.title"), i18n.T("notify.core_crashed.body"))
+				go func() {
+					if err := g.manager.Restart(); err != nil {
+						g.log("Auto-restart failed: " + err.Error())
+					}
+				}()
+			} else {
+				g.autoRestartMu.Unlock()
 			}
 		}
+		if watch {
+			valid = append(valid, "[core] "+msg)
+		}
 	}
 
-	if !g.cfg.GetWatchCoreLogs() {
-		return
+	if watch && len(valid) > 0 {
+		g.appendLogLines(valid)
 	}
-	if len(valid) == 0 {
-		return
-	}
-	g.appendLogLines(valid)
 }
 
 func (g *GUI) refreshCoreVersion() {

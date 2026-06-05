@@ -243,17 +243,15 @@ func (m *Manager) SetElevated(v bool) {
 // CoreLogWriter перенаправляет stdout/stderr sing-box в GUI.
 // Использует канал с буфером, чтобы не блокировать pipe процесса.
 type CoreLogWriter struct {
-	GUI    func(line string)
 	Ch     chan string
 	mu     sync.Mutex
 	buf    []byte
 	closed bool
 }
 
-func NewCoreLogWriter(gui func(string)) *CoreLogWriter {
+func NewCoreLogWriter() *CoreLogWriter {
 	return &CoreLogWriter{
-		GUI: gui,
-		Ch:  make(chan string, 100),
+		Ch: make(chan string, 100),
 	}
 }
 
