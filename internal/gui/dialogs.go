@@ -188,7 +188,7 @@ func humanDuration(d time.Duration) string {
 func (g *GUI) doSelfUpdate(assetURL string) {
 	if assetURL == "" {
 		g.log("Self-update: no matching asset for this system")
-		dialog.ShowError(fmt.Errorf(i18n.T("dialog.error.no_matching_asset")), g.window)
+		dialog.ShowError(fmt.Errorf("%s", i18n.T("dialog.error.no_matching_asset")), g.window)
 		return
 	}
 	progressModal, progress := g.showProgressDialog(i18n.T("progress.downloading_update"))
@@ -208,13 +208,16 @@ func (g *GUI) doSelfUpdate(assetURL string) {
 // ---------------------------------------------------------------------------
 
 func (g *GUI) showFirstRunDialog() {
-	done := make(chan struct{})
 	var d dialog.Dialog
 
 	coreInstalled := core.CoreExists()
 	statusText := widget.NewLabel(i18n.T("first_run.welcome_title"))
+	var versionText *widget.Label
 	if coreInstalled {
 		statusText.SetText(i18n.T("first_run.core.installed"))
+		if ver, err := core.GetCoreVersion(core.GetCorePath()); err == nil && ver != "" {
+			versionText = widget.NewLabel(fmt.Sprintf(i18n.T("first_run.core.version"), ver))
+		}
 	} else {
 		statusText.SetText(i18n.T("first_run.core.not_installed"))
 	}
@@ -256,23 +259,27 @@ func (g *GUI) showFirstRunDialog() {
 		})
 		g.log("First config added: " + name)
 		fyne.Do(func() { d.Hide() })
-		close(done)
 	})
 
-	content := container.NewVBox(
+	items := []fyne.CanvasObject{
 		widget.NewLabelWithStyle(i18n.T("first_run.welcome"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		widget.NewLabel(i18n.T("first_run.description")),
 		widget.NewSeparator(),
 		statusText,
+	}
+	if versionText != nil {
+		items = append(items, versionText)
+	}
+	items = append(items,
 		downloadBtn,
 		widget.NewSeparator(),
 		widget.NewLabel(i18n.T("first_run.config_url")),
 		urlEntry,
 		addBtn,
 	)
+	content := container.NewVBox(items...)
 
 	d = dialog.NewCustomWithoutButtons(i18n.T("first_run.title"), content, g.window)
 	d.Resize(fyne.NewSize(480, 320))
 	d.Show()
-	<-done
 }

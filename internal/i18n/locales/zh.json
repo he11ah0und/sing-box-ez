@@ -116,6 +116,7 @@
   "first_run.description": "开始使用前，请下载 sing-box 核心并添加您的第一个配置。",
   "first_run.core.installed": "✓ sing-box 核心已安装。",
   "first_run.core.not_installed": "sing-box 核心未安装。",
+  "first_run.core.version": "版本：v%s",
   "first_run.btn.download_core": "下载 sing-box 核心",
   "first_run.config_url": "配置 URL",
   "first_run.btn.add_config": "添加配置",

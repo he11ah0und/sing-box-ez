@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"sing-box-ez/internal/paths"
+	"strings"
 	"sync"
 	"time"
 )
@@ -13,10 +14,30 @@ type ConfigRecord struct {
 	Name                string    `json:"name"`
 	URL                 string    `json:"url"`
 	UpdateIntervalHours int       `json:"update_interval_hours"`
-	LastUpdate          time.Time `json:"last_update"`
+	LastUpdate          Timestamp `json:"last_update"`
 	// Parent identifies who created this config: "user" for user-created,
 	// or "pl-{plugin_id}" for plugin-created configs.
 	Parent string `json:"parent"`
+}
+
+// Timestamp is a wrapper around time.Time for custom JSON unmarshalling.
+type Timestamp struct {
+	time.Time
+}
+
+func (t Timestamp) MarshalJSON() ([]byte, error) {
+	if t.IsZero() {
+		return []byte("null"), nil
+	}
+	return t.Time.MarshalJSON()
+}
+
+func (t *Timestamp) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" || string(data) == `""` {
+		t.Time = time.Time{}
+		return nil
+	}
+	return t.Time.UnmarshalJSON(data)
 }
 
 // NextUpdate returns the next scheduled update time for this record.
@@ -32,7 +53,7 @@ func (r *ConfigRecord) ShouldUpdate() bool {
 	if r.LastUpdate.IsZero() {
 		return true
 	}
-	return time.Since(r.LastUpdate) > time.Duration(r.UpdateIntervalHours)*time.Hour
+	return time.Since(r.LastUpdate.Time) > time.Duration(r.UpdateIntervalHours)*time.Hour
 }
 
 type AppConfig struct {
@@ -45,50 +66,103 @@ type AppConfig struct {
 	WatchCoreLogs    bool   `json:"watch_core_logs"`
 	LogLimit         int    `json:"log_limit"`
 	Language         string `json:"language"`
-	PluginsEnabled   bool `json:"plugins_enabled"`
-	PluginsDeveloper bool `json:"plugins_developer"`
-	CoreAutoRestart  bool `json:"core_auto_restart"`
-	FirstRunDone     bool `json:"first_run_done"`
+	PluginsEnabled   bool   `json:"plugins_enabled"`
+	PluginsDeveloper bool   `json:"plugins_developer"`
+	CoreAutoRestart  bool   `json:"core_auto_restart"`
+	FirstRunDone     bool   `json:"first_run_done"`
 
-	// New multi-config list
+	mu       sync.RWMutex
+	profiles *Profiles
+}
+
+func defaultAppConfig() *AppConfig {
+	return &AppConfig{
+		UpdateIntervalHours: 2,
+		RunAsAdmin:          false,
+		ShowLogs:            false,
+		WatchCoreLogs:       true,
+		LogLimit:            100,
+		CoreAutoRestart:     true,
+	}
+}
+
+// rawConfig is used to read legacy files that may still contain configs / active_name.
+type rawConfig struct {
+	AppConfig
 	Configs    []ConfigRecord `json:"configs"`
 	ActiveName string         `json:"active_name"`
-
-	mu sync.RWMutex
 }
 
 func Load() (*AppConfig, error) {
+	cfg, err := loadSettings()
+	if err != nil {
+		return nil, err
+	}
+
+	profiles, err := LoadProfiles()
+	if err != nil {
+		return nil, err
+	}
+	cfg.profiles = profiles
+
+	// Migrate legacy configs stored in config.json if profiles.json is empty.
+	if len(profiles.Configs) == 0 {
+		legacy, err := loadRawSettings()
+		if err == nil && (len(legacy.Configs) > 0 || legacy.ActiveName != "") {
+			profiles.Configs = legacy.Configs
+			profiles.ActiveName = legacy.ActiveName
+			if profiles.Configs == nil {
+				profiles.Configs = []ConfigRecord{}
+			}
+			_ = profiles.Save()
+		}
+		// Also migrate legacy single URL into the new list if needed.
+		if cfg.SingBoxURL != "" && len(profiles.Configs) == 0 {
+			profiles.Configs = append(profiles.Configs, ConfigRecord{
+				Name:                "default",
+				URL:                 cfg.SingBoxURL,
+				UpdateIntervalHours: cfg.UpdateIntervalHours,
+				Parent:              "user",
+			})
+			profiles.ActiveName = "default"
+			cfg.SingBoxURL = ""
+			_ = profiles.Save()
+			_ = cfg.Save()
+		}
+	}
+
+	return cfg, nil
+}
+
+func loadSettings() (*AppConfig, error) {
 	data, err := os.ReadFile(paths.AppConfig())
 	if err != nil {
 		if os.IsNotExist(err) {
-			cfg := &AppConfig{
-				UpdateIntervalHours: 2,
-				RunAsAdmin:          false,
-				ShowLogs:            false,
-				WatchCoreLogs:       true,
-				LogLimit:            100,
-				CoreAutoRestart:     true,
-				Configs:             []ConfigRecord{},
-			}
-			return cfg, cfg.Save()
+			return defaultAppConfig(), nil
 		}
 		return nil, err
+	}
+	if len(strings.TrimSpace(string(data))) == 0 {
+		return defaultAppConfig(), nil
 	}
 	var cfg AppConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
-	// Migrate legacy single URL into the new list if needed.
-	if cfg.SingBoxURL != "" && len(cfg.Configs) == 0 {
-		cfg.Configs = append(cfg.Configs, ConfigRecord{
-			Name:                "default",
-			URL:                 cfg.SingBoxURL,
-			UpdateIntervalHours: cfg.UpdateIntervalHours,
-			Parent:              "user",
-		})
-		cfg.ActiveName = "default"
-		cfg.SingBoxURL = ""
-		_ = cfg.Save()
+	return &cfg, nil
+}
+
+func loadRawSettings() (*rawConfig, error) {
+	data, err := os.ReadFile(paths.AppConfig())
+	if err != nil {
+		return nil, err
+	}
+	if len(strings.TrimSpace(string(data))) == 0 {
+		return &rawConfig{}, nil
+	}
+	var cfg rawConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
 	}
 	return &cfg, nil
 }
@@ -100,113 +174,94 @@ func (c *AppConfig) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(paths.AppConfig(), data, 0600)
+	if err := os.WriteFile(paths.AppConfig(), data, 0600); err != nil {
+		return err
+	}
+	if c.profiles != nil {
+		return c.profiles.Save()
+	}
+	return nil
 }
 
 func (c *AppConfig) GetConfigs() []ConfigRecord {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	out := make([]ConfigRecord, len(c.Configs))
-	copy(out, c.Configs)
-	return out
+	if c.profiles == nil {
+		return nil
+	}
+	return c.profiles.GetConfigs()
 }
 
 func (c *AppConfig) GetActiveConfig() *ConfigRecord {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.ActiveName == "" && len(c.Configs) > 0 {
-		return &c.Configs[0]
+	if c.profiles == nil {
+		return nil
 	}
-	for i := range c.Configs {
-		if c.Configs[i].Name == c.ActiveName {
-			return &c.Configs[i]
-		}
+	return c.profiles.GetActiveConfig()
+}
+
+func (c *AppConfig) GetActiveName() string {
+	if c.profiles == nil {
+		return ""
 	}
-	return nil
+	c.profiles.mu.RLock()
+	defer c.profiles.mu.RUnlock()
+	return c.profiles.ActiveName
 }
 
 func (c *AppConfig) GetConfigByName(name string) *ConfigRecord {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for i := range c.Configs {
-		if c.Configs[i].Name == name {
-			return &c.Configs[i]
-		}
+	if c.profiles == nil {
+		return nil
 	}
-	return nil
+	return c.profiles.GetConfigByName(name)
 }
 
 // GetConfigsByParent returns all configs created by the given parent.
 func (c *AppConfig) GetConfigsByParent(parent string) []ConfigRecord {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	var out []ConfigRecord
-	for i := range c.Configs {
-		if c.Configs[i].Parent == parent {
-			out = append(out, c.Configs[i])
-		}
+	if c.profiles == nil {
+		return nil
 	}
-	return out
+	return c.profiles.GetConfigsByParent(parent)
 }
 
 // GetConfigByNameAndParent returns a config only if it matches both name and parent.
 func (c *AppConfig) GetConfigByNameAndParent(name, parent string) *ConfigRecord {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for i := range c.Configs {
-		if c.Configs[i].Name == name && c.Configs[i].Parent == parent {
-			return &c.Configs[i]
-		}
+	if c.profiles == nil {
+		return nil
 	}
-	return nil
+	return c.profiles.GetConfigByNameAndParent(name, parent)
 }
 
 func (c *AppConfig) SetActiveName(name string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.ActiveName = name
+	if c.profiles == nil {
+		return
+	}
+	c.profiles.SetActiveName(name)
 }
 
 func (c *AppConfig) AddConfig(rec ConfigRecord) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.Configs = append(c.Configs, rec)
+	if c.profiles == nil {
+		return
+	}
+	c.profiles.AddConfig(rec)
 }
 
 func (c *AppConfig) UpdateConfig(name string, rec ConfigRecord) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for i := range c.Configs {
-		if c.Configs[i].Name == name {
-			c.Configs[i] = rec
-			return
-		}
+	if c.profiles == nil {
+		return
 	}
+	c.profiles.UpdateConfig(name, rec)
 }
 
 func (c *AppConfig) RemoveConfig(name string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for i := range c.Configs {
-		if c.Configs[i].Name == name {
-			c.Configs = append(c.Configs[:i], c.Configs[i+1:]...)
-			if c.ActiveName == name {
-				c.ActiveName = ""
-			}
-			return
-		}
+	if c.profiles == nil {
+		return
 	}
+	c.profiles.RemoveConfig(name)
 }
 
 func (c *AppConfig) SetLastUpdateFor(name string, t time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for i := range c.Configs {
-		if c.Configs[i].Name == name {
-			c.Configs[i].LastUpdate = t
-			return
-		}
+	if c.profiles == nil {
+		return
 	}
+	c.profiles.SetLastUpdateFor(name, t)
 }
 
 func (c *AppConfig) SetDefaultUpdateInterval(hours int) {
@@ -216,17 +271,10 @@ func (c *AppConfig) SetDefaultUpdateInterval(hours int) {
 }
 
 func (c *AppConfig) RenameConfig(oldName, newName string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for i := range c.Configs {
-		if c.Configs[i].Name == oldName {
-			c.Configs[i].Name = newName
-			break
-		}
+	if c.profiles == nil {
+		return
 	}
-	if c.ActiveName == oldName {
-		c.ActiveName = newName
-	}
+	c.profiles.RenameConfig(oldName, newName)
 }
 
 // Legacy helpers

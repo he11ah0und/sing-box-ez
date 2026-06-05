@@ -69,7 +69,7 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 	for _, rec := range g.configData {
 		// Col 0: name
 		name := rec.Name
-		if rec.Name == g.cfg.ActiveName {
+		if rec.Name == g.cfg.GetActiveName() {
 			name = "> " + name
 		}
 		if w := measureTextWidth(name, false) + padding; w > colWidths[0] {
@@ -139,7 +139,7 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 			switch id.Col {
 			case 0:
 				name := rec.Name
-				if rec.Name == g.cfg.ActiveName {
+				if rec.Name == g.cfg.GetActiveName() {
 					name = "> " + name
 				}
 				c.SetText(name)
@@ -231,8 +231,9 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 
 func (g *GUI) refreshConfigData() {
 	g.mu.Lock()
-	g.configData = make([]config.ConfigRecord, len(g.cfg.Configs))
-	copy(g.configData, g.cfg.Configs)
+	configs := g.cfg.GetConfigs()
+	g.configData = make([]config.ConfigRecord, len(configs))
+	copy(g.configData, configs)
 	g.mu.Unlock()
 }
 
@@ -318,7 +319,7 @@ func (g *GUI) onAddConfig() {
 			return
 		}
 		g.cfg.AddConfig(rec)
-		if g.cfg.ActiveName == "" {
+		if g.cfg.GetActiveName() == "" {
 			g.cfg.SetActiveName(rec.Name)
 			g.manager.SetConfigURL(rec.URL)
 			g.manager.SetConfigName(rec.Name)
@@ -352,7 +353,7 @@ func (g *GUI) onEditConfig() {
 		}
 		g.cfg.UpdateConfig(rec.Name, rec)
 		_ = g.cfg.Save()
-		if old.Name == g.cfg.ActiveName || rec.Name == g.cfg.ActiveName {
+		if old.Name == g.cfg.GetActiveName() || rec.Name == g.cfg.GetActiveName() {
 			g.manager.SetConfigURL(rec.URL)
 			g.refreshActiveLabel()
 			g.updateButtons()
