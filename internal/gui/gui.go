@@ -411,7 +411,7 @@ func (g *GUI) checkStartupUpdate() {
 }
 
 func (g *GUI) checkSelfUpdate() {
-	info, err := updater.CheckUpdate(version.Version)
+	info, err := updater.CheckUpdate(version.Branch)
 	if err != nil || info.ReleaseCount == 0 {
 		return
 	}
