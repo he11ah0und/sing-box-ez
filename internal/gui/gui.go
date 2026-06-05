@@ -67,6 +67,7 @@ type GUI struct {
 	logEntry    *widget.Entry
 	updatingLog bool
 	logLines    []string
+	logMu       sync.Mutex
 
 	// Core log writer
 	logWriter *core.CoreLogWriter
@@ -153,12 +154,21 @@ func (g *GUI) onWindowClosed() {
 		g.logWriter.Close()
 	}
 	if g.manager.IsRunning() {
-		g.manager.Stop()
+		if err := g.manager.Stop(); err != nil {
+			// Silently ignore stop errors during shutdown
+			_ = err
+		}
 	}
 }
 
 func (g *GUI) logReader() {
 	for line := range g.logWriter.Ch {
+		g.stopMu.Lock()
+		stopped := g.stopped
+		g.stopMu.Unlock()
+		if stopped {
+			return
+		}
 		g.logCore("[core] " + line)
 	}
 }
@@ -173,18 +183,18 @@ func (g *GUI) refreshActiveLabel() {
 }
 
 func (g *GUI) appendLogLines(newLines []string) {
-	g.mu.Lock()
+	g.logMu.Lock()
 	g.logLines = append(g.logLines, newLines...)
 	limit := g.cfg.GetLogLimit()
 	if limit > 0 && len(g.logLines) > limit {
 		g.logLines = g.logLines[len(g.logLines)-limit:]
 	}
 	text := strings.Join(g.logLines, "\n")
-	g.mu.Unlock()
-	g.updatingLog = true
-	g.logEntry.SetText(text)
-	g.logEntry.CursorRow = 999999
-	g.updatingLog = false
+	g.logMu.Unlock()
+	fyne.Do(func() {
+		g.logEntry.SetText(text)
+		g.logEntry.CursorRow = 999999
+	})
 }
 
 func (g *GUI) log(msg string) {
@@ -197,10 +207,12 @@ func (g *GUI) log(msg string) {
 	if stopped {
 		return
 	}
-	// logEntry may not be initialized yet (e.g. during Settings tab creation before Log tab)
+	g.logMu.Lock()
 	if g.logEntry == nil {
+		g.logMu.Unlock()
 		return
 	}
+	g.logMu.Unlock()
 	timestamp := time.Now().Format("15:04:05")
 	line := fmt.Sprintf("[%s] %s", timestamp, msg)
 	fyne.Do(func() {
@@ -218,9 +230,12 @@ func (g *GUI) logCore(msg string) {
 	if stopped {
 		return
 	}
+	g.logMu.Lock()
 	if g.logEntry == nil {
+		g.logMu.Unlock()
 		return
 	}
+	g.logMu.Unlock()
 	lines := strings.Split(strings.TrimRight(msg, "\n"), "\n")
 	var valid []string
 	for _, l := range lines {
@@ -307,8 +322,7 @@ func (g *GUI) checkLatestVersion() {
 		g.latestText.Color = colGreen
 		g.latestText.Refresh()
 		// Re-evaluate core version color if known
-		if strings.HasPrefix(g.versionText.Text, "Core: v") {
-			cur := strings.TrimPrefix(g.versionText.Text, "Core: v")
+		if cur, ok := strings.CutPrefix(g.versionText.Text, "Core: v"); ok {
 			g.compareVersions(cur)
 		}
 	})
@@ -446,6 +460,12 @@ func (g *GUI) updateChecker() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
+		g.stopMu.Lock()
+		stopped := g.stopped
+		g.stopMu.Unlock()
+		if stopped {
+			return
+		}
 		active := g.cfg.GetActiveConfig()
 		if active != nil && active.ShouldUpdate() && g.manager.IsRunning() {
 			g.log("Auto-updating config...")
@@ -469,8 +489,19 @@ func (g *GUI) updateChecker() {
 func (g *GUI) statusChecker() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
+	var lastRunning bool
 	for range ticker.C {
-		g.updateButtons()
+		g.stopMu.Lock()
+		stopped := g.stopped
+		g.stopMu.Unlock()
+		if stopped {
+			return
+		}
+		running := g.manager.IsRunning()
+		if running != lastRunning {
+			lastRunning = running
+			g.updateButtons()
+		}
 	}
 }
 
@@ -487,7 +518,11 @@ func (g *GUI) restartAsAdmin() {
 		g.log("Failed to get executable path: " + err.Error())
 		return
 	}
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		g.log("Failed to get working directory: " + err.Error())
+		return
+	}
 	cmd := exec.Command("powershell", "-WindowStyle", "hidden", "-Command",
 		"Start-Process", "-FilePath", exe, "-Verb", "runAs", "-WorkingDirectory", cwd)
 	if err := cmd.Start(); err != nil {

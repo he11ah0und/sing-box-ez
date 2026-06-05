@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -50,7 +51,7 @@ func (s *State) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(StateFile(), data, 0644)
+	return os.WriteFile(StateFile(), data, 0600)
 }
 
 // Get returns the state for a plugin (zero value if not present).
@@ -79,8 +80,6 @@ func (s *State) All() map[string]PluginState {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make(map[string]PluginState, len(s.states))
-	for k, v := range s.states {
-		out[k] = v
-	}
+	maps.Copy(out, s.states)
 	return out
 }
