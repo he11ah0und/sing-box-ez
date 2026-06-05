@@ -36,13 +36,11 @@ jobs:
             os: windows
             arch: amd64
             gui: 1
-            backend: wayland
             artifact: build/sing-box-ez-windows-amd64.exe
           - name: windows-nogui
             os: windows
             arch: amd64
             gui: 0
-            backend: wayland
             artifact: build/sing-box-ez-windows-amd64-nogui.exe
     steps:
       - name: Checkout
@@ -76,7 +74,7 @@ jobs:
             OS=${{ matrix.os }} \
             ARCH=${{ matrix.arch }} \
             GUI=${{ matrix.gui }} \
-            GUI_BACKEND=${{ matrix.backend }}
+            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
