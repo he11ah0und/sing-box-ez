@@ -57,13 +57,14 @@ type GUI struct {
 	updateAllBtn   *widget.Button
 
 	// Tools tab widgets
-	defaultIntervalEntry  *widget.Entry
-	logLimitEntry         *widget.Entry
-	showLogsCheck         *widget.Check
-	showCoreLogsCheck     *widget.Check
-	coreAutoRestartCheck  *widget.Check
-	pluginsEnabledCheck   *widget.Check
-	pluginsDeveloperCheck *widget.Check
+	defaultIntervalEntry     *widget.Entry
+	logLimitEntry            *widget.Entry
+	showLogsCheck            *widget.Check
+	showCoreLogsCheck        *widget.Check
+	coreAutoRestartCheck     *widget.Check
+	desktopNotificationsCheck *widget.Check
+	pluginsEnabledCheck      *widget.Check
+	pluginsDeveloperCheck    *widget.Check
 	versionText           *canvas.Text
 	latestText            *canvas.Text
 	privilegeText         *canvas.Text
@@ -253,6 +254,16 @@ func (g *GUI) log(msg string) {
 	g.appendLogLines([]string{line})
 }
 
+func (g *GUI) sendNotification(title, content string) {
+	if !g.cfg.GetDesktopNotifications() {
+		return
+	}
+	g.app.SendNotification(&fyne.Notification{
+		Title:   title,
+		Content: content,
+	})
+}
+
 func isCoreFatalError(line string) bool {
 	lower := strings.ToLower(line)
 	return strings.Contains(lower, "fatal[") ||
@@ -286,6 +297,7 @@ func (g *GUI) logCore(msg string) {
 					g.lastAutoRestart = time.Now()
 					g.autoRestartMu.Unlock()
 					g.log("Detected core fatal error, auto-restarting...")
+					g.sendNotification(i18n.T("notify.core_crashed.title"), i18n.T("notify.core_crashed.body"))
 					go func() {
 						if err := g.manager.Restart(); err != nil {
 							g.log("Auto-restart failed: " + err.Error())
@@ -476,6 +488,7 @@ func (g *GUI) onStart() {
 		return
 	}
 	g.log("Sing-box started")
+	g.sendNotification(i18n.T("notify.core_started.title"), i18n.T("notify.core_started.body"))
 	g.updateButtons()
 }
 
@@ -485,6 +498,7 @@ func (g *GUI) onStop() {
 		return
 	}
 	g.log("Sing-box stopped")
+	g.sendNotification(i18n.T("notify.core_stopped.title"), i18n.T("notify.core_stopped.body"))
 	g.updateButtons()
 }
 

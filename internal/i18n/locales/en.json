@@ -170,5 +170,12 @@
   "dialog.privileges.btn_run_as_admin": "Enable run as admin",
   "dialog.privileges.btn_restart_admin": "Restart as administrator",
   "settings.reload_ui.title": "Interface",
-  "settings.reload_ui.btn": "Reload UI"
+  "settings.reload_ui.btn": "Reload UI",
+  "settings.desktop_notifications": "Desktop notifications",
+  "notify.core_started.title": "Sing-box EZ",
+  "notify.core_started.body": "Core started successfully",
+  "notify.core_stopped.title": "Sing-box EZ",
+  "notify.core_stopped.body": "Core stopped",
+  "notify.core_crashed.title": "Sing-box EZ — Core Crashed",
+  "notify.core_crashed.body": "A fatal error was detected. Auto-restarting..."
 }
