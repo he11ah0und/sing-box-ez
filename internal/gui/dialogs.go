@@ -336,7 +336,7 @@ func (g *GUI) showPrivilegeDialog() {
 		d.Hide()
 	})
 
-	d = dialog.NewCustom(i18n.T("dialog.privileges.title"), "", container.NewVBox(content, cancelBtn), g.window)
+	d = dialog.NewCustomWithoutButtons(i18n.T("dialog.privileges.title"), container.NewVBox(content, cancelBtn), g.window)
 	d.Resize(fyne.NewSize(400, 0))
 	fyne.Do(func() { d.Show() })
 }
