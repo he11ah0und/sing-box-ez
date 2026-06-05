@@ -208,6 +208,7 @@ func (g *GUI) doSelfUpdate(assetURL string) {
 // ---------------------------------------------------------------------------
 
 func (g *GUI) showFirstRunDialog() {
+	done := make(chan struct{})
 	var d dialog.Dialog
 
 	coreInstalled := core.CoreExists()
@@ -248,11 +249,14 @@ func (g *GUI) showFirstRunDialog() {
 		g.manager.SetConfigURL(url)
 		g.manager.SetConfigName(name)
 		g.refreshConfigData()
-		g.configTable.Refresh()
-		g.refreshActiveLabel()
-		g.updateButtons()
+		fyne.Do(func() {
+			g.configTable.Refresh()
+			g.refreshActiveLabel()
+			g.updateButtons()
+		})
 		g.log("First config added: " + name)
 		fyne.Do(func() { d.Hide() })
+		close(done)
 	})
 
 	content := container.NewVBox(
@@ -267,9 +271,8 @@ func (g *GUI) showFirstRunDialog() {
 		addBtn,
 	)
 
-	fyne.DoAndWait(func() {
-		d = dialog.NewCustomWithoutButtons("First Run", content, g.window)
-		d.Resize(fyne.NewSize(480, 320))
-		d.Show()
-	})
+	d = dialog.NewCustomWithoutButtons("First Run", content, g.window)
+	d.Resize(fyne.NewSize(480, 320))
+	d.Show()
+	<-done
 }
