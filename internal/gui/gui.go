@@ -20,7 +20,6 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -368,56 +367,6 @@ func (g *GUI) checkStartupUpdate() {
 	})
 }
 
-func (g *GUI) showUpdatePrompt(latest, current string) {
-	fyne.DoAndWait(func() {
-		msg := fmt.Sprintf("A new version of sing-box core is available.\n\nCurrent: v%s\nLatest: v%s\n\nUpdate now?", current, latest)
-		confirm := dialog.NewConfirm("Core Update Available", msg, func(update bool) {
-			if update {
-				go g.onDownloadCore()
-			}
-		}, g.window)
-		confirm.SetConfirmText("Update")
-		confirm.SetDismissText("Ignore")
-		confirm.Show()
-	})
-}
-
-func (g *GUI) showVersionInfoDialog(latest string) {
-	fyne.DoAndWait(func() {
-		currentVer, err := core.GetCoreVersion(core.GetCorePath())
-		var content *fyne.Container
-		if err != nil || currentVer == "" {
-			content = container.NewVBox(
-				widget.NewLabel("Core is not installed."),
-				widget.NewLabel("Latest version: v"+latest),
-			)
-		} else {
-			currentLbl := widget.NewLabel("Current: v" + currentVer)
-			latestLbl := widget.NewLabel("Latest: v" + latest)
-			if currentVer == latest {
-				status := canvas.NewText("✓ Latest version installed", colGreen)
-				content = container.NewVBox(currentLbl, latestLbl, status)
-			} else {
-				status := canvas.NewText("✗ Update available", colOrange)
-				content = container.NewVBox(currentLbl, latestLbl, status)
-			}
-		}
-		d := dialog.NewCustom("Version Check", "Close", content, g.window)
-		d.Show()
-	})
-}
-
-func (g *GUI) showDownloadCompleteDialog(ver, path string) {
-	fyne.DoAndWait(func() {
-		content := container.NewVBox(
-			widget.NewLabel("Sing-box core v"+ver+" downloaded successfully."),
-			widget.NewLabel("Location: "+path),
-		)
-		d := dialog.NewCustom("Download Complete", "Close", content, g.window)
-		d.Show()
-	})
-}
-
 func (g *GUI) checkSelfUpdate() {
 	info, err := updater.CheckUpdate(version.Version)
 	if err != nil || len(info.Releases) == 0 {
@@ -426,52 +375,6 @@ func (g *GUI) checkSelfUpdate() {
 	fyne.Do(func() {
 		g.showSelfUpdateDialog(info)
 	})
-}
-
-func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
-	currentLbl := widget.NewLabel("Current: " + info.Current)
-	latestLbl := widget.NewLabel("Latest: " + info.Latest)
-
-	var lines []string
-	for _, r := range info.Releases {
-		lines = append(lines, fmt.Sprintf("%s (%s)\n%s", r.TagName, r.PublishedAt.Format("2006-01-02"), r.Body))
-	}
-	changelog := widget.NewMultiLineEntry()
-	changelog.SetText(strings.Join(lines, "\n\n---\n\n"))
-	changelog.Wrapping = fyne.TextWrapWord
-	changelog.Disable()
-
-	scroll := container.NewScroll(changelog)
-	scroll.SetMinSize(fyne.NewSize(480, 280))
-
-	content := container.NewVBox(
-		currentLbl,
-		latestLbl,
-		widget.NewSeparator(),
-		widget.NewLabel("Changelog:"),
-		scroll,
-	)
-
-	confirm := dialog.NewCustomConfirm("Update Available", "Update", "Ignore", content, func(update bool) {
-		if update {
-			go g.doSelfUpdate(info.AssetURL)
-		}
-	}, g.window)
-	confirm.Show()
-}
-
-func (g *GUI) doSelfUpdate(assetURL string) {
-	if assetURL == "" {
-		g.log("Self-update: no matching asset for this system")
-		dialog.ShowError(fmt.Errorf("no matching asset found"), g.window)
-		return
-	}
-	modal := g.showInfiniteDialog("Downloading update...")
-	if err := updater.ApplyUpdate(assetURL); err != nil {
-		fyne.Do(func() { modal.Hide() })
-		g.log("Self-update failed: " + err.Error())
-		dialog.ShowError(err, g.window)
-	}
 }
 
 func (g *GUI) refreshPrivilegeStatus() {
@@ -492,29 +395,6 @@ func (g *GUI) refreshPrivilegeStatus() {
 		}
 		g.privilegeText.Refresh()
 	})
-}
-
-func (g *GUI) showProgressDialog(title string) (dialog.Dialog, *widget.ProgressBar) {
-	var d dialog.Dialog
-	var progress *widget.ProgressBar
-	fyne.DoAndWait(func() {
-		progress = widget.NewProgressBar()
-		content := container.NewVBox(widget.NewLabel(title), progress)
-		d = dialog.NewCustomWithoutButtons(title, content, g.window)
-		d.Show()
-	})
-	return d, progress
-}
-
-func (g *GUI) showInfiniteDialog(title string) dialog.Dialog {
-	var d dialog.Dialog
-	fyne.DoAndWait(func() {
-		progress := widget.NewProgressBarInfinite()
-		content := container.NewVBox(widget.NewLabel(title), progress)
-		d = dialog.NewCustomWithoutButtons(title, content, g.window)
-		d.Show()
-	})
-	return d
 }
 
 func (g *GUI) onDownloadCore() {
