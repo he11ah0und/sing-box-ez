@@ -45,7 +45,10 @@ var commands = map[string]cmdDef{
 // PrintHelp writes auto-generated help to w.
 func PrintHelp(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  sing-box-ez <command>")
+	fmt.Fprintln(w, "  sing-box-ez [options] <command>")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Options:")
+	fmt.Fprintln(w, "  --data-dir <path>  Override default data directory")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Commands:")
 
