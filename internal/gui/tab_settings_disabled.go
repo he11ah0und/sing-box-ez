@@ -77,6 +77,12 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 
 		widget.NewLabelWithStyle(i18n.T("settings.language.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		langSelect,
+		widget.NewSeparator(),
+
+		widget.NewLabelWithStyle(i18n.T("settings.reload_ui.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewButton(i18n.T("settings.reload_ui.btn"), func() {
+			g.rebuildUI()
+		}),
 	)
 
 	return container.NewTabItem(i18n.T("tab.settings"), container.NewScroll(content))

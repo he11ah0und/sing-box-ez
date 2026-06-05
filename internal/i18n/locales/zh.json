@@ -162,5 +162,13 @@
   "plugins.template.title": "生成插件模板",
   "first_run.welcome_title": "欢迎使用 Sing-box EZ！",
   "dialog.unknown": "未知",
-  "dialog.error.no_matching_asset": "未找到匹配的文件"
+  "dialog.error.no_matching_asset": "未找到匹配的文件",
+  "dialog.privileges.title": "需要权限",
+  "dialog.privileges.msg_linux": "sing-box 需要提升的权限来创建 TUN 设备。\n\n请选择以下选项：",
+  "dialog.privileges.msg_windows": "sing-box 需要管理员权限来创建 TUN 设备。\n\n请以管理员身份重新启动应用程序。",
+  "dialog.privileges.btn_setcap": "应用 setcap（推荐）",
+  "dialog.privileges.btn_run_as_admin": "启用以管理员身份运行",
+  "dialog.privileges.btn_restart_admin": "以管理员身份重启",
+  "settings.reload_ui.title": "界面",
+  "settings.reload_ui.btn": "重新加载界面"
 }

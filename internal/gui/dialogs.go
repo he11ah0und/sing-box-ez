@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"image/color"
+	"runtime"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -282,4 +283,60 @@ func (g *GUI) showFirstRunDialog() {
 	d = dialog.NewCustomWithoutButtons(i18n.T("first_run.title"), content, g.window)
 	d.Resize(fyne.NewSize(480, 320))
 	d.Show()
+}
+
+func (g *GUI) showPrivilegeDialog() {
+	if runtime.GOOS == "darwin" {
+		return // macOS handles elevation via osascript at runtime
+	}
+
+	var d dialog.Dialog
+	content := container.NewVBox()
+
+	if runtime.GOOS == "windows" {
+		content.Add(widget.NewLabel(i18n.T("dialog.privileges.msg_windows")))
+		btn := widget.NewButton(i18n.T("dialog.privileges.btn_restart_admin"), func() {
+			d.Hide()
+			g.restartAsAdmin()
+		})
+		content.Add(btn)
+	} else if runtime.GOOS == "linux" {
+		content.Add(widget.NewLabel(i18n.T("dialog.privileges.msg_linux")))
+		setcapBtn := widget.NewButton(i18n.T("dialog.privileges.btn_setcap"), func() {
+			d.Hide()
+			go func() {
+				modal := g.showInfiniteDialog(i18n.T("progress.applying_setcap"))
+				err := core.SetNetAdminCapabilityGUI(core.GetCorePath())
+				fyne.Do(func() { modal.Hide() })
+				if err != nil {
+					g.log("setcap failed: " + err.Error())
+					g.log("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
+				} else {
+					g.log("setcap applied successfully.")
+					g.refreshPrivilegeStatus()
+				}
+			}()
+		})
+		adminBtn := widget.NewButton(i18n.T("dialog.privileges.btn_run_as_admin"), func() {
+			d.Hide()
+			g.cfg.SetRunAsAdmin(true)
+			g.manager.SetElevated(true)
+			if err := g.cfg.Save(); err != nil {
+				g.log("Failed to save admin setting: " + err.Error())
+			} else {
+				g.log("Run as admin enabled. Please click Start again.")
+				g.refreshPrivilegeStatus()
+			}
+		})
+		content.Add(setcapBtn)
+		content.Add(adminBtn)
+	}
+
+	cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() {
+		d.Hide()
+	})
+
+	d = dialog.NewCustom(i18n.T("dialog.privileges.title"), "", container.NewVBox(content, cancelBtn), g.window)
+	d.Resize(fyne.NewSize(400, 0))
+	fyne.Do(func() { d.Show() })
 }
