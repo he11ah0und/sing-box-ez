@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strings"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/paths"
@@ -208,8 +209,8 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	// --- System block ---
 	infoLbl := widget.NewLabel(buildInfoText())
 
-	buildURLStr := version.RepoURL + "/releases"
-	if version.Version != "dev" && version.Version != "" {
+	buildURLStr := version.RepoURL + "/releases/latest"
+	if strings.HasPrefix(version.Version, "v") && len(version.Version) > 1 {
 		buildURLStr = version.RepoURL + "/releases/tag/" + version.Version
 	}
 	buildURL, _ := url.Parse(buildURLStr)
