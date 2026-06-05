@@ -19,18 +19,30 @@ jobs:
             gui: 1
             backend: wayland
             artifact: build/sing-box-ez-linux-amd64-wayland
+          - name: linux-x11
+            os: linux
+            arch: amd64
+            gui: 1
+            backend: x11
+            artifact: build/sing-box-ez-linux-amd64-x11
           - name: linux-nogui
             os: linux
             arch: amd64
             gui: 0
             backend: wayland
             artifact: build/sing-box-ez-linux-amd64-nogui
-          - name: windows
+          - name: windows-gui
             os: windows
             arch: amd64
             gui: 1
             backend: wayland
             artifact: build/sing-box-ez-windows-amd64.exe
+          - name: windows-nogui
+            os: windows
+            arch: amd64
+            gui: 0
+            backend: wayland
+            artifact: build/sing-box-ez-windows-amd64-nogui.exe
     steps:
       - name: Checkout
         uses: actions/checkout@v4
