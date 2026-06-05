@@ -226,7 +226,7 @@ func guessAssetName() string {
 		base += "-cli"
 	}
 
-	if version.BuildBackend != "" {
+	if version.BuildBackend != "" && goos == "linux" {
 		base += "-" + version.BuildBackend
 	}
 
