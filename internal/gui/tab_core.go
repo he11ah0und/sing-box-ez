@@ -130,6 +130,7 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 		downloadBtn,
 		checkBtn,
 		g.coreAutoRestartCheck,
+		g.showCoreLogsCheck,
 		widget.NewSeparator(),
 
 		widget.NewLabelWithStyle(i18n.T("core.privileges.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
