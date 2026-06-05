@@ -11,7 +11,6 @@ import (
 	"sing-box-ez/internal/plugins"
 	"sing-box-ez/internal/updater"
 	"sing-box-ez/internal/version"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -297,29 +296,13 @@ func (g *GUI) logCore(msg string) {
 	})
 }
 
-func parseSemver(v string) (maj, min, pat int) {
-	v = strings.TrimPrefix(v, "v")
-	v = strings.TrimPrefix(v, "V")
-	parts := strings.Split(v, ".")
-	if len(parts) >= 1 {
-		maj, _ = strconv.Atoi(parts[0])
-	}
-	if len(parts) >= 2 {
-		min, _ = strconv.Atoi(parts[1])
-	}
-	if len(parts) >= 3 {
-		pat, _ = strconv.Atoi(parts[2])
-	}
-	return
-}
-
 func (g *GUI) refreshCoreVersion() {
 	ver, err := core.GetCoreVersion(core.GetCorePath())
 	if err == nil && ver != "" {
 		fyne.Do(func() {
 			g.versionText.Text = "Core: v" + ver
+			g.versionText.Color = colGreen
 			g.versionText.Refresh()
-			g.compareVersions(ver)
 		})
 	} else {
 		fyne.Do(func() {
@@ -328,28 +311,6 @@ func (g *GUI) refreshCoreVersion() {
 			g.versionText.Refresh()
 		})
 	}
-}
-
-func (g *GUI) compareVersions(current string) {
-	if g.latestVersion == "" || current == "" {
-		return
-	}
-	cMaj, cMin, cPat := parseSemver(current)
-	lMaj, lMin, lPat := parseSemver(g.latestVersion)
-
-	var col color.Color
-	switch {
-	case cMaj != lMaj:
-		col = colRed
-	case cMin != lMin:
-		col = colOrange
-	case cPat != lPat:
-		col = colYellow
-	default:
-		col = colGreen
-	}
-	g.versionText.Color = col
-	g.versionText.Refresh()
 }
 
 func (g *GUI) checkLatestVersion() {
@@ -367,10 +328,6 @@ func (g *GUI) checkLatestVersion() {
 		g.latestText.Text = "Latest: v" + ver
 		g.latestText.Color = colGreen
 		g.latestText.Refresh()
-		// Re-evaluate core version color if known
-		if cur, ok := strings.CutPrefix(g.versionText.Text, "Core: v"); ok {
-			g.compareVersions(cur)
-		}
 	})
 }
 
@@ -389,9 +346,6 @@ func (g *GUI) checkStartupUpdate() {
 		g.latestText.Text = "Latest: v" + ver
 		g.latestText.Color = colGreen
 		g.latestText.Refresh()
-		if cur, ok := strings.CutPrefix(g.versionText.Text, "Core: v"); ok {
-			g.compareVersions(cur)
-		}
 	})
 
 	currentVer, err := core.GetCoreVersion(core.GetCorePath())
@@ -399,9 +353,7 @@ func (g *GUI) checkStartupUpdate() {
 		return
 	}
 
-	cMaj, cMin, cPat := parseSemver(currentVer)
-	lMaj, lMin, lPat := parseSemver(ver)
-	if cMaj == lMaj && cMin == lMin && cPat == lPat {
+	if currentVer == ver {
 		return
 	}
 

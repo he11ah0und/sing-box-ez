@@ -1,12 +1,17 @@
 package version
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+
+	"sing-box-ez/internal/githuburl"
+)
 
 var (
 	Branch    = "dev"
 	BuildDate = "unknown"
 	Commit    = "unknown"
-	RepoURL   = "https://github.com/he11ah0und/sing-box-ez"
+	RepoURL   = githuburl.DefaultProject().RepoURL()
 
 	BuildOS       = "unknown"
 	BuildArch     = "unknown"
@@ -43,4 +48,13 @@ func BuildFlags() string {
 		s += "-" + BuildBackend
 	}
 	return s
+}
+
+// BuildDateTime parses BuildDate into a time.Time value.
+// BuildDate is injected at build time via ldflags in the format "2006-01-02 15:04:05".
+func BuildDateTime() (time.Time, error) {
+	if BuildDate == "unknown" || BuildDate == "" {
+		return time.Time{}, fmt.Errorf("build date unknown")
+	}
+	return time.Parse(time.DateTime, BuildDate)
 }

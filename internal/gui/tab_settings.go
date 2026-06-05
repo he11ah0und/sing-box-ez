@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"os"
 	"runtime"
-	"strings"
 
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/githuburl"
 	"sing-box-ez/internal/paths"
 	"sing-box-ez/internal/updater"
 	"sing-box-ez/internal/version"
@@ -209,19 +209,15 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	// --- System block ---
 	infoLbl := widget.NewLabel(buildInfoText())
 
-	buildURLStr := version.RepoURL + "/releases/latest"
-	if strings.HasPrefix(version.Branch, "v") && len(version.Branch) > 1 {
-		buildURLStr = version.RepoURL + "/releases/tag/" + version.Branch
-	}
-	buildURL, _ := url.Parse(buildURLStr)
+	buildURL, _ := url.Parse(githuburl.DefaultProject().WebLatestReleaseURL())
 	buildText := version.Commit
 	if buildText == "unknown" || buildText == "" {
 		buildText = version.Branch
 	}
 	buildLink := widget.NewHyperlink("Build: "+buildText, buildURL)
 
-	repoURL, _ := url.Parse(version.RepoURL)
-	repoLink := widget.NewHyperlink("he11ah0und/sing-box-ez", repoURL)
+	repoURL, _ := url.Parse(githuburl.DefaultProject().RepoURL())
+	repoLink := widget.NewHyperlink(githuburl.DefaultProject().Slug(), repoURL)
 
 	notesBtn := widget.NewButton("Show release notes", func() {
 		go func() {
