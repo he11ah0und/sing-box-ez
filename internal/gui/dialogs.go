@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -103,12 +102,8 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	currentLbl := widget.NewLabel("Current: " + info.Current)
 	latestLbl := widget.NewLabel("Latest: " + info.Latest)
 
-	var lines []string
-	for _, r := range info.Releases {
-		lines = append(lines, fmt.Sprintf("%s (%s)\n%s", r.TagName, r.PublishedAt.Format("2006-01-02"), r.Body))
-	}
 	changelog := widget.NewMultiLineEntry()
-	changelog.SetText(strings.Join(lines, "\n\n---\n\n"))
+	changelog.SetText(info.LatestBody)
 	changelog.Wrapping = fyne.TextWrapWord
 	changelog.Disable()
 
