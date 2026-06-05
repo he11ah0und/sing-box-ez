@@ -36,17 +36,18 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 
 	// --- Language block ---
 	langs := i18n.AvailableLanguages()
-	langSelect := widget.NewSelect(langs, func(selected string) {
-		g.cfg.SetLanguage(selected)
-		_ = g.cfg.Save()
-		i18n.SetLanguage(selected)
-		g.rebuildUI()
-	})
+	langSelect := widget.NewSelect(langs, nil)
 	currentLang := g.cfg.GetLanguage()
 	if currentLang == "" {
 		currentLang = "en"
 	}
 	langSelect.SetSelected(currentLang)
+	langSelect.OnChanged = func(selected string) {
+		g.cfg.SetLanguage(selected)
+		_ = g.cfg.Save()
+		i18n.SetLanguage(selected)
+		g.rebuildUI()
+	}
 
 	// --- Config block ---
 	g.defaultIntervalEntry = widget.NewEntry()
