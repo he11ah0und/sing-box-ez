@@ -82,8 +82,9 @@ func generateModuleDef(mod LuaModuleDef) string {
 }
 
 // parseSignature extracts params and returns from a signature like:
-//   http.get(url) -> body, err
-//   config.add(name, url, interval) -> err
+//
+//	http.get(url) -> body, err
+//	config.add(name, url, interval) -> err
 func parseSignature(sig string) (params []string, returns []string) {
 	// Split on "->"
 	parts := strings.SplitN(sig, "->", 2)
