@@ -1,4 +1,4 @@
-.PHONY: all build run run-nogui build-nogui clean deps test docs help
+.PHONY: all setup build run run-nogui build-nogui clean deps test docs help
 
 APP_NAME := sing-box-ez
 BUILD_DIR := ./build
@@ -95,6 +95,33 @@ help:
 	@echo "  GUI          1 = with GUI (needs CGO), 0 = CLI only"
 	@echo "  GUI_BACKEND  wayland | x11  (default: wayland)"
 	@echo "  CC           Cross-compiler to use    (auto-detected)"
+
+# ---------------------------------------------------------------------------
+# System dependencies (Debian/Ubuntu only)
+# ---------------------------------------------------------------------------
+setup:
+	@command -v apt-get >/dev/null 2>&1 || { echo "apt-get not found. Install dependencies manually."; exit 0; }
+ifeq ($(GOOS),linux)
+ifeq ($(GUI),1)
+ifeq ($(GUI_BACKEND),wayland)
+	@echo "Installing Wayland build dependencies..."
+	sudo apt-get update -qq
+	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev libwayland-dev libwayland-bin libxkbcommon-dev
+else
+	@echo "Installing X11 build dependencies..."
+	sudo apt-get update -qq
+	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev xorg-dev
+endif
+else
+	@echo "Installing base build dependencies..."
+	sudo apt-get update -qq
+	sudo apt-get install --no-install-recommends -y gcc
+endif
+else ifeq ($(GOOS),windows)
+	@echo "Installing Windows cross-compile dependencies..."
+	sudo apt-get update -qq
+	sudo apt-get install --no-install-recommends -y mingw-w64
+endif
 
 # ---------------------------------------------------------------------------
 # Dependencies & tests
