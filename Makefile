@@ -6,6 +6,7 @@ GO := go
 
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +"%Y-%m-%d %H:%M:%S")
+BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # ---------------------------------------------------------------------------
 # Build options — override on the command line:
@@ -24,7 +25,7 @@ GOARCH  := $(ARCH)
 WIN_GUI_FLAG := $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(GUI))),-H windowsgui,)
 # Static link MinGW runtime on Windows so no extra DLLs are needed.
 WIN_STATIC := $(if $(filter windows,$(GOOS)),-linkmode external -extldflags "-static",)
-LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) -X 'sing-box-ez/internal/version.Version=$(VERSION)' -X 'sing-box-ez/internal/version.BuildDate=$(BUILD_DATE)'"
+LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) -X 'sing-box-ez/internal/version.Version=$(VERSION)' -X 'sing-box-ez/internal/version.BuildDate=$(BUILD_DATE)' -X 'sing-box-ez/internal/version.Commit=$(BUILD_COMMIT)'"
 
 # Lazy-evaluated variables so target-specific overrides are respected.
 # GUI_BACKEND only affects Linux (Wayland vs X11); Windows/macOS use native GLFW.
