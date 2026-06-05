@@ -8,8 +8,42 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-wayland
+            os: linux
+            arch: amd64
+            gui: 1
+            backend: wayland
+            artifact: build/sing-box-ez-linux-amd64-wayland
+          - name: linux-x11
+            os: linux
+            arch: amd64
+            gui: 1
+            backend: x11
+            artifact: build/sing-box-ez-linux-amd64-x11
+          - name: linux-nogui
+            os: linux
+            arch: amd64
+            gui: 0
+            backend: wayland
+            artifact: build/sing-box-ez-linux-amd64-nogui
+          - name: windows-gui
+            os: windows
+            arch: amd64
+            gui: 1
+            backend: wayland
+            artifact: build/sing-box-ez-windows-amd64.exe
+          - name: windows-nogui
+            os: windows
+            arch: amd64
+            gui: 0
+            backend: wayland
+            artifact: build/sing-box-ez-windows-amd64-nogui.exe
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,6 +52,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ hashFiles('.github/workflows/release.yml') }}
 
       - name: Install build dependencies
         run: |
@@ -36,20 +76,32 @@ jobs:
             libxi-dev \
             mingw-w64
 
-      - name: Build linux-wayland
-        run: make build OS=linux ARCH=amd64 GUI=1 GUI_BACKEND=wayland
+      - name: Build ${{ matrix.name }}
+        run: |
+          make build \
+            OS=${{ matrix.os }} \
+            ARCH=${{ matrix.arch }} \
+            GUI=${{ matrix.gui }} \
+            GUI_BACKEND=${{ matrix.backend }}
 
-      - name: Build linux-x11
-        run: make build OS=linux ARCH=amd64 GUI=1 GUI_BACKEND=x11
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.artifact }}
 
-      - name: Build linux-nogui
-        run: make build OS=linux ARCH=amd64 GUI=0
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build windows-gui
-        run: make build OS=windows ARCH=amd64 GUI=1
-
-      - name: Build windows-nogui
-        run: make build OS=windows ARCH=amd64 GUI=0
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
 
       - name: Get commit info
         id: commit
@@ -67,4 +119,4 @@ jobs:
           tag_name: ${{ steps.commit.outputs.short }}
           name: ${{ steps.commit.outputs.short }}
           body: ${{ steps.commit.outputs.message }}
-          files: build/sing-box-ez-*
+          files: artifacts/*
