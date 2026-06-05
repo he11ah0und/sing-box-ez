@@ -145,10 +145,6 @@ func New(cfg *config.AppConfig) *GUI {
 	}
 	g.updateButtons()
 	g.refreshCoreVersion()
-	if !g.cfg.GetFirstRunDone() {
-		g.showFirstRunDialog()
-	}
-	go g.checkUpdatesOnStartup()
 	go g.updateChecker()
 	go g.statusChecker()
 
@@ -589,7 +585,14 @@ func (g *GUI) statusChecker() {
 }
 
 func (g *GUI) Run() {
-	g.window.ShowAndRun()
+	g.window.Show()
+	go func() {
+		if !g.cfg.GetFirstRunDone() {
+			g.showFirstRunDialog()
+		}
+		g.checkUpdatesOnStartup()
+	}()
+	g.app.Run()
 }
 
 func (g *GUI) restartAsAdmin() {

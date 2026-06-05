@@ -116,6 +116,7 @@
   "first_run.description": "Чтобы начать, скачайте ядро sing-box и добавьте первый конфиг.",
   "first_run.core.installed": "✓ Ядро sing-box уже установлено.",
   "first_run.core.not_installed": "Ядро sing-box не установлено.",
+  "first_run.core.version": "Версия: v%s",
   "first_run.btn.download_core": "Скачать ядро sing-box",
   "first_run.config_url": "URL конфига",
   "first_run.btn.add_config": "Добавить конфиг",
