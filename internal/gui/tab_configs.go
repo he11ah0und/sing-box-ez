@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -47,12 +48,80 @@ func (c *cell) TappedSecondary(_ *fyne.PointEvent) {
 	}
 }
 
+// measureTextWidth returns the rendered width of a text string in pixels.
+func measureTextWidth(text string, bold bool) float32 {
+	style := fyne.TextStyle{Bold: bold}
+	return fyne.MeasureText(text, theme.TextSize(), style).Width
+}
+
 func (g *GUI) buildConfigsTab() *container.TabItem {
 	g.refreshConfigData()
 
 	headers := []string{g.t("configs.table.name"), g.t("configs.table.source"), g.t("configs.table.last_update"), g.t("configs.table.next_update"), g.t("configs.table.period"), g.t("configs.table.cached")}
-	colWidths := []float32{150, 110, 165, 165, 75, 75}
 	cols := len(headers)
+
+	// Compute dynamic column widths based on header + content text.
+	padding := float32(24) // internal cell padding
+	colWidths := make([]float32, cols)
+	for i, h := range headers {
+		colWidths[i] = measureTextWidth(h, true) + padding
+	}
+	for _, rec := range g.configData {
+		// Col 0: name
+		name := rec.Name
+		if rec.Name == g.cfg.ActiveName {
+			name = "> " + name
+		}
+		if w := measureTextWidth(name, false) + padding; w > colWidths[0] {
+			colWidths[0] = w
+		}
+		// Col 1: source
+		src := rec.Parent
+		if src == "" || src == "user" {
+			src = g.t("configs.table.user")
+		} else if len(src) > 3 && src[:3] == "pl-" {
+			src = src[3:]
+		}
+		if w := measureTextWidth(src, false) + padding; w > colWidths[1] {
+			colWidths[1] = w
+		}
+		// Col 2: last update
+		var lu string
+		if rec.LastUpdate.IsZero() {
+			lu = g.t("configs.table.never")
+		} else {
+			lu = rec.LastUpdate.Format(timeLayout)
+		}
+		if w := measureTextWidth(lu, false) + padding; w > colWidths[2] {
+			colWidths[2] = w
+		}
+		// Col 3: next update
+		var nu string
+		next := rec.NextUpdate()
+		if next.IsZero() {
+			nu = g.t("configs.table.now")
+		} else {
+			nu = next.Format(timeLayout)
+		}
+		if w := measureTextWidth(nu, false) + padding; w > colWidths[3] {
+			colWidths[3] = w
+		}
+		// Col 4: period
+		p := fmt.Sprintf("%dh", rec.UpdateIntervalHours)
+		if w := measureTextWidth(p, false) + padding; w > colWidths[4] {
+			colWidths[4] = w
+		}
+		// Col 5: cached
+		var cached string
+		if core.HasCachedConfig(rec.Name) {
+			cached = g.t("configs.table.yes")
+		} else {
+			cached = g.t("configs.table.no")
+		}
+		if w := measureTextWidth(cached, false) + padding; w > colWidths[5] {
+			colWidths[5] = w
+		}
+	}
 
 	g.configTable = widget.NewTableWithHeaders(
 		func() (int, int) { return len(g.configData), cols },
@@ -144,13 +213,20 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 	g.updateAllBtn = widget.NewButton(g.t("configs.btn.update_all"), g.onUpdateAllConfigs)
 	btnRow := container.NewHBox(g.addBtn, g.editBtn, g.delBtn, g.activateBtn, g.updateAllBtn)
 
+	totalWidth := float32(0)
+	for _, w := range colWidths {
+		totalWidth += w
+	}
+	tableScroll := container.NewScroll(g.configTable)
+	tableScroll.SetMinSize(fyne.NewSize(totalWidth, 400))
+
 	content := container.NewBorder(
 		btnRow,
 		nil, nil, nil,
-		g.configTable,
+		tableScroll,
 	)
 
-	return container.NewTabItem(g.t("tab.configs"), container.NewScroll(content))
+	return container.NewTabItem(g.t("tab.configs"), content)
 }
 
 func (g *GUI) refreshConfigData() {
