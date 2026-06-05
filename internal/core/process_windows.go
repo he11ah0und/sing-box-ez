@@ -3,7 +3,6 @@
 package core
 
 import (
-	"fmt"
 	"os/exec"
 	"strconv"
 	"syscall"
