@@ -255,6 +255,26 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		}
 	})
 
+	selfUpdateBtn := widget.NewButton("Check for updates", func() {
+		go func() {
+			modal := g.showInfiniteDialog("Checking for updates...")
+			info, err := updater.CheckUpdate(version.Version)
+			fyne.Do(func() { modal.Hide() })
+			if err != nil {
+				g.log("Update check failed: " + err.Error())
+				return
+			}
+			if info.ReleaseCount == 0 {
+				g.log("Already on latest version: " + info.Current)
+				return
+			}
+			g.log(fmt.Sprintf("Update available: %s → %s (%d releases behind)", info.Current, info.Latest, info.ReleaseCount))
+			fyne.Do(func() {
+				g.showSelfUpdateDialog(info)
+			})
+		}()
+	})
+
 	// --- Assemble content ---
 	content := container.NewVBox(
 		widget.NewLabelWithStyle("Logging", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -289,6 +309,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		repoLink,
 		notesBtn,
 		openDataBtn,
+		selfUpdateBtn,
 	)
 
 	return container.NewTabItem("Settings", container.NewScroll(content))
