@@ -1,8 +1,13 @@
 # Kimi project memory
 .kimi-memory/
+.codebase-memory/
 
 # Generated plugin API docs
 docs/plugin-api/
 docs/plugin-defs/
 site/
+
+# Build artifacts
+build/sing-box-ez-*
+build/sing-box-ez-data/sing-box
 
