@@ -213,7 +213,11 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		buildURLStr = version.RepoURL + "/releases/tag/" + version.Version
 	}
 	buildURL, _ := url.Parse(buildURLStr)
-	buildLink := widget.NewHyperlink("Build: "+version.Info(), buildURL)
+	buildText := version.Commit
+	if buildText == "unknown" || buildText == "" {
+		buildText = version.Version
+	}
+	buildLink := widget.NewHyperlink("Build: "+buildText, buildURL)
 
 	repoURL, _ := url.Parse(version.RepoURL)
 	repoLink := widget.NewHyperlink("he11ah0und/sing-box-ez", repoURL)
