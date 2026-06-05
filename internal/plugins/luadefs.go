@@ -60,7 +60,7 @@ func generateModuleDef(mod LuaModuleDef) string {
 	var b strings.Builder
 	b.WriteString("---@meta\n")
 	b.WriteString("\n")
-	b.WriteString("-- " + mod.Desc + "\n")
+	fmt.Fprintf(&b, "-- %s\n", mod.Desc)
 	fmt.Fprintf(&b, "---@class %s\n", mod.Name)
 	fmt.Fprintf(&b, "%s = {}\n\n", mod.Name)
 

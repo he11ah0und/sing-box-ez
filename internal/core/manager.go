@@ -183,7 +183,7 @@ func (m *Manager) Restart() error {
 		return err
 	}
 	// Wait up to 5 seconds for the process to actually stop.
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		if !m.IsRunning() {
 			break
 		}
