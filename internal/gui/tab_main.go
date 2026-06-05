@@ -1,6 +1,8 @@
 package gui
 
 import (
+	"sing-box-ez/internal/i18n"
+
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
@@ -8,14 +10,14 @@ import (
 )
 
 func (g *GUI) buildMainTab() *container.TabItem {
-	g.statusText = canvas.NewText("Status: stopped", colRed)
+	g.statusText = canvas.NewText(i18n.T("main.status.stopped"), colRed)
 	g.statusText.TextSize = theme.TextSize()
-	g.activeLbl = widget.NewLabel("Active config: (none)")
+	g.activeLbl = widget.NewLabel(i18n.T("main.active.none"))
 	g.refreshActiveLabel()
 
-	g.startBtn = widget.NewButtonWithIcon("Start", theme.MediaPlayIcon(), g.onStart)
-	g.stopBtn = widget.NewButtonWithIcon("Stop", theme.MediaStopIcon(), g.onStop)
-	g.restartBtn = widget.NewButtonWithIcon("Restart", theme.ViewRefreshIcon(), g.onRestart)
+	g.startBtn = widget.NewButtonWithIcon(i18n.T("main.btn.start"), theme.MediaPlayIcon(), g.onStart)
+	g.stopBtn = widget.NewButtonWithIcon(i18n.T("main.btn.stop"), theme.MediaStopIcon(), g.onStop)
+	g.restartBtn = widget.NewButtonWithIcon(i18n.T("main.btn.restart"), theme.ViewRefreshIcon(), g.onRestart)
 	controlRow := container.NewHBox(g.startBtn, g.stopBtn, g.restartBtn)
 
 	content := container.NewVBox(
@@ -26,5 +28,5 @@ func (g *GUI) buildMainTab() *container.TabItem {
 		controlRow,
 	)
 
-	return container.NewTabItem("Main", container.NewScroll(content))
+	return container.NewTabItem(i18n.T("tab.main"), container.NewScroll(content))
 }
