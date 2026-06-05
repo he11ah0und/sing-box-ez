@@ -7,11 +7,14 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strings"
+	"sort"
 	"time"
+
+	"sing-box-ez/internal/githuburl"
+	"sing-box-ez/internal/version"
 )
 
-const repoAPI = "https://api.github.com/repos/he11ah0und/sing-box-ez/releases"
+var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 // Release represents a GitHub release.
 type Release struct {
@@ -43,14 +46,14 @@ type UpdateInfo struct {
 
 // GetReleases fetches all releases from GitHub.
 func GetReleases() ([]Release, error) {
-	req, err := http.NewRequest("GET", repoAPI, nil)
+	req, err := http.NewRequest("GET", githuburl.DefaultProject().APIReleasesURL(), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +73,7 @@ func GetReleases() ([]Release, error) {
 
 // GetLatestRelease returns the most recent release.
 func GetLatestRelease() (Release, error) {
-	url := repoAPI + "/latest"
+	url := githuburl.DefaultProject().APILatestReleaseURL()
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return Release{}, err
@@ -78,7 +81,7 @@ func GetLatestRelease() (Release, error) {
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return Release{}, err
 	}
@@ -96,49 +99,71 @@ func GetLatestRelease() (Release, error) {
 	return r, nil
 }
 
-// CheckUpdate compares the current version against GitHub releases.
-func isReleaseVersion(s string) bool {
-	if s == "" || s == "dev" {
-		return false
-	}
-	for i, c := range s {
-		if i == 0 && c == 'v' {
-			continue
-		}
-		if (c < '0' || c > '9') && c != '.' {
-			return false
-		}
-	}
-	return true
-}
-
-func CheckUpdate(current string) (*UpdateInfo, error) {
-	if !isReleaseVersion(current) {
-		return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
-	}
-
+// CheckUpdate compares the current branch against GitHub releases.
+func CheckUpdate(currentBranch string) (*UpdateInfo, error) {
 	releases, err := GetReleases()
 	if err != nil {
 		return nil, err
 	}
+	return checkUpdateWithReleases(releases, currentBranch)
+}
+
+func checkUpdateWithReleases(releases []Release, currentBranch string) (*UpdateInfo, error) {
+	var stable []Release
+	for _, r := range releases {
+		if !r.Prerelease {
+			stable = append(stable, r)
+		}
+	}
+
+	if len(stable) == 0 {
+		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
+	}
+
+	// Sort by PublishedAt descending (newest first)
+	sort.Slice(stable, func(i, j int) bool {
+		return stable[i].PublishedAt.After(stable[j].PublishedAt)
+	})
 
 	var newer []Release
-	for _, r := range releases {
-		if r.Prerelease {
-			continue
+	currentIdx := -1
+	for i, r := range stable {
+		if r.TagName == currentBranch {
+			currentIdx = i
+			break
 		}
-		if versionLess(current, r.TagName) {
-			newer = append(newer, r)
+	}
+
+	if currentIdx >= 0 {
+		currentRelease := stable[currentIdx]
+		for _, r := range stable {
+			if r.PublishedAt.After(currentRelease.PublishedAt) {
+				newer = append(newer, r)
+			}
+		}
+	} else {
+		// Current branch not found in releases — dev/branch build.
+		// Compare by build date if available.
+		buildDate, err := version.BuildDateTime()
+		if err == nil {
+			for _, r := range stable {
+				if r.PublishedAt.After(buildDate) {
+					newer = append(newer, r)
+				}
+			}
+		} else {
+			// Unknown build date — assume all stable releases are newer
+			newer = append([]Release{}, stable...)
 		}
 	}
 
 	if len(newer) == 0 {
-		return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
+		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
 	}
 
 	assetName := guessAssetName()
 	info := &UpdateInfo{
-		Current:      current,
+		Current:      currentBranch,
 		Latest:       newer[0].TagName,
 		ReleaseCount: len(newer),
 		LatestBody:   newer[0].Body,
@@ -156,7 +181,7 @@ func CheckUpdate(current string) (*UpdateInfo, error) {
 
 // DownloadAsset downloads a release asset to the given path.
 func DownloadAsset(url, dest string, progress func(downloaded, total int64)) error {
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return err
 	}
@@ -197,64 +222,35 @@ func DownloadAsset(url, dest string, progress func(downloaded, total int64)) err
 
 // guessAssetName tries to determine the correct asset name for this system.
 func guessAssetName() string {
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
+	goos := version.BuildOS
+	if goos == "unknown" || goos == "" {
+		goos = runtime.GOOS
+	}
+	goarch := version.BuildArch
+	if goarch == "unknown" || goarch == "" {
+		goarch = runtime.GOARCH
+	}
+
 	ext := ""
 	if goos == "windows" {
 		ext = ".exe"
 	}
 
-	exe, _ := os.Executable()
 	base := "sing-box-ez-" + goarch + "-" + goos
 
-	// Compiler
-	if strings.Contains(exe, "-musl") {
-		base += "-musl"
-	} else {
-		base += "-gcc"
+	if version.BuildCompiler != "" && version.BuildCompiler != "unknown" {
+		base += "-" + version.BuildCompiler
 	}
 
-	// GUI / CLI type
-	if strings.Contains(exe, "-cli") || strings.Contains(exe, "-nogui") {
-		base += "-cli"
-	} else {
+	if version.BuildGUI == "1" {
 		base += "-gui"
+	} else if version.BuildGUI == "0" {
+		base += "-cli"
 	}
 
-	// GUI backend (Linux only)
-	if goos == "linux" && !strings.Contains(exe, "-cli") && !strings.Contains(exe, "-nogui") {
-		if strings.Contains(exe, "-x11") {
-			base += "-x11"
-		} else {
-			base += "-wayland"
-		}
+	if version.BuildBackend != "" {
+		base += "-" + version.BuildBackend
 	}
 
 	return base + ext
-}
-
-// versionLess compares two semver-ish strings.
-func versionLess(a, b string) bool {
-	a = strings.TrimPrefix(a, "v")
-	b = strings.TrimPrefix(b, "v")
-	if a == b {
-		return false
-	}
-	if a == "" || a == "dev" {
-		return true
-	}
-	if b == "" || b == "dev" {
-		return false
-	}
-	pa := strings.Split(a, ".")
-	pb := strings.Split(b, ".")
-	for i := 0; i < len(pa) && i < len(pb); i++ {
-		var na, nb int
-		fmt.Sscanf(pa[i], "%d", &na)
-		fmt.Sscanf(pb[i], "%d", &nb)
-		if na != nb {
-			return na < nb
-		}
-	}
-	return len(pa) < len(pb)
 }
