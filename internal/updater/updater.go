@@ -169,24 +169,30 @@ func guessAssetName() string {
 		ext = ".exe"
 	}
 
-	// Determine GUI suffix from current binary name if possible
 	exe, _ := os.Executable()
-	base := ""
-	if strings.Contains(exe, "nogui") {
-		base = "sing-box-ez-" + goos + "-" + goarch + "-nogui"
-	} else if goos == "linux" {
-		if strings.Contains(exe, "x11") {
-			base = "sing-box-ez-" + goos + "-" + goarch + "-x11"
-		} else {
-			base = "sing-box-ez-" + goos + "-" + goarch + "-wayland"
-		}
+	base := "sing-box-ez-" + goarch + "-" + goos
+
+	// Compiler
+	if strings.Contains(exe, "-musl") {
+		base += "-musl"
 	} else {
-		base = "sing-box-ez-" + goos + "-" + goarch
+		base += "-gcc"
 	}
 
-	// Check for musl
-	if strings.Contains(exe, "musl") {
-		base += "-musl"
+	// GUI / CLI type
+	if strings.Contains(exe, "-cli") || strings.Contains(exe, "-nogui") {
+		base += "-cli"
+	} else {
+		base += "-gui"
+	}
+
+	// GUI backend (Linux only)
+	if goos == "linux" && !strings.Contains(exe, "-cli") && !strings.Contains(exe, "-nogui") {
+		if strings.Contains(exe, "-x11") {
+			base += "-x11"
+		} else {
+			base += "-wayland"
+		}
 	}
 
 	return base + ext
