@@ -3,6 +3,8 @@ package gui
 import (
 	"strings"
 
+	"sing-box-ez/internal/i18n"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -27,10 +29,10 @@ func (g *GUI) buildLogTab() *container.TabItem {
 		return nil
 	}
 
-	copyBtn := widget.NewButton("Copy all", func() {
+	copyBtn := widget.NewButton(i18n.T("log.btn.copy"), func() {
 		g.app.Clipboard().SetContent(g.logEntry.Text)
 	})
-	clearBtn := widget.NewButton("Clear", func() {
+	clearBtn := widget.NewButton(i18n.T("log.btn.clear"), func() {
 		g.logMu.Lock()
 		g.logLines = []string{}
 		g.logMu.Unlock()
@@ -39,7 +41,7 @@ func (g *GUI) buildLogTab() *container.TabItem {
 
 	toolbar := container.NewHBox(copyBtn, clearBtn)
 
-	return container.NewTabItem("Log",
+	return container.NewTabItem(i18n.T("tab.log"),
 		container.NewScroll(container.NewBorder(toolbar, nil, nil, nil, g.logEntry)),
 	)
 }
