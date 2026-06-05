@@ -4,7 +4,7 @@ APP_NAME := sing-box-ez
 BUILD_DIR := ./build
 GO := go
 
-VERSION    := $(shell git describe --tags --exact-match 2>/dev/null || git branch --show-current 2>/dev/null || echo "dev")
+BRANCH     := $(shell git describe --tags --exact-match 2>/dev/null || git branch --show-current 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +"%Y-%m-%d %H:%M:%S")
 BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -31,7 +31,7 @@ WIN_GUI_FLAG := $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(GUI))),-H wind
 # Static link MinGW runtime on Windows so no extra DLLs are needed.
 WIN_STATIC = $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(CGO_ENABLED))),-linkmode external -extldflags "-static",)
 LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
-	-X 'sing-box-ez/internal/version.Version=$(VERSION)' \
+	-X 'sing-box-ez/internal/version.Branch=$(BRANCH)' \
 	-X 'sing-box-ez/internal/version.BuildDate=$(BUILD_DATE)' \
 	-X 'sing-box-ez/internal/version.Commit=$(BUILD_COMMIT)' \
 	-X 'sing-box-ez/internal/version.BuildOS=$(GOOS)' \
