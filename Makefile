@@ -186,6 +186,7 @@ build:
 	@echo "Building: OS=$(GOOS) ARCH=$(GOARCH) GUI=$(GUI) GUI_BACKEND=$(GUI_BACKEND) CGO=$(CGO_ENABLED)"
 	$(if $(BUILD_CC),@echo "Cross-compiler: $(BUILD_CC)")
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
+		$(if $(BUILD_CC),CC=$(BUILD_CC)) \
 		$(GO) build $(BUILD_TAGS) $(LDFLAGS) -o $(OUTPUT) .
 	@echo "Built: $(OUTPUT)"
 
