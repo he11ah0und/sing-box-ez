@@ -170,5 +170,12 @@
   "dialog.privileges.btn_run_as_admin": "启用以管理员身份运行",
   "dialog.privileges.btn_restart_admin": "以管理员身份重启",
   "settings.reload_ui.title": "界面",
-  "settings.reload_ui.btn": "重新加载界面"
+  "settings.reload_ui.btn": "重新加载界面",
+  "settings.desktop_notifications": "桌面通知",
+  "notify.core_started.title": "Sing-box EZ",
+  "notify.core_started.body": "核心启动成功",
+  "notify.core_stopped.title": "Sing-box EZ",
+  "notify.core_stopped.body": "核心已停止",
+  "notify.core_crashed.title": "Sing-box EZ — 核心崩溃",
+  "notify.core_crashed.body": "检测到致命错误。正在自动重启..."
 }

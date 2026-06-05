@@ -16,6 +16,12 @@ func setProcessGroup(cmd *exec.Cmd) {
 	}
 }
 
+func setNoWindow(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow: true,
+	}
+}
+
 func KillProcess(pid int, elevated bool) error {
 	// On Windows taskkill /F forces termination regardless of elevation
 	// for processes owned by the same user. The elevated flag is kept
