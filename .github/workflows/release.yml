@@ -53,20 +53,11 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install --no-install-recommends -y \
-            gcc \
-            libgl1-mesa-dev \
-            xorg-dev \
-            libwayland-dev \
-            libwayland-bin \
-            libxkbcommon-dev \
-            libx11-dev \
-            libxcursor-dev \
-            libxrandr-dev \
-            libxinerama-dev \
-            libxi-dev \
-            mingw-w64
+          make setup \
+            OS=${{ matrix.os }} \
+            ARCH=${{ matrix.arch }} \
+            GUI=${{ matrix.gui }} \
+            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Build ${{ matrix.name }}
         run: |
