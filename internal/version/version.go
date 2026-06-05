@@ -6,6 +6,7 @@ var (
 	Version   = "dev"
 	BuildDate = "unknown"
 	Commit    = "unknown"
+	RepoURL   = "https://github.com/he11ah0und/sing-box-ez"
 )
 
 func Info() string {
