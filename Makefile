@@ -35,8 +35,9 @@ LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) -X 'sing-box-ez/interna
 # GUI_BACKEND only affects Linux (Wayland vs X11); Windows/macOS use native GLFW.
 CGO_ENABLED = $(if $(filter 1,$(GUI)),1,0)
 BUILD_TAGS  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),-tags wayland,),),-tags nogui)
-GUI_SUFFIX  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),),-nogui)
+GUI_SUFFIX  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),),-cli)
 EXT         = $(if $(filter windows,$(GOOS)),.exe,)
+COMPILER_SUFFIX := -$(COMPILER)
 
 # Detect whether we are cross-compiling with CGO enabled.
 HOST_OS   := $(shell go env GOOS)
