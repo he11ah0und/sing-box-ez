@@ -31,14 +31,16 @@ func Info() string {
 
 func BuildFlags() string {
 	s := BuildOS + "-" + BuildArch
-	if BuildGUI != "" && BuildGUI != "unknown" {
-		s += " gui=" + BuildGUI
+	if BuildGUI == "1" {
+		s += "-gui"
+	} else if BuildGUI == "0" {
+		s += "-nogui"
 	}
 	if BuildBackend != "" {
-		s += " backend=" + BuildBackend
+		s += "-" + BuildBackend
 	}
 	if BuildCompiler != "" && BuildCompiler != "unknown" {
-		s += " compiler=" + BuildCompiler
+		s += "-" + BuildCompiler
 	}
 	return s
 }

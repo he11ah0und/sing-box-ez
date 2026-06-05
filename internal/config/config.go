@@ -60,11 +60,12 @@ func Load() (*AppConfig, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			cfg := &AppConfig{
-				UpdateIntervalHours: 24,
+				UpdateIntervalHours: 2,
 				RunAsAdmin:          false,
 				ShowLogs:            true,
 				ShowCoreLogs:        false,
 				LogLimit:            100,
+				CoreAutoRestart:     true,
 				Configs:             []ConfigRecord{},
 			}
 			return cfg, cfg.Save()

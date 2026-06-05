@@ -6,12 +6,16 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/paths"
+	"sing-box-ez/internal/updater"
 	"sing-box-ez/internal/version"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -34,13 +38,69 @@ func buildInfoText() string {
 }
 
 func (g *GUI) buildSettingsTab() *container.TabItem {
-	// System info
-	infoLbl := widget.NewLabel(buildInfoText())
-	buildLbl := widget.NewLabel("Build: " + version.Info())
-	repoURL, _ := url.Parse(version.RepoURL)
-	repoLink := widget.NewHyperlink("GitHub Repository", repoURL)
+	// --- Logging block ---
+	g.logLimitEntry = widget.NewEntry()
+	g.logLimitEntry.SetText(fmt.Sprintf("%d", g.cfg.GetLogLimit()))
+	g.logLimitEntry.OnSubmitted = func(s string) {
+		var v int
+		if _, err := fmt.Sscanf(s, "%d", &v); err == nil && v >= 0 {
+			g.cfg.SetLogLimit(v)
+			_ = g.cfg.Save()
+			g.log("Log limit set to " + s)
+		}
+	}
+	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel("Log limit (lines, 0=unlimited):"), widget.NewButton("Save", func() {
+		g.logLimitEntry.OnSubmitted(g.logLimitEntry.Text)
+	}), g.logLimitEntry)
 
-	// Default update interval
+	g.showLogsCheck = widget.NewCheck("Show logs", func(checked bool) {
+		g.cfg.SetShowLogs(checked)
+		_ = g.cfg.Save()
+	})
+	g.showLogsCheck.SetChecked(g.cfg.GetShowLogs())
+
+	g.showCoreLogsCheck = widget.NewCheck("Show core logs", func(checked bool) {
+		g.cfg.SetShowCoreLogs(checked)
+		_ = g.cfg.Save()
+	})
+	g.showCoreLogsCheck.SetChecked(g.cfg.GetShowCoreLogs())
+
+	// --- Core block ---
+	g.versionText = canvas.NewText("Core: not installed", color.Black)
+	g.versionText.TextSize = theme.TextSize()
+	g.latestText = canvas.NewText("Latest: checking...", color.Black)
+	g.latestText.TextSize = theme.TextSize()
+
+	downloadBtn := widget.NewButton("Download latest sing-box core", func() {
+		go g.onDownloadCore()
+	})
+
+	checkBtn := widget.NewButton("Check latest version", func() {
+		go func() {
+			modal := g.showInfiniteDialog("Checking latest version...")
+			ver, err := core.GetLatestVersion()
+			fyne.Do(func() { modal.Hide() })
+			if err != nil {
+				g.log("Check failed: " + err.Error())
+				return
+			}
+			g.latestVersion = ver
+			fyne.Do(func() {
+				g.latestText.Text = "Latest: v" + ver
+				g.latestText.Color = colGreen
+				g.latestText.Refresh()
+			})
+			g.showVersionInfoDialog(ver)
+		}()
+	})
+
+	g.coreAutoRestartCheck = widget.NewCheck("Auto-restart core on fatal errors", func(checked bool) {
+		g.cfg.SetCoreAutoRestart(checked)
+		_ = g.cfg.Save()
+	})
+	g.coreAutoRestartCheck.SetChecked(g.cfg.GetCoreAutoRestart())
+
+	// --- Config block ---
 	g.defaultIntervalEntry = widget.NewEntry()
 	g.defaultIntervalEntry.SetText(fmt.Sprintf("%d", g.cfg.UpdateIntervalHours))
 	g.defaultIntervalEntry.OnSubmitted = func(s string) {
@@ -55,7 +115,30 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		g.defaultIntervalEntry.OnSubmitted(g.defaultIntervalEntry.Text)
 	}), g.defaultIntervalEntry)
 
-	// Privileges block — platform specific
+	// --- Plugins block ---
+	g.pluginsEnabledCheck = widget.NewCheck("Plugins feature", func(checked bool) {
+		g.cfg.SetPluginsEnabled(checked)
+		_ = g.cfg.Save()
+		if !checked {
+			g.pluginsDeveloperCheck.SetChecked(false)
+			g.cfg.SetPluginsDeveloper(false)
+			g.pluginsDeveloperCheck.Disable()
+		} else {
+			g.pluginsDeveloperCheck.Enable()
+		}
+	})
+	g.pluginsEnabledCheck.SetChecked(g.cfg.GetPluginsEnabled())
+
+	g.pluginsDeveloperCheck = widget.NewCheck("Plugins developer", func(checked bool) {
+		g.cfg.SetPluginsDeveloper(checked)
+		_ = g.cfg.Save()
+	})
+	g.pluginsDeveloperCheck.SetChecked(g.cfg.GetPluginsDeveloper())
+	if !g.cfg.GetPluginsEnabled() {
+		g.pluginsDeveloperCheck.Disable()
+	}
+
+	// --- Privileges block ---
 	var privilegesContent fyne.CanvasObject
 	if runtime.GOOS == "windows" {
 		adminStatus := canvas.NewText("", color.Black)
@@ -122,107 +205,58 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		privilegesContent = container.NewVBox(g.adminCheck, g.privilegeText, setcapRow)
 	}
 
-	// Log limit
-	g.logLimitEntry = widget.NewEntry()
-	g.logLimitEntry.SetText(fmt.Sprintf("%d", g.cfg.GetLogLimit()))
-	g.logLimitEntry.OnSubmitted = func(s string) {
-		var v int
-		if _, err := fmt.Sscanf(s, "%d", &v); err == nil && v >= 0 {
-			g.cfg.SetLogLimit(v)
-			_ = g.cfg.Save()
-			g.log("Log limit set to " + s)
-		}
+	// --- System block ---
+	infoLbl := widget.NewLabel(buildInfoText())
+
+	buildURLStr := version.RepoURL + "/releases"
+	if version.Version != "dev" && version.Version != "" {
+		buildURLStr = version.RepoURL + "/releases/tag/" + version.Version
 	}
-	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel("Log limit (lines, 0=unlimited):"), widget.NewButton("Save", func() {
-		g.logLimitEntry.OnSubmitted(g.logLimitEntry.Text)
-	}), g.logLimitEntry)
+	buildURL, _ := url.Parse(buildURLStr)
+	buildLink := widget.NewHyperlink("Build: "+version.Info(), buildURL)
 
-	// Show logs toggles
-	g.showLogsCheck = widget.NewCheck("Show logs", func(checked bool) {
-		g.cfg.SetShowLogs(checked)
-		_ = g.cfg.Save()
-	})
-	g.showLogsCheck.SetChecked(g.cfg.GetShowLogs())
+	repoURL, _ := url.Parse(version.RepoURL)
+	repoLink := widget.NewHyperlink("he11ah0und/sing-box-ez", repoURL)
 
-	g.showCoreLogsCheck = widget.NewCheck("Show core logs", func(checked bool) {
-		g.cfg.SetShowCoreLogs(checked)
-		_ = g.cfg.Save()
-	})
-	g.showCoreLogsCheck.SetChecked(g.cfg.GetShowCoreLogs())
-
-	// Core management
-	g.versionText = canvas.NewText("Core: not installed", color.Black)
-	g.versionText.TextSize = theme.TextSize()
-	g.latestText = canvas.NewText("Latest: checking...", color.Black)
-	g.latestText.TextSize = theme.TextSize()
-
-	downloadBtn := widget.NewButton("Download latest sing-box core", func() {
-		go g.onDownloadCore()
-	})
-
-	checkBtn := widget.NewButton("Check latest version", func() {
+	notesBtn := widget.NewButton("Show release notes", func() {
 		go func() {
-			modal := g.showInfiniteDialog("Checking latest version...")
-			ver, err := core.GetLatestVersion()
+			modal := g.showInfiniteDialog("Fetching release notes...")
+			releases, err := updater.GetReleases()
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
-				g.log("Check failed: " + err.Error())
+				g.log("Failed to fetch release notes: " + err.Error())
 				return
 			}
-			g.latestVersion = ver
+			var latest *updater.Release
+			for i := range releases {
+				if !releases[i].Prerelease {
+					latest = &releases[i]
+					break
+				}
+			}
+			if latest == nil {
+				g.log("No stable releases found")
+				return
+			}
 			fyne.Do(func() {
-				g.latestText.Text = "Latest: v" + ver
-				g.latestText.Color = colGreen
-				g.latestText.Refresh()
+				notesLabel := widget.NewLabel(latest.Body)
+				notesLabel.Wrapping = fyne.TextWrapWord
+				scroll := container.NewScroll(notesLabel)
+				scroll.SetMinSize(fyne.NewSize(500, 400))
+				d := dialog.NewCustom("Release notes: "+latest.TagName, "Close", scroll, g.window)
+				d.Show()
 			})
-			g.showVersionInfoDialog(ver)
 		}()
 	})
 
-	g.coreAutoRestartCheck = widget.NewCheck("Auto-restart core on fatal errors", func(checked bool) {
-		g.cfg.SetCoreAutoRestart(checked)
-		_ = g.cfg.Save()
-	})
-	g.coreAutoRestartCheck.SetChecked(g.cfg.GetCoreAutoRestart())
-
-	// Plugins toggles
-	g.pluginsEnabledCheck = widget.NewCheck("Plugins feature", func(checked bool) {
-		g.cfg.SetPluginsEnabled(checked)
-		_ = g.cfg.Save()
-		if !checked {
-			g.pluginsDeveloperCheck.SetChecked(false)
-			g.cfg.SetPluginsDeveloper(false)
-			g.pluginsDeveloperCheck.Disable()
-		} else {
-			g.pluginsDeveloperCheck.Enable()
+	openDataBtn := widget.NewButton("Open data folder", func() {
+		if err := paths.OpenDataDir(); err != nil {
+			g.log("Failed to open data folder: " + err.Error())
 		}
 	})
-	g.pluginsEnabledCheck.SetChecked(g.cfg.GetPluginsEnabled())
 
-	g.pluginsDeveloperCheck = widget.NewCheck("Plugins developer", func(checked bool) {
-		g.cfg.SetPluginsDeveloper(checked)
-		_ = g.cfg.Save()
-	})
-	g.pluginsDeveloperCheck.SetChecked(g.cfg.GetPluginsDeveloper())
-	if !g.cfg.GetPluginsEnabled() {
-		g.pluginsDeveloperCheck.Disable()
-	}
-
+	// --- Assemble content ---
 	content := container.NewVBox(
-		widget.NewLabelWithStyle("System", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		infoLbl,
-		buildLbl,
-		repoLink,
-		widget.NewSeparator(),
-
-		widget.NewLabelWithStyle("Updates", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		intervalRow,
-		widget.NewSeparator(),
-
-		widget.NewLabelWithStyle("Privileges", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		privilegesContent,
-		widget.NewSeparator(),
-
 		widget.NewLabelWithStyle("Logging", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		logLimitRow,
 		g.showLogsCheck,
@@ -236,9 +270,25 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		g.coreAutoRestartCheck,
 		widget.NewSeparator(),
 
+		widget.NewLabelWithStyle("Config", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		intervalRow,
+		widget.NewSeparator(),
+
 		widget.NewLabelWithStyle("Plugins", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		g.pluginsEnabledCheck,
 		g.pluginsDeveloperCheck,
+		widget.NewSeparator(),
+
+		widget.NewLabelWithStyle("Privileges", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		privilegesContent,
+		widget.NewSeparator(),
+
+		widget.NewLabelWithStyle("System", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		infoLbl,
+		buildLink,
+		repoLink,
+		notesBtn,
+		openDataBtn,
 	)
 
 	return container.NewTabItem("Settings", container.NewScroll(content))

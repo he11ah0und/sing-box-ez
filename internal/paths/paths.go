@@ -2,6 +2,7 @@ package paths
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -105,4 +106,16 @@ func PluginDocsDir() string {
 // PluginDefsDir returns the default directory for EmmyLua definition files.
 func PluginDefsDir() string {
 	return "docs/plugin-defs"
+}
+
+// OpenDataDir opens the data directory in the system's file manager.
+func OpenDataDir() error {
+	switch runtime.GOOS {
+	case "windows":
+		return exec.Command("explorer", DataDir).Start()
+	case "darwin":
+		return exec.Command("open", DataDir).Start()
+	default:
+		return exec.Command("xdg-open", DataDir).Start()
+	}
 }
