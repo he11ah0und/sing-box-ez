@@ -5,6 +5,8 @@ package gui
 import (
 	"fmt"
 
+	"sing-box-ez/internal/i18n"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -22,17 +24,17 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 			g.log("Log limit set to " + s)
 		}
 	}
-	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel("Log limit (lines, 0=unlimited):"), widget.NewButton("Save", func() {
+	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel(i18n.T("settings.log_limit.label")), widget.NewButton(i18n.T("settings.btn.save"), func() {
 		g.logLimitEntry.OnSubmitted(g.logLimitEntry.Text)
 	}), g.logLimitEntry)
 
-	g.showLogsCheck = widget.NewCheck("Show logs", func(checked bool) {
+	g.showLogsCheck = widget.NewCheck(i18n.T("settings.show_logs"), func(checked bool) {
 		g.cfg.SetShowLogs(checked)
 		_ = g.cfg.Save()
 	})
 	g.showLogsCheck.SetChecked(g.cfg.GetShowLogs())
 
-	g.showCoreLogsCheck = widget.NewCheck("Show core logs", func(checked bool) {
+	g.showCoreLogsCheck = widget.NewCheck(i18n.T("settings.show_core_logs"), func(checked bool) {
 		g.cfg.SetShowCoreLogs(checked)
 		_ = g.cfg.Save()
 	})
@@ -49,21 +51,21 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 			g.log("Default interval set to " + s + "h")
 		}
 	}
-	intervalRow := container.NewBorder(nil, nil, widget.NewLabel("Default update interval (hours):"), widget.NewButton("Save", func() {
+	intervalRow := container.NewBorder(nil, nil, widget.NewLabel(i18n.T("settings.default_interval.label")), widget.NewButton(i18n.T("settings.btn.save"), func() {
 		g.defaultIntervalEntry.OnSubmitted(g.defaultIntervalEntry.Text)
 	}), g.defaultIntervalEntry)
 
 	// --- Assemble content ---
 	content := container.NewVBox(
-		widget.NewLabelWithStyle("Logging", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(i18n.T("settings.logging.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		logLimitRow,
 		g.showLogsCheck,
 		g.showCoreLogsCheck,
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle("Config", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(i18n.T("settings.config.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		intervalRow,
 	)
 
-	return container.NewTabItem("Settings", container.NewScroll(content))
+	return container.NewTabItem(i18n.T("tab.settings"), container.NewScroll(content))
 }

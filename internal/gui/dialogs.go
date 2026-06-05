@@ -14,6 +14,7 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/updater"
 	"sing-box-ez/internal/version"
 )
@@ -27,7 +28,7 @@ func (g *GUI) showProgressDialog(title string) (dialog.Dialog, *widget.ProgressB
 	var progress *widget.ProgressBar
 	fyne.DoAndWait(func() {
 		progress = widget.NewProgressBar()
-		cancelBtn := widget.NewButton("Cancel", func() {
+		cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() {
 			d.Hide()
 		})
 		content := container.NewVBox(widget.NewLabel(title), progress, cancelBtn)
@@ -41,7 +42,7 @@ func (g *GUI) showInfiniteDialog(title string) dialog.Dialog {
 	var d dialog.Dialog
 	fyne.DoAndWait(func() {
 		progress := widget.NewProgressBarInfinite()
-		cancelBtn := widget.NewButton("Cancel", func() {
+		cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() {
 			d.Hide()
 		})
 		content := container.NewVBox(widget.NewLabel(title), progress, cancelBtn)
@@ -57,14 +58,14 @@ func (g *GUI) showInfiniteDialog(title string) dialog.Dialog {
 
 func (g *GUI) showUpdatePrompt(latest, current string) {
 	fyne.DoAndWait(func() {
-		msg := fmt.Sprintf("A new version of sing-box core is available.\n\nCurrent: v%s\nLatest: v%s\n\nUpdate now?", current, latest)
-		confirm := dialog.NewConfirm("Core Update Available", msg, func(update bool) {
+		msg := fmt.Sprintf(i18n.T("dialog.core_update.msg"), current, latest)
+		confirm := dialog.NewConfirm(i18n.T("dialog.core_update.title"), msg, func(update bool) {
 			if update {
 				go g.onDownloadCore()
 			}
 		}, g.window)
-		confirm.SetConfirmText("Update")
-		confirm.SetDismissText("Ignore")
+		confirm.SetConfirmText(i18n.T("dialog.btn.update"))
+		confirm.SetDismissText(i18n.T("dialog.btn.ignore"))
 		confirm.Show()
 	})
 }
@@ -75,21 +76,21 @@ func (g *GUI) showVersionInfoDialog(latest string) {
 		var content *fyne.Container
 		if err != nil || currentVer == "" {
 			content = container.NewVBox(
-				widget.NewLabel("Core is not installed."),
-				widget.NewLabel("Latest version: v"+latest),
+				widget.NewLabel(i18n.T("dialog.version_check.core_not_installed")),
+				widget.NewLabel(i18n.T("dialog.version_check.latest") + latest),
 			)
 		} else {
-			currentLbl := widget.NewLabel("Current: v" + currentVer)
-			latestLbl := widget.NewLabel("Latest: v" + latest)
+			currentLbl := widget.NewLabel(i18n.T("dialog.version_check.current") + currentVer)
+			latestLbl := widget.NewLabel(i18n.T("dialog.version_check.latest") + latest)
 			if currentVer == latest {
-				status := canvas.NewText("✓ Latest version installed", colGreen)
+				status := canvas.NewText(i18n.T("dialog.version_check.latest_installed"), colGreen)
 				content = container.NewVBox(currentLbl, latestLbl, status)
 			} else {
-				status := canvas.NewText("✗ Update available", colOrange)
+				status := canvas.NewText(i18n.T("dialog.version_check.update_available"), colOrange)
 				content = container.NewVBox(currentLbl, latestLbl, status)
 			}
 		}
-		d := dialog.NewCustom("Version Check", "Close", content, g.window)
+		d := dialog.NewCustom(i18n.T("dialog.version_check.title"), i18n.T("about.dialog.close"), content, g.window)
 		d.Show()
 	})
 }
@@ -97,10 +98,9 @@ func (g *GUI) showVersionInfoDialog(latest string) {
 func (g *GUI) showDownloadCompleteDialog(ver, path string) {
 	fyne.DoAndWait(func() {
 		content := container.NewVBox(
-			widget.NewLabel("Sing-box core v"+ver+" downloaded successfully."),
-			widget.NewLabel("Location: "+path),
+			widget.NewLabel(fmt.Sprintf(i18n.T("dialog.download_complete.msg"), ver, path)),
 		)
-		d := dialog.NewCustom("Download Complete", "Close", content, g.window)
+		d := dialog.NewCustom(i18n.T("dialog.download_complete.title"), i18n.T("about.dialog.close"), content, g.window)
 		d.Show()
 	})
 }
@@ -119,7 +119,7 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	if dt, err := version.BuildDateTime(); err == nil {
 		currentDateStr = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 	} else {
-		currentDateStr = "unknown"
+		currentDateStr = i18n.T("dialog.unknown")
 	}
 	if !info.LatestDate.IsZero() {
 		lt := info.LatestDate.Local()
@@ -129,14 +129,14 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 			if diff < 0 {
 				diff = -diff
 			}
-			diffStr = fmt.Sprintf("Behind by: %s", humanDuration(diff))
+			diffStr = fmt.Sprintf(i18n.T("dialog.self_update.behind"), humanDuration(diff))
 		}
 	} else {
-		latestDateStr = "unknown"
+		latestDateStr = i18n.T("dialog.unknown")
 	}
 
-	currentLbl := widget.NewLabel("Current: " + currentText + "\n  " + currentDateStr)
-	latestLbl := widget.NewLabel("Latest: " + info.Latest + "\n  " + latestDateStr)
+	currentLbl := widget.NewLabel(i18n.T("dialog.self_update.current") + currentText + "\n  " + currentDateStr)
+	latestLbl := widget.NewLabel(i18n.T("dialog.self_update.latest") + info.Latest + "\n  " + latestDateStr)
 
 	changelog := widget.NewRichTextFromMarkdown(info.LatestBody)
 	changelog.Wrapping = fyne.TextWrapWord
@@ -151,11 +151,11 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	if diffStr != "" {
 		items = append(items, widget.NewLabel(diffStr))
 	}
-	items = append(items, sepLine, widget.NewLabel("Changelog:"), scroll)
+	items = append(items, sepLine, widget.NewLabel(i18n.T("dialog.self_update.changelog")), scroll)
 
 	content := container.NewVBox(items...)
 
-	confirm := dialog.NewCustomConfirm("Update Available", "Update", "Ignore", content, func(update bool) {
+	confirm := dialog.NewCustomConfirm(i18n.T("dialog.self_update.title"), i18n.T("dialog.btn.update"), i18n.T("dialog.btn.ignore"), content, func(update bool) {
 		if update {
 			go g.doSelfUpdate(info.AssetURL)
 		}
@@ -188,10 +188,10 @@ func humanDuration(d time.Duration) string {
 func (g *GUI) doSelfUpdate(assetURL string) {
 	if assetURL == "" {
 		g.log("Self-update: no matching asset for this system")
-		dialog.ShowError(fmt.Errorf("no matching asset found"), g.window)
+		dialog.ShowError(fmt.Errorf(i18n.T("dialog.error.no_matching_asset")), g.window)
 		return
 	}
-	progressModal, progress := g.showProgressDialog("Downloading update...")
+	progressModal, progress := g.showProgressDialog(i18n.T("progress.downloading_update"))
 	if err := updater.ApplyUpdate(assetURL, func(d, t int64) {
 		fyne.Do(func() {
 			progress.SetValue(float64(d) / float64(t))
@@ -212,24 +212,24 @@ func (g *GUI) showFirstRunDialog() {
 	var d dialog.Dialog
 
 	coreInstalled := core.CoreExists()
-	statusText := widget.NewLabel("Welcome to Sing-box EZ!")
+	statusText := widget.NewLabel(i18n.T("first_run.welcome_title"))
 	if coreInstalled {
-		statusText.SetText("✓ sing-box core is already installed.")
+		statusText.SetText(i18n.T("first_run.core.installed"))
 	} else {
-		statusText.SetText("sing-box core is not installed.")
+		statusText.SetText(i18n.T("first_run.core.not_installed"))
 	}
 
 	urlEntry := widget.NewEntry()
 	urlEntry.SetPlaceHolder("https://example.com/config.json")
 
-	downloadBtn := widget.NewButton("Download sing-box core", func() {
+	downloadBtn := widget.NewButton(i18n.T("first_run.btn.download_core"), func() {
 		go g.onDownloadCore()
 	})
 	if coreInstalled {
 		downloadBtn.Disable()
 	}
 
-	addBtn := widget.NewButton("Add config", func() {
+	addBtn := widget.NewButton(i18n.T("first_run.btn.add_config"), func() {
 		url := urlEntry.Text
 		if url == "" {
 			g.log("First run: empty config URL")
@@ -260,18 +260,18 @@ func (g *GUI) showFirstRunDialog() {
 	})
 
 	content := container.NewVBox(
-		widget.NewLabelWithStyle("Welcome", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabel("To get started, download sing-box core and add your first config."),
+		widget.NewLabelWithStyle(i18n.T("first_run.welcome"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabel(i18n.T("first_run.description")),
 		widget.NewSeparator(),
 		statusText,
 		downloadBtn,
 		widget.NewSeparator(),
-		widget.NewLabel("Config URL"),
+		widget.NewLabel(i18n.T("first_run.config_url")),
 		urlEntry,
 		addBtn,
 	)
 
-	d = dialog.NewCustomWithoutButtons("First Run", content, g.window)
+	d = dialog.NewCustomWithoutButtons(i18n.T("first_run.title"), content, g.window)
 	d.Resize(fyne.NewSize(480, 320))
 	d.Show()
 	<-done
