@@ -3,15 +3,12 @@ package version
 import (
 	"fmt"
 	"time"
-
-	"sing-box-ez/internal/githuburl"
 )
 
 var (
 	Branch    = "dev"
 	BuildDate = "unknown"
 	Commit    = "unknown"
-	RepoURL   = githuburl.DefaultProject().RepoURL()
 
 	BuildOS       = "unknown"
 	BuildArch     = "unknown"
@@ -21,16 +18,17 @@ var (
 )
 
 func Info() string {
+	bd := buildDateString()
 	switch {
-	case BuildDate == "unknown" || BuildDate == "":
+	case bd == "":
 		if Commit == "unknown" || Commit == "" {
 			return Branch
 		}
 		return fmt.Sprintf("%s (%s)", Branch, Commit)
 	case Commit == "unknown" || Commit == "":
-		return fmt.Sprintf("%s (%s)", Branch, BuildDate)
+		return fmt.Sprintf("%s (%s)", Branch, bd)
 	default:
-		return fmt.Sprintf("%s (%s %s)", Branch, BuildDate, Commit)
+		return fmt.Sprintf("%s (%s %s)", Branch, bd, Commit)
 	}
 }
 
@@ -50,11 +48,27 @@ func BuildFlags() string {
 	return s
 }
 
-// BuildDateTime parses BuildDate into a time.Time value.
-// BuildDate is injected at build time via ldflags in the format "2006-01-02 15:04:05".
+// BuildDateTime parses BuildDate (UTC RFC3339) into a time.Time in the local timezone.
 func BuildDateTime() (time.Time, error) {
 	if BuildDate == "unknown" || BuildDate == "" {
 		return time.Time{}, fmt.Errorf("build date unknown")
 	}
-	return time.Parse(time.DateTime, BuildDate)
+	t, err := time.Parse(time.RFC3339, BuildDate)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return t.Local(), nil
+}
+
+// buildDateString returns a human-readable local date string ("2006-01-02 15:04:05"),
+// or the raw BuildDate value if parsing fails.
+func buildDateString() string {
+	if BuildDate == "unknown" || BuildDate == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339, BuildDate)
+	if err != nil {
+		return BuildDate
+	}
+	return t.Local().Format("2006-01-02 15:04:05")
 }
