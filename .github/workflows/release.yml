@@ -19,28 +19,38 @@ jobs:
             arch: amd64
             gui: 1
             backend: wayland
+            compiler: gcc
             artifact: build/sing-box-ez-linux-amd64-wayland
           - name: linux-x11
             os: linux
             arch: amd64
             gui: 1
             backend: x11
+            compiler: gcc
             artifact: build/sing-box-ez-linux-amd64-x11
-          - name: linux-nogui
+          - name: linux-nogui-gcc
             os: linux
             arch: amd64
             gui: 0
-            backend: wayland
+            compiler: gcc
             artifact: build/sing-box-ez-linux-amd64-nogui
+          - name: linux-nogui-musl
+            os: linux
+            arch: amd64
+            gui: 0
+            compiler: musl
+            artifact: build/sing-box-ez-linux-amd64-nogui-musl
           - name: windows-gui
             os: windows
             arch: amd64
             gui: 1
+            compiler: gcc
             artifact: build/sing-box-ez-windows-amd64.exe
           - name: windows-nogui
             os: windows
             arch: amd64
             gui: 0
+            compiler: gcc
             artifact: build/sing-box-ez-windows-amd64-nogui.exe
     steps:
       - name: Checkout
@@ -57,6 +67,7 @@ jobs:
             OS=${{ matrix.os }} \
             ARCH=${{ matrix.arch }} \
             GUI=${{ matrix.gui }} \
+            COMPILER=${{ matrix.compiler }} \
             $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Build ${{ matrix.name }}
@@ -65,6 +76,7 @@ jobs:
             OS=${{ matrix.os }} \
             ARCH=${{ matrix.arch }} \
             GUI=${{ matrix.gui }} \
+            COMPILER=${{ matrix.compiler }} \
             $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Upload artifact
