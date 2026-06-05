@@ -29,7 +29,7 @@ jobs:
           if [ -n "$last_tag" ]; then
             range="${last_tag}..HEAD"
           else
-            range="HEAD"
+            range=""
           fi
 
           {
