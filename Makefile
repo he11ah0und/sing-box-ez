@@ -24,7 +24,7 @@ GOARCH  := $(ARCH)
 # On Windows with GUI, hide the console window.
 WIN_GUI_FLAG := $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(GUI))),-H windowsgui,)
 # Static link MinGW runtime on Windows so no extra DLLs are needed.
-WIN_STATIC := $(if $(filter windows,$(GOOS)),-linkmode external -extldflags "-static",)
+WIN_STATIC = $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(CGO_ENABLED))),-linkmode external -extldflags "-static",)
 LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) -X 'sing-box-ez/internal/version.Version=$(VERSION)' -X 'sing-box-ez/internal/version.BuildDate=$(BUILD_DATE)' -X 'sing-box-ez/internal/version.Commit=$(BUILD_COMMIT)'"
 
 # Lazy-evaluated variables so target-specific overrides are respected.
