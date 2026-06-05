@@ -15,9 +15,9 @@ import (
 // cell is a table cell that supports double-tap and right-click.
 type cell struct {
 	widget.BaseWidget
-	lbl         *widget.Label
-	onDblTap    func()
-	onRightTap  func()
+	lbl        *widget.Label
+	onDblTap   func()
+	onRightTap func()
 }
 
 func newCell() *cell {
@@ -246,6 +246,7 @@ func (g *GUI) onAddConfig() {
 			g.manager.SetConfigURL(rec.URL)
 			g.manager.SetConfigName(rec.Name)
 			g.refreshActiveLabel()
+			g.updateButtons()
 		}
 		_ = g.cfg.Save()
 		g.refreshConfigData()
@@ -277,6 +278,7 @@ func (g *GUI) onEditConfig() {
 		if old.Name == g.cfg.ActiveName || rec.Name == g.cfg.ActiveName {
 			g.manager.SetConfigURL(rec.URL)
 			g.refreshActiveLabel()
+			g.updateButtons()
 		}
 		g.refreshConfigData()
 		g.configTable.Refresh()
@@ -305,6 +307,7 @@ func (g *GUI) onDeleteConfig() {
 		g.refreshConfigData()
 		g.configTable.Refresh()
 		g.refreshActiveLabel()
+		g.updateButtons()
 		g.log("Config deleted: " + name)
 	}, g.window)
 }
@@ -330,6 +333,7 @@ func (g *GUI) onActivateConfig() {
 	g.manager.SetConfigURL(rec.URL)
 	g.manager.SetConfigName(name)
 	g.refreshActiveLabel()
+	g.updateButtons()
 	g.configTable.Refresh()
 	g.log("Activated config: " + name)
 }

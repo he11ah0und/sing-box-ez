@@ -107,8 +107,10 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		if runtime.GOOS == "linux" {
 			setcapBtn := widget.NewButton("Apply setcap (TUN without root)", func() {
 				go func() {
-					g.log("Applying setcap...")
-					if err := core.SetNetAdminCapabilityGUI(core.GetCorePath()); err != nil {
+					modal := g.showInfiniteDialog("Applying setcap...")
+					err := core.SetNetAdminCapabilityGUI(core.GetCorePath())
+					fyne.Do(func() { modal.Hide() })
+					if err != nil {
 						g.log("setcap failed: " + err.Error())
 						g.log("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
 					} else {
@@ -164,12 +166,20 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 
 	checkBtn := widget.NewButton("Check latest version", func() {
 		go func() {
+			modal := g.showInfiniteDialog("Checking latest version...")
 			ver, err := core.GetLatestVersion()
+			fyne.Do(func() { modal.Hide() })
 			if err != nil {
 				g.log("Check failed: " + err.Error())
 				return
 			}
-			g.log("Latest version: v" + ver)
+			g.latestVersion = ver
+			fyne.Do(func() {
+				g.latestText.Text = "Latest: v" + ver
+				g.latestText.Color = colGreen
+				g.latestText.Refresh()
+			})
+			g.showVersionInfoDialog(ver)
 		}()
 	})
 

@@ -18,6 +18,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -37,12 +38,12 @@ type GUI struct {
 	manager *core.Manager
 
 	// Main tab widgets
-	statusText  *canvas.Text
-	activeLbl   *widget.Label
-	startBtn    *widget.Button
-	stopBtn     *widget.Button
-	restartBtn  *widget.Button
-	adminCheck  *widget.Check
+	statusText *canvas.Text
+	activeLbl  *widget.Label
+	startBtn   *widget.Button
+	stopBtn    *widget.Button
+	restartBtn *widget.Button
+	adminCheck *widget.Check
 
 	// Configs tab widgets
 	configTable    *widget.Table
@@ -55,13 +56,13 @@ type GUI struct {
 	updateAllBtn   *widget.Button
 
 	// Tools tab widgets
-	defaultIntervalEntry  *widget.Entry
-	logLimitEntry         *widget.Entry
-	showLogsCheck         *widget.Check
-	showCoreLogsCheck     *widget.Check
-	versionText           *canvas.Text
-	latestText            *canvas.Text
-	privilegeText         *canvas.Text
+	defaultIntervalEntry *widget.Entry
+	logLimitEntry        *widget.Entry
+	showLogsCheck        *widget.Check
+	showCoreLogsCheck    *widget.Check
+	versionText          *canvas.Text
+	latestText           *canvas.Text
+	privilegeText        *canvas.Text
 
 	// Log tab widgets
 	logEntry    *widget.Entry
@@ -123,7 +124,7 @@ func New(cfg *config.AppConfig) *GUI {
 	g.initPlugins()
 	g.updateButtons()
 	g.refreshCoreVersion()
-	go g.checkLatestVersion()
+	go g.checkStartupUpdate()
 	go g.updateChecker()
 	go g.statusChecker()
 
@@ -178,7 +179,7 @@ func (g *GUI) refreshActiveLabel() {
 	if active != nil {
 		g.activeLbl.SetText("Active config: " + active.Name)
 	} else {
-		g.activeLbl.SetText("Active config: (none)")
+		g.activeLbl.SetText("No config selected — select one in the Configs tab")
 	}
 }
 
@@ -328,6 +329,92 @@ func (g *GUI) checkLatestVersion() {
 	})
 }
 
+func (g *GUI) checkStartupUpdate() {
+	ver, err := core.GetLatestVersion()
+	if err != nil {
+		fyne.Do(func() {
+			g.latestText.Text = "Latest: error"
+			g.latestText.Color = colRed
+			g.latestText.Refresh()
+		})
+		return
+	}
+	g.latestVersion = ver
+	fyne.Do(func() {
+		g.latestText.Text = "Latest: v" + ver
+		g.latestText.Color = colGreen
+		g.latestText.Refresh()
+		if cur, ok := strings.CutPrefix(g.versionText.Text, "Core: v"); ok {
+			g.compareVersions(cur)
+		}
+	})
+
+	currentVer, err := core.GetCoreVersion(core.GetCorePath())
+	if err != nil || currentVer == "" {
+		return
+	}
+
+	cMaj, cMin, cPat := parseSemver(currentVer)
+	lMaj, lMin, lPat := parseSemver(ver)
+	if cMaj == lMaj && cMin == lMin && cPat == lPat {
+		return
+	}
+
+	fyne.Do(func() {
+		g.showUpdatePrompt(ver, currentVer)
+	})
+}
+
+func (g *GUI) showUpdatePrompt(latest, current string) {
+	fyne.DoAndWait(func() {
+		msg := fmt.Sprintf("A new version of sing-box core is available.\n\nCurrent: v%s\nLatest: v%s\n\nUpdate now?", current, latest)
+		confirm := dialog.NewConfirm("Core Update Available", msg, func(update bool) {
+			if update {
+				go g.onDownloadCore()
+			}
+		}, g.window)
+		confirm.SetConfirmText("Update")
+		confirm.SetDismissText("Ignore")
+		confirm.Show()
+	})
+}
+
+func (g *GUI) showVersionInfoDialog(latest string) {
+	fyne.DoAndWait(func() {
+		currentVer, err := core.GetCoreVersion(core.GetCorePath())
+		var content *fyne.Container
+		if err != nil || currentVer == "" {
+			content = container.NewVBox(
+				widget.NewLabel("Core is not installed."),
+				widget.NewLabel("Latest version: v"+latest),
+			)
+		} else {
+			currentLbl := widget.NewLabel("Current: v" + currentVer)
+			latestLbl := widget.NewLabel("Latest: v" + latest)
+			if currentVer == latest {
+				status := canvas.NewText("✓ Latest version installed", colGreen)
+				content = container.NewVBox(currentLbl, latestLbl, status)
+			} else {
+				status := canvas.NewText("✗ Update available", colOrange)
+				content = container.NewVBox(currentLbl, latestLbl, status)
+			}
+		}
+		d := dialog.NewCustom("Version Check", "Close", content, g.window)
+		d.Show()
+	})
+}
+
+func (g *GUI) showDownloadCompleteDialog(ver, path string) {
+	fyne.DoAndWait(func() {
+		content := container.NewVBox(
+			widget.NewLabel("Sing-box core v"+ver+" downloaded successfully."),
+			widget.NewLabel("Location: "+path),
+		)
+		d := dialog.NewCustom("Download Complete", "Close", content, g.window)
+		d.Show()
+	})
+}
+
 func (g *GUI) refreshPrivilegeStatus() {
 	if runtime.GOOS != "linux" {
 		return
@@ -348,18 +435,46 @@ func (g *GUI) refreshPrivilegeStatus() {
 	})
 }
 
+func (g *GUI) showProgressDialog(title string) (dialog.Dialog, *widget.ProgressBar) {
+	var d dialog.Dialog
+	var progress *widget.ProgressBar
+	fyne.DoAndWait(func() {
+		progress = widget.NewProgressBar()
+		content := container.NewVBox(widget.NewLabel(title), progress)
+		d = dialog.NewCustomWithoutButtons(title, content, g.window)
+		d.Show()
+	})
+	return d, progress
+}
+
+func (g *GUI) showInfiniteDialog(title string) dialog.Dialog {
+	var d dialog.Dialog
+	fyne.DoAndWait(func() {
+		progress := widget.NewProgressBarInfinite()
+		content := container.NewVBox(widget.NewLabel(title), progress)
+		d = dialog.NewCustomWithoutButtons(title, content, g.window)
+		d.Show()
+	})
+	return d
+}
+
 func (g *GUI) onDownloadCore() {
-	g.log("Checking latest version...")
+	modal := g.showInfiniteDialog("Checking latest version...")
 	ver, err := core.GetLatestVersion()
+	fyne.Do(func() { modal.Hide() })
 	if err != nil {
 		g.log("Failed to check latest version: " + err.Error())
 		return
 	}
 	g.log("Latest version: v" + ver)
 
-	g.log("Downloading sing-box core v" + ver + "...")
+	progressModal, progress := g.showProgressDialog("Downloading sing-box core v" + ver + "...")
+	defer fyne.Do(func() { progressModal.Hide() })
 	var lastLog time.Time
 	corePath, err := core.DownloadCore("", func(downloaded, total int64) {
+		fyne.Do(func() {
+			progress.SetValue(float64(downloaded) / float64(total))
+		})
 		now := time.Now()
 		if now.Sub(lastLog) < 500*time.Millisecond {
 			return
@@ -373,6 +488,7 @@ func (g *GUI) onDownloadCore() {
 		return
 	}
 	g.log("Core downloaded to: " + corePath)
+	g.showDownloadCompleteDialog(ver, corePath)
 	g.refreshCoreVersion()
 }
 
@@ -438,6 +554,7 @@ func (g *GUI) onRestart() {
 func (g *GUI) updateButtons() {
 	fyne.Do(func() {
 		running := g.manager.IsRunning()
+		hasConfig := g.cfg.GetActiveConfig() != nil
 		if running {
 			g.startBtn.Disable()
 			g.stopBtn.Enable()
@@ -446,7 +563,11 @@ func (g *GUI) updateButtons() {
 			g.statusText.Color = colGreen
 			g.statusText.Refresh()
 		} else {
-			g.startBtn.Enable()
+			if hasConfig {
+				g.startBtn.Enable()
+			} else {
+				g.startBtn.Disable()
+			}
 			g.stopBtn.Disable()
 			g.restartBtn.Disable()
 			g.statusText.Text = "Status: stopped"
