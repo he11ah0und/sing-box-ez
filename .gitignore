@@ -7,8 +7,6 @@ docs/plugin-api/
 docs/plugin-defs/
 site/
 
-# Build artifacts
-build/sing-box-ez-*
-build/sing-box-ez-data/sing-box
-sing-box-ez-data/sing-box
-
+# Build artifacts and runtime data
+build/
+sing-box-ez-data/
