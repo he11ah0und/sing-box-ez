@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: linux-wayland
+            os: linux
+            arch: amd64
+            gui: 1
+            backend: wayland
+            artifact: build/sing-box-ez-linux-amd64-wayland
+          - name: linux-nogui
+            os: linux
+            arch: amd64
+            gui: 0
+            backend: wayland
+            artifact: build/sing-box-ez-linux-amd64-nogui
+          - name: windows
+            os: windows
+            arch: amd64
+            gui: 1
+            backend: wayland
+            artifact: build/sing-box-ez-windows-amd64.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc \
+            libgl1-mesa-dev \
+            xorg-dev \
+            libwayland-dev \
+            libwayland-bin \
+            libxkbcommon-dev \
+            libx11-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev \
+            mingw-w64
+
+      - name: Build ${{ matrix.name }}
+        run: |
+          make build \
+            OS=${{ matrix.os }} \
+            ARCH=${{ matrix.arch }} \
+            GUI=${{ matrix.gui }} \
+            GUI_BACKEND=${{ matrix.backend }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo 'message<<EOF'
+            git log -1 --pretty=%B
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.commit.outputs.short }}
+          name: ${{ steps.commit.outputs.short }}
+          body: ${{ steps.commit.outputs.message }}
+          files: artifacts/*
