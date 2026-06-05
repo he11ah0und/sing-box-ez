@@ -209,10 +209,18 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	// --- System block ---
 	infoLbl := widget.NewLabel(buildInfoText())
 
-	buildURL, _ := url.Parse(githuburl.DefaultProject().WebLatestReleaseURL())
-	buildText := version.Commit
-	if buildText == "unknown" || buildText == "" {
-		buildText = version.Branch
+	buildText := version.Branch
+	if version.Commit != "unknown" && version.Commit != "" {
+		buildText += ", " + version.Commit
+	}
+	if dt, err := version.BuildDateTime(); err == nil {
+		buildText += ", " + dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
+	}
+	var buildURL *url.URL
+	if version.Commit != "unknown" && version.Commit != "" {
+		buildURL, _ = url.Parse(githuburl.DefaultProject().WebReleaseURL(version.Commit))
+	} else {
+		buildURL, _ = url.Parse(githuburl.DefaultProject().RepoURL())
 	}
 	buildLink := widget.NewHyperlink("Build: "+buildText, buildURL)
 
@@ -222,38 +230,41 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	notesBtn := widget.NewButton("Show release notes", func() {
 		go func() {
 			modal := g.showInfiniteDialog("Fetching release notes...")
-			releases, err := updater.GetReleases()
+			release, err := updater.GetReleaseByTag(version.Branch)
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
+				if release.TagName == "" {
+					fyne.Do(func() {
+						buildInfo := version.Branch
+						if version.Commit != "unknown" && version.Commit != "" {
+							buildInfo += ", commit: " + version.Commit
+						}
+						if dt, err := version.BuildDateTime(); err == nil {
+							buildInfo += ", built: " + dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
+						}
+						d := dialog.NewInformation("Release notes",
+							"Current build ("+buildInfo+") does not match any official release.\n\n"+
+							"This build is not listed among GitHub releases.\n"+
+							"Maybe this is a dev build?", g.window)
+						d.Show()
+					})
+					return
+				}
 				g.log("Failed to fetch release notes: " + err.Error())
 				return
 			}
-			var target *updater.Release
-			// Try to find release matching current version
-			for i := range releases {
-				if !releases[i].Prerelease && releases[i].TagName == version.Branch {
-					target = &releases[i]
-					break
-				}
-			}
-			// Fallback to latest stable
-			if target == nil {
-				for i := range releases {
-					if !releases[i].Prerelease {
-						target = &releases[i]
-						break
-					}
-				}
-			}
-			if target == nil {
-				g.log("No stable releases found")
-				return
-			}
 			fyne.Do(func() {
-				notesRich := widget.NewRichTextFromMarkdown(target.Body)
+				dateStr := release.PublishedAt.Local().Format("2006-01-02 15:04:05")
+				ago := version.HumanDuration(release.PublishedAt)
+				header := widget.NewLabel("Released: " + dateStr + " (" + ago + ")")
+				header.TextStyle = fyne.TextStyle{Bold: true}
+
+				notesRich := widget.NewRichTextFromMarkdown(release.Body)
 				scroll := container.NewScroll(notesRich)
 				scroll.SetMinSize(fyne.NewSize(500, 400))
-				d := dialog.NewCustom("Release notes: "+target.TagName, "Close", scroll, g.window)
+
+				content := container.NewVBox(header, widget.NewSeparator(), scroll)
+				d := dialog.NewCustom("Release notes: "+release.TagName, "Close", content, g.window)
 				d.Show()
 			})
 		}()
