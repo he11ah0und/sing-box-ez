@@ -16,6 +16,8 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/paths"
 	"sing-box-ez/internal/plugins"
+	"sing-box-ez/internal/updater"
+	"sing-box-ez/internal/version"
 )
 
 // cmdDef describes a CLI command.
@@ -25,16 +27,19 @@ type cmdDef struct {
 }
 
 var commands = map[string]cmdDef{
-	"start":    {"Start sing-box with auto-update", cmdStart},
-	"stop":     {"Stop running sing-box", cmdStop},
-	"update":   {"Download latest config", cmdUpdate},
-	"download": {"Download latest sing-box core", cmdDownload},
-	"status":   {"Show running status", cmdStatus},
-	"setcap":   {"Apply CAP_NET_ADMIN capability (Linux CLI, uses sudo)", cmdSetcap},
-	"docs":     {"Generate plugin API docs (mkdocs markdown)", cmdDocs},
-	"defs":     {"Generate VS Code Lua definitions (EmmyLua)", cmdDefs},
-	"template": {"Generate plugin template <name> [client|server|both]", cmdTemplate},
-	"install":  {"Install plugin from URL <url>", cmdInstall},
+	"start":        {"Start sing-box with auto-update", cmdStart},
+	"stop":         {"Stop running sing-box", cmdStop},
+	"update":       {"Download latest config", cmdUpdate},
+	"download":     {"Download latest sing-box core", cmdDownload},
+	"status":       {"Show running status", cmdStatus},
+	"setcap":       {"Apply CAP_NET_ADMIN capability (Linux CLI, uses sudo)", cmdSetcap},
+	"docs":         {"Generate plugin API docs (mkdocs markdown)", cmdDocs},
+	"defs":         {"Generate VS Code Lua definitions (EmmyLua)", cmdDefs},
+	"template":     {"Generate plugin template <name> [client|server|both]", cmdTemplate},
+	"install":      {"Install plugin from URL <url>", cmdInstall},
+	"version":      {"Show version and repository info", cmdVersion},
+	"update-check": {"Check for app and core updates", cmdUpdateCheck},
+	"self-update":  {"Update this application to latest release", cmdSelfUpdate},
 }
 
 // PrintHelp writes auto-generated help to w.
@@ -292,5 +297,76 @@ func cmdInstall(cfg *config.AppConfig, args []string) error {
 		return err
 	}
 	fmt.Printf("Installed: %s v%s (%s)\n", mf.Name, mf.Version, mf.SourceType)
+	return nil
+}
+
+func cmdVersion(_ *config.AppConfig, _ []string) error {
+	fmt.Println("sing-box-ez", version.Info())
+	fmt.Println("Repository:", version.RepoURL)
+	if ver, err := core.GetCoreVersion(core.GetCorePath()); err == nil && ver != "" {
+		fmt.Println("sing-box core: v" + ver)
+	} else {
+		fmt.Println("sing-box core: not installed")
+	}
+	return nil
+}
+
+func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
+	fmt.Println("Checking for updates...")
+	fmt.Println()
+
+	// App update check
+	info, err := updater.CheckUpdate(version.Version)
+	if err != nil {
+		fmt.Println("App update check failed:", err)
+	} else if len(info.Releases) > 0 {
+		fmt.Printf("App: %s → %s (%d release(s) behind)\n", info.Current, info.Latest)
+		for i, r := range info.Releases {
+			fmt.Printf("  %d. %s (%s)\n", i+1, r.TagName, r.PublishedAt.Format("2006-01-02"))
+		}
+	} else {
+		fmt.Println("App: up to date (" + info.Current + ")")
+	}
+	fmt.Println()
+
+	// Core update check
+	coreVer, err := core.GetCoreVersion(core.GetCorePath())
+	if err != nil || coreVer == "" {
+		fmt.Println("Core: not installed")
+		return nil
+	}
+	latestCore, err := core.GetLatestVersion()
+	if err != nil {
+		fmt.Println("Core update check failed:", err)
+		return nil
+	}
+	if coreVer != latestCore {
+		fmt.Printf("Core: v%s → v%s\n", coreVer, latestCore)
+	} else {
+		fmt.Println("Core: up to date (v" + coreVer + ")")
+	}
+	return nil
+}
+
+func cmdSelfUpdate(_ *config.AppConfig, _ []string) error {
+	fmt.Println("Checking for application update...")
+	info, err := updater.CheckUpdate(version.Version)
+	if err != nil {
+		return fmt.Errorf("check failed: %w", err)
+	}
+	if len(info.Releases) == 0 {
+		fmt.Println("Already up to date.")
+		return nil
+	}
+	if info.AssetURL == "" {
+		return fmt.Errorf("no matching asset found for this system (%s)", info.AssetName)
+	}
+
+	fmt.Printf("Updating %s → %s\n", info.Current, info.Latest)
+	fmt.Printf("Downloading %s...\n", info.AssetName)
+
+	if err := updater.ApplyUpdate(info.AssetURL); err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
 	return nil
 }

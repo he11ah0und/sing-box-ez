@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"image/color"
+	"net/url"
 	"os"
 	"runtime"
 	"sing-box-ez/internal/core"
@@ -43,6 +44,8 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	// System info
 	infoLbl := widget.NewLabel(systemInfoText())
 	buildLbl := widget.NewLabel("Build: " + version.Info())
+	repoURL, _ := url.Parse(version.RepoURL)
+	repoLink := widget.NewHyperlink("GitHub Repository", repoURL)
 
 	// Default update interval
 	g.defaultIntervalEntry = widget.NewEntry()
@@ -187,6 +190,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		widget.NewLabelWithStyle("System", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		infoLbl,
 		buildLbl,
+		repoLink,
 		widget.NewSeparator(),
 
 		widget.NewLabelWithStyle("Updates", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),

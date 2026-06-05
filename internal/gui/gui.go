@@ -9,6 +9,8 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/plugins"
+	"sing-box-ez/internal/updater"
+	"sing-box-ez/internal/version"
 	"strconv"
 	"strings"
 	"sync"
@@ -125,6 +127,7 @@ func New(cfg *config.AppConfig) *GUI {
 	g.updateButtons()
 	g.refreshCoreVersion()
 	go g.checkStartupUpdate()
+	go g.checkSelfUpdate()
 	go g.updateChecker()
 	go g.statusChecker()
 
@@ -413,6 +416,62 @@ func (g *GUI) showDownloadCompleteDialog(ver, path string) {
 		d := dialog.NewCustom("Download Complete", "Close", content, g.window)
 		d.Show()
 	})
+}
+
+func (g *GUI) checkSelfUpdate() {
+	info, err := updater.CheckUpdate(version.Version)
+	if err != nil || len(info.Releases) == 0 {
+		return
+	}
+	fyne.Do(func() {
+		g.showSelfUpdateDialog(info)
+	})
+}
+
+func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
+	currentLbl := widget.NewLabel("Current: " + info.Current)
+	latestLbl := widget.NewLabel("Latest: " + info.Latest)
+
+	var lines []string
+	for _, r := range info.Releases {
+		lines = append(lines, fmt.Sprintf("%s (%s)\n%s", r.TagName, r.PublishedAt.Format("2006-01-02"), r.Body))
+	}
+	changelog := widget.NewMultiLineEntry()
+	changelog.SetText(strings.Join(lines, "\n\n---\n\n"))
+	changelog.Wrapping = fyne.TextWrapWord
+	changelog.Disable()
+
+	scroll := container.NewScroll(changelog)
+	scroll.SetMinSize(fyne.NewSize(480, 280))
+
+	content := container.NewVBox(
+		currentLbl,
+		latestLbl,
+		widget.NewSeparator(),
+		widget.NewLabel("Changelog:"),
+		scroll,
+	)
+
+	confirm := dialog.NewCustomConfirm("Update Available", "Update", "Ignore", content, func(update bool) {
+		if update {
+			go g.doSelfUpdate(info.AssetURL)
+		}
+	}, g.window)
+	confirm.Show()
+}
+
+func (g *GUI) doSelfUpdate(assetURL string) {
+	if assetURL == "" {
+		g.log("Self-update: no matching asset for this system")
+		dialog.ShowError(fmt.Errorf("no matching asset found"), g.window)
+		return
+	}
+	modal := g.showInfiniteDialog("Downloading update...")
+	if err := updater.ApplyUpdate(assetURL); err != nil {
+		fyne.Do(func() { modal.Hide() })
+		g.log("Self-update failed: " + err.Error())
+		dialog.ShowError(err, g.window)
+	}
 }
 
 func (g *GUI) refreshPrivilegeStatus() {
