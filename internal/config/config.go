@@ -40,10 +40,11 @@ type AppConfig struct {
 	SingBoxURL          string `json:"singbox_url,omitempty"`
 	UpdateIntervalHours int    `json:"update_interval_hours"`
 
-	RunAsAdmin       bool `json:"run_as_admin"`
-	ShowLogs         bool `json:"show_logs"`
-	ShowCoreLogs     bool `json:"show_core_logs"`
-	LogLimit         int  `json:"log_limit"`
+	RunAsAdmin       bool   `json:"run_as_admin"`
+	ShowLogs         bool   `json:"show_logs"`
+	WatchCoreLogs    bool   `json:"watch_core_logs"`
+	LogLimit         int    `json:"log_limit"`
+	Language         string `json:"language"`
 	PluginsEnabled   bool `json:"plugins_enabled"`
 	PluginsDeveloper bool `json:"plugins_developer"`
 	CoreAutoRestart  bool `json:"core_auto_restart"`
@@ -63,8 +64,8 @@ func Load() (*AppConfig, error) {
 			cfg := &AppConfig{
 				UpdateIntervalHours: 2,
 				RunAsAdmin:          false,
-				ShowLogs:            true,
-				ShowCoreLogs:        false,
+				ShowLogs:            false,
+				WatchCoreLogs:       true,
 				LogLimit:            100,
 				CoreAutoRestart:     true,
 				Configs:             []ConfigRecord{},
@@ -253,16 +254,16 @@ func (c *AppConfig) GetShowLogs() bool {
 	return c.ShowLogs
 }
 
-func (c *AppConfig) SetShowCoreLogs(v bool) {
+func (c *AppConfig) SetWatchCoreLogs(v bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.ShowCoreLogs = v
+	c.WatchCoreLogs = v
 }
 
-func (c *AppConfig) GetShowCoreLogs() bool {
+func (c *AppConfig) GetWatchCoreLogs() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.ShowCoreLogs
+	return c.WatchCoreLogs
 }
 
 func (c *AppConfig) SetLogLimit(v int) {
@@ -323,4 +324,16 @@ func (c *AppConfig) GetFirstRunDone() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.FirstRunDone
+}
+
+func (c *AppConfig) SetLanguage(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Language = v
+}
+
+func (c *AppConfig) GetLanguage() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Language
 }
