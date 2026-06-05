@@ -83,7 +83,7 @@ func defaultAppConfig() *AppConfig {
 		ShowLogs:             false,
 		WatchCoreLogs:        true,
 		LogLimit:             100,
-		CoreAutoRestart:      true,
+		CoreAutoRestart:      false,
 		DesktopNotifications: true,
 	}
 }
