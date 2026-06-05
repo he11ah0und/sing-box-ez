@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
 
@@ -96,12 +99,16 @@ jobs:
 
       - name: Set compiler with ccache
         run: |
+          # Enable ccache via PATH (symlinks for common compilers)
+          echo "/usr/lib/ccache" >> "$GITHUB_PATH"
           if [ "${{ matrix.compiler }}" = "musl" ]; then
-            echo "CC=ccache musl-gcc" >> "$GITHUB_ENV"
+            echo "CC=musl-gcc" >> "$GITHUB_ENV"
+            sudo ln -sf $(which ccache) /usr/lib/ccache/musl-gcc 2>/dev/null || true
           elif [ "${{ matrix.os }}" = "windows" ]; then
-            echo "CC=ccache x86_64-w64-mingw32-gcc" >> "$GITHUB_ENV"
+            echo "CC=x86_64-w64-mingw32-gcc" >> "$GITHUB_ENV"
+            sudo ln -sf $(which ccache) /usr/lib/ccache/x86_64-w64-mingw32-gcc 2>/dev/null || true
           else
-            echo "CC=ccache gcc" >> "$GITHUB_ENV"
+            echo "CC=gcc" >> "$GITHUB_ENV"
           fi
 
       - name: Install build dependencies
