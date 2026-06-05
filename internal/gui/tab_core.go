@@ -51,6 +51,12 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 	})
 	g.coreAutoRestartCheck.SetChecked(g.cfg.GetCoreAutoRestart())
 
+	g.showCoreLogsCheck = widget.NewCheck(i18n.T("core.watch_core_logs"), func(checked bool) {
+		g.cfg.SetWatchCoreLogs(checked)
+		_ = g.cfg.Save()
+	})
+	g.showCoreLogsCheck.SetChecked(g.cfg.GetWatchCoreLogs())
+
 	// --- Privileges block ---
 	var privilegesContent fyne.CanvasObject
 	if runtime.GOOS == "windows" {
