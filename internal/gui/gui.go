@@ -232,10 +232,26 @@ func (g *GUI) appendLogLines(newLines []string) {
 	if limit > 0 && len(g.logLines) > limit {
 		g.logLines = g.logLines[len(g.logLines)-limit:]
 	}
-	text := strings.Join(g.logLines, "\n")
-	hasEntry := g.logEntry != nil
 	g.logMu.Unlock()
-	if hasEntry {
+}
+
+func (g *GUI) logFlushLoop() {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for range ticker.C {
+		g.stopMu.Lock()
+		stopped := g.stopped
+		g.stopMu.Unlock()
+		if stopped {
+			return
+		}
+		g.logMu.Lock()
+		if g.logEntry == nil || len(g.logLines) == 0 {
+			g.logMu.Unlock()
+			continue
+		}
+		text := strings.Join(g.logLines, "\n")
+		g.logMu.Unlock()
 		fyne.Do(func() {
 			g.logEntry.SetText(text)
 			g.logEntry.CursorRow = 999999
@@ -569,7 +585,7 @@ func (g *GUI) updateChecker() {
 }
 
 func (g *GUI) statusChecker() {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	var lastRunning bool
 	for range ticker.C {
@@ -591,7 +607,7 @@ func (g *GUI) statusChecker() {
 // not repainting automatically when the window becomes visible after being
 // hidden (minimize, workspace switch, or screen idle wake-up on Linux/Windows).
 func (g *GUI) repaintLoop() {
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
 		g.stopMu.Lock()
@@ -617,6 +633,7 @@ func (g *GUI) Run() {
 		g.checkUpdatesOnStartup()
 	}()
 	go g.repaintLoop()
+	go g.logFlushLoop()
 	g.app.Run()
 }
 
