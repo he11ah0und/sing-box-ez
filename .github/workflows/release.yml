@@ -62,38 +62,38 @@ jobs:
             gui: 1
             backend: wayland
             compiler: gcc
-            artifact: build/sing-box-ez-linux-amd64-wayland-gcc
+            artifact: build/sing-box-ez-amd64-linux-gcc-gui-wayland
           - name: linux-x11
             os: linux
             arch: amd64
             gui: 1
             backend: x11
             compiler: gcc
-            artifact: build/sing-box-ez-linux-amd64-x11-gcc
+            artifact: build/sing-box-ez-amd64-linux-gcc-gui-x11
           - name: linux-cli-gcc
             os: linux
             arch: amd64
             gui: 0
             compiler: gcc
-            artifact: build/sing-box-ez-linux-amd64-cli-gcc
+            artifact: build/sing-box-ez-amd64-linux-gcc-cli
           - name: linux-cli-musl
             os: linux
             arch: amd64
             gui: 0
             compiler: musl
-            artifact: build/sing-box-ez-linux-amd64-cli-musl
+            artifact: build/sing-box-ez-amd64-linux-musl-cli
           - name: windows-gui
             os: windows
             arch: amd64
             gui: 1
             compiler: gcc
-            artifact: build/sing-box-ez-windows-amd64-gcc.exe
+            artifact: build/sing-box-ez-amd64-windows-gcc-gui.exe
           - name: windows-cli
             os: windows
             arch: amd64
             gui: 0
             compiler: gcc
-            artifact: build/sing-box-ez-windows-amd64-cli-gcc.exe
+            artifact: build/sing-box-ez-amd64-windows-gcc-cli.exe
     steps:
       - name: Checkout
         uses: actions/checkout@v4
