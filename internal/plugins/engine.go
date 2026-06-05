@@ -24,7 +24,7 @@ func NewUIBuilder(w fyne.Window, tabs *container.AppTabs) *UIBuilder {
 
 // Engine wraps a Lua VM for a single plugin.
 type Engine struct {
-	L      *lua.LState
+	L        *lua.LState
 	manifest *Manifest
 	builder  *UIBuilder
 	sink     func(string)

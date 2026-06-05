@@ -17,8 +17,8 @@ import (
 // Manager manages loaded plugin engines and plugin metadata.
 type Manager struct {
 	mu      sync.RWMutex
-	engines map[string]*Engine     // only loaded (enabled) plugins
-	infos   map[string]*Manifest   // all discovered plugins
+	engines map[string]*Engine   // only loaded (enabled) plugins
+	infos   map[string]*Manifest // all discovered plugins
 	state   *State
 	window  fyne.Window
 	tabs    *container.AppTabs

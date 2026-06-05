@@ -37,13 +37,13 @@ func (r *ConfigRecord) ShouldUpdate() bool {
 
 type AppConfig struct {
 	// Legacy single-config fields kept for backwards compatibility
-	SingBoxURL          string    `json:"singbox_url,omitempty"`
-	UpdateIntervalHours int       `json:"update_interval_hours"`
+	SingBoxURL          string `json:"singbox_url,omitempty"`
+	UpdateIntervalHours int    `json:"update_interval_hours"`
 
-	RunAsAdmin          bool      `json:"run_as_admin"`
-	ShowLogs            bool      `json:"show_logs"`
-	ShowCoreLogs        bool      `json:"show_core_logs"`
-	LogLimit            int       `json:"log_limit"`
+	RunAsAdmin   bool `json:"run_as_admin"`
+	ShowLogs     bool `json:"show_logs"`
+	ShowCoreLogs bool `json:"show_core_logs"`
+	LogLimit     int  `json:"log_limit"`
 
 	// New multi-config list
 	Configs    []ConfigRecord `json:"configs"`
