@@ -34,9 +34,19 @@ func (p Project) APILatestReleaseURL() string {
 	return p.APIReleasesURL() + "/latest"
 }
 
+// APIReleaseByTagURL returns the GitHub API endpoint for a specific release tag.
+func (p Project) APIReleaseByTagURL(tag string) string {
+	return p.APIReleasesURL() + "/tags/" + tag
+}
+
 // WebReleaseURL returns the web URL for a specific release tag.
 func (p Project) WebReleaseURL(tag string) string {
 	return p.RepoURL() + "/releases/tag/" + tag
+}
+
+// WebCommitURL returns the web URL for a specific commit.
+func (p Project) WebCommitURL(commit string) string {
+	return p.RepoURL() + "/commit/" + commit
 }
 
 // WebLatestReleaseURL returns the web URL for the latest release page.

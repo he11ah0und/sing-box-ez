@@ -7,140 +7,120 @@ import (
 	"sing-box-ez/internal/version"
 )
 
-func TestCheckUpdateWithReleases(t *testing.T) {
+func TestCheckUpdateWithLatest(t *testing.T) {
 	now := time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC)
-	yesterday := now.Add(-24 * time.Hour)
-	lastWeek := now.Add(-7 * 24 * time.Hour)
 
 	tests := []struct {
 		name          string
-		releases      []Release
+		latest        Release
 		currentBranch string
-		setupBuild    func()
+		commit        string
 		wantLatest    string
 		wantCount     int
+		wantAssetURL  string
 		wantErr       bool
 	}{
 		{
-			name:          "no releases",
-			releases:      nil,
+			name: "latest is prerelease",
+			latest: Release{
+				TagName: "eb6db22", Prerelease: true, PublishedAt: now,
+			},
 			currentBranch: "main",
+			commit:        "eb6db22",
 			wantLatest:    "main",
 			wantCount:     0,
 		},
 		{
-			name: "no stable releases",
-			releases: []Release{
-				{TagName: "v1.0.0-rc1", Prerelease: true, PublishedAt: now},
+			name: "commit matches latest tag exactly",
+			latest: Release{
+				TagName: "eb6db22", PublishedAt: now,
 			},
 			currentBranch: "main",
+			commit:        "eb6db22",
 			wantLatest:    "main",
 			wantCount:     0,
 		},
 		{
-			name: "current branch found, newer exists",
-			releases: []Release{
-				{TagName: "v1.0.0", PublishedAt: lastWeek, Assets: []Asset{{Name: "test-asset", BrowserDownloadURL: "http://example.com/v1"}}},
-				{TagName: "v1.1.0", PublishedAt: yesterday, Assets: []Asset{{Name: "test-asset", BrowserDownloadURL: "http://example.com/v2"}}},
-				{TagName: "v1.2.0", PublishedAt: now, Assets: []Asset{{Name: "test-asset", BrowserDownloadURL: "http://example.com/v3"}}},
+			name: "full commit matches short tag",
+			latest: Release{
+				TagName: "eb6db22", PublishedAt: now,
 			},
-			currentBranch: "v1.0.0",
-			wantLatest:    "v1.2.0",
-			wantCount:     2,
-		},
-		{
-			name: "current branch found, no newer",
-			releases: []Release{
-				{TagName: "v1.0.0", PublishedAt: lastWeek},
-			},
-			currentBranch: "v1.0.0",
-			wantLatest:    "v1.0.0",
+			currentBranch: "main",
+			commit:        "eb6db22e67e2c4ff043e3e66559eba0ab61d1660",
+			wantLatest:    "main",
 			wantCount:     0,
 		},
 		{
-			name: "current branch not found, build date newer than releases",
-			releases: []Release{
-				{TagName: "v1.0.0", PublishedAt: lastWeek},
+			name: "short commit matches full tag",
+			latest: Release{
+				TagName: "eb6db22e67e2c4ff043e3e66559eba0ab61d1660", PublishedAt: now,
 			},
 			currentBranch: "main",
-			setupBuild: func() {
-				version.BuildDate = "2026-06-05 12:00:00"
-			},
-			wantLatest: "main",
-			wantCount:  0,
-		},
-		{
-			name: "current branch not found, release newer than build date",
-			releases: []Release{
-				{TagName: "v1.0.0", PublishedAt: now, Assets: []Asset{{Name: "test-asset", BrowserDownloadURL: "http://example.com/v1"}}},
-			},
-			currentBranch: "main",
-			setupBuild: func() {
-				version.BuildDate = "2026-06-04 12:00:00"
-			},
-			wantLatest:   "v1.0.0",
-			wantCount:    1,
-		},
-		{
-			name: "current branch not found, unknown build date",
-			releases: []Release{
-				{TagName: "v1.0.0", PublishedAt: now, Assets: []Asset{{Name: "test-asset", BrowserDownloadURL: "http://example.com/v1"}}},
-			},
-			currentBranch: "main",
-			setupBuild: func() {
-				version.BuildDate = "unknown"
-			},
-			wantLatest:   "v1.0.0",
-			wantCount:    1,
-		},
-		{
-			name: "prereleases ignored",
-			releases: []Release{
-				{TagName: "v2.0.0", PublishedAt: now, Prerelease: true},
-				{TagName: "v1.0.0", PublishedAt: lastWeek, Assets: []Asset{{Name: "test-asset", BrowserDownloadURL: "http://example.com/v1"}}},
-			},
-			currentBranch: "v1.0.0",
-			wantLatest:    "v1.0.0",
+			commit:        "eb6db22",
+			wantLatest:    "main",
 			wantCount:     0,
+		},
+		{
+			name: "different commit — update available",
+			latest: Release{
+				TagName:     "eb6db22",
+				PublishedAt: now,
+				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", BrowserDownloadURL: "http://example.com/v1"}},
+			},
+			currentBranch: "main",
+			commit:        "4cce75f",
+			wantLatest:    "eb6db22",
+			wantCount:     1,
+			wantAssetURL:  "http://example.com/v1",
+		},
+		{
+			name: "unknown commit — update available",
+			latest: Release{
+				TagName:     "eb6db22",
+				PublishedAt: now,
+				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", BrowserDownloadURL: "http://example.com/v1"}},
+			},
+			currentBranch: "main",
+			commit:        "unknown",
+			wantLatest:    "eb6db22",
+			wantCount:     1,
+			wantAssetURL:  "http://example.com/v1",
 		},
 		{
 			name: "asset not found",
-			releases: []Release{
-				{TagName: "v1.1.0", PublishedAt: now, Assets: []Asset{{Name: "other-asset", BrowserDownloadURL: "http://example.com/other"}}},
+			latest: Release{
+				TagName:     "eb6db22",
+				PublishedAt: now,
+				Assets:      []Asset{{Name: "other-asset", BrowserDownloadURL: "http://example.com/other"}},
 			},
-			currentBranch: "v1.0.0",
-			wantLatest:    "v1.1.0",
+			currentBranch: "main",
+			commit:        "4cce75f",
+			wantLatest:    "eb6db22",
 			wantCount:     1,
-		},
-		{
-			name: "multiple newer sorted correctly",
-			releases: []Release{
-				{TagName: "v1.0.0", PublishedAt: lastWeek},
-				{TagName: "v1.2.0", PublishedAt: now, Assets: []Asset{{Name: "test-asset", BrowserDownloadURL: "http://example.com/v3"}}},
-				{TagName: "v1.1.0", PublishedAt: yesterday, Assets: []Asset{{Name: "test-asset", BrowserDownloadURL: "http://example.com/v2"}}},
-			},
-			currentBranch: "v1.0.0",
-			wantLatest:    "v1.2.0",
-			wantCount:     2,
+			wantAssetURL:  "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldBranch, oldBuildDate := version.Branch, version.BuildDate
+			oldBranch, oldCommit := version.Branch, version.Commit
+			oldOS, oldArch := version.BuildOS, version.BuildArch
 			defer func() {
-				version.Branch, version.BuildDate = oldBranch, oldBuildDate
+				version.Branch, version.Commit = oldBranch, oldCommit
+				version.BuildOS, version.BuildArch = oldOS, oldArch
 			}()
 
-			if tt.setupBuild != nil {
-				tt.setupBuild()
-			} else {
-				version.BuildDate = "unknown"
-			}
+			version.Branch = tt.currentBranch
+			version.Commit = tt.commit
+			version.BuildOS = "linux"
+			version.BuildArch = "amd64"
+			version.BuildCompiler = ""
+			version.BuildGUI = ""
+			version.BuildBackend = ""
 
-			info, err := checkUpdateWithReleases(tt.releases, tt.currentBranch)
+			info, err := checkUpdateWithLatest(tt.latest, tt.currentBranch)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("checkUpdateWithReleases() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("checkUpdateWithLatest() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if info.Latest != tt.wantLatest {
 				t.Errorf("Latest = %q, want %q", info.Latest, tt.wantLatest)
@@ -148,7 +128,35 @@ func TestCheckUpdateWithReleases(t *testing.T) {
 			if info.ReleaseCount != tt.wantCount {
 				t.Errorf("ReleaseCount = %d, want %d", info.ReleaseCount, tt.wantCount)
 			}
+			if info.AssetURL != tt.wantAssetURL {
+				t.Errorf("AssetURL = %q, want %q", info.AssetURL, tt.wantAssetURL)
+			}
+		})
+	}
+}
 
+func TestCommitsMatch(t *testing.T) {
+	tests := []struct {
+		name string
+		a    string
+		b    string
+		want bool
+	}{
+		{"exact", "eb6db22", "eb6db22", true},
+		{"full vs short", "eb6db22e67e2c4ff043e3e66559eba0ab61d1660", "eb6db22", true},
+		{"short vs full", "eb6db22", "eb6db22e67e2c4ff043e3e66559eba0ab61d1660", true},
+		{"different", "eb6db22", "4cce75f", false},
+		{"empty a", "", "eb6db22", false},
+		{"empty b", "eb6db22", "", false},
+		{"both empty", "", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := commitsMatch(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("commitsMatch(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
 		})
 	}
 }

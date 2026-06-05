@@ -24,7 +24,9 @@ func TestProjectURLs(t *testing.T) {
 		{"RepoURL", p.RepoURL(), "https://github.com/he11ah0und/sing-box-ez"},
 		{"APIReleasesURL", p.APIReleasesURL(), "https://api.github.com/repos/he11ah0und/sing-box-ez/releases"},
 		{"APILatestReleaseURL", p.APILatestReleaseURL(), "https://api.github.com/repos/he11ah0und/sing-box-ez/releases/latest"},
+		{"APIReleaseByTagURL", p.APIReleaseByTagURL("v1.0.0"), "https://api.github.com/repos/he11ah0und/sing-box-ez/releases/tags/v1.0.0"},
 		{"WebReleaseURL", p.WebReleaseURL("v1.0.0"), "https://github.com/he11ah0und/sing-box-ez/releases/tag/v1.0.0"},
+		{"WebCommitURL", p.WebCommitURL("abc1234"), "https://github.com/he11ah0und/sing-box-ez/commit/abc1234"},
 		{"WebLatestReleaseURL", p.WebLatestReleaseURL(), "https://github.com/he11ah0und/sing-box-ez/releases/latest"},
 	}
 
