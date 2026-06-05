@@ -102,6 +102,17 @@ type GUI struct {
 
 func New(cfg *config.AppConfig) *GUI {
 	a := app.New()
+
+	// Initialize language: detect system locale on first run, otherwise use saved.
+	if !cfg.GetFirstRunDone() {
+		lang := i18n.DetectSystemLanguage()
+		cfg.SetLanguage(lang)
+		_ = cfg.Save()
+		i18n.SetLanguage(lang)
+	} else if lang := cfg.GetLanguage(); lang != "" {
+		i18n.SetLanguage(lang)
+	}
+
 	w := a.NewWindow(i18n.T("app.title"))
 	w.Resize(fyne.NewSize(800, 600))
 
@@ -167,6 +178,18 @@ func (g *GUI) buildUI() {
 	items = append(items, aboutTab)
 	g.tabs = container.NewAppTabs(items...)
 	g.window.SetContent(g.tabs)
+}
+
+// rebuildUI recreates the entire UI after a language change.
+func (g *GUI) rebuildUI() {
+	g.buildUI()
+	g.updateButtons()
+	g.refreshCoreVersion()
+	g.refreshPrivilegeStatus()
+	g.refreshConfigData()
+	if g.cfg.GetPluginsEnabled() {
+		g.refreshPluginsList()
+	}
 }
 
 func (g *GUI) onWindowClosed() {
@@ -289,7 +312,7 @@ func (g *GUI) logCore(msg string) {
 		}
 	}
 
-	if !g.cfg.GetShowCoreLogs() {
+	if !g.cfg.GetWatchCoreLogs() {
 		return
 	}
 	g.logMu.Lock()
