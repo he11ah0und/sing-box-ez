@@ -43,8 +43,14 @@ LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
 # Lazy-evaluated variables so target-specific overrides are respected.
 # GUI_BACKEND only affects Linux (Wayland vs X11); Windows/macOS use native GLFW.
 CGO_ENABLED = $(if $(filter 1,$(GUI)),1,0)
-BUILD_TAGS  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),-tags wayland,),),-tags nogui)
-BUILD_TAGS += $(if $(filter 0,$(PLUGINS)),-tags noplugins,)
+
+# Build tags: combine into a single comma-separated list for Go's -tags flag
+comma := ,
+empty :=
+space := $(empty) $(empty)
+TAG_LIST  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),wayland,),),nogui)
+TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
+BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 GUI_SUFFIX  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),),-cli)
 EXT         = $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
