@@ -51,7 +51,7 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 	g.refreshConfigData()
 
 	headers := []string{g.t("configs.table.name"), g.t("configs.table.source"), g.t("configs.table.last_update"), g.t("configs.table.next_update"), g.t("configs.table.period"), g.t("configs.table.cached")}
-	colWidths := []float32{140, 100, 120, 120, 60, 60}
+	colWidths := []float32{150, 110, 165, 165, 75, 75}
 	cols := len(headers)
 
 	g.configTable = widget.NewTableWithHeaders(
