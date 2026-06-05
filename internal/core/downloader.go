@@ -54,7 +54,7 @@ func DownloadConfigFor(name, url string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(paths.CachedConfig(name), data, 0644)
+	return os.WriteFile(paths.CachedConfig(name), data, 0600)
 }
 
 func GetConfigPath(name string) string {
