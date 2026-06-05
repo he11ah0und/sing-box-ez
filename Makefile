@@ -4,7 +4,7 @@ APP_NAME := sing-box-ez
 BUILD_DIR := ./build
 GO := go
 
-VERSION    := $(shell git describe --tags --exact-match 2>/dev/null || echo "dev")
+VERSION    := $(shell git describe --tags --exact-match 2>/dev/null || git branch --show-current 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +"%Y-%m-%d %H:%M:%S")
 BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -51,7 +51,8 @@ space := $(empty) $(empty)
 TAG_LIST  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),wayland,),),nogui)
 TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
 BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
-GUI_SUFFIX  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),),-cli)
+TYPE_SUFFIX     = $(if $(filter 1,$(GUI)),-gui,-cli)
+GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
 EXT         = $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
 
@@ -84,7 +85,7 @@ endif
 # otherwise use auto-detected cross compiler.
 BUILD_CC := $(or $(filter-out cc gcc,$(CC)),$(CROSS_CC))
 
-OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOOS)-$(GOARCH)$(GUI_SUFFIX)$(COMPILER_SUFFIX)$(EXT)
+OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)$(TYPE_SUFFIX)$(GUI_TYPE_SUFFIX)$(EXT)
 
 # ---------------------------------------------------------------------------
 # Default target
