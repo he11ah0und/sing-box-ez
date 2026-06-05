@@ -210,13 +210,13 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	infoLbl := widget.NewLabel(buildInfoText())
 
 	buildURLStr := version.RepoURL + "/releases/latest"
-	if strings.HasPrefix(version.Version, "v") && len(version.Version) > 1 {
-		buildURLStr = version.RepoURL + "/releases/tag/" + version.Version
+	if strings.HasPrefix(version.Branch, "v") && len(version.Branch) > 1 {
+		buildURLStr = version.RepoURL + "/releases/tag/" + version.Branch
 	}
 	buildURL, _ := url.Parse(buildURLStr)
 	buildText := version.Commit
 	if buildText == "unknown" || buildText == "" {
-		buildText = version.Version
+		buildText = version.Branch
 	}
 	buildLink := widget.NewHyperlink("Build: "+buildText, buildURL)
 
@@ -235,7 +235,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 			var target *updater.Release
 			// Try to find release matching current version
 			for i := range releases {
-				if !releases[i].Prerelease && releases[i].TagName == version.Version {
+				if !releases[i].Prerelease && releases[i].TagName == version.Branch {
 					target = &releases[i]
 					break
 				}
@@ -272,7 +272,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	selfUpdateBtn := widget.NewButton("Check for updates", func() {
 		go func() {
 			modal := g.showInfiniteDialog("Checking for updates...")
-			info, err := updater.CheckUpdate(version.Version)
+			info, err := updater.CheckUpdate(version.Branch)
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
 				g.log("Update check failed: " + err.Error())

@@ -319,7 +319,7 @@ func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
 	fmt.Println()
 
 	// App update check
-	info, err := updater.CheckUpdate(version.Version)
+	info, err := updater.CheckUpdate(version.Branch)
 	if err != nil {
 		fmt.Println("App update check failed:", err)
 	} else if info.ReleaseCount > 0 {
@@ -353,7 +353,7 @@ func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
 
 func cmdSelfUpdate(_ *config.AppConfig, _ []string) error {
 	fmt.Println("Checking for application update...")
-	info, err := updater.CheckUpdate(version.Version)
+	info, err := updater.CheckUpdate(version.Branch)
 	if err != nil {
 		return fmt.Errorf("check failed: %w", err)
 	}

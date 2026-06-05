@@ -3,7 +3,7 @@ package version
 import "fmt"
 
 var (
-	Version   = "dev"
+	Branch    = "dev"
 	BuildDate = "unknown"
 	Commit    = "unknown"
 	RepoURL   = "https://github.com/he11ah0und/sing-box-ez"
@@ -19,13 +19,13 @@ func Info() string {
 	switch {
 	case BuildDate == "unknown" || BuildDate == "":
 		if Commit == "unknown" || Commit == "" {
-			return Version
+			return Branch
 		}
-		return fmt.Sprintf("%s (%s)", Version, Commit)
+		return fmt.Sprintf("%s (%s)", Branch, Commit)
 	case Commit == "unknown" || Commit == "":
-		return fmt.Sprintf("%s (%s)", Version, BuildDate)
+		return fmt.Sprintf("%s (%s)", Branch, BuildDate)
 	default:
-		return fmt.Sprintf("%s (%s %s)", Version, BuildDate, Commit)
+		return fmt.Sprintf("%s (%s %s)", Branch, BuildDate, Commit)
 	}
 }
 
