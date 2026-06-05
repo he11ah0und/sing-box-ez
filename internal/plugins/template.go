@@ -10,9 +10,10 @@ import (
 
 // GeneratePluginTemplate creates a starter plugin directory with manifest.json
 // and main.lua generated from the current API surface.
-//   outDir   — target directory (e.g. "sing-box-ez-data/plugins/my-plugin")
-//   name     — plugin name (also used as directory name)
-//   relation — "client", "server", or "both" (stored as JSON string or array)
+//
+//	outDir   — target directory (e.g. "sing-box-ez-data/plugins/my-plugin")
+//	name     — plugin name (also used as directory name)
+//	relation — "client", "server", or "both" (stored as JSON string or array)
 func GeneratePluginTemplate(outDir, name, relation string) error {
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return err
