@@ -1,4 +1,4 @@
-//go:build !noplugins
+//go:build noplugins
 
 package gui
 
@@ -53,29 +53,6 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		g.defaultIntervalEntry.OnSubmitted(g.defaultIntervalEntry.Text)
 	}), g.defaultIntervalEntry)
 
-	// --- Plugins block ---
-	g.pluginsEnabledCheck = widget.NewCheck("Plugins feature", func(checked bool) {
-		g.cfg.SetPluginsEnabled(checked)
-		_ = g.cfg.Save()
-		if !checked {
-			g.pluginsDeveloperCheck.SetChecked(false)
-			g.cfg.SetPluginsDeveloper(false)
-			g.pluginsDeveloperCheck.Disable()
-		} else {
-			g.pluginsDeveloperCheck.Enable()
-		}
-	})
-	g.pluginsEnabledCheck.SetChecked(g.cfg.GetPluginsEnabled())
-
-	g.pluginsDeveloperCheck = widget.NewCheck("Plugins developer", func(checked bool) {
-		g.cfg.SetPluginsDeveloper(checked)
-		_ = g.cfg.Save()
-	})
-	g.pluginsDeveloperCheck.SetChecked(g.cfg.GetPluginsDeveloper())
-	if !g.cfg.GetPluginsEnabled() {
-		g.pluginsDeveloperCheck.Disable()
-	}
-
 	// --- Assemble content ---
 	content := container.NewVBox(
 		widget.NewLabelWithStyle("Logging", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -86,11 +63,6 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 
 		widget.NewLabelWithStyle("Config", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		intervalRow,
-		widget.NewSeparator(),
-
-		widget.NewLabelWithStyle("Plugins", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		g.pluginsEnabledCheck,
-		g.pluginsDeveloperCheck,
 	)
 
 	return container.NewTabItem("Settings", container.NewScroll(content))
