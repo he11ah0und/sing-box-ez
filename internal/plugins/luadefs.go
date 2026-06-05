@@ -30,7 +30,7 @@ func GenerateLuaDefs(outDir string) error {
 	var gb strings.Builder
 	gb.WriteString("-- Auto-generated EmmyLua globals for sing-box-ez plugins.\n")
 	gb.WriteString("-- Add this folder to VS Code setting:\n")
-	gb.WriteString("--   \"Lua.workspace.library\": [\"" + filepath.ToSlash(outDir) + "\"]\n")
+	fmt.Fprintf(&gb, "--   \"Lua.workspace.library\": [\"%s\"]\n", filepath.ToSlash(outDir))
 	gb.WriteString("\n")
 	for _, mod := range modules {
 		fmt.Fprintf(&gb, "---@type %s\n%s = {}\n\n", mod.Name, mod.Name)
@@ -66,14 +66,14 @@ func generateModuleDef(mod LuaModuleDef) string {
 
 	for _, fn := range mod.Funcs {
 		// Description
-		b.WriteString("---" + fn.Desc + "\n")
+		fmt.Fprintf(&b, "---%s\n", fn.Desc)
 		// Parse signature for @param and @return
 		params, returns := parseSignature(fn.Sig)
 		for _, p := range params {
-			b.WriteString("---@param " + p + "\n")
+			fmt.Fprintf(&b, "---@param %s\n", p)
 		}
 		for _, r := range returns {
-			b.WriteString("---@return " + r + "\n")
+			fmt.Fprintf(&b, "---@return %s\n", r)
 		}
 		fmt.Fprintf(&b, "function %s(%s) end\n\n", fn.Sig[:strings.Index(fn.Sig, "(")], argNames(params))
 	}

@@ -52,6 +52,12 @@ func (m *Manager) Discover() error {
 		return err
 	}
 
+	type loadItem struct {
+		mf        *Manifest
+		entryPath string
+	}
+	var toLoad []loadItem
+
 	for _, e := range entries {
 		if !e.IsDir() || e.Name() == "" || e.Name()[0] == '.' {
 			continue
@@ -83,12 +89,16 @@ func (m *Manager) Discover() error {
 		if mf.Enabled {
 			entryPath := filepath.Join(pdir, mf.Entry)
 			if _, err := os.Stat(entryPath); err == nil {
-				if err := m.loadLocked(mf, entryPath); err != nil {
-					m.sink("[plugins] failed to load " + mf.Name + ": " + err.Error())
-				}
+				toLoad = append(toLoad, loadItem{mf: mf, entryPath: entryPath})
 			} else {
 				m.sink("[plugins] missing entrypoint for " + mf.Name)
 			}
+		}
+	}
+
+	for _, item := range toLoad {
+		if err := m.Load(item.mf, item.entryPath); err != nil {
+			m.sink("[plugins] failed to load " + item.mf.Name + ": " + err.Error())
 		}
 	}
 	return nil
@@ -138,9 +148,10 @@ func (m *Manager) Unload(name string) {
 // Toggle enables or disables a plugin and persists the state.
 func (m *Manager) Toggle(name string) error {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	mf, ok := m.infos[name]
 	if !ok {
-		m.mu.Unlock()
 		return fmt.Errorf("plugin %s not found", name)
 	}
 	pdir := filepath.Join(PluginDir(), name)
@@ -159,7 +170,6 @@ func (m *Manager) Toggle(name string) error {
 			SourceURL:     mf.SourceURL,
 			LatestVersion: mf.LatestVersion,
 		})
-		m.mu.Unlock()
 		_ = m.state.Save()
 		m.sink("[plugins] disabled: " + name)
 		return nil
@@ -167,11 +177,9 @@ func (m *Manager) Toggle(name string) error {
 
 	// Enable.
 	if _, err := os.Stat(entryPath); err != nil {
-		m.mu.Unlock()
 		return fmt.Errorf("missing entrypoint: %s", entryPath)
 	}
 	if err := m.loadLocked(mf, entryPath); err != nil {
-		m.mu.Unlock()
 		return err
 	}
 	m.state.Set(name, PluginState{
@@ -180,7 +188,6 @@ func (m *Manager) Toggle(name string) error {
 		SourceURL:     mf.SourceURL,
 		LatestVersion: mf.LatestVersion,
 	})
-	m.mu.Unlock()
 	_ = m.state.Save()
 	return nil
 }

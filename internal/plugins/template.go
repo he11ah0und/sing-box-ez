@@ -66,11 +66,11 @@ func GeneratePluginTemplate(outDir, name, relation string) error {
 
 func generateLuaTemplate(pluginName string) string {
 	var b strings.Builder
-	b.WriteString("-- " + strings.Repeat("-", 60) + "\n")
+	fmt.Fprintf(&b, "-- %s\n", strings.Repeat("-", 60))
 	fmt.Fprintf(&b, "-- Plugin: %s\n", pluginName)
 	b.WriteString("-- Auto-generated from the current plugin API surface.\n")
 	b.WriteString("-- Remove what you don't need and customise the rest.\n")
-	b.WriteString("-- " + strings.Repeat("-", 60) + "\n\n")
+	fmt.Fprintf(&b, "-- %s\n\n", strings.Repeat("-", 60))
 
 	for _, mod := range GetAPIModules() {
 		fmt.Fprintf(&b, "-- %s module: %s\n", mod.Name, mod.Desc)
@@ -82,7 +82,7 @@ func generateLuaTemplate(pluginName string) string {
 				b.WriteString("-- Example:\n")
 				lines := strings.Split(fn.Example, "\n")
 				for _, line := range lines {
-					b.WriteString("--   " + line + "\n")
+					fmt.Fprintf(&b, "--   %s\n", line)
 				}
 			}
 			b.WriteString("\n")
@@ -90,7 +90,7 @@ func generateLuaTemplate(pluginName string) string {
 	}
 
 	b.WriteString("-- Minimal working skeleton\n")
-	b.WriteString("log.info(\"plugin \" .. \"" + pluginName + "\" .. \" loaded\")\n")
+	fmt.Fprintf(&b, "log.info(\"plugin \" .. %q .. \" loaded\")\n", pluginName)
 
 	return b.String()
 }

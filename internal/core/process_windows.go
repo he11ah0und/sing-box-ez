@@ -5,6 +5,7 @@ package core
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -17,7 +18,11 @@ func setProcessGroup(cmd *exec.Cmd) {
 }
 
 func KillProcess(pid int, elevated bool) error {
-	return exec.Command("taskkill", "/T", "/F", "/PID", fmt.Sprintf("%d", pid)).Run()
+	// On Windows taskkill /F forces termination regardless of elevation
+	// for processes owned by the same user. The elevated flag is kept
+	// for API consistency with the Unix implementation.
+	_ = elevated
+	return exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(pid)).Run()
 }
 
 func SetNetAdminCapabilityGUI(path string) error {

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -51,15 +52,11 @@ func (m *Manager) SetLogOutput(w io.Writer) {
 	m.logOutput = w
 }
 
-func absPath(p string) string {
+func absPath(p string) (string, error) {
 	if filepath.IsAbs(p) {
-		return p
+		return p, nil
 	}
-	a, _ := filepath.Abs(p)
-	if a != "" {
-		return a
-	}
-	return p
+	return filepath.Abs(p)
 }
 
 func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string) (*exec.Cmd, error) {
@@ -73,9 +70,25 @@ func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string)
 		if HasNetAdminCapability(corePath) {
 			return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 		}
-		return exec.CommandContext(ctx, "pkexec", absPath(corePath), "run", "-c", absPath(configPath)), nil
+		absCore, err := absPath(corePath)
+		if err != nil {
+			return nil, fmt.Errorf("resolve core path: %w", err)
+		}
+		absConfig, err := absPath(configPath)
+		if err != nil {
+			return nil, fmt.Errorf("resolve config path: %w", err)
+		}
+		return exec.CommandContext(ctx, "pkexec", absCore, "run", "-c", absConfig), nil
 	case "darwin":
-		script := fmt.Sprintf(`do shell script "%s run -c %s" with administrator privileges`, absPath(corePath), absPath(configPath))
+		absCore, err := absPath(corePath)
+		if err != nil {
+			return nil, fmt.Errorf("resolve core path: %w", err)
+		}
+		absConfig, err := absPath(configPath)
+		if err != nil {
+			return nil, fmt.Errorf("resolve config path: %w", err)
+		}
+		script := fmt.Sprintf(`do shell script %s with administrator privileges`, strconv.Quote(absCore+" run -c "+absConfig))
 		return exec.CommandContext(ctx, "osascript", "-e", script), nil
 	case "windows":
 		if m.elevated && !IsAdmin() {
@@ -157,7 +170,9 @@ func (m *Manager) Stop() error {
 		if runtime.GOOS == "linux" && HasNetAdminCapability(GetCorePath()) {
 			elevated = false
 		}
-		KillProcess(m.cmd.Process.Pid, elevated)
+		if err := KillProcess(m.cmd.Process.Pid, elevated); err != nil {
+			return fmt.Errorf("kill process: %w", err)
+		}
 	}
 	m.running = false
 	return nil
@@ -167,7 +182,13 @@ func (m *Manager) Restart() error {
 	if err := m.Stop(); err != nil {
 		return err
 	}
-	time.Sleep(500 * time.Millisecond)
+	// Wait up to 5 seconds for the process to actually stop.
+	for i := 0; i < 50; i++ {
+		if !m.IsRunning() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 	return m.Start()
 }
 
@@ -240,7 +261,7 @@ func (w *CoreLogWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closed {
-		return len(p), nil
+		return 0, fmt.Errorf("log writer is closed")
 	}
 	w.buf = append(w.buf, p...)
 	for {

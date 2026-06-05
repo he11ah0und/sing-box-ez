@@ -3,6 +3,8 @@
 package core
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,12 +22,17 @@ func KillProcess(pid int, elevated bool) error {
 	if elevated {
 		return killTreeElevated(pid)
 	}
-	killTree(pid)
-	return nil
+	return killTree(pid)
 }
 
 func killTreeElevated(pid int) error {
-	out, _ := exec.Command("pkexec", "pgrep", "-P", strconv.Itoa(pid)).Output()
+	out, err := exec.Command("pkexec", "pgrep", "-P", strconv.Itoa(pid)).Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+			// pgrep returns 1 when no children found — that's OK
+		}
+	}
 	for _, line := range strings.Split(string(out), "\n") {
 		if childPid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil && childPid > 0 {
 			_ = exec.Command("pkexec", "kill", "-9", strconv.Itoa(childPid)).Run()
@@ -34,46 +41,60 @@ func killTreeElevated(pid int) error {
 	return exec.Command("pkexec", "kill", "-9", strconv.Itoa(pid)).Run()
 }
 
-func killTree(pid int) {
-	out, _ := exec.Command("pgrep", "-P", strconv.Itoa(pid)).Output()
-	for _, line := range strings.Split(string(out), "\n") {
-		if childPid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil && childPid > 0 {
-			killTree(childPid)
+func killTree(pid int) error {
+	out, err := exec.Command("pgrep", "-P", strconv.Itoa(pid)).Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+			// pgrep returns 1 when no children found — that's OK
 		}
 	}
-	_ = syscall.Kill(pid, syscall.SIGKILL)
+	for _, line := range strings.Split(string(out), "\n") {
+		if childPid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil && childPid > 0 {
+			_ = killTree(childPid)
+		}
+	}
+	return syscall.Kill(pid, syscall.SIGKILL)
 }
 
-func resolveAbsPath(path string) string {
+func resolveAbsPath(path string) (string, error) {
 	if filepath.IsAbs(path) {
-		return path
+		return path, nil
 	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path
-	}
-	return abs
+	return filepath.Abs(path)
 }
 
 func SetNetAdminCapabilityGUI(path string) error {
 	if runtime.GOOS != "linux" {
 		return nil
 	}
-	return exec.Command("pkexec", "setcap", "cap_net_admin=+ep", resolveAbsPath(path)).Run()
+	absPath, err := resolveAbsPath(path)
+	if err != nil {
+		return fmt.Errorf("resolve path: %w", err)
+	}
+	return exec.Command("pkexec", "setcap", "cap_net_admin=+ep", absPath).Run()
 }
 
 func SetNetAdminCapabilityCLI(path string) error {
 	if runtime.GOOS != "linux" {
 		return nil
 	}
-	return exec.Command("sudo", "setcap", "cap_net_admin=+ep", resolveAbsPath(path)).Run()
+	absPath, err := resolveAbsPath(path)
+	if err != nil {
+		return fmt.Errorf("resolve path: %w", err)
+	}
+	return exec.Command("sudo", "setcap", "cap_net_admin=+ep", absPath).Run()
 }
 
 func HasNetAdminCapability(path string) bool {
 	if runtime.GOOS != "linux" {
 		return false
 	}
-	out, err := exec.Command("getcap", resolveAbsPath(path)).Output()
+	absPath, err := resolveAbsPath(path)
+	if err != nil {
+		return false
+	}
+	out, err := exec.Command("getcap", absPath).Output()
 	if err != nil {
 		return false
 	}
@@ -81,11 +102,10 @@ func HasNetAdminCapability(path string) bool {
 }
 
 func ProcessExists(pid int) bool {
-	proc, err := os.FindProcess(pid)
-	if err != nil {
+	if pid <= 0 {
 		return false
 	}
-	err = proc.Signal(os.Signal(nil))
+	_, err := os.Stat(fmt.Sprintf("/proc/%d", pid))
 	return err == nil
 }
 
