@@ -233,13 +233,14 @@ func (g *GUI) appendLogLines(newLines []string) {
 		g.logLines = g.logLines[len(g.logLines)-limit:]
 	}
 	text := strings.Join(g.logLines, "\n")
+	hasEntry := g.logEntry != nil
 	g.logMu.Unlock()
-	fyne.Do(func() {
-		if g.logEntry != nil {
+	if hasEntry {
+		fyne.Do(func() {
 			g.logEntry.SetText(text)
 			g.logEntry.CursorRow = 999999
-		}
-	})
+		})
+	}
 }
 
 func (g *GUI) log(msg string) {
