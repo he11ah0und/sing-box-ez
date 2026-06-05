@@ -231,23 +231,32 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 				g.log("Failed to fetch release notes: " + err.Error())
 				return
 			}
-			var latest *updater.Release
+			var target *updater.Release
+			// Try to find release matching current version
 			for i := range releases {
-				if !releases[i].Prerelease {
-					latest = &releases[i]
+				if !releases[i].Prerelease && releases[i].TagName == version.Version {
+					target = &releases[i]
 					break
 				}
 			}
-			if latest == nil {
+			// Fallback to latest stable
+			if target == nil {
+				for i := range releases {
+					if !releases[i].Prerelease {
+						target = &releases[i]
+						break
+					}
+				}
+			}
+			if target == nil {
 				g.log("No stable releases found")
 				return
 			}
 			fyne.Do(func() {
-				notesLabel := widget.NewLabel(latest.Body)
-				notesLabel.Wrapping = fyne.TextWrapWord
-				scroll := container.NewScroll(notesLabel)
+				notesRich := widget.NewRichTextFromMarkdown(target.Body)
+				scroll := container.NewScroll(notesRich)
 				scroll.SetMinSize(fyne.NewSize(500, 400))
-				d := dialog.NewCustom("Release notes: "+latest.TagName, "Close", scroll, g.window)
+				d := dialog.NewCustom("Release notes: "+target.TagName, "Close", scroll, g.window)
 				d.Show()
 			})
 		}()
