@@ -34,6 +34,12 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	})
 	g.showLogsCheck.SetChecked(g.cfg.GetShowLogs())
 
+	g.desktopNotificationsCheck = widget.NewCheck(i18n.T("settings.desktop_notifications"), func(checked bool) {
+		g.cfg.SetDesktopNotifications(checked)
+		_ = g.cfg.Save()
+	})
+	g.desktopNotificationsCheck.SetChecked(g.cfg.GetDesktopNotifications())
+
 	// --- Language block ---
 	langs := i18n.AvailableLanguages()
 	langSelect := widget.NewSelect(langs, nil)
@@ -69,6 +75,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		widget.NewLabelWithStyle(i18n.T("settings.logging.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		logLimitRow,
 		g.showLogsCheck,
+		g.desktopNotificationsCheck,
 		widget.NewSeparator(),
 
 		widget.NewLabelWithStyle(i18n.T("settings.config.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),

@@ -93,6 +93,7 @@ func GetCoreVersion(corePath string) (string, error) {
 		return "", err
 	}
 	cmd := exec.Command(corePath, "version")
+	setNoWindow(cmd)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
