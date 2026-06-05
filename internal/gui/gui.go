@@ -584,6 +584,27 @@ func (g *GUI) statusChecker() {
 	}
 }
 
+// repaintLoop periodically forces a canvas refresh to work around Fyne/GLFW
+// not repainting automatically when the window becomes visible after being
+// hidden (minimize, workspace switch, or screen idle wake-up on Linux/Windows).
+func (g *GUI) repaintLoop() {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for range ticker.C {
+		g.stopMu.Lock()
+		stopped := g.stopped
+		g.stopMu.Unlock()
+		if stopped {
+			return
+		}
+		fyne.Do(func() {
+			if g.window != nil {
+				g.window.Canvas().Refresh(g.window.Content())
+			}
+		})
+	}
+}
+
 func (g *GUI) Run() {
 	g.window.Show()
 	go func() {
@@ -592,6 +613,7 @@ func (g *GUI) Run() {
 		}
 		g.checkUpdatesOnStartup()
 	}()
+	go g.repaintLoop()
 	g.app.Run()
 }
 
