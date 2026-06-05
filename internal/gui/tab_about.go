@@ -43,7 +43,7 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 	notesBtn := widget.NewButton("Show release notes", func() {
 		go func() {
 			modal := g.showInfiniteDialog("Fetching release notes...")
-			release, err := updater.GetReleaseByTag(version.Branch)
+			release, err := updater.GetReleaseByTag(version.Commit)
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
 				if release.TagName == "" {
