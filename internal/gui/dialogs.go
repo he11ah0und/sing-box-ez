@@ -110,7 +110,7 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	currentLbl := widget.NewLabel("Current: " + info.Current)
 	latestLbl := widget.NewLabel("Latest: " + info.Latest)
 
-	changelog := widget.NewLabel(info.LatestBody)
+	changelog := widget.NewRichTextFromMarkdown(info.LatestBody)
 	changelog.Wrapping = fyne.TextWrapWord
 
 	scroll := container.NewScroll(changelog)
