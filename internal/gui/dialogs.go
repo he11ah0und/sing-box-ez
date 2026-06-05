@@ -13,6 +13,7 @@ import (
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/updater"
+	"sing-box-ez/internal/version"
 )
 
 // ---------------------------------------------------------------------------
@@ -107,7 +108,11 @@ func (g *GUI) showDownloadCompleteDialog(ver, path string) {
 // ---------------------------------------------------------------------------
 
 func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
-	currentLbl := widget.NewLabel("Current: " + info.Current)
+	currentText := version.Commit
+	if currentText == "unknown" || currentText == "" {
+		currentText = info.Current
+	}
+	currentLbl := widget.NewLabel("Current: " + currentText)
 	latestLbl := widget.NewLabel("Latest: " + info.Latest)
 
 	changelog := widget.NewRichTextFromMarkdown(info.LatestBody)
