@@ -10,14 +10,14 @@ import (
 
 // ApplyUpdate downloads the new binary, hands over to a PowerShell script,
 // and exits the current process.
-func ApplyUpdate(assetURL string) error {
+func ApplyUpdate(assetURL string, progress func(downloaded, total int64)) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot locate executable: %w", err)
 	}
 
 	tmp := exe + ".tmp"
-	if err := DownloadAsset(assetURL, tmp, nil); err != nil {
+	if err := DownloadAsset(assetURL, tmp, progress); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 
