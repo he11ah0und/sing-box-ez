@@ -135,6 +135,7 @@ jobs:
             ARCH=${{ matrix.arch }} \
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
+            PLUGINS=0 \
             $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Build ${{ matrix.name }}
@@ -144,6 +145,7 @@ jobs:
             ARCH=${{ matrix.arch }} \
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
+            PLUGINS=0 \
             $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Write status

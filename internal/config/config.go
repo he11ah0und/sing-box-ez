@@ -40,10 +40,13 @@ type AppConfig struct {
 	SingBoxURL          string `json:"singbox_url,omitempty"`
 	UpdateIntervalHours int    `json:"update_interval_hours"`
 
-	RunAsAdmin   bool `json:"run_as_admin"`
-	ShowLogs     bool `json:"show_logs"`
-	ShowCoreLogs bool `json:"show_core_logs"`
-	LogLimit     int  `json:"log_limit"`
+	RunAsAdmin       bool `json:"run_as_admin"`
+	ShowLogs         bool `json:"show_logs"`
+	ShowCoreLogs     bool `json:"show_core_logs"`
+	LogLimit         int  `json:"log_limit"`
+	PluginsEnabled   bool `json:"plugins_enabled"`
+	PluginsDeveloper bool `json:"plugins_developer"`
+	CoreAutoRestart  bool `json:"core_auto_restart"`
 
 	// New multi-config list
 	Configs    []ConfigRecord `json:"configs"`
@@ -270,4 +273,40 @@ func (c *AppConfig) GetLogLimit() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.LogLimit
+}
+
+func (c *AppConfig) SetPluginsEnabled(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.PluginsEnabled = v
+}
+
+func (c *AppConfig) GetPluginsEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.PluginsEnabled
+}
+
+func (c *AppConfig) SetPluginsDeveloper(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.PluginsDeveloper = v
+}
+
+func (c *AppConfig) GetPluginsDeveloper() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.PluginsDeveloper
+}
+
+func (c *AppConfig) SetCoreAutoRestart(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.CoreAutoRestart = v
+}
+
+func (c *AppConfig) GetCoreAutoRestart() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CoreAutoRestart
 }

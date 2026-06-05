@@ -23,6 +23,10 @@ func (g *GUI) buildLogTab() *container.TabItem {
 		}
 	}
 
+	if !g.cfg.GetShowLogs() {
+		return nil
+	}
+
 	copyBtn := widget.NewButton("Copy all", func() {
 		g.app.Clipboard().SetContent(g.logEntry.Text)
 	})

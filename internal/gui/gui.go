@@ -57,13 +57,16 @@ type GUI struct {
 	updateAllBtn   *widget.Button
 
 	// Tools tab widgets
-	defaultIntervalEntry *widget.Entry
-	logLimitEntry        *widget.Entry
-	showLogsCheck        *widget.Check
-	showCoreLogsCheck    *widget.Check
-	versionText          *canvas.Text
-	latestText           *canvas.Text
-	privilegeText        *canvas.Text
+	defaultIntervalEntry  *widget.Entry
+	logLimitEntry         *widget.Entry
+	showLogsCheck         *widget.Check
+	showCoreLogsCheck     *widget.Check
+	coreAutoRestartCheck  *widget.Check
+	pluginsEnabledCheck   *widget.Check
+	pluginsDeveloperCheck *widget.Check
+	versionText           *canvas.Text
+	latestText            *canvas.Text
+	privilegeText         *canvas.Text
 
 	// Log tab widgets
 	logEntry    *widget.Entry
@@ -88,6 +91,10 @@ type GUI struct {
 	// Lifecycle
 	stopped bool
 	stopMu  sync.Mutex
+
+	// Auto-restart rate limiter
+	lastAutoRestart time.Time
+	autoRestartMu   sync.Mutex
 
 	// Common
 	mu sync.Mutex
@@ -122,7 +129,9 @@ func New(cfg *config.AppConfig) *GUI {
 	w.SetOnClosed(g.onWindowClosed)
 
 	g.buildUI()
-	g.initPlugins()
+	if g.cfg.GetPluginsEnabled() {
+		g.initPlugins()
+	}
 	g.updateButtons()
 	g.refreshCoreVersion()
 	go g.checkStartupUpdate()
@@ -139,13 +148,15 @@ func (g *GUI) buildUI() {
 	settingsTab := g.buildSettingsTab()
 	logTab := g.buildLogTab()
 	pluginsTab := g.buildPluginsTab()
-	g.tabs = container.NewAppTabs(
-		mainTab,
-		configsTab,
-		settingsTab,
-		logTab,
-		pluginsTab,
-	)
+
+	items := []*container.TabItem{mainTab, configsTab, settingsTab}
+	if logTab != nil {
+		items = append(items, logTab)
+	}
+	if pluginsTab != nil {
+		items = append(items, pluginsTab)
+	}
+	g.tabs = container.NewAppTabs(items...)
 	g.window.SetContent(g.tabs)
 }
 
@@ -223,14 +234,53 @@ func (g *GUI) log(msg string) {
 	})
 }
 
+func isCoreFatalError(line string) bool {
+	lower := strings.ToLower(line)
+	return strings.Contains(lower, "fatal[") ||
+		strings.Contains(lower, "panic:") ||
+		strings.Contains(lower, "fetch rule-set") ||
+		strings.Contains(lower, "initial rule-set:") ||
+		strings.Contains(lower, "save rule-set")
+}
+
 func (g *GUI) logCore(msg string) {
-	if !g.cfg.GetShowCoreLogs() {
-		return
-	}
 	g.stopMu.Lock()
 	stopped := g.stopped
 	g.stopMu.Unlock()
 	if stopped {
+		return
+	}
+
+	lines := strings.Split(strings.TrimRight(msg, "\n"), "\n")
+	var valid []string
+	for _, l := range lines {
+		if l != "" {
+			valid = append(valid, l)
+		}
+	}
+
+	if g.cfg.GetCoreAutoRestart() && len(valid) > 0 {
+		for _, l := range valid {
+			if isCoreFatalError(l) {
+				g.autoRestartMu.Lock()
+				if time.Since(g.lastAutoRestart) > 30*time.Second {
+					g.lastAutoRestart = time.Now()
+					g.autoRestartMu.Unlock()
+					g.log("Detected core fatal error, auto-restarting...")
+					go func() {
+						if err := g.manager.Restart(); err != nil {
+							g.log("Auto-restart failed: " + err.Error())
+						}
+					}()
+				} else {
+					g.autoRestartMu.Unlock()
+				}
+				break
+			}
+		}
+	}
+
+	if !g.cfg.GetShowCoreLogs() {
 		return
 	}
 	g.logMu.Lock()
@@ -239,13 +289,6 @@ func (g *GUI) logCore(msg string) {
 		return
 	}
 	g.logMu.Unlock()
-	lines := strings.Split(strings.TrimRight(msg, "\n"), "\n")
-	var valid []string
-	for _, l := range lines {
-		if l != "" {
-			valid = append(valid, l)
-		}
-	}
 	if len(valid) == 0 {
 		return
 	}
