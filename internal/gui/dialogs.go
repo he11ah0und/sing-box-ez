@@ -190,9 +190,13 @@ func (g *GUI) doSelfUpdate(assetURL string) {
 		dialog.ShowError(fmt.Errorf("no matching asset found"), g.window)
 		return
 	}
-	modal := g.showInfiniteDialog("Downloading update...")
-	if err := updater.ApplyUpdate(assetURL); err != nil {
-		fyne.Do(func() { modal.Hide() })
+	progressModal, progress := g.showProgressDialog("Downloading update...")
+	if err := updater.ApplyUpdate(assetURL, func(d, t int64) {
+		fyne.Do(func() {
+			progress.SetValue(float64(d) / float64(t))
+		})
+	}); err != nil {
+		fyne.Do(func() { progressModal.Hide() })
 		g.log("Self-update failed: " + err.Error())
 		dialog.ShowError(err, g.window)
 	}
