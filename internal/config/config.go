@@ -47,6 +47,7 @@ type AppConfig struct {
 	PluginsEnabled   bool `json:"plugins_enabled"`
 	PluginsDeveloper bool `json:"plugins_developer"`
 	CoreAutoRestart  bool `json:"core_auto_restart"`
+	FirstRunDone     bool `json:"first_run_done"`
 
 	// New multi-config list
 	Configs    []ConfigRecord `json:"configs"`
@@ -310,4 +311,16 @@ func (c *AppConfig) GetCoreAutoRestart() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.CoreAutoRestart
+}
+
+func (c *AppConfig) SetFirstRunDone(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.FirstRunDone = v
+}
+
+func (c *AppConfig) GetFirstRunDone() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.FirstRunDone
 }
