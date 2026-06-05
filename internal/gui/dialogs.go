@@ -2,11 +2,13 @@ package gui
 
 import (
 	"fmt"
+	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
 	"sing-box-ez/internal/core"
@@ -108,18 +110,19 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	currentLbl := widget.NewLabel("Current: " + info.Current)
 	latestLbl := widget.NewLabel("Latest: " + info.Latest)
 
-	changelog := widget.NewMultiLineEntry()
-	changelog.SetText(info.LatestBody)
+	changelog := widget.NewLabel(info.LatestBody)
 	changelog.Wrapping = fyne.TextWrapWord
-	changelog.Disable()
 
 	scroll := container.NewScroll(changelog)
 	scroll.SetMinSize(fyne.NewSize(480, 280))
 
+	whiteSep := canvas.NewRectangle(color.White)
+	sepLine := container.New(layout.NewGridWrapLayout(fyne.NewSize(480, 1)), whiteSep)
+
 	content := container.NewVBox(
 		currentLbl,
 		latestLbl,
-		widget.NewSeparator(),
+		sepLine,
 		widget.NewLabel("Changelog:"),
 		scroll,
 	)
