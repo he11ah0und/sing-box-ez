@@ -29,20 +29,13 @@ func guiProtocol() string {
 	return "unknown"
 }
 
-func systemInfoText() string {
-	s := runtime.GOOS + "-" + runtime.GOARCH
-	if runtime.GOOS == "linux" {
-		proto := guiProtocol()
-		if proto != "" {
-			s += "-" + proto
-		}
-	}
-	return s
+func buildInfoText() string {
+	return version.BuildFlags()
 }
 
 func (g *GUI) buildSettingsTab() *container.TabItem {
 	// System info
-	infoLbl := widget.NewLabel(systemInfoText())
+	infoLbl := widget.NewLabel(buildInfoText())
 	buildLbl := widget.NewLabel("Build: " + version.Info())
 	repoURL, _ := url.Parse(version.RepoURL)
 	repoLink := widget.NewHyperlink("GitHub Repository", repoURL)
@@ -186,6 +179,35 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		}()
 	})
 
+	g.coreAutoRestartCheck = widget.NewCheck("Auto-restart core on fatal errors", func(checked bool) {
+		g.cfg.SetCoreAutoRestart(checked)
+		_ = g.cfg.Save()
+	})
+	g.coreAutoRestartCheck.SetChecked(g.cfg.GetCoreAutoRestart())
+
+	// Plugins toggles
+	g.pluginsEnabledCheck = widget.NewCheck("Plugins feature", func(checked bool) {
+		g.cfg.SetPluginsEnabled(checked)
+		_ = g.cfg.Save()
+		if !checked {
+			g.pluginsDeveloperCheck.SetChecked(false)
+			g.cfg.SetPluginsDeveloper(false)
+			g.pluginsDeveloperCheck.Disable()
+		} else {
+			g.pluginsDeveloperCheck.Enable()
+		}
+	})
+	g.pluginsEnabledCheck.SetChecked(g.cfg.GetPluginsEnabled())
+
+	g.pluginsDeveloperCheck = widget.NewCheck("Plugins developer", func(checked bool) {
+		g.cfg.SetPluginsDeveloper(checked)
+		_ = g.cfg.Save()
+	})
+	g.pluginsDeveloperCheck.SetChecked(g.cfg.GetPluginsDeveloper())
+	if !g.cfg.GetPluginsEnabled() {
+		g.pluginsDeveloperCheck.Disable()
+	}
+
 	content := container.NewVBox(
 		widget.NewLabelWithStyle("System", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		infoLbl,
@@ -211,6 +233,12 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		container.NewHBox(g.versionText, g.latestText),
 		downloadBtn,
 		checkBtn,
+		g.coreAutoRestartCheck,
+		widget.NewSeparator(),
+
+		widget.NewLabelWithStyle("Plugins", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		g.pluginsEnabledCheck,
+		g.pluginsDeveloperCheck,
 	)
 
 	return container.NewTabItem("Settings", container.NewScroll(content))
