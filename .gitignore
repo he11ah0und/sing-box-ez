@@ -10,4 +10,5 @@ site/
 # Build artifacts
 build/sing-box-ez-*
 build/sing-box-ez-data/sing-box
+sing-box-ez-data/sing-box
 
