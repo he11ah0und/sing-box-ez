@@ -14,6 +14,14 @@ func DefaultProject() Project {
 	}
 }
 
+// DefaultCoreProject returns the sing-box core repository configuration.
+func DefaultCoreProject() Project {
+	return Project{
+		Owner: "SagerNet",
+		Repo:  "sing-box",
+	}
+}
+
 // Slug returns the "owner/repo" form.
 func (p Project) Slug() string {
 	return p.Owner + "/" + p.Repo
@@ -52,4 +60,9 @@ func (p Project) WebCommitURL(commit string) string {
 // WebLatestReleaseURL returns the web URL for the latest release page.
 func (p Project) WebLatestReleaseURL() string {
 	return p.RepoURL() + "/releases/latest"
+}
+
+// DownloadReleaseURL returns the direct download URL for a release asset.
+func (p Project) DownloadReleaseURL(version, asset string) string {
+	return p.RepoURL() + "/releases/download/v" + version + "/" + asset
 }

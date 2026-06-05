@@ -144,17 +144,20 @@ func New(cfg *config.AppConfig) *GUI {
 func (g *GUI) buildUI() {
 	mainTab := g.buildMainTab()
 	configsTab := g.buildConfigsTab()
+	coreTab := g.buildCoreTab()
 	settingsTab := g.buildSettingsTab()
 	logTab := g.buildLogTab()
 	pluginsTab := g.buildPluginsTab()
+	aboutTab := g.buildAboutTab()
 
-	items := []*container.TabItem{mainTab, configsTab, settingsTab}
+	items := []*container.TabItem{mainTab, configsTab, coreTab, settingsTab}
 	if logTab != nil {
 		items = append(items, logTab)
 	}
 	if pluginsTab != nil {
 		items = append(items, pluginsTab)
 	}
+	items = append(items, aboutTab)
 	g.tabs = container.NewAppTabs(items...)
 	g.window.SetContent(g.tabs)
 }
