@@ -8,7 +8,27 @@ permissions:
   contents: write
 
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.commit.outputs.short }}
+      body: ${{ steps.commit.outputs.message }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo 'message<<EOF'
+            git log -1 --pretty=%B
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
   build:
+    needs: prepare-release
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -102,39 +122,85 @@ jobs:
             COMPILER=${{ matrix.compiler }} \
             $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
-      - name: Upload artifact
+      - name: Write status
+        if: always()
+        run: echo "${{ job.status }}" > status-${{ matrix.name }}.txt
+
+      - name: Upload binary
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
+          name: binary-${{ matrix.name }}
           path: ${{ matrix.artifact }}
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Upload status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: status-${{ matrix.name }}
+          path: status-${{ matrix.name }}.txt
 
-      - name: Download artifacts
+  finalize-release:
+    needs: [prepare-release, build]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: true
+          pattern: '*'
+          merge-multiple: false
 
-      - name: Get commit info
-        id: commit
+      - name: Build release notes and collect binaries
         run: |
-          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-          {
-            echo 'message<<EOF'
-            git log -1 --pretty=%B
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
+          mkdir -p binaries
 
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.commit.outputs.short }}
-          name: ${{ steps.commit.outputs.short }}
-          body: ${{ steps.commit.outputs.message }}
-          files: artifacts/*
+          # Base body from commit message
+          cat > release_notes.md << 'EOF'
+          ${{ needs.prepare-release.outputs.body }}
+          EOF
+
+          echo "" >> release_notes.md
+          echo "## Build Status" >> release_notes.md
+          echo "" >> release_notes.md
+
+          for name in linux-wayland linux-x11 linux-cli-gcc linux-cli-musl windows-gui windows-cli; do
+            status_file="artifacts/status-${name}/status-${name}.txt"
+            binary_dir="artifacts/binary-${name}"
+
+            if [ -f "$status_file" ]; then
+              status=$(cat "$status_file")
+            else
+              status="failure"
+            fi
+
+            if [ "$status" = "success" ]; then
+              echo "- ✅ ${name}" >> release_notes.md
+              if [ -d "$binary_dir" ]; then
+                cp "${binary_dir}"/* binaries/ 2>/dev/null || true
+              fi
+            else
+              echo "- ❌ ${name}" >> release_notes.md
+            fi
+          done
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ needs.prepare-release.outputs.tag }}"
+
+          # Create release if it doesn't exist; ignore error if it does
+          gh release create "$tag" \
+            --title "$tag" \
+            --notes-file release_notes.md 2>/dev/null || true
+
+          # Upload binaries (overwrite existing)
+          for f in binaries/*; do
+            [ -f "$f" ] || continue
+            gh release upload "$tag" "$f" --clobber || true
+          done
+
+          # Update release notes
+          gh release edit "$tag" --notes-file release_notes.md
