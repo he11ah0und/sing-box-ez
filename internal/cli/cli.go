@@ -369,7 +369,7 @@ func cmdSelfUpdate(_ *config.AppConfig, _ []string) error {
 	fmt.Printf("Updating %s → %s\n", info.Current, info.Latest)
 	fmt.Printf("Downloading %s...\n", info.AssetName)
 
-	if err := updater.ApplyUpdate(info.AssetURL); err != nil {
+	if err := updater.ApplyUpdate(info.AssetURL, nil); err != nil {
 		return fmt.Errorf("update failed: %w", err)
 	}
 	return nil

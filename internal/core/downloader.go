@@ -14,11 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"sing-box-ez/internal/githuburl"
 	"sing-box-ez/internal/paths"
-)
-
-const (
-	githubAPIURL = "https://api.github.com/repos/SagerNet/sing-box/releases/latest"
 )
 
 // ProgressFunc вызывается во время скачивания: скачано, всего.
@@ -75,7 +72,7 @@ type githubRelease struct {
 
 func GetLatestVersion() (string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(githubAPIURL)
+	resp, err := client.Get(githuburl.DefaultCoreProject().APILatestReleaseURL())
 	if err != nil {
 		return "", err
 	}
@@ -130,7 +127,7 @@ func DownloadCore(version string, onProgress ProgressFunc) (string, error) {
 	}
 
 	archiveName, binaryName, isZip := platformSuffix(version)
-	url := fmt.Sprintf("https://github.com/SagerNet/sing-box/releases/download/v%s/%s", version, archiveName)
+	url := githuburl.DefaultCoreProject().DownloadReleaseURL(version, archiveName)
 
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Get(url)
