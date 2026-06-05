@@ -369,7 +369,7 @@ func (g *GUI) checkStartupUpdate() {
 
 func (g *GUI) checkSelfUpdate() {
 	info, err := updater.CheckUpdate(version.Version)
-	if err != nil || len(info.Releases) == 0 {
+	if err != nil || info.ReleaseCount == 0 {
 		return
 	}
 	fyne.Do(func() {

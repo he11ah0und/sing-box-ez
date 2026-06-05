@@ -322,11 +322,11 @@ func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
 	info, err := updater.CheckUpdate(version.Version)
 	if err != nil {
 		fmt.Println("App update check failed:", err)
-	} else if len(info.Releases) > 0 {
-		fmt.Printf("App: %s → %s (%d release(s) behind)\n", info.Current, info.Latest, len(info.Releases))
-		for i, r := range info.Releases {
-			fmt.Printf("  %d. %s (%s)\n", i+1, r.TagName, r.PublishedAt.Format("2006-01-02"))
-		}
+	} else if info.ReleaseCount > 0 {
+		fmt.Printf("App: %s → %s (%d release(s) behind)\n", info.Current, info.Latest, info.ReleaseCount)
+		fmt.Println()
+		fmt.Println("Latest release notes:")
+		fmt.Println(info.LatestBody)
 	} else {
 		fmt.Println("App: up to date (" + info.Current + ")")
 	}
@@ -357,7 +357,7 @@ func cmdSelfUpdate(_ *config.AppConfig, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("check failed: %w", err)
 	}
-	if len(info.Releases) == 0 {
+	if info.ReleaseCount == 0 {
 		fmt.Println("Already up to date.")
 		return nil
 	}
