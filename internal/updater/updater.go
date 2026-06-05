@@ -70,14 +70,30 @@ func GetReleases() ([]Release, error) {
 
 // GetLatestRelease returns the most recent release.
 func GetLatestRelease() (Release, error) {
-	releases, err := GetReleases()
+	url := repoAPI + "/latest"
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return Release{}, err
 	}
-	if len(releases) == 0 {
-		return Release{}, fmt.Errorf("no releases found")
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return Release{}, err
 	}
-	return releases[0], nil
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return Release{}, fmt.Errorf("github api %s: %s", resp.Status, string(body))
+	}
+
+	var r Release
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return Release{}, err
+	}
+	return r, nil
 }
 
 // CheckUpdate compares the current version against GitHub releases.
