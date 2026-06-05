@@ -7,11 +7,45 @@ import (
 	"strings"
 )
 
-const DataDir = "sing-box-ez-data"
+// DataDir is the root directory for application data.
+// It can be overridden via --data-dir before Init() is called.
+var DataDir string
 
-func init() {
+// SetDataDir overrides the default data directory.
+func SetDataDir(dir string) {
+	DataDir = dir
+}
+
+// Init creates the default data directory and subdirectories.
+// It should be called after any SetDataDir override.
+func Init() {
+	if DataDir == "" {
+		DataDir = defaultDataDir()
+	}
 	_ = os.MkdirAll(DataDir, 0755)
 	_ = os.MkdirAll(filepath.Join(DataDir, "configs"), 0755)
+	_ = os.MkdirAll(filepath.Join(DataDir, "plugins"), 0755)
+	_ = os.MkdirAll(filepath.Join(DataDir, "docs"), 0755)
+}
+
+func defaultDataDir() string {
+	switch runtime.GOOS {
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = os.Getenv("LOCALAPPDATA")
+		}
+		if appData == "" {
+			appData = os.TempDir()
+		}
+		return filepath.Join(appData, "sing-box-ez")
+	default:
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
+		return filepath.Join(home, ".sing-box-ez")
+	}
 }
 
 // Data returns a path inside the data directory.
