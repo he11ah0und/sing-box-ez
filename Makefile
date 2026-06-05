@@ -17,9 +17,13 @@ OS           ?= $(shell go env GOOS)
 ARCH         ?= $(shell go env GOARCH)
 GUI          ?= 1
 GUI_BACKEND  ?= wayland
+COMPILER     ?= gcc
 
 GOOS    := $(OS)
 GOARCH  := $(ARCH)
+
+# Compiler flavour: gcc (glibc) or musl
+COMPILER_SUFFIX := $(if $(filter musl,$(COMPILER)),-musl,)
 
 # On Windows with GUI, hide the console window.
 WIN_GUI_FLAG := $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(GUI))),-H windowsgui,)
@@ -40,15 +44,21 @@ HOST_ARCH := $(shell go env GOARCH)
 
 CROSS_CC :=
 
-ifeq ($(shell [ "$(CGO_ENABLED)" = "1" ] && [ "$(GOOS)-$(GOARCH)" != "$(HOST_OS)-$(HOST_ARCH)" ] && echo 1 || echo 0),1)
-  ifeq ($(GOOS),windows)
-    ifeq ($(GOARCH),amd64)
-      CROSS_CC := x86_64-w64-mingw32-gcc
-    endif
+ifeq ($(COMPILER),musl)
+  ifeq ($(GOARCH),amd64)
+    CROSS_CC := musl-gcc
   endif
-  ifeq ($(GOOS),linux)
-    ifeq ($(GOARCH),arm64)
-      CROSS_CC := aarch64-linux-gnu-gcc
+else
+  ifeq ($(shell [ "$(CGO_ENABLED)" = "1" ] && [ "$(GOOS)-$(GOARCH)" != "$(HOST_OS)-$(HOST_ARCH)" ] && echo 1 || echo 0),1)
+    ifeq ($(GOOS),windows)
+      ifeq ($(GOARCH),amd64)
+        CROSS_CC := x86_64-w64-mingw32-gcc
+      endif
+    endif
+    ifeq ($(GOOS),linux)
+      ifeq ($(GOARCH),arm64)
+        CROSS_CC := aarch64-linux-gnu-gcc
+      endif
     endif
   endif
 endif
@@ -57,7 +67,7 @@ endif
 # otherwise use auto-detected cross compiler.
 BUILD_CC := $(or $(filter-out cc gcc,$(CC)),$(CROSS_CC))
 
-OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOOS)-$(GOARCH)$(GUI_SUFFIX)$(EXT)
+OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOOS)-$(GOARCH)$(GUI_SUFFIX)$(COMPILER_SUFFIX)$(EXT)
 
 # ---------------------------------------------------------------------------
 # Default target
@@ -94,6 +104,7 @@ help:
 	@echo "  ARCH         Target architecture      (default: current)"
 	@echo "  GUI          1 = with GUI (needs CGO), 0 = CLI only"
 	@echo "  GUI_BACKEND  wayland | x11  (default: wayland)"
+	@echo "  COMPILER     gcc | musl     (default: gcc)"
 	@echo "  CC           Cross-compiler to use    (auto-detected)"
 
 # ---------------------------------------------------------------------------
@@ -101,6 +112,11 @@ help:
 # ---------------------------------------------------------------------------
 setup:
 	@command -v apt-get >/dev/null 2>&1 || { echo "apt-get not found. Install dependencies manually."; exit 0; }
+ifeq ($(COMPILER),musl)
+	@echo "Installing musl build dependencies..."
+	sudo apt-get update -qq
+	sudo apt-get install --no-install-recommends -y musl-tools
+else
 ifeq ($(GOOS),linux)
 ifeq ($(GUI),1)
 ifeq ($(GUI_BACKEND),wayland)
@@ -121,6 +137,7 @@ else ifeq ($(GOOS),windows)
 	@echo "Installing Windows cross-compile dependencies..."
 	sudo apt-get update -qq
 	sudo apt-get install --no-install-recommends -y mingw-w64
+endif
 endif
 
 # ---------------------------------------------------------------------------
