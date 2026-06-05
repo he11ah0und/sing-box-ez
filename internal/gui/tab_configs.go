@@ -31,7 +31,7 @@ func (c *cell) CreateRenderer() fyne.WidgetRenderer {
 }
 
 func (c *cell) SetText(text string) {
-	c.lbl.SetText(text)
+	fyne.Do(func() { c.lbl.SetText(text) })
 }
 
 func (c *cell) DoubleTapped(_ *fyne.PointEvent) {
@@ -125,7 +125,7 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 	}
 	g.configTable.UpdateHeader = func(id widget.TableCellID, obj fyne.CanvasObject) {
 		if id.Row == -1 && id.Col >= 0 && id.Col < len(headers) {
-			obj.(*widget.Label).SetText(headers[id.Col])
+			fyne.Do(func() { obj.(*widget.Label).SetText(headers[id.Col]) })
 		}
 	}
 
@@ -341,6 +341,19 @@ func (g *GUI) onActivateConfig() {
 func (g *GUI) onUpdateAllConfigs() {
 	go func() {
 		configs := g.cfg.GetConfigs()
+		total := 0
+		for _, rec := range configs {
+			if rec.URL != "" {
+				total++
+			}
+		}
+		if total == 0 {
+			g.log("No configs to update")
+			return
+		}
+
+		progressModal, progress := g.showProgressDialog("Updating all configs...")
+		updated := 0
 		for _, rec := range configs {
 			if rec.URL == "" {
 				continue
@@ -350,12 +363,19 @@ func (g *GUI) onUpdateAllConfigs() {
 				g.log("Failed to update " + rec.Name + ": " + err.Error())
 			} else {
 				g.cfg.SetLastUpdateFor(rec.Name, time.Now())
+				updated++
 				g.log("Config updated: " + rec.Name)
 			}
+			fyne.Do(func() {
+				progress.SetValue(float64(updated) / float64(total))
+			})
 		}
 		_ = g.cfg.Save()
 		g.refreshConfigData()
-		g.configTable.Refresh()
-		g.log("Update all finished")
+		fyne.Do(func() {
+			progressModal.Hide()
+			g.configTable.Refresh()
+		})
+		g.log(fmt.Sprintf("Update all finished (%d/%d)", updated, total))
 	}()
 }
