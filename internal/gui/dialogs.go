@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"image/color"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -112,8 +113,29 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	if currentText == "unknown" || currentText == "" {
 		currentText = info.Current
 	}
-	currentLbl := widget.NewLabel("Current: " + currentText)
-	latestLbl := widget.NewLabel("Latest: " + info.Latest)
+
+	var currentDateStr, latestDateStr, diffStr string
+	if dt, err := version.BuildDateTime(); err == nil {
+		currentDateStr = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
+	} else {
+		currentDateStr = "unknown"
+	}
+	if !info.LatestDate.IsZero() {
+		lt := info.LatestDate.Local()
+		latestDateStr = lt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(info.LatestDate) + ")"
+		if dt, err := version.BuildDateTime(); err == nil {
+			diff := info.LatestDate.Sub(dt)
+			if diff < 0 {
+				diff = -diff
+			}
+			diffStr = fmt.Sprintf("Behind by: %s", humanDuration(diff))
+		}
+	} else {
+		latestDateStr = "unknown"
+	}
+
+	currentLbl := widget.NewLabel("Current: " + currentText + "\n  " + currentDateStr)
+	latestLbl := widget.NewLabel("Latest: " + info.Latest + "\n  " + latestDateStr)
 
 	changelog := widget.NewRichTextFromMarkdown(info.LatestBody)
 	changelog.Wrapping = fyne.TextWrapWord
@@ -124,13 +146,13 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	whiteSep := canvas.NewRectangle(color.White)
 	sepLine := container.New(layout.NewGridWrapLayout(fyne.NewSize(480, 1)), whiteSep)
 
-	content := container.NewVBox(
-		currentLbl,
-		latestLbl,
-		sepLine,
-		widget.NewLabel("Changelog:"),
-		scroll,
-	)
+	items := []fyne.CanvasObject{currentLbl, latestLbl}
+	if diffStr != "" {
+		items = append(items, widget.NewLabel(diffStr))
+	}
+	items = append(items, sepLine, widget.NewLabel("Changelog:"), scroll)
+
+	content := container.NewVBox(items...)
 
 	confirm := dialog.NewCustomConfirm("Update Available", "Update", "Ignore", content, func(update bool) {
 		if update {
@@ -138,6 +160,28 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 		}
 	}, g.window)
 	confirm.Show()
+}
+
+// humanDuration formats a time.Duration into a human-readable string.
+func humanDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	}
+	days := int(d.Hours() / 24)
+	if days < 30 {
+		return fmt.Sprintf("%dd", days)
+	}
+	months := days / 30
+	if months < 12 {
+		return fmt.Sprintf("%dmo", months)
+	}
+	return fmt.Sprintf("%dy", months/12)
 }
 
 func (g *GUI) doSelfUpdate(assetURL string) {

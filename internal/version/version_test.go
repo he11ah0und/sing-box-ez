@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+func localDateStr(rfc string) string {
+	t, _ := time.Parse(time.RFC3339, rfc)
+	return t.Local().Format("2006-01-02 15:04:05")
+}
+
 func TestInfo(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -32,15 +37,15 @@ func TestInfo(t *testing.T) {
 		{
 			name:      "branch and date",
 			branch:    "main",
-			buildDate: "2026-06-05 12:00:00",
-			want:      "main (2026-06-05 12:00:00)",
+			buildDate: "2026-06-05T12:00:00Z",
+			want:      "main (" + localDateStr("2026-06-05T12:00:00Z") + ")",
 		},
 		{
 			name:      "all fields",
 			branch:    "main",
-			buildDate: "2026-06-05 12:00:00",
+			buildDate: "2026-06-05T12:00:00Z",
 			commit:    "abc1234",
-			want:      "main (2026-06-05 12:00:00 abc1234)",
+			want:      "main (" + localDateStr("2026-06-05T12:00:00Z") + " abc1234)",
 		},
 		{
 			name:      "empty builddate falls back to commit",
@@ -146,8 +151,8 @@ func TestBuildDateTime(t *testing.T) {
 	}{
 		{
 			name:      "valid",
-			buildDate: "2026-06-05 12:00:00",
-			want:      time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC),
+			buildDate: "2026-06-05T12:00:00Z",
+			want:      time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC).Local(),
 		},
 		{
 			name:    "unknown",
@@ -176,8 +181,13 @@ func TestBuildDateTime(t *testing.T) {
 				t.Errorf("BuildDateTime() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && !got.Equal(tt.want) {
-				t.Errorf("BuildDateTime() = %v, want %v", got, tt.want)
+			if !tt.wantErr {
+				if !got.Equal(tt.want) {
+					t.Errorf("BuildDateTime() = %v, want %v", got, tt.want)
+				}
+				if got.Location() != time.Local {
+					t.Errorf("BuildDateTime() location = %v, want Local", got.Location())
+				}
 			}
 		})
 	}

@@ -5,7 +5,7 @@ BUILD_DIR := ./build
 GO := go
 
 BRANCH     := $(shell git describe --tags --exact-match 2>/dev/null || git branch --show-current 2>/dev/null || echo "dev")
-BUILD_DATE := $(shell date -u +"%Y-%m-%d %H:%M:%S")
+BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # ---------------------------------------------------------------------------
