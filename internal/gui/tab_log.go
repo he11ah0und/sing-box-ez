@@ -11,6 +11,11 @@ import (
 )
 
 func (g *GUI) buildLogTab() *container.TabItem {
+	if !g.cfg.GetShowLogs() {
+		g.logEntry = nil
+		return nil
+	}
+
 	g.logEntry = widget.NewMultiLineEntry()
 	g.logEntry.Wrapping = fyne.TextWrapBreak
 	g.logEntry.OnChanged = func(s string) {
@@ -23,10 +28,6 @@ func (g *GUI) buildLogTab() *container.TabItem {
 			g.logMu.Unlock()
 			g.logEntry.SetText(text)
 		}
-	}
-
-	if !g.cfg.GetShowLogs() {
-		return nil
 	}
 
 	copyBtn := widget.NewButton(i18n.T("log.btn.copy"), func() {
