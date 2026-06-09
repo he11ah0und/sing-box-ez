@@ -124,16 +124,28 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &p.startBtn, i18n.T("main.btn.start")).Layout(gtx)
+					btnGtx := gtx
+					if running || active == nil {
+						btnGtx = gtx.Disabled()
+					}
+					return material.Button(p.th, &p.startBtn, i18n.T("main.btn.start")).Layout(btnGtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.stopBtn, i18n.T("main.btn.stop")).Layout(gtx)
+						btnGtx := gtx
+						if !running {
+							btnGtx = gtx.Disabled()
+						}
+						return material.Button(p.th, &p.stopBtn, i18n.T("main.btn.stop")).Layout(btnGtx)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.restartBtn, i18n.T("main.btn.restart")).Layout(gtx)
+						btnGtx := gtx
+						if !running {
+							btnGtx = gtx.Disabled()
+						}
+						return material.Button(p.th, &p.restartBtn, i18n.T("main.btn.restart")).Layout(btnGtx)
 					})
 				}),
 			)

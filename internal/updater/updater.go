@@ -203,6 +203,11 @@ func checkUpdateWithLatest(latest Release, currentBranch string) (*UpdateInfo, e
 	}
 
 	assetName := guessAssetName()
+	fallbackName := assetName
+	if version.BuildBackend != "" && version.BuildOS == "linux" {
+		fallbackName = strings.TrimSuffix(assetName, "-"+version.BuildBackend)
+	}
+
 	info := &UpdateInfo{
 		Current:      currentBranch,
 		Latest:       latest.TagName,
@@ -216,6 +221,17 @@ func checkUpdateWithLatest(latest Release, currentBranch string) (*UpdateInfo, e
 		if a.Name == assetName {
 			info.AssetURL = a.BrowserDownloadURL
 			break
+		}
+	}
+
+	// Fallback: if no backend-specific asset found on Linux, try the plain GUI asset.
+	if info.AssetURL == "" && fallbackName != assetName {
+		for _, a := range latest.Assets {
+			if a.Name == fallbackName {
+				info.AssetURL = a.BrowserDownloadURL
+				info.AssetName = fallbackName
+				break
+			}
 		}
 	}
 	return info, nil

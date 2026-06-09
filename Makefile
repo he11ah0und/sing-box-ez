@@ -43,7 +43,7 @@ LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
 	-X 'sing-box-ez/internal/version.BuildOS=$(GOOS)' \
 	-X 'sing-box-ez/internal/version.BuildArch=$(GOARCH)' \
 	-X 'sing-box-ez/internal/version.BuildGUI=$(GUI)' \
-	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(filter linux,$(GOOS)),$(GUI_BACKEND),)' \
+	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(and $(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(GUI_BACKEND),)' \
 	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)' \
 	-X 'sing-box-ez/internal/version.BuildDev=$(BUILD_DEV)' \
 	-X 'sing-box-ez/internal/version.CommitDate=$(COMMIT_DATE)'"
@@ -56,13 +56,12 @@ CGO_ENABLED = $(if $(filter 1,$(GUI)),1,0)
 comma := ,
 empty :=
 space := $(empty) $(empty)
-TAG_LIST  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),wayland,),),nogui)
+TAG_LIST  = $(if $(filter 1,$(GUI)),$(if $(and $(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE)),$(filter wayland,$(GUI_BACKEND))),wayland,),nogui)
 TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
 TAG_LIST += $(if $(filter fyne,$(ENGINE)),fyne,)
 BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 TYPE_SUFFIX     = $(if $(filter 1,$(GUI)),-gui,-cli)
-GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
-ENGINE_SUFFIX   = $(if $(and $(filter 1,$(GUI)),$(filter fyne,$(ENGINE))),-fyne,)
+GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
 EXT         = $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
 
@@ -90,12 +89,11 @@ else
     endif
   endif
 endif
-
 # Explicit user-provided CC takes precedence (ignore plain 'cc'/'gcc'),
 # otherwise use auto-detected cross compiler.
 BUILD_CC := $(or $(filter-out cc gcc,$(CC)),$(CROSS_CC))
 
-OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)$(TYPE_SUFFIX)$(GUI_TYPE_SUFFIX)$(ENGINE_SUFFIX)$(EXT)
+OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)$(TYPE_SUFFIX)$(GUI_TYPE_SUFFIX)$(EXT)
 
 # ---------------------------------------------------------------------------
 # Default target
