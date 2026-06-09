@@ -28,9 +28,8 @@ type Shell struct {
 	secondary []pages.Page
 
 	// Bottom navigation clickables (mobile only)
-	navMain    widget.Clickable
-	navConfigs widget.Clickable
-	navMenu    widget.Clickable
+	// Length = len(primary) + 1, last item is the Menu button.
+	navBtns []widget.Clickable
 
 	// Static nav (desktop/tablet persistent rail)
 	staticNav     *component.NavDrawer
@@ -61,6 +60,7 @@ func NewShell(th *material.Theme, cfg *config.AppConfig, ctrl *core.Controller, 
 		secondary: secondary,
 		dialog:    NewDialog(),
 		secClicks: make([]widget.Clickable, len(secondary)),
+		navBtns:   make([]widget.Clickable, len(primary)+1),
 	}
 
 	// Static navigation rail/drawer (used on wide screens)
@@ -149,7 +149,7 @@ func (s *Shell) handleNavDestination(tag string) {
 	for _, p := range s.secondary {
 		if p.Tag() == tag {
 			s.secondaryTag = tag
-			s.currentPage = 2
+			s.currentPage = len(s.primary)
 			return
 		}
 	}
@@ -165,21 +165,16 @@ func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
 	return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		switch s.currentPage {
-		case 0:
-			if len(s.primary) > 0 {
-				return s.primary[0].Layout(gtx)
+		for i, p := range s.primary {
+			if s.currentPage == i {
+				return p.Layout(gtx)
 			}
-		case 1:
-			if len(s.primary) > 1 {
-				return s.primary[1].Layout(gtx)
-			}
-		case 2:
+		}
+		if s.currentPage == len(s.primary) {
 			return s.layoutSecondaryPage(gtx)
-		default:
-			if len(s.primary) > 0 {
-				return s.primary[0].Layout(gtx)
-			}
+		}
+		if len(s.primary) > 0 {
+			return s.primary[0].Layout(gtx)
 		}
 		return material.Body1(s.th, "No pages").Layout(gtx)
 	})
@@ -249,47 +244,44 @@ func (s *Shell) layoutBottomNav(gtx layout.Context) layout.Dimensions {
 	gtx.Constraints.Max.Y = barHeight
 
 	// Track click history lengths before rendering so we can detect new clicks.
-	prevMain := len(s.navMain.History())
-	prevConfigs := len(s.navConfigs.History())
-	prevMenu := len(s.navMenu.History())
-
-	primary0Name := "Main"
-	if len(s.primary) > 0 {
-		primary0Name = s.primary[0].Name()
+	prevHistory := make([]int, len(s.navBtns))
+	for i := range s.navBtns {
+		prevHistory[i] = len(s.navBtns[i].History())
 	}
-	primary1Name := "Configs"
-	if len(s.primary) > 1 {
-		primary1Name = s.primary[1].Name()
+
+	menuIdx := len(s.primary)
+	children := make([]layout.FlexChild, len(s.navBtns))
+	for i := range s.navBtns {
+		idx := i
+		label := ""
+		if idx < len(s.primary) {
+			label = s.primary[idx].Name()
+		} else {
+			label = "Menu"
+		}
+		active := s.currentPage == idx
+		children[i] = layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return s.navButton(gtx, label, &s.navBtns[idx], active)
+		})
 	}
 
 	dims := layout.Flex{
 		Axis:    layout.Horizontal,
 		Spacing: layout.SpaceEvenly,
-	}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return s.navButton(gtx, primary0Name, &s.navMain, s.currentPage == 0)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return s.navButton(gtx, primary1Name, &s.navConfigs, s.currentPage == 1)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return s.navButton(gtx, "Menu", &s.navMenu, s.currentPage == 2)
-		}),
-	)
+	}.Layout(gtx, children...)
 
 	// Handle bottom-nav interactions after rendering (material.Clickable consumes
 	// the pointer event into the button history).
-	if len(s.navMain.History()) > prevMain {
-		s.currentPage = 0
-		s.secondaryTag = ""
-	}
-	if len(s.navConfigs.History()) > prevConfigs {
-		s.currentPage = 1
-		s.secondaryTag = ""
-	}
-	if len(s.navMenu.History()) > prevMenu {
-		s.secondaryTag = ""
-		s.currentPage = 2
+	for i := range s.navBtns {
+		if len(s.navBtns[i].History()) > prevHistory[i] {
+			s.currentPage = i
+			if i == menuIdx {
+				// Always reset to show the secondary list when Menu is tapped.
+				s.secondaryTag = ""
+			} else {
+				s.secondaryTag = ""
+			}
+		}
 	}
 
 	return dims
