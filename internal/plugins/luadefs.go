@@ -14,7 +14,7 @@ import (
 // "Lua.workspace.library" setting so Sumneko's Lua Language Server gives
 // IntelliSense, autocompletion and hover docs while editing plugin scripts.
 func GenerateLuaDefs(outDir string) error {
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	if err := os.MkdirAll(outDir, 0750); err != nil {
 		return err
 	}
 
@@ -23,7 +23,7 @@ func GenerateLuaDefs(outDir string) error {
 	// Write one definition file per module.
 	for _, mod := range modules {
 		def := generateModuleDef(mod)
-		if err := os.WriteFile(filepath.Join(outDir, mod.Name+".lua"), []byte(def), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(outDir, mod.Name+".lua"), []byte(def), 0600); err != nil {
 			return err
 		}
 	}
@@ -37,7 +37,7 @@ func GenerateLuaDefs(outDir string) error {
 	for _, mod := range modules {
 		fmt.Fprintf(&gb, "---@type %s\n%s = {}\n\n", mod.Name, mod.Name)
 	}
-	if err := os.WriteFile(filepath.Join(outDir, "globals.lua"), []byte(gb.String()), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outDir, "globals.lua"), []byte(gb.String()), 0600); err != nil {
 		return err
 	}
 
@@ -51,7 +51,7 @@ func GenerateLuaDefs(outDir string) error {
 		"  ],\n" +
 		"  \"Lua.workspace.checkThirdParty\": false\n" +
 		"}\n"
-	if err := os.WriteFile(filepath.Join(outDir, ".luarc.json"), []byte(luarc), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outDir, ".luarc.json"), []byte(luarc), 0600); err != nil {
 		return err
 	}
 
@@ -98,7 +98,7 @@ func parseSignature(sig string) (params []string, returns []string) {
 		argsStr := left[argStart+1 : argEnd]
 		argsStr = strings.TrimSpace(argsStr)
 		if argsStr != "" {
-			for _, a := range strings.Split(argsStr, ",") {
+			for a := range strings.SplitSeq(argsStr, ",") {
 				a = strings.TrimSpace(a)
 				if a == "" {
 					continue
@@ -112,7 +112,7 @@ func parseSignature(sig string) (params []string, returns []string) {
 
 	if len(parts) > 1 {
 		rights := strings.TrimSpace(parts[1])
-		for _, r := range strings.Split(rights, ",") {
+		for r := range strings.SplitSeq(rights, ",") {
 			r = strings.TrimSpace(r)
 			if r == "" || r == "nil" {
 				continue

@@ -23,10 +23,10 @@ func Init() {
 	if DataDir == "" {
 		DataDir = defaultDataDir()
 	}
-	_ = os.MkdirAll(DataDir, 0755)
-	_ = os.MkdirAll(filepath.Join(DataDir, "configs"), 0755)
-	_ = os.MkdirAll(filepath.Join(DataDir, "plugins"), 0755)
-	_ = os.MkdirAll(filepath.Join(DataDir, "docs"), 0755)
+	_ = os.MkdirAll(DataDir, 0750)
+	_ = os.MkdirAll(filepath.Join(DataDir, "configs"), 0750)
+	_ = os.MkdirAll(filepath.Join(DataDir, "plugins"), 0750)
+	_ = os.MkdirAll(filepath.Join(DataDir, "docs"), 0750)
 }
 
 func defaultDataDir() string {
@@ -117,10 +117,13 @@ func PluginDefsDir() string {
 func OpenDataDir() error {
 	switch runtime.GOOS {
 	case "windows":
+		// #nosec G204 — explorer is a system binary; DataDir is the app's managed data directory.
 		return exec.Command("explorer", DataDir).Start()
 	case "darwin":
+		// #nosec G204 — open is a system binary; DataDir is the app's managed data directory.
 		return exec.Command("open", DataDir).Start()
 	default:
+		// #nosec G204 — xdg-open is a system binary; DataDir is the app's managed data directory.
 		return exec.Command("xdg-open", DataDir).Start()
 	}
 }

@@ -75,6 +75,7 @@ func (m *Manifest) Validate() error {
 
 // LoadManifest reads and parses a manifest.json from the given plugin directory.
 func LoadManifest(dir string) (*Manifest, error) {
+	// #nosec G304 — dir comes from the trusted plugin directory scan (Discover).
 	data, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	if err != nil {
 		return nil, err

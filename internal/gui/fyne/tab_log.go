@@ -1,4 +1,4 @@
-package gui
+package fynegui
 
 import (
 	"strings"
@@ -19,24 +19,16 @@ func (g *GUI) buildLogTab() *container.TabItem {
 	g.logEntry = widget.NewMultiLineEntry()
 	g.logEntry.Wrapping = fyne.TextWrapBreak
 	g.logEntry.OnChanged = func(s string) {
-		g.logMu.Lock()
-		updating := g.updatingLog
-		g.logMu.Unlock()
-		if !updating {
-			g.logMu.Lock()
-			text := strings.Join(g.logLines, "\n")
-			g.logMu.Unlock()
-			g.logEntry.SetText(text)
-		}
+		lines := g.ctrl.GetLogLines()
+		text := strings.Join(lines, "\n")
+		g.logEntry.SetText(text)
 	}
 
 	copyBtn := widget.NewButton(i18n.T("log.btn.copy"), func() {
 		g.app.Clipboard().SetContent(g.logEntry.Text)
 	})
 	clearBtn := widget.NewButton(i18n.T("log.btn.clear"), func() {
-		g.logMu.Lock()
-		g.logLines = []string{}
-		g.logMu.Unlock()
+		g.ctrl.ClearLogs()
 		g.logEntry.SetText("")
 	})
 

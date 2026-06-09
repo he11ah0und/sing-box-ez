@@ -1,9 +1,8 @@
-package gui
+package fynegui
 
 import (
 	"fmt"
 	"image/color"
-	"runtime"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -13,8 +12,6 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
-	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/updater"
 	"sing-box-ez/internal/version"
@@ -73,12 +70,12 @@ func (g *GUI) showUpdatePrompt(latest, current string) {
 
 func (g *GUI) showVersionInfoDialog(latest string) {
 	fyne.DoAndWait(func() {
-		currentVer, err := core.GetCoreVersion(core.GetCorePath())
+		currentVer, err := g.ctrl.GetInstalledCoreVersion()
 		var content *fyne.Container
 		if err != nil || currentVer == "" {
 			content = container.NewVBox(
 				widget.NewLabel(i18n.T("dialog.version_check.core_not_installed")),
-				widget.NewLabel(i18n.T("dialog.version_check.latest") + latest),
+				widget.NewLabel(i18n.T("dialog.version_check.latest")+latest),
 			)
 		} else {
 			currentLbl := widget.NewLabel(i18n.T("dialog.version_check.current") + currentVer)
@@ -187,19 +184,13 @@ func humanDuration(d time.Duration) string {
 }
 
 func (g *GUI) doSelfUpdate(assetURL string) {
-	if assetURL == "" {
-		g.log("Self-update: no matching asset for this system")
-		dialog.ShowError(fmt.Errorf("%s", i18n.T("dialog.error.no_matching_asset")), g.window)
-		return
-	}
 	progressModal, progress := g.showProgressDialog(i18n.T("progress.downloading_update"))
-	if err := updater.ApplyUpdate(assetURL, func(d, t int64) {
+	if err := g.ctrl.ApplySelfUpdateWithLog(assetURL, func(d, t int64) {
 		fyne.Do(func() {
 			progress.SetValue(float64(d) / float64(t))
 		})
 	}); err != nil {
 		fyne.Do(func() { progressModal.Hide() })
-		g.log("Self-update failed: " + err.Error())
 		dialog.ShowError(err, g.window)
 	}
 }
@@ -211,12 +202,12 @@ func (g *GUI) doSelfUpdate(assetURL string) {
 func (g *GUI) showFirstRunDialog() {
 	var d dialog.Dialog
 
-	coreInstalled := core.CoreExists()
+	coreInstalled := g.ctrl.CoreExists()
 	statusText := widget.NewLabel(i18n.T("first_run.welcome_title"))
 	var versionText *widget.Label
 	if coreInstalled {
 		statusText.SetText(i18n.T("first_run.core.installed"))
-		if ver, err := core.GetCoreVersion(core.GetCorePath()); err == nil && ver != "" {
+		if ver, err := g.ctrl.GetInstalledCoreVersion(); err == nil && ver != "" {
 			versionText = widget.NewLabel(fmt.Sprintf(i18n.T("first_run.core.version"), ver))
 		}
 	} else {
@@ -235,30 +226,15 @@ func (g *GUI) showFirstRunDialog() {
 
 	addBtn := widget.NewButton(i18n.T("first_run.btn.add_config"), func() {
 		url := urlEntry.Text
-		if url == "" {
-			g.log("First run: empty config URL")
+		if err := g.ctrl.AddFirstConfigWithLog("default", url); err != nil {
 			return
 		}
-		name := "default"
-		rec := config.ConfigRecord{
-			Name:                name,
-			URL:                 url,
-			UpdateIntervalHours: g.cfg.UpdateIntervalHours,
-			Parent:              "user",
-		}
-		g.cfg.AddConfig(rec)
-		g.cfg.SetActiveName(name)
-		g.cfg.SetFirstRunDone(true)
-		_ = g.cfg.Save()
-		g.manager.SetConfigURL(url)
-		g.manager.SetConfigName(name)
 		g.refreshConfigData()
 		fyne.Do(func() {
 			g.configTable.Refresh()
 			g.refreshActiveLabel()
 			g.updateButtons()
 		})
-		g.log("First config added: " + name)
 		fyne.Do(func() { d.Hide() })
 	})
 
@@ -286,57 +262,46 @@ func (g *GUI) showFirstRunDialog() {
 }
 
 func (g *GUI) showPrivilegeDialog() {
-	if runtime.GOOS == "darwin" {
-		return // macOS handles elevation via osascript at runtime
+	dlg := g.ctrl.GetPrivilegeDialog()
+	if dlg == nil {
+		return
 	}
 
 	var d dialog.Dialog
 	content := container.NewVBox()
+	content.Add(widget.NewLabel(dlg.Message))
 
-	if runtime.GOOS == "windows" {
-		content.Add(widget.NewLabel(i18n.T("dialog.privileges.msg_windows")))
-		btn := widget.NewButton(i18n.T("dialog.privileges.btn_restart_admin"), func() {
-			d.Hide()
-			g.restartAsAdmin()
-		})
-		content.Add(btn)
-	} else if runtime.GOOS == "linux" {
-		content.Add(widget.NewLabel(i18n.T("dialog.privileges.msg_linux")))
-		setcapBtn := widget.NewButton(i18n.T("dialog.privileges.btn_setcap"), func() {
+	for _, a := range dlg.Actions {
+		action := a // capture range variable
+		btn := widget.NewButton(action.Label, func() {
 			d.Hide()
 			go func() {
 				modal := g.showInfiniteDialog(i18n.T("progress.applying_setcap"))
-				err := core.SetNetAdminCapabilityGUI(core.GetCorePath())
-				fyne.Do(func() { modal.Hide() })
-				if err != nil {
-					g.log("setcap failed: " + err.Error())
-					g.log("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
-				} else {
-					g.log("setcap applied successfully.")
-					g.refreshPrivilegeStatus()
+				if action.ID == "restart_admin" {
+					fyne.Do(func() { modal.Hide() })
+				}
+				success, needRefresh, needClose := g.ctrl.ApplyPrivilegeAction(&action)
+				if action.ID != "restart_admin" {
+					fyne.Do(func() { modal.Hide() })
+				}
+				if success {
+					if needRefresh {
+						fyne.Do(func() { g.refreshPrivilegeStatusUI() })
+					}
+					if needClose {
+						fyne.Do(func() { g.window.Close() })
+					}
 				}
 			}()
 		})
-		adminBtn := widget.NewButton(i18n.T("dialog.privileges.btn_run_as_admin"), func() {
-			d.Hide()
-			g.cfg.SetRunAsAdmin(true)
-			g.manager.SetElevated(true)
-			if err := g.cfg.Save(); err != nil {
-				g.log("Failed to save admin setting: " + err.Error())
-			} else {
-				g.log("Run as admin enabled. Please click Start again.")
-				g.refreshPrivilegeStatus()
-			}
-		})
-		content.Add(setcapBtn)
-		content.Add(adminBtn)
+		content.Add(btn)
 	}
 
 	cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() {
 		d.Hide()
 	})
 
-	d = dialog.NewCustomWithoutButtons(i18n.T("dialog.privileges.title"), container.NewVBox(content, cancelBtn), g.window)
+	d = dialog.NewCustomWithoutButtons(dlg.Title, container.NewVBox(content, cancelBtn), g.window)
 	d.Resize(fyne.NewSize(400, 0))
 	fyne.Do(func() { d.Show() })
 }
