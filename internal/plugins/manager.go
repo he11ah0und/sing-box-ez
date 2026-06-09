@@ -11,34 +11,30 @@ import (
 	"path/filepath"
 	"sync"
 
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"sing-box-ez/internal/config"
 )
 
 // Manager manages loaded plugin engines and plugin metadata.
 type Manager struct {
-	mu      sync.RWMutex
-	engines map[string]*Engine   // only loaded (enabled) plugins
-	infos   map[string]*Manifest // all discovered plugins
-	state   *State
-	window  fyne.Window
-	tabs    *container.AppTabs
-	sink    func(string)
-	cfg     *config.AppConfig
+	mu        sync.RWMutex
+	engines   map[string]*Engine   // only loaded (enabled) plugins
+	infos     map[string]*Manifest // all discovered plugins
+	state     *State
+	uiBuilder *UIBuilder
+	sink      func(string)
+	cfg       *config.AppConfig
 }
 
 // NewManager creates a plugin manager.
-func NewManager(w fyne.Window, tabs *container.AppTabs, cfg *config.AppConfig, logSink func(string)) *Manager {
+func NewManager(builder *UIBuilder, cfg *config.AppConfig, logSink func(string)) *Manager {
 	state, _ := LoadState()
 	return &Manager{
-		engines: make(map[string]*Engine),
-		infos:   make(map[string]*Manifest),
-		state:   state,
-		window:  w,
-		tabs:    tabs,
-		sink:    logSink,
-		cfg:     cfg,
+		engines:   make(map[string]*Engine),
+		infos:     make(map[string]*Manifest),
+		state:     state,
+		uiBuilder: builder,
+		sink:      logSink,
+		cfg:       cfg,
 	}
 }
 
@@ -111,8 +107,7 @@ func (m *Manager) loadLocked(mf *Manifest, entryPath string) error {
 	if _, ok := m.engines[mf.Name]; ok {
 		return fmt.Errorf("plugin %s already loaded", mf.Name)
 	}
-	builder := NewUIBuilder(m.window, m.tabs)
-	engine, err := NewEngine(mf, builder, m.cfg, m.sink)
+	engine, err := NewEngine(mf, m.uiBuilder, m.cfg, m.sink)
 	if err != nil {
 		return err
 	}
