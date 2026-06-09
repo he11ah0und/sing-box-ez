@@ -152,11 +152,11 @@ ifeq ($(GUI),1)
 ifeq ($(GUI_BACKEND),wayland)
 	@echo "Installing Wayland build dependencies..."
 	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev libwayland-dev libwayland-bin libxkbcommon-dev libvulkan-dev
+	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev libwayland-dev libwayland-bin libxkbcommon-dev libvulkan-dev libxkbcommon-x11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev
 else
 	@echo "Installing X11 build dependencies..."
 	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libvulkan-dev libwayland-dev
+	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libvulkan-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev
 endif
 else
 	@echo "Installing base build dependencies..."
@@ -183,10 +183,10 @@ ifeq ($(GOOS),linux)
 ifeq ($(GUI),1)
 ifeq ($(GUI_BACKEND),wayland)
 	@echo "Installing Wayland build dependencies..."
-	sudo pacman -S --needed mesa wayland libxkbcommon vulkan-headers
+	sudo pacman -S --needed mesa wayland libxkbcommon vulkan-headers libxfixes
 else
 	@echo "Installing X11 build dependencies..."
-	sudo pacman -S --needed mesa libx11 libxcursor libxrandr libxinerama libxi libglvnd libxkbcommon vulkan-headers wayland
+	sudo pacman -S --needed mesa libx11 libxcursor libxrandr libxinerama libxi libglvnd libxkbcommon vulkan-headers wayland libxfixes
 endif
 else
 	@echo "Installing base build dependencies..."
