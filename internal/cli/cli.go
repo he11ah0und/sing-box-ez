@@ -14,10 +14,10 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/util"
-	"sing-box-ez/internal/paths"
 	"sing-box-ez/internal/plugins"
 	"sing-box-ez/internal/updater"
+	"sing-box-ez/internal/util/githuburl"
+	"sing-box-ez/internal/util/paths"
 	"sing-box-ez/internal/version"
 )
 
@@ -116,7 +116,7 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 			fmt.Println("Using existing local config")
 		} else {
 			cfg.SetLastUpdateFor(active.Name, time.Now())
-			cfg.Save()
+			_ = cfg.Save()
 			fmt.Println("Config updated")
 		}
 	}
@@ -131,7 +131,7 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 
 	pid := manager.GetPID()
 	if pid > 0 {
-		os.WriteFile(paths.PIDFile(), []byte(strconv.Itoa(pid)), 0644)
+		_ = os.WriteFile(paths.PIDFile(), []byte(strconv.Itoa(pid)), 0600)
 	}
 
 	fmt.Printf("sing-box started (PID %d)\n", pid)
@@ -142,8 +142,10 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 	<-sigCh
 
 	fmt.Println("Stopping sing-box...")
-	manager.Stop()
-	os.Remove(paths.PIDFile())
+	if err := manager.Stop(); err != nil {
+		fmt.Printf("stop warning: %v\n", err)
+	}
+	_ = os.Remove(paths.PIDFile())
 	return nil
 }
 
@@ -166,7 +168,7 @@ func cmdStop(cfg *config.AppConfig, _ []string) error {
 	if err := core.KillProcess(pid, elevated); err != nil {
 		fmt.Printf("kill warning: %v\n", err)
 	}
-	os.Remove(paths.PIDFile())
+	_ = os.Remove(paths.PIDFile())
 	fmt.Println("Stopped")
 	return nil
 }
@@ -181,7 +183,7 @@ func cmdUpdate(cfg *config.AppConfig, _ []string) error {
 		return err
 	}
 	cfg.SetLastUpdateFor(active.Name, time.Now())
-	cfg.Save()
+	_ = cfg.Save()
 	fmt.Println("Config updated")
 	return nil
 }
@@ -217,7 +219,7 @@ func cmdStatus(cfg *config.AppConfig, _ []string) error {
 		return nil
 	}
 	fmt.Println("Status: not running (stale pid file)")
-	os.Remove(paths.PIDFile())
+	_ = os.Remove(paths.PIDFile())
 	return nil
 }
 
@@ -306,7 +308,7 @@ func cmdInstall(cfg *config.AppConfig, args []string) error {
 
 func cmdVersion(_ *config.AppConfig, _ []string) error {
 	fmt.Println("sing-box-ez", version.Info())
-	fmt.Println("Repository:", util.DefaultProject().RepoURL())
+	fmt.Println("Repository:", githuburl.DefaultProject().RepoURL())
 	if ver, err := core.GetCoreVersion(core.GetCorePath()); err == nil && ver != "" {
 		fmt.Println("sing-box core: v" + ver)
 	} else {

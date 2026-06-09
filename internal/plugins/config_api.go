@@ -122,8 +122,19 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 	parent := "pl-" + pluginName
 	mod := L.NewTable()
 
-	// config.list() -> table
-	L.SetField(mod, "list", L.NewFunction(func(L *lua.LState) int {
+	L.SetField(mod, "list", L.NewFunction(luaConfigList(cfg, parent)))
+	L.SetField(mod, "add", L.NewFunction(luaConfigAdd(cfg, parent)))
+	L.SetField(mod, "update", L.NewFunction(luaConfigUpdate(cfg, parent)))
+	L.SetField(mod, "remove", L.NewFunction(luaConfigRemove(cfg, parent)))
+	L.SetField(mod, "set_active", L.NewFunction(luaConfigSetActive(cfg, parent)))
+	L.SetField(mod, "get_active", L.NewFunction(luaConfigGetActive(cfg, parent)))
+	L.SetField(mod, "download", L.NewFunction(luaConfigDownload(cfg, parent)))
+
+	L.SetGlobal("config", mod)
+}
+
+func luaConfigList(cfg *config.AppConfig, parent string) lua.LGFunction {
+	return func(L *lua.LState) int {
 		recs := cfg.GetConfigsByParent(parent)
 		tbl := L.NewTable()
 		for i, rec := range recs {
@@ -137,22 +148,21 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 		}
 		L.Push(tbl)
 		return 1
-	}))
+	}
+}
 
-	// config.add(name, url, interval) -> err or nil
-	L.SetField(mod, "add", L.NewFunction(func(L *lua.LState) int {
+func luaConfigAdd(cfg *config.AppConfig, parent string) lua.LGFunction {
+	return func(L *lua.LState) int {
 		name := L.CheckString(1)
 		url := L.CheckString(2)
 		interval := L.CheckInt(3)
 		if interval <= 0 {
 			interval = 24
 		}
-
 		if cfg.GetConfigByName(name) != nil {
 			L.Push(lua.LString("config name already exists"))
 			return 1
 		}
-
 		rec := config.ConfigRecord{
 			Name:                name,
 			URL:                 url,
@@ -166,23 +176,22 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 		}
 		L.Push(lua.LNil)
 		return 1
-	}))
+	}
+}
 
-	// config.update(name, url, interval) -> err or nil
-	L.SetField(mod, "update", L.NewFunction(func(L *lua.LState) int {
+func luaConfigUpdate(cfg *config.AppConfig, parent string) lua.LGFunction {
+	return func(L *lua.LState) int {
 		name := L.CheckString(1)
 		url := L.CheckString(2)
 		interval := L.CheckInt(3)
 		if interval <= 0 {
 			interval = 24
 		}
-
 		rec := cfg.GetConfigByNameAndParent(name, parent)
 		if rec == nil {
 			L.Push(lua.LString("config not found or not owned by this plugin"))
 			return 1
 		}
-
 		updated := config.ConfigRecord{
 			Name:                name,
 			URL:                 url,
@@ -197,10 +206,11 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 		}
 		L.Push(lua.LNil)
 		return 1
-	}))
+	}
+}
 
-	// config.remove(name) -> err or nil
-	L.SetField(mod, "remove", L.NewFunction(func(L *lua.LState) int {
+func luaConfigRemove(cfg *config.AppConfig, parent string) lua.LGFunction {
+	return func(L *lua.LState) int {
 		name := L.CheckString(1)
 		if cfg.GetConfigByNameAndParent(name, parent) == nil {
 			L.Push(lua.LString("config not found or not owned by this plugin"))
@@ -213,10 +223,11 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 		}
 		L.Push(lua.LNil)
 		return 1
-	}))
+	}
+}
 
-	// config.set_active(name) -> err or nil
-	L.SetField(mod, "set_active", L.NewFunction(func(L *lua.LState) int {
+func luaConfigSetActive(cfg *config.AppConfig, parent string) lua.LGFunction {
+	return func(L *lua.LState) int {
 		name := L.CheckString(1)
 		if cfg.GetConfigByNameAndParent(name, parent) == nil {
 			L.Push(lua.LString("config not found or not owned by this plugin"))
@@ -229,10 +240,11 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 		}
 		L.Push(lua.LNil)
 		return 1
-	}))
+	}
+}
 
-	// config.get_active() -> config record or nil, err
-	L.SetField(mod, "get_active", L.NewFunction(func(L *lua.LState) int {
+func luaConfigGetActive(cfg *config.AppConfig, parent string) lua.LGFunction {
+	return func(L *lua.LState) int {
 		rec := cfg.GetActiveConfig()
 		if rec == nil {
 			L.Push(lua.LNil)
@@ -253,11 +265,11 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 		L.Push(item)
 		L.Push(lua.LNil)
 		return 2
-	}))
+	}
+}
 
-	// config.download(name) -> err or nil
-	// Downloads the config from its URL and caches it.
-	L.SetField(mod, "download", L.NewFunction(func(L *lua.LState) int {
+func luaConfigDownload(cfg *config.AppConfig, parent string) lua.LGFunction {
+	return func(L *lua.LState) int {
 		name := L.CheckString(1)
 		rec := cfg.GetConfigByNameAndParent(name, parent)
 		if rec == nil {
@@ -276,7 +288,5 @@ func registerConfig(L *lua.LState, cfg *config.AppConfig, pluginName string) {
 		_ = cfg.Save()
 		L.Push(lua.LNil)
 		return 1
-	}))
-
-	L.SetGlobal("config", mod)
+	}
 }

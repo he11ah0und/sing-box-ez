@@ -14,7 +14,7 @@ import (
 	"gioui.org/x/markdown"
 	"gioui.org/x/richtext"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/util"
+	"sing-box-ez/internal/util/openurl"
 )
 
 // Dialog is a reusable modal dialog using a ModalLayer.
@@ -301,7 +301,7 @@ func (d *Dialog) layoutMarkdown(gtx layout.Context, th *material.Theme) layout.D
 		if event.Type == richtext.Click {
 			if url := span.Get(markdown.MetadataURL); url != nil {
 				if urlStr, ok := url.(string); ok {
-					_ = util.OpenURL(urlStr)
+					_ = openurl.OpenURL(urlStr)
 				}
 			}
 		}

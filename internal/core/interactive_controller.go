@@ -9,8 +9,8 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/paths"
 	"sing-box-ez/internal/updater"
+	"sing-box-ez/internal/util/paths"
 	"sing-box-ez/internal/version"
 )
 
@@ -28,10 +28,6 @@ type InteractiveController struct {
 	OnLatestVersion   func(ver string)
 	OnNotification    func(title, body string)
 	OnAutoRestart     func()
-
-	// Internal state
-	lastAutoRestart time.Time
-	latestVersion   string
 }
 
 // NewInteractiveController creates an interactive controller, initializes i18n,
@@ -396,6 +392,7 @@ func (ic *InteractiveController) RestartAsAdmin() error {
 	if err != nil {
 		return err
 	}
+	// #nosec G204 — powershell is a system binary; exe comes from os.Executable() and cwd from os.Getwd().
 	cmd := exec.Command("powershell", "-WindowStyle", "hidden", "-Command",
 		"Start-Process", "-FilePath", exe, "-Verb", "runAs", "-WorkingDirectory", cwd)
 	return cmd.Start()
@@ -502,6 +499,26 @@ func (ic *InteractiveController) CheckSelfUpdateWithLog() (*updater.UpdateInfo, 
 		return nil, nil
 	}
 	ic.Logf("Update available: %s → %s (%d releases behind)", info.Current, info.Latest, info.ReleaseCount)
+	return info, nil
+}
+
+// GetBranches fetches available repository branches.
+func (ic *InteractiveController) GetBranches() ([]updater.Branch, error) {
+	return updater.GetBranches()
+}
+
+// CheckSelfUpdateForBranch checks for updates on the specified branch and logs the result.
+func (ic *InteractiveController) CheckSelfUpdateForBranch(branch string) (*updater.UpdateInfo, error) {
+	info, err := updater.CheckUpdateForBranch(branch)
+	if err != nil {
+		ic.Log("Update check failed for branch " + branch + ": " + err.Error())
+		return nil, err
+	}
+	if info.ReleaseCount == 0 {
+		ic.Log("Branch " + branch + " is up to date: " + info.Current)
+	} else {
+		ic.Logf("Update available on %s: %s → %s", branch, info.Current, info.Latest)
+	}
 	return info, nil
 }
 
@@ -686,7 +703,9 @@ func (ic *InteractiveController) PluginToggleWithLog(pm interface{ Toggle(string
 }
 
 // PluginCheckUpdateWithLog checks for plugin updates and logs the result.
-func (ic *InteractiveController) PluginCheckUpdateWithLog(pm interface{ CheckUpdate(string) (bool, string, error) }, name string) (bool, string, error) {
+func (ic *InteractiveController) PluginCheckUpdateWithLog(pm interface {
+	CheckUpdate(string) (bool, string, error)
+}, name string) (bool, string, error) {
 	hasUpdate, latest, err := pm.CheckUpdate(name)
 	if err != nil {
 		ic.Log("[plugins] update check failed for " + name + ": " + err.Error())

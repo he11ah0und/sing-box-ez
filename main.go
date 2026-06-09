@@ -6,16 +6,12 @@ import (
 
 	"sing-box-ez/internal/cli"
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/paths"
+	"sing-box-ez/internal/util/paths"
 )
-
-func printHelp() {
-	cli.PrintHelp(os.Stdout)
-}
 
 // parseDataDir extracts --data-dir from args and returns the directory + remaining args.
 func parseDataDir(args []string) (string, []string) {
-	for i := 0; i < len(args); i++ {
+	for i := range args {
 		if args[i] == "--data-dir" && i+1 < len(args) {
 			dir := args[i+1]
 			remaining := append(args[:i], args[i+2:]...)

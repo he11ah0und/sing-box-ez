@@ -1,4 +1,4 @@
-package util
+package openurl
 
 import (
 	"net/url"
@@ -14,10 +14,13 @@ func OpenURL(urlStr string) error {
 	}
 	switch runtime.GOOS {
 	case "darwin":
+		// #nosec G204 — open is a system binary; URL is parsed and validated above.
 		return exec.Command("open", u.String()).Start()
 	case "windows":
+		// #nosec G204 — cmd is a system binary; URL is parsed and validated above.
 		return exec.Command("cmd", "/c", "start", u.String()).Start()
 	default:
+		// #nosec G204 — xdg-open is a system binary; URL is parsed and validated above.
 		return exec.Command("xdg-open", u.String()).Start()
 	}
 }

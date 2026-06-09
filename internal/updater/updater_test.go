@@ -172,13 +172,13 @@ func TestGuessAssetName(t *testing.T) {
 		want          string
 	}{
 		{
-			name:      "linux gui wayland gcc",
-			buildOS:   "linux",
-			buildArch: "amd64",
+			name:          "linux gui wayland gcc",
+			buildOS:       "linux",
+			buildArch:     "amd64",
 			buildCompiler: "gcc",
-			buildGUI:  "1",
-			buildBackend: "wayland",
-			want:      "sing-box-ez-amd64-linux-gcc-gui-wayland",
+			buildGUI:      "1",
+			buildBackend:  "wayland",
+			want:          "sing-box-ez-amd64-linux-gcc-gui-wayland",
 		},
 		{
 			name:      "windows gui",
@@ -188,12 +188,12 @@ func TestGuessAssetName(t *testing.T) {
 			want:      "sing-box-ez-amd64-windows-gui.exe",
 		},
 		{
-			name:      "linux cli musl",
-			buildOS:   "linux",
-			buildArch: "amd64",
+			name:          "linux cli musl",
+			buildOS:       "linux",
+			buildArch:     "amd64",
 			buildCompiler: "musl",
-			buildGUI:  "0",
-			want:      "sing-box-ez-amd64-linux-musl-cli",
+			buildGUI:      "0",
+			want:          "sing-box-ez-amd64-linux-musl-cli",
 		},
 		{
 			name:      "darwin cli",

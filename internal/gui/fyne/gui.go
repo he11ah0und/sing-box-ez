@@ -45,11 +45,6 @@ type GUI struct {
 	configTable    *widget.Table
 	configData     []config.ConfigRecord
 	configSelected int
-	addBtn         *widget.Button
-	editBtn        *widget.Button
-	delBtn         *widget.Button
-	activateBtn    *widget.Button
-	updateAllBtn   *widget.Button
 
 	// Tools tab widgets
 	defaultIntervalEntry      *widget.Entry
@@ -156,7 +151,7 @@ func New(cfg *config.AppConfig) *GUI {
 	return g
 }
 
-func (g *GUI) t(id string, data ...map[string]interface{}) string {
+func (g *GUI) t(id string, data ...map[string]any) string {
 	return i18n.T(id, data...)
 }
 

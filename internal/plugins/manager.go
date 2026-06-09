@@ -42,7 +42,7 @@ func NewManager(builder *UIBuilder, cfg *config.AppConfig, logSink func(string))
 // and loads all enabled plugins into engines.
 func (m *Manager) Discover() error {
 	dir := PluginDir()
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
 	entries, err := os.ReadDir(dir)

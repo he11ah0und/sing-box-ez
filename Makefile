@@ -3,6 +3,8 @@
 APP_NAME := sing-box-ez
 BUILD_DIR := ./build
 GO := go
+GOPATH := $(shell go env GOPATH)
+GO_BIN := $(GOPATH)/bin
 
 BRANCH     := $(shell git describe --tags --exact-match 2>/dev/null || git branch --show-current 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -165,6 +167,40 @@ endif
 endif
 
 # ---------------------------------------------------------------------------
+# System dependencies (Arch Linux)
+# ---------------------------------------------------------------------------
+setup-arch:
+	@command -v pacman >/dev/null 2>&1 || { echo "pacman not found. This target is for Arch Linux only."; exit 0; }
+ifeq ($(COMPILER),musl)
+	@echo "Installing musl build dependencies..."
+	sudo pacman -S --needed musl
+else
+ifeq ($(GOOS),linux)
+ifeq ($(GUI),1)
+ifeq ($(GUI_BACKEND),wayland)
+	@echo "Installing Wayland build dependencies..."
+	sudo pacman -S --needed mesa wayland libxkbcommon
+else
+	@echo "Installing X11 build dependencies..."
+	sudo pacman -S --needed mesa libx11 libxcursor libxrandr libxinerama libxi libglvnd
+endif
+else
+	@echo "Installing base build dependencies..."
+	sudo pacman -S --needed gcc
+endif
+else ifeq ($(GOOS),windows)
+	@echo "Installing Windows cross-compile dependencies..."
+	sudo pacman -S --needed mingw-w64-gcc
+endif
+endif
+	@echo "Installing Go analysis tools..."
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	go install github.com/gordonklaus/ineffassign@latest
+	go install github.com/segmentio/golines@latest
+	go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+
+# ---------------------------------------------------------------------------
 # Dependencies & tests
 # ---------------------------------------------------------------------------
 deps:
@@ -176,6 +212,33 @@ vet:
 
 test:
 	$(GO) test ./...
+
+# ---------------------------------------------------------------------------
+# Code quality & analysis
+# ---------------------------------------------------------------------------
+fmt:
+	gofmt -w .
+
+fmt-check:
+	@test -z "$$(gofmt -l .)" || { echo "Unformatted files:"; gofmt -l .; exit 1; }
+
+lint:
+	$(GO_BIN)/staticcheck ./...
+
+ineffassign-check:
+	$(GO_BIN)/ineffassign ./...
+
+security:
+	$(GO_BIN)/gosec -quiet ./...
+
+complexity:
+	$(GO_BIN)/gocyclo -over 15 .
+
+outdated:
+	$(GO) list -m -u all | grep '\['
+
+analyze: fmt-check vet test lint ineffassign-check complexity security
+	@echo "Full analysis complete"
 
 # ---------------------------------------------------------------------------
 # Docs

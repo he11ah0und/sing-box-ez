@@ -17,7 +17,7 @@ import (
 //	name     — plugin name (also used as directory name)
 //	relation — "client", "server", or "both" (stored as JSON string or array)
 func GeneratePluginTemplate(outDir, name, relation string) error {
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	if err := os.MkdirAll(outDir, 0750); err != nil {
 		return err
 	}
 
@@ -44,13 +44,13 @@ func GeneratePluginTemplate(outDir, name, relation string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(outDir, "manifest.json"), mfData, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outDir, "manifest.json"), mfData, 0600); err != nil {
 		return err
 	}
 
 	// Build main.lua from the live API registry.
 	lua := generateLuaTemplate(name)
-	if err := os.WriteFile(filepath.Join(outDir, "main.lua"), []byte(lua), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outDir, "main.lua"), []byte(lua), 0600); err != nil {
 		return err
 	}
 
@@ -83,8 +83,7 @@ func generateLuaTemplate(pluginName string) string {
 			fmt.Fprintf(&b, "--   %s\n", fn.Desc)
 			if fn.Example != "" {
 				b.WriteString("-- Example:\n")
-				lines := strings.Split(fn.Example, "\n")
-				for _, line := range lines {
+				for line := range strings.SplitSeq(fn.Example, "\n") {
 					fmt.Fprintf(&b, "--   %s\n", line)
 				}
 			}

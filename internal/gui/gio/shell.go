@@ -77,18 +77,6 @@ func NewShell(th *material.Theme, cfg *config.AppConfig, ctrl *core.Controller, 
 	return s
 }
 
-func (s *Shell) showDialog(title, body string) {
-	s.dialog.Show(title, body)
-}
-
-func (s *Shell) showDialogMarkdown(title, body string) {
-	s.dialog.ShowMarkdown(title, body)
-}
-
-func (s *Shell) showDialogLoading(title string) {
-	s.dialog.ShowLoading(title)
-}
-
 // Layout draws the adaptive shell.
 func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 	// Determine available width in dp.

@@ -57,136 +57,18 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 	headers := []string{g.t("configs.table.name"), g.t("configs.table.source"), g.t("configs.table.last_update"), g.t("configs.table.next_update"), g.t("configs.table.period"), g.t("configs.table.cached")}
 	cols := len(headers)
 
-	// Compute dynamic column widths based on header + content text.
-	padding := float32(24) // internal cell padding
-	colWidths := make([]float32, cols)
-	for i, h := range headers {
-		colWidths[i] = measureTextWidth(h, true) + padding
-	}
-	for _, rec := range g.configData {
-		// Col 0: name
-		name := rec.Name
-		if rec.Name == g.cfg.GetActiveName() {
-			name = "> " + name
-		}
-		if w := measureTextWidth(name, false) + padding; w > colWidths[0] {
-			colWidths[0] = w
-		}
-		// Col 1: source
-		src := rec.Parent
-		if src == "" || src == "user" {
-			src = g.t("configs.table.user")
-		} else if len(src) > 3 && src[:3] == "pl-" {
-			src = src[3:]
-		}
-		if w := measureTextWidth(src, false) + padding; w > colWidths[1] {
-			colWidths[1] = w
-		}
-		// Col 2: last update
-		var lu string
-		if rec.LastUpdate.IsZero() {
-			lu = g.t("configs.table.never")
-		} else {
-			lu = rec.LastUpdate.Format(timeLayout)
-		}
-		if w := measureTextWidth(lu, false) + padding; w > colWidths[2] {
-			colWidths[2] = w
-		}
-		// Col 3: next update
-		var nu string
-		next := rec.NextUpdate()
-		if next.IsZero() {
-			nu = g.t("configs.table.now")
-		} else {
-			nu = next.Format(timeLayout)
-		}
-		if w := measureTextWidth(nu, false) + padding; w > colWidths[3] {
-			colWidths[3] = w
-		}
-		// Col 4: period
-		p := fmt.Sprintf("%dh", rec.UpdateIntervalHours)
-		if w := measureTextWidth(p, false) + padding; w > colWidths[4] {
-			colWidths[4] = w
-		}
-		// Col 5: cached
-		var cached string
-		if g.ctrl.HasCachedConfig(rec.Name) {
-			cached = g.t("configs.table.yes")
-		} else {
-			cached = g.t("configs.table.no")
-		}
-		if w := measureTextWidth(cached, false) + padding; w > colWidths[5] {
-			colWidths[5] = w
-		}
-	}
+	colWidths := g.computeConfigColumnWidths(headers)
 
 	g.configTable = widget.NewTableWithHeaders(
 		func() (int, int) { return len(g.configData), cols },
-		func() fyne.CanvasObject {
-			return newCell()
-		},
-		func(id widget.TableCellID, obj fyne.CanvasObject) {
-			c := obj.(*cell)
-			if id.Row < 0 || id.Row >= len(g.configData) {
-				c.SetText("")
-				c.onDblTap = nil
-				return
-			}
-			rec := g.configData[id.Row]
-			switch id.Col {
-			case 0:
-				name := rec.Name
-				if rec.Name == g.cfg.GetActiveName() {
-					name = "> " + name
-				}
-				c.SetText(name)
-			case 1:
-				src := rec.Parent
-				if src == "" || src == "user" {
-					src = g.t("configs.table.user")
-				} else if len(src) > 3 && src[:3] == "pl-" {
-					src = src[3:]
-				}
-				c.SetText(src)
-			case 2:
-				if rec.LastUpdate.IsZero() {
-					c.SetText(g.t("configs.table.never"))
-				} else {
-					c.SetText(rec.LastUpdate.Format(timeLayout))
-				}
-			case 3:
-				next := rec.NextUpdate()
-				if next.IsZero() {
-					c.SetText(g.t("configs.table.now"))
-				} else {
-					c.SetText(next.Format(timeLayout))
-				}
-			case 4:
-				c.SetText(fmt.Sprintf("%dh", rec.UpdateIntervalHours))
-			case 5:
-				if g.ctrl.HasCachedConfig(rec.Name) {
-					c.SetText(g.t("configs.table.yes"))
-				} else {
-					c.SetText(g.t("configs.table.no"))
-				}
-			}
-			// Double-click activates the config; right-click opens edit dialog.
-			c.onDblTap = func() {
-				g.configSelected = id.Row
-				g.onActivateConfig()
-			}
-			c.onRightTap = func() {
-				g.configSelected = id.Row
-				g.onEditConfig()
-			}
-		},
+		func() fyne.CanvasObject { return newCell() },
+		g.updateConfigTableCell,
 	)
 
 	for i, w := range colWidths {
 		g.configTable.SetColumnWidth(i, w)
 	}
 
-	// Set header texts
 	g.configTable.CreateHeader = func() fyne.CanvasObject {
 		return widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	}
@@ -196,19 +78,19 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 		}
 	}
 
-	// Allow selecting any cell in a row; track the row index.
 	g.configTable.OnSelected = func(id widget.TableCellID) {
 		if id.Row >= 0 && id.Row < len(g.configData) {
 			g.configSelected = id.Row
 		}
 	}
 
-	g.addBtn = widget.NewButton(g.t("configs.btn.add"), g.onAddConfig)
-	g.editBtn = widget.NewButton(g.t("configs.btn.edit"), g.onEditConfig)
-	g.delBtn = widget.NewButton(g.t("configs.btn.delete"), g.onDeleteConfig)
-	g.activateBtn = widget.NewButton(g.t("configs.btn.activate"), g.onActivateConfig)
-	g.updateAllBtn = widget.NewButton(g.t("configs.btn.update_all"), g.onUpdateAllConfigs)
-	btnRow := container.NewHBox(g.addBtn, g.editBtn, g.delBtn, g.activateBtn, g.updateAllBtn)
+	btnRow := container.NewHBox(
+		widget.NewButton(g.t("configs.btn.add"), g.onAddConfig),
+		widget.NewButton(g.t("configs.btn.edit"), g.onEditConfig),
+		widget.NewButton(g.t("configs.btn.delete"), g.onDeleteConfig),
+		widget.NewButton(g.t("configs.btn.activate"), g.onActivateConfig),
+		widget.NewButton(g.t("configs.btn.update_all"), g.onUpdateAllConfigs),
+	)
 
 	totalWidth := float32(0)
 	for _, w := range colWidths {
@@ -217,13 +99,129 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 	tableScroll := container.NewScroll(g.configTable)
 	tableScroll.SetMinSize(fyne.NewSize(totalWidth, 400))
 
-	content := container.NewBorder(
-		btnRow,
-		nil, nil, nil,
-		tableScroll,
-	)
-
+	content := container.NewBorder(btnRow, nil, nil, nil, tableScroll)
 	return container.NewTabItem(g.t("tab.configs"), content)
+}
+
+func (g *GUI) computeConfigColumnWidths(headers []string) []float32 {
+	padding := float32(24)
+	colWidths := make([]float32, len(headers))
+	for i, h := range headers {
+		colWidths[i] = measureTextWidth(h, true) + padding
+	}
+	for _, rec := range g.configData {
+		colWidths[0] = maxColWidth(colWidths[0], g.configNameWidth(rec), padding)
+		colWidths[1] = maxColWidth(colWidths[1], g.configSourceWidth(rec), padding)
+		colWidths[2] = maxColWidth(colWidths[2], g.configLastUpdateWidth(rec), padding)
+		colWidths[3] = maxColWidth(colWidths[3], g.configNextUpdateWidth(rec), padding)
+		colWidths[4] = maxColWidth(colWidths[4], measureTextWidth(fmt.Sprintf("%dh", rec.UpdateIntervalHours), false), padding)
+		colWidths[5] = maxColWidth(colWidths[5], g.configCachedWidth(rec), padding)
+	}
+	return colWidths
+}
+
+func maxColWidth(current, content, padding float32) float32 {
+	if w := content + padding; w > current {
+		return w
+	}
+	return current
+}
+
+func (g *GUI) configNameWidth(rec config.ConfigRecord) float32 {
+	name := rec.Name
+	if rec.Name == g.cfg.GetActiveName() {
+		name = "> " + name
+	}
+	return measureTextWidth(name, false)
+}
+
+func (g *GUI) configSourceWidth(rec config.ConfigRecord) float32 {
+	src := rec.Parent
+	if src == "" || src == "user" {
+		src = g.t("configs.table.user")
+	} else if len(src) > 3 && src[:3] == "pl-" {
+		src = src[3:]
+	}
+	return measureTextWidth(src, false)
+}
+
+func (g *GUI) configLastUpdateWidth(rec config.ConfigRecord) float32 {
+	if rec.LastUpdate.IsZero() {
+		return measureTextWidth(g.t("configs.table.never"), false)
+	}
+	return measureTextWidth(rec.LastUpdate.Format(timeLayout), false)
+}
+
+func (g *GUI) configNextUpdateWidth(rec config.ConfigRecord) float32 {
+	next := rec.NextUpdate()
+	if next.IsZero() {
+		return measureTextWidth(g.t("configs.table.now"), false)
+	}
+	return measureTextWidth(next.Format(timeLayout), false)
+}
+
+func (g *GUI) configCachedWidth(rec config.ConfigRecord) float32 {
+	if g.ctrl.HasCachedConfig(rec.Name) {
+		return measureTextWidth(g.t("configs.table.yes"), false)
+	}
+	return measureTextWidth(g.t("configs.table.no"), false)
+}
+
+func (g *GUI) updateConfigTableCell(id widget.TableCellID, obj fyne.CanvasObject) {
+	c := obj.(*cell)
+	if id.Row < 0 || id.Row >= len(g.configData) {
+		c.SetText("")
+		c.onDblTap = nil
+		return
+	}
+	rec := g.configData[id.Row]
+	c.SetText(g.configCellText(rec, id.Col))
+	c.onDblTap = func() {
+		g.configSelected = id.Row
+		g.onActivateConfig()
+	}
+	c.onRightTap = func() {
+		g.configSelected = id.Row
+		g.onEditConfig()
+	}
+}
+
+func (g *GUI) configCellText(rec config.ConfigRecord, col int) string {
+	switch col {
+	case 0:
+		name := rec.Name
+		if rec.Name == g.cfg.GetActiveName() {
+			name = "> " + name
+		}
+		return name
+	case 1:
+		src := rec.Parent
+		if src == "" || src == "user" {
+			src = g.t("configs.table.user")
+		} else if len(src) > 3 && src[:3] == "pl-" {
+			src = src[3:]
+		}
+		return src
+	case 2:
+		if rec.LastUpdate.IsZero() {
+			return g.t("configs.table.never")
+		}
+		return rec.LastUpdate.Format(timeLayout)
+	case 3:
+		next := rec.NextUpdate()
+		if next.IsZero() {
+			return g.t("configs.table.now")
+		}
+		return next.Format(timeLayout)
+	case 4:
+		return fmt.Sprintf("%dh", rec.UpdateIntervalHours)
+	case 5:
+		if g.ctrl.HasCachedConfig(rec.Name) {
+			return g.t("configs.table.yes")
+		}
+		return g.t("configs.table.no")
+	}
+	return ""
 }
 
 func (g *GUI) refreshConfigData() {
@@ -259,7 +257,7 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 
 	saveBtn := widget.NewButton(g.t("configs.dialog.btn.save"), func() {
 		var hours int
-		fmt.Sscanf(periodEntry.Text, "%d", &hours)
+		_, _ = fmt.Sscanf(periodEntry.Text, "%d", &hours)
 		if hours <= 0 {
 			hours = g.cfg.UpdateIntervalHours
 		}
