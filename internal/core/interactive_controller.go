@@ -20,14 +20,16 @@ type InteractiveController struct {
 	*Controller
 
 	// UI callbacks (optional, invoked when state changes)
-	OnStatusChange    func(running bool)
-	OnLog             func(msg string)
-	OnConfigUpdate    func()
-	OnVersionChange   func(ver string)
-	OnPrivilegeChange func(active bool)
-	OnLatestVersion   func(ver string)
-	OnNotification    func(title, body string)
-	OnAutoRestart     func()
+	OnStatusChange        func(running bool)
+	OnLog                 func(msg string)
+	OnConfigUpdate        func()
+	OnVersionChange       func(ver string)
+	OnPrivilegeChange     func(active bool)
+	OnLatestVersion       func(ver string)
+	OnNotification        func(title, body string)
+	OnAutoRestart         func()
+	OnFirstRun            func()
+	OnSelfUpdateAvailable func(info *updater.UpdateInfo)
 }
 
 // NewInteractiveController creates an interactive controller, initializes i18n,
@@ -122,6 +124,22 @@ func (ic *InteractiveController) DownloadCoreWithProgress(onProgress func(downlo
 
 func (ic *InteractiveController) CheckSelfUpdate() (*updater.UpdateInfo, error) {
 	return updater.CheckUpdate(version.Branch)
+}
+
+// RunStartupSequence performs first-run and update checks, invoking registered
+// UI callbacks when user interaction is required.
+func (ic *InteractiveController) RunStartupSequence() {
+	if !ic.cfg.GetFirstRunDone() {
+		if ic.OnFirstRun != nil {
+			ic.OnFirstRun()
+		}
+	}
+	info, err := ic.CheckSelfUpdate()
+	if err == nil && info != nil && info.ReleaseCount > 0 {
+		if ic.OnSelfUpdateAvailable != nil {
+			ic.OnSelfUpdateAvailable(info)
+		}
+	}
 }
 
 // ---------- Update checking ----------

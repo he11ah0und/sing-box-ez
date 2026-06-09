@@ -10,6 +10,7 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/plugins"
+	"sing-box-ez/internal/updater"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -137,6 +138,12 @@ func New(cfg *config.AppConfig) *GUI {
 	}
 	g.ctrl.OnNotification = func(title, body string) {
 		g.sendNotification(title, body)
+	}
+	g.ctrl.OnFirstRun = func() {
+		fyne.DoAndWait(func() { g.showFirstRunDialog() })
+	}
+	g.ctrl.OnSelfUpdateAvailable = func(info *updater.UpdateInfo) {
+		fyne.Do(func() { g.showSelfUpdateDialog(info) })
 	}
 
 	w.SetOnClosed(g.onWindowClosed)
@@ -376,35 +383,8 @@ func (g *GUI) repaintLoop() {
 
 func (g *GUI) Run() {
 	g.window.Show()
-	go func() {
-		if !g.cfg.GetFirstRunDone() {
-			fyne.DoAndWait(func() { g.showFirstRunDialog() })
-		}
-		g.checkUpdatesOnStartup()
-	}()
+	go g.ctrl.RunStartupSequence()
 	go g.repaintLoop()
 	go g.logFlushLoop()
 	g.app.Run()
-}
-
-func (g *GUI) checkUpdatesOnStartup() {
-	info, currentVer, latestVer, err := g.ctrl.CheckUpdates()
-	if err != nil {
-		return
-	}
-	if info != nil && info.ReleaseCount > 0 {
-		fyne.Do(func() { g.showSelfUpdateDialog(info) })
-		return
-	}
-	if currentVer != "" && latestVer != "" && currentVer != latestVer {
-		g.latestVersion = latestVer
-		if g.latestText != nil {
-			fyne.Do(func() {
-				g.latestText.Text = g.t("core.latest.prefix") + latestVer
-				g.latestText.Color = colGreen
-				g.latestText.Refresh()
-			})
-		}
-		g.showUpdatePrompt(latestVer, currentVer)
-	}
 }
