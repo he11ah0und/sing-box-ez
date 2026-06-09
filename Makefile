@@ -56,7 +56,9 @@ CGO_ENABLED = $(if $(filter 1,$(GUI)),1,0)
 comma := ,
 empty :=
 space := $(empty) $(empty)
-TAG_LIST  = $(if $(filter 1,$(GUI)),$(if $(and $(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE)),$(filter wayland,$(GUI_BACKEND))),wayland,),nogui)
+# Build tag for Linux GUI (wayland/x11) when using Gio.
+LINUX_GUI_TAG = $(if $(and $(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(if $(filter wayland,$(GUI_BACKEND)),wayland,$(if $(filter x11,$(GUI_BACKEND)),x11,)),)
+TAG_LIST  = $(if $(filter 1,$(GUI)),$(LINUX_GUI_TAG),nogui)
 TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
 TAG_LIST += $(if $(filter fyne,$(ENGINE)),fyne,)
 BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
@@ -150,11 +152,11 @@ ifeq ($(GUI),1)
 ifeq ($(GUI_BACKEND),wayland)
 	@echo "Installing Wayland build dependencies..."
 	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev libwayland-dev libwayland-bin libxkbcommon-dev
+	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev libwayland-dev libwayland-bin libxkbcommon-dev libvulkan-dev
 else
 	@echo "Installing X11 build dependencies..."
 	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev xorg-dev
+	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libvulkan-dev libwayland-dev
 endif
 else
 	@echo "Installing base build dependencies..."
@@ -181,10 +183,10 @@ ifeq ($(GOOS),linux)
 ifeq ($(GUI),1)
 ifeq ($(GUI_BACKEND),wayland)
 	@echo "Installing Wayland build dependencies..."
-	sudo pacman -S --needed mesa wayland libxkbcommon
+	sudo pacman -S --needed mesa wayland libxkbcommon vulkan-headers
 else
 	@echo "Installing X11 build dependencies..."
-	sudo pacman -S --needed mesa libx11 libxcursor libxrandr libxinerama libxi libglvnd
+	sudo pacman -S --needed mesa libx11 libxcursor libxrandr libxinerama libxi libglvnd libxkbcommon vulkan-headers wayland
 endif
 else
 	@echo "Installing base build dependencies..."
