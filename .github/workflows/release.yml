@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, testing]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -16,6 +16,7 @@ jobs:
     outputs:
       tag: ${{ steps.commit.outputs.short }}
       body: ${{ steps.commit.outputs.message }}
+      matrix: ${{ steps.matrix.outputs.json }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,7 +32,7 @@ jobs:
           if [ -n "$last_tag" ]; then
             range="${last_tag}..HEAD"
           else
-            range=""
+            range="HEAD"
           fi
 
           {
@@ -49,51 +50,44 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
+      - name: Generate build matrix
+        id: matrix
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            cat << 'EOF' > matrix.json
+          [
+            {"name":"linux-gui","os":"linux","arch":"amd64","gui":1,"compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-linux-gcc-gui"},
+            {"name":"linux-cli-gcc","os":"linux","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-cli"},
+            {"name":"linux-cli-musl","os":"linux","arch":"amd64","gui":0,"compiler":"musl","artifact":"build/sing-box-ez-amd64-linux-musl-cli"},
+            {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
+            {"name":"windows-cli","os":"windows","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-cli.exe"}
+          ]
+          EOF
+          else
+            cat << 'EOF' > matrix.json
+          [
+            {"name":"linux-wayland","os":"linux","arch":"amd64","gui":1,"backend":"wayland","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-wayland"},
+            {"name":"linux-x11","os":"linux","arch":"amd64","gui":1,"backend":"x11","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-x11"},
+            {"name":"linux-cli-gcc","os":"linux","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-cli"},
+            {"name":"linux-cli-musl","os":"linux","arch":"amd64","gui":0,"compiler":"musl","artifact":"build/sing-box-ez-amd64-linux-musl-cli"},
+            {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
+            {"name":"windows-cli","os":"windows","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-cli.exe"}
+          ]
+          EOF
+          fi
+          {
+            echo 'json<<EOF'
+            cat matrix.json
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
   build:
     needs: prepare-release
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: linux-wayland
-            os: linux
-            arch: amd64
-            gui: 1
-            backend: wayland
-            compiler: gcc
-            artifact: build/sing-box-ez-amd64-linux-gcc-gui-wayland
-          - name: linux-x11
-            os: linux
-            arch: amd64
-            gui: 1
-            backend: x11
-            compiler: gcc
-            artifact: build/sing-box-ez-amd64-linux-gcc-gui-x11
-          - name: linux-cli-gcc
-            os: linux
-            arch: amd64
-            gui: 0
-            compiler: gcc
-            artifact: build/sing-box-ez-amd64-linux-gcc-cli
-          - name: linux-cli-musl
-            os: linux
-            arch: amd64
-            gui: 0
-            compiler: musl
-            artifact: build/sing-box-ez-amd64-linux-musl-cli
-          - name: windows-gui
-            os: windows
-            arch: amd64
-            gui: 1
-            compiler: gcc
-            artifact: build/sing-box-ez-amd64-windows-gcc-gui.exe
-          - name: windows-cli
-            os: windows
-            arch: amd64
-            gui: 0
-            compiler: gcc
-            artifact: build/sing-box-ez-amd64-windows-gcc-cli.exe
+        include: ${{ fromJson(needs.prepare-release.outputs.matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -138,7 +132,8 @@ jobs:
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
             PLUGINS=0 \
-            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
+            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" ) \
+            $( [ -n "${{ matrix.engine }}" ] && echo "ENGINE=${{ matrix.engine }}" )
 
       - name: Build ${{ matrix.name }}
         run: |
@@ -148,7 +143,8 @@ jobs:
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
             PLUGINS=0 \
-            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
+            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" ) \
+            $( [ -n "${{ matrix.engine }}" ] && echo "ENGINE=${{ matrix.engine }}" )
 
       - name: Write status
         if: always()
@@ -171,7 +167,7 @@ jobs:
   finalize-release:
     needs: [prepare-release, build]
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/testing')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -198,42 +194,40 @@ jobs:
           echo "## Build Status" >> release_notes.md
           echo "" >> release_notes.md
 
-          for name in linux-wayland linux-x11 linux-cli-gcc linux-cli-musl windows-gui windows-cli; do
-            status_file="artifacts/status-${name}/status-${name}.txt"
-            binary_dir="artifacts/binary-${name}"
-
-            if [ -f "$status_file" ]; then
-              status=$(cat "$status_file")
-            else
-              status="failure"
-            fi
-
-            if [ "$status" = "success" ]; then
-              echo "- ✅ ${name}" >> release_notes.md
-              if [ -d "$binary_dir" ]; then
-                cp "${binary_dir}"/* binaries/ 2>/dev/null || true
+          # Collect status artifacts
+          for f in artifacts/status-*/status-*.txt; do
+            if [ -f "$f" ]; then
+              name=$(basename "$f" .txt | sed 's/status-//')
+              status=$(cat "$f")
+              icon="✅"
+              if [ "$status" != "success" ]; then
+                icon="❌"
               fi
-            else
-              echo "- ❌ ${name}" >> release_notes.md
+              echo "- $icon \`$name\`" >> release_notes.md
+            fi
+          done
+
+          echo "" >> release_notes.md
+          echo "## Binaries" >> release_notes.md
+          echo "" >> release_notes.md
+
+          # Collect binaries
+          for f in artifacts/binary-*/sing-box-ez*; do
+            if [ -f "$f" ]; then
+              name=$(basename "$f")
+              cp "$f" "binaries/$name"
+              echo "- \`$name\`" >> release_notes.md
             fi
           done
 
       - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name == 'main' && 'latest' || 'latest-testing' }}
+          name: "${{ github.ref_name == 'main' && 'Latest Build' || 'Latest Testing Build' }} (${{ needs.prepare-release.outputs.tag }})"
+          body_path: release_notes.md
+          files: binaries/*
+          draft: false
+          prerelease: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="${{ needs.prepare-release.outputs.tag }}"
-
-          # Create release if it doesn't exist; ignore error if it does
-          gh release create "$tag" \
-            --title "$tag" \
-            --notes-file release_notes.md 2>/dev/null || true
-
-          # Upload binaries (overwrite existing)
-          for f in binaries/*; do
-            [ -f "$f" ] || continue
-            gh release upload "$tag" "$f" --clobber || true
-          done
-
-          # Update release notes
-          gh release edit "$tag" --notes-file release_notes.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

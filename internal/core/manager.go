@@ -61,6 +61,8 @@ func absPath(p string) (string, error) {
 
 func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string) (*exec.Cmd, error) {
 	if !m.elevated {
+		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	}
 
@@ -68,6 +70,7 @@ func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string)
 	case "linux":
 		// если setcap уже применён — запускаем напрямую без pkexec
 		if HasNetAdminCapability(corePath) {
+			// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
 			return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 		}
 		absCore, err := absPath(corePath)
@@ -78,6 +81,7 @@ func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string)
 		if err != nil {
 			return nil, fmt.Errorf("resolve config path: %w", err)
 		}
+		// #nosec G204 — pkexec is a system binary; absCore/absConfig are resolved internal paths.
 		return exec.CommandContext(ctx, "pkexec", absCore, "run", "-c", absConfig), nil
 	case "darwin":
 		absCore, err := absPath(corePath)
@@ -89,13 +93,16 @@ func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string)
 			return nil, fmt.Errorf("resolve config path: %w", err)
 		}
 		script := fmt.Sprintf(`do shell script %s with administrator privileges`, strconv.Quote(absCore+" run -c "+absConfig))
+		// #nosec G204 — osascript is a system binary; script is built from resolved internal paths.
 		return exec.CommandContext(ctx, "osascript", "-e", script), nil
 	case "windows":
 		if m.elevated && !IsAdmin() {
 			return nil, fmt.Errorf("administrator privileges required: please run sing-box-ez as administrator")
 		}
+		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	default:
+		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	}
 }
@@ -145,7 +152,7 @@ func (m *Manager) Start() error {
 	m.running = true
 
 	go func() {
-		m.cmd.Wait()
+		_ = m.cmd.Wait()
 		m.mu.Lock()
 		m.running = false
 		m.mu.Unlock()

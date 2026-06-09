@@ -1,6 +1,6 @@
-//go:build !noplugins
+//go:build noplugins
 
-package gui
+package fynegui
 
 import (
 	"fmt"
@@ -19,9 +19,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	g.logLimitEntry.OnSubmitted = func(s string) {
 		var v int
 		if _, err := fmt.Sscanf(s, "%d", &v); err == nil && v >= 0 {
-			g.cfg.SetLogLimit(v)
-			_ = g.cfg.Save()
-			g.log("Log limit set to " + s)
+			g.ctrl.SetLogLimitWithLog(v)
 		}
 	}
 	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel(i18n.T("settings.log_limit.label")), widget.NewButton(i18n.T("settings.btn.save"), func() {
@@ -61,37 +59,12 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	g.defaultIntervalEntry.OnSubmitted = func(s string) {
 		var h int
 		if _, err := fmt.Sscanf(s, "%d", &h); err == nil && h > 0 {
-			g.cfg.SetDefaultUpdateInterval(h)
-			_ = g.cfg.Save()
-			g.log("Default interval set to " + s + "h")
+			g.ctrl.SetDefaultIntervalWithLog(h)
 		}
 	}
 	intervalRow := container.NewBorder(nil, nil, widget.NewLabel(i18n.T("settings.default_interval.label")), widget.NewButton(i18n.T("settings.btn.save"), func() {
 		g.defaultIntervalEntry.OnSubmitted(g.defaultIntervalEntry.Text)
 	}), g.defaultIntervalEntry)
-
-	// --- Plugins block ---
-	g.pluginsEnabledCheck = widget.NewCheck(i18n.T("settings.plugins.enabled"), func(checked bool) {
-		g.cfg.SetPluginsEnabled(checked)
-		_ = g.cfg.Save()
-		if !checked {
-			g.pluginsDeveloperCheck.SetChecked(false)
-			g.cfg.SetPluginsDeveloper(false)
-			g.pluginsDeveloperCheck.Disable()
-		} else {
-			g.pluginsDeveloperCheck.Enable()
-		}
-	})
-	g.pluginsEnabledCheck.SetChecked(g.cfg.GetPluginsEnabled())
-
-	g.pluginsDeveloperCheck = widget.NewCheck(i18n.T("settings.plugins.developer"), func(checked bool) {
-		g.cfg.SetPluginsDeveloper(checked)
-		_ = g.cfg.Save()
-	})
-	g.pluginsDeveloperCheck.SetChecked(g.cfg.GetPluginsDeveloper())
-	if !g.cfg.GetPluginsEnabled() {
-		g.pluginsDeveloperCheck.Disable()
-	}
 
 	// --- Assemble content ---
 	content := container.NewVBox(
@@ -113,11 +86,6 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 		widget.NewButton(i18n.T("settings.reload_ui.btn"), func() {
 			g.rebuildUI()
 		}),
-		widget.NewSeparator(),
-
-		widget.NewLabelWithStyle(i18n.T("settings.plugins.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		g.pluginsEnabledCheck,
-		g.pluginsDeveloperCheck,
 	)
 
 	return container.NewTabItem(i18n.T("tab.settings"), container.NewScroll(content))

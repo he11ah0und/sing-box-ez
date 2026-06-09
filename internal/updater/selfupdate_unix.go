@@ -20,7 +20,8 @@ func ApplyUpdate(assetURL string, progress func(downloaded, total int64)) error 
 		return fmt.Errorf("download failed: %w", err)
 	}
 
-	if err := os.Chmod(tmp, 0755); err != nil {
+	// #nosec G302 — tmp is the replacement binary for the current executable; must remain executable.
+	if err := os.Chmod(tmp, 0750); err != nil {
 		return err
 	}
 
@@ -28,5 +29,8 @@ func ApplyUpdate(assetURL string, progress func(downloaded, total int64)) error 
 		return fmt.Errorf("replace failed: %w", err)
 	}
 
+	// exe is the current binary path verified by os.Executable();
+	// os.Args are the process's own arguments. Safe to re-exec.
+	// #nosec G702,G204 — exe is the current binary path from os.Executable(); os.Args/os.Environ() are the process's own context.
 	return syscall.Exec(exe, os.Args, os.Environ())
 }

@@ -15,6 +15,8 @@ var (
 	BuildGUI      = "unknown"
 	BuildBackend  = ""
 	BuildCompiler = "unknown"
+	BuildDev      = "false"
+	CommitDate    = "unknown"
 )
 
 func Info() string {
@@ -45,7 +47,15 @@ func BuildFlags() string {
 	if BuildBackend != "" {
 		s += "-" + BuildBackend
 	}
+	if BuildDev == "true" {
+		s += "-dev"
+	}
 	return s
+}
+
+// IsDev reports whether this is a development build (dirty working tree).
+func IsDev() bool {
+	return BuildDev == "true"
 }
 
 // BuildDateTime parses BuildDate (UTC RFC3339) into a time.Time in the local timezone.
@@ -54,6 +64,18 @@ func BuildDateTime() (time.Time, error) {
 		return time.Time{}, fmt.Errorf("build date unknown")
 	}
 	t, err := time.Parse(time.RFC3339, BuildDate)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return t.Local(), nil
+}
+
+// CommitDateTime parses CommitDate (UTC RFC3339) into a time.Time in the local timezone.
+func CommitDateTime() (time.Time, error) {
+	if CommitDate == "unknown" || CommitDate == "" {
+		return time.Time{}, fmt.Errorf("commit date unknown")
+	}
+	t, err := time.Parse(time.RFC3339, CommitDate)
 	if err != nil {
 		return time.Time{}, err
 	}

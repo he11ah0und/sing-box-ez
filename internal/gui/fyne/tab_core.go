@@ -1,11 +1,8 @@
-package gui
+package fynegui
 
 import (
-	"fmt"
 	"image/color"
-	"runtime"
 
-	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/i18n"
 
 	"fyne.io/fyne/v2"
@@ -29,10 +26,9 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 	checkBtn := widget.NewButton(i18n.T("core.btn.check"), func() {
 		go func() {
 			modal := g.showInfiniteDialog(i18n.T("progress.checking_version"))
-			ver, err := core.GetLatestVersion()
+			ver, err := g.ctrl.GetLatestCoreVersionWithLog()
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
-				g.log("Check failed: " + err.Error())
 				return
 			}
 			g.latestVersion = ver
@@ -58,62 +54,51 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 	g.showCoreLogsCheck.SetChecked(g.cfg.GetWatchCoreLogs())
 
 	// --- Privileges block ---
+	state := g.ctrl.GetPrivilegeTabState()
 	var privilegesContent fyne.CanvasObject
-	if runtime.GOOS == "windows" {
-		adminStatus := canvas.NewText("", color.Black)
+	if state.Mode == "windows" {
+		adminStatus := canvas.NewText(state.AdminStatusText, color.Black)
 		adminStatus.TextSize = theme.TextSize()
-		if core.IsAdmin() {
-			adminStatus.Text = i18n.T("core.privileges.admin")
+		if state.AdminStatusColor == "green" {
 			adminStatus.Color = colGreen
 		} else {
-			adminStatus.Text = i18n.T("core.privileges.user")
 			adminStatus.Color = colYellow
 		}
 		restartBtn := widget.NewButton(i18n.T("core.btn.restart_admin"), func() {
-			go g.restartAsAdmin()
+			go func() {
+				if err := g.ctrl.RestartAsAdminWithLog(); err != nil {
+					return
+				}
+				fyne.Do(func() { g.window.Close() })
+			}()
 		})
-		if core.IsAdmin() {
+		if !state.ShowRestartAdminBtn {
 			restartBtn.Disable()
 		}
 		privilegesContent = container.NewVBox(adminStatus, restartBtn)
 	} else {
-		// Linux / macOS
-		adminLabel := i18n.T("core.admin.label")
-		if runtime.GOOS == "linux" {
-			if core.HasNetAdminCapability(core.GetCorePath()) {
-				adminLabel = i18n.T("core.admin.label_root_setcap")
-			} else {
-				adminLabel = i18n.T("core.admin.label_root_pkexec")
-			}
-		}
-		g.adminCheck = widget.NewCheck(adminLabel, func(checked bool) {
-			g.cfg.SetRunAsAdmin(checked)
-			g.manager.SetElevated(checked)
-			if err := g.cfg.Save(); err != nil {
-				g.log("Failed to save admin setting: " + err.Error())
-			} else {
-				g.log("Admin mode: " + fmt.Sprintf("%v", checked))
-			}
+		g.adminCheck = widget.NewCheck(state.AdminLabel, func(checked bool) {
+			_ = g.ctrl.SetRunAsAdminWithLog(checked)
 		})
-		g.adminCheck.SetChecked(g.cfg.RunAsAdmin)
+		g.adminCheck.SetChecked(state.RunAsAdmin)
 
-		g.privilegeText = canvas.NewText("", color.Black)
+		g.privilegeText = canvas.NewText(state.PrivilegeText, color.Black)
 		g.privilegeText.TextSize = theme.TextSize()
-		g.refreshPrivilegeStatus()
+		if state.PrivilegeColor == "green" {
+			g.privilegeText.Color = colGreen
+		} else {
+			g.privilegeText.Color = colYellow
+		}
 
 		var setcapRow fyne.CanvasObject
-		if runtime.GOOS == "linux" {
+		if state.ShowSetcapBtn {
 			setcapBtn := widget.NewButton(i18n.T("core.btn.apply_setcap"), func() {
 				go func() {
 					modal := g.showInfiniteDialog(i18n.T("progress.applying_setcap"))
-					err := core.SetNetAdminCapabilityGUI(core.GetCorePath())
+					err := g.ctrl.ApplySetcapWithLog()
 					fyne.Do(func() { modal.Hide() })
-					if err != nil {
-						g.log("setcap failed: " + err.Error())
-						g.log("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
-					} else {
-						g.log("setcap applied successfully.")
-						g.refreshPrivilegeStatus()
+					if err == nil {
+						fyne.Do(func() { g.refreshPrivilegeStatusUI() })
 					}
 				}()
 			})

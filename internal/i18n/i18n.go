@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/nicksnyder/go-i18n/v2/i18n"
@@ -58,11 +59,9 @@ func DetectSystemLanguage() string {
 	if idx := strings.Index(lang, "."); idx != -1 {
 		lang = lang[:idx]
 	}
-	base := strings.Split(lang, "_")[0]
-	for _, code := range AvailableLanguages() {
-		if code == base {
-			return base
-		}
+	base, _, _ := strings.Cut(lang, "_")
+	if slices.Contains(AvailableLanguages(), base) {
+		return base
 	}
 	return "en"
 }
@@ -76,11 +75,11 @@ func SetLanguage(code string) {
 
 // T returns the localized string for the given message ID.
 // Optional template data can be passed for interpolation.
-func T(id string, data ...map[string]interface{}) string {
+func T(id string, data ...map[string]any) string {
 	if localizer == nil {
 		SetLanguage("en")
 	}
-	var tmplData map[string]interface{}
+	var tmplData map[string]any
 	if len(data) > 0 {
 		tmplData = data[0]
 	}

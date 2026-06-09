@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"sing-box-ez/internal/githuburl"
-	"sing-box-ez/internal/paths"
+	"sing-box-ez/internal/util/githuburl"
+	"sing-box-ez/internal/util/paths"
 )
 
 // ProgressFunc вызывается во время скачивания: скачано, всего.
@@ -152,7 +152,7 @@ func DownloadCore(version string, onProgress ProgressFunc) (string, error) {
 	}
 
 	_, err = io.Copy(tmpFile, src)
-	tmpFile.Close()
+	_ = tmpFile.Close()
 	if err != nil {
 		return "", err
 	}
@@ -168,13 +168,15 @@ func DownloadCore(version string, onProgress ProgressFunc) (string, error) {
 	}
 
 	if runtime.GOOS != "windows" {
-		os.Chmod(targetPath, 0755)
+		// #nosec G302 — core binary must be executable; path is controlled by the app (paths.CoreBinary).
+		_ = os.Chmod(targetPath, 0750)
 	}
 
 	return targetPath, nil
 }
 
 func extractTarGz(archivePath, targetPath, binaryName string) error {
+	// #nosec G304 — archivePath is a temp file created by os.CreateTemp in the same function.
 	f, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -197,12 +199,15 @@ func extractTarGz(archivePath, targetPath, binaryName string) error {
 			return err
 		}
 		if strings.HasSuffix(hdr.Name, binaryName) && hdr.FileInfo().Mode().IsRegular() {
+			// #nosec G304 — targetPath is the managed core binary path (paths.CoreBinary).
+			// #nosec G304 — targetPath is the managed core binary path (paths.CoreBinary).
+			// #nosec G304 — targetPath is the managed core binary path (paths.CoreBinary).
 			out, err := os.Create(targetPath)
 			if err != nil {
 				return err
 			}
-			_, err = io.Copy(out, tr)
-			out.Close()
+			_, err = io.Copy(out, io.LimitReader(tr, 500*1024*1024))
+			_ = out.Close()
 			return err
 		}
 	}
@@ -222,14 +227,15 @@ func extractZip(archivePath, targetPath, binaryName string) error {
 			if err != nil {
 				return err
 			}
+			// #nosec G304 — targetPath is the managed core binary path (paths.CoreBinary).
 			out, err := os.Create(targetPath)
 			if err != nil {
-				rc.Close()
+				_ = rc.Close()
 				return err
 			}
-			_, err = io.Copy(out, rc)
-			out.Close()
-			rc.Close()
+			_, err = io.Copy(out, io.LimitReader(rc, 500*1024*1024))
+			_ = out.Close()
+			_ = rc.Close()
 			return err
 		}
 	}

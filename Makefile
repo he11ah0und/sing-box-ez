@@ -3,15 +3,20 @@
 APP_NAME := sing-box-ez
 BUILD_DIR := ./build
 GO := go
+GOPATH := $(shell go env GOPATH)
+GO_BIN := $(GOPATH)/bin
 
 BRANCH     := $(shell git describe --tags --exact-match 2>/dev/null || git branch --show-current 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DEV    := $(shell git diff-index --quiet HEAD 2>/dev/null && echo "false" || echo "true")
+COMMIT_DATE  := $(shell git log -1 --format=%cI 2>/dev/null || echo "unknown")
 
 # ---------------------------------------------------------------------------
 # Build options — override on the command line:
 #   make build OS=windows ARCH=arm64 GUI=0
 #   make build OS=linux   ARCH=amd64 GUI=1 GUI_BACKEND=wayland
+#   make build ENGINE=fyne           # use fyne GUI instead of gio
 # ---------------------------------------------------------------------------
 OS           ?= $(shell go env GOOS)
 ARCH         ?= $(shell go env GOARCH)
@@ -19,6 +24,7 @@ GUI          ?= 1
 GUI_BACKEND  ?= wayland
 COMPILER     ?= gcc
 PLUGINS      ?= 1
+ENGINE       ?= gio
 
 GOOS    := $(OS)
 GOARCH  := $(ARCH)
@@ -37,8 +43,10 @@ LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
 	-X 'sing-box-ez/internal/version.BuildOS=$(GOOS)' \
 	-X 'sing-box-ez/internal/version.BuildArch=$(GOARCH)' \
 	-X 'sing-box-ez/internal/version.BuildGUI=$(GUI)' \
-	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(filter linux,$(GOOS)),$(GUI_BACKEND),)' \
-	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)'"
+	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(and $(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(GUI_BACKEND),)' \
+	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)' \
+	-X 'sing-box-ez/internal/version.BuildDev=$(BUILD_DEV)' \
+	-X 'sing-box-ez/internal/version.CommitDate=$(COMMIT_DATE)'"
 
 # Lazy-evaluated variables so target-specific overrides are respected.
 # GUI_BACKEND only affects Linux (Wayland vs X11); Windows/macOS use native GLFW.
@@ -48,11 +56,14 @@ CGO_ENABLED = $(if $(filter 1,$(GUI)),1,0)
 comma := ,
 empty :=
 space := $(empty) $(empty)
-TAG_LIST  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),wayland,),),nogui)
+# Build tag for Linux GUI (wayland/x11) when using Gio.
+LINUX_GUI_TAG = $(if $(and $(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(if $(filter wayland,$(GUI_BACKEND)),wayland,$(if $(filter x11,$(GUI_BACKEND)),x11,)),)
+TAG_LIST  = $(if $(filter 1,$(GUI)),$(LINUX_GUI_TAG),nogui)
 TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
+TAG_LIST += $(if $(filter fyne,$(ENGINE)),fyne,)
 BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 TYPE_SUFFIX     = $(if $(filter 1,$(GUI)),-gui,-cli)
-GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
+GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
 EXT         = $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
 
@@ -80,7 +91,6 @@ else
     endif
   endif
 endif
-
 # Explicit user-provided CC takes precedence (ignore plain 'cc'/'gcc'),
 # otherwise use auto-detected cross compiler.
 BUILD_CC := $(or $(filter-out cc gcc,$(CC)),$(CROSS_CC))
@@ -110,7 +120,8 @@ help:
 	@echo "  clean       Remove build artifacts"
 	@echo ""
 	@echo "Build options (examples):"
-	@echo "  make build                       # native OS/arch, Wayland GUI"
+	@echo "  make build                       # native OS/arch, Wayland GUI (gio)"
+	@echo "  make build ENGINE=fyne           # native OS/arch, fyne GUI"
 	@echo "  make build GUI=0                 # native OS/arch, CLI only"
 	@echo "  make build GUI_BACKEND=x11       # native, X11 GUI"
 	@echo "  make build OS=linux ARCH=arm64 GUI=1"
@@ -122,6 +133,7 @@ help:
 	@echo "  ARCH         Target architecture      (default: current)"
 	@echo "  GUI          1 = with GUI (needs CGO), 0 = CLI only"
 	@echo "  GUI_BACKEND  wayland | x11  (default: wayland)"
+	@echo "  ENGINE       gio | fyne     (default: gio)"
 	@echo "  COMPILER     gcc | musl     (default: gcc)"
 	@echo "  CC           Cross-compiler to use    (auto-detected)"
 
@@ -140,11 +152,11 @@ ifeq ($(GUI),1)
 ifeq ($(GUI_BACKEND),wayland)
 	@echo "Installing Wayland build dependencies..."
 	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev libwayland-dev libwayland-bin libxkbcommon-dev
+	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev libwayland-dev libwayland-bin libxkbcommon-dev libvulkan-dev libxkbcommon-x11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev
 else
 	@echo "Installing X11 build dependencies..."
 	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev xorg-dev
+	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libvulkan-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev
 endif
 else
 	@echo "Installing base build dependencies..."
@@ -159,14 +171,78 @@ endif
 endif
 
 # ---------------------------------------------------------------------------
+# System dependencies (Arch Linux)
+# ---------------------------------------------------------------------------
+setup-arch:
+	@command -v pacman >/dev/null 2>&1 || { echo "pacman not found. This target is for Arch Linux only."; exit 0; }
+ifeq ($(COMPILER),musl)
+	@echo "Installing musl build dependencies..."
+	sudo pacman -S --needed musl
+else
+ifeq ($(GOOS),linux)
+ifeq ($(GUI),1)
+ifeq ($(GUI_BACKEND),wayland)
+	@echo "Installing Wayland build dependencies..."
+	sudo pacman -S --needed mesa wayland libxkbcommon vulkan-headers libxfixes
+else
+	@echo "Installing X11 build dependencies..."
+	sudo pacman -S --needed mesa libx11 libxcursor libxrandr libxinerama libxi libglvnd libxkbcommon vulkan-headers wayland libxfixes
+endif
+else
+	@echo "Installing base build dependencies..."
+	sudo pacman -S --needed gcc
+endif
+else ifeq ($(GOOS),windows)
+	@echo "Installing Windows cross-compile dependencies..."
+	sudo pacman -S --needed mingw-w64-gcc
+endif
+endif
+	@echo "Installing Go analysis tools..."
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	go install github.com/gordonklaus/ineffassign@latest
+	go install github.com/segmentio/golines@latest
+	go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+
+# ---------------------------------------------------------------------------
 # Dependencies & tests
 # ---------------------------------------------------------------------------
 deps:
 	$(GO) mod download
 	$(GO) mod tidy
 
+vet:
+	$(GO) vet ./...
+
 test:
 	$(GO) test ./...
+
+# ---------------------------------------------------------------------------
+# Code quality & analysis
+# ---------------------------------------------------------------------------
+fmt:
+	gofmt -w .
+
+fmt-check:
+	@test -z "$$(gofmt -l .)" || { echo "Unformatted files:"; gofmt -l .; exit 1; }
+
+lint:
+	$(GO_BIN)/staticcheck ./...
+
+ineffassign-check:
+	$(GO_BIN)/ineffassign ./...
+
+security:
+	$(GO_BIN)/gosec -quiet ./...
+
+complexity:
+	$(GO_BIN)/gocyclo -over 15 .
+
+outdated:
+	$(GO) list -m -u all | grep '\['
+
+analyze: fmt-check vet test lint ineffassign-check complexity security
+	@echo "Full analysis complete"
 
 # ---------------------------------------------------------------------------
 # Docs
@@ -187,14 +263,14 @@ build:
 	$(if $(BUILD_CC),@echo "Cross-compiler: $(BUILD_CC)")
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
 		$(if $(BUILD_CC),CC=$(BUILD_CC)) \
-		$(GO) build $(BUILD_TAGS) $(LDFLAGS) -o $(OUTPUT) .
+		$(GO) build -trimpath -buildvcs=false $(BUILD_TAGS) $(LDFLAGS) -o $(OUTPUT) .
 	@echo "Built: $(OUTPUT)"
 
 # ---------------------------------------------------------------------------
 # Convenience aliases
 # ---------------------------------------------------------------------------
 build-nogui:
-	$(MAKE) build GUI=0
+	$(MAKE) build GUI=0 PLUGINS=0
 
 # ---------------------------------------------------------------------------
 # Run locally
@@ -204,6 +280,7 @@ run: build
 	$(OUTPUT)
 
 run-nogui: GUI=0
+run-nogui: PLUGINS=0
 run-nogui: build
 	$(OUTPUT)
 

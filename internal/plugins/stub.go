@@ -2,15 +2,11 @@
 
 package plugins
 
-import (
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
-	"sing-box-ez/internal/config"
-)
+import "sing-box-ez/internal/config"
 
 type Manager struct{}
 
-func NewManager(w fyne.Window, tabs *container.AppTabs, cfg *config.AppConfig, logSink func(string)) *Manager {
+func NewManager(builder *UIBuilder, cfg *config.AppConfig, logSink func(string)) *Manager {
 	return &Manager{}
 }
 
@@ -39,7 +35,7 @@ type Manifest struct {
 	SourceURL  string
 }
 
-func NewUIBuilder(w fyne.Window, tabs *container.AppTabs) *UIBuilder {
+func NewUIBuilder() *UIBuilder {
 	return &UIBuilder{}
 }
 

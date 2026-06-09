@@ -1,14 +1,14 @@
-//go:build !nogui && !fyne
+//go:build !nogui && fyne
 
 package main
 
 import (
 	"sing-box-ez/internal/config"
-	giogui "sing-box-ez/internal/gui/gio"
+	fynegui "sing-box-ez/internal/gui/fyne"
 )
 
 func runGUI(cfg *config.AppConfig) bool {
-	g := giogui.New(cfg)
+	g := fynegui.New(cfg)
 	g.Run()
 	return true
 }

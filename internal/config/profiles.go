@@ -3,7 +3,7 @@ package config
 import (
 	"encoding/json"
 	"os"
-	"sing-box-ez/internal/paths"
+	"sing-box-ez/internal/util/paths"
 	"sync"
 	"time"
 )
