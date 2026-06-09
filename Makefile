@@ -43,7 +43,7 @@ LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
 	-X 'sing-box-ez/internal/version.BuildOS=$(GOOS)' \
 	-X 'sing-box-ez/internal/version.BuildArch=$(GOARCH)' \
 	-X 'sing-box-ez/internal/version.BuildGUI=$(GUI)' \
-	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(and $(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(GUI_BACKEND),)' \
+	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(and $(filter linux,$(GOOS)),$(filter 1,$(GUI))),$(GUI_BACKEND),)' \
 	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)' \
 	-X 'sing-box-ez/internal/version.BuildDev=$(BUILD_DEV)' \
 	-X 'sing-box-ez/internal/version.CommitDate=$(COMMIT_DATE)'"
@@ -56,14 +56,14 @@ CGO_ENABLED = $(if $(filter 1,$(GUI)),1,0)
 comma := ,
 empty :=
 space := $(empty) $(empty)
-# Build tag for Linux GUI (wayland/x11) when using Gio.
-LINUX_GUI_TAG = $(if $(and $(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(if $(filter wayland,$(GUI_BACKEND)),wayland,$(if $(filter x11,$(GUI_BACKEND)),x11,)),)
+# Build tag for Linux GUI backend (wayland/x11). Applies to both Gio and Fyne (GLFW).
+LINUX_GUI_TAG = $(if $(and $(filter linux,$(GOOS)),$(filter 1,$(GUI)),$(filter-out windows,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),wayland,$(if $(filter x11,$(GUI_BACKEND)),x11,)),)
 TAG_LIST  = $(if $(filter 1,$(GUI)),$(LINUX_GUI_TAG),nogui)
 TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
 TAG_LIST += $(if $(filter fyne,$(ENGINE)),fyne,)
 BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 TYPE_SUFFIX     = $(if $(filter 1,$(GUI)),-gui,-cli)
-GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS)),$(filter-out fyne,$(ENGINE))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
+GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
 EXT         = $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
 
