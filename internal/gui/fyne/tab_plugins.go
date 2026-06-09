@@ -316,7 +316,7 @@ func (g *GUI) showGenerateTemplateDialog() {
 
 func (g *GUI) initPlugins() {
 	g.pluginItems = []pluginListItem{}
-	g.pluginManager = plugins.NewManager(g.window, g.tabs, g.cfg, g.ctrl.PluginManagerLogCallback())
+	g.pluginManager = plugins.NewManager(plugins.NewUIBuilder(g.window, g.tabs), g.cfg, g.ctrl.PluginManagerLogCallback())
 	_ = g.ctrl.PluginDiscoverWithLog(g.pluginManager)
 	g.refreshPluginsList()
 }

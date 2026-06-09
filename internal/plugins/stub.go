@@ -6,7 +6,7 @@ import "sing-box-ez/internal/config"
 
 type Manager struct{}
 
-func NewManager(w any, tabs any, cfg *config.AppConfig, logSink func(string)) *Manager {
+func NewManager(builder *UIBuilder, cfg *config.AppConfig, logSink func(string)) *Manager {
 	return &Manager{}
 }
 
@@ -35,7 +35,7 @@ type Manifest struct {
 	SourceURL  string
 }
 
-func NewUIBuilder(w any, tabs any) *UIBuilder {
+func NewUIBuilder() *UIBuilder {
 	return &UIBuilder{}
 }
 
