@@ -69,7 +69,7 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 				if err := g.ctrl.RestartAsAdminWithLog(); err != nil {
 					return
 				}
-				g.window.Close()
+				fyne.Do(func() { g.window.Close() })
 			}()
 		})
 		if !state.ShowRestartAdminBtn {
@@ -98,7 +98,7 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 					err := g.ctrl.ApplySetcapWithLog()
 					fyne.Do(func() { modal.Hide() })
 					if err == nil {
-						g.refreshPrivilegeStatusUI()
+						fyne.Do(func() { g.refreshPrivilegeStatusUI() })
 					}
 				}()
 			})

@@ -228,7 +228,7 @@ func (g *GUI) showPluginInfo(name string) {
 	checkBtn := widget.NewButton(i18n.T("plugins.btn.check_update"), func() {
 		go func() {
 			_, _, _ = g.ctrl.PluginCheckUpdateWithLog(g.pluginManager, name)
-			g.refreshPluginsList()
+			fyne.Do(func() { g.refreshPluginsList() })
 		}()
 	})
 
@@ -266,7 +266,7 @@ func (g *GUI) showInstallPluginDialog() {
 		url := urlEntry.Text
 		go func() {
 			_ = g.ctrl.PluginInstallFromURLWithLog(g.pluginManager, url)
-			g.refreshPluginsList()
+			fyne.Do(func() { g.refreshPluginsList() })
 		}()
 		d.Hide()
 	})

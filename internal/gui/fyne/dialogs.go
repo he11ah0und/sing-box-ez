@@ -286,10 +286,10 @@ func (g *GUI) showPrivilegeDialog() {
 				}
 				if success {
 					if needRefresh {
-						g.refreshPrivilegeStatusUI()
+						fyne.Do(func() { g.refreshPrivilegeStatusUI() })
 					}
 					if needClose {
-						g.window.Close()
+						fyne.Do(func() { g.window.Close() })
 					}
 				}
 			}()
