@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, testing]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -171,7 +171,7 @@ jobs:
   finalize-release:
     needs: [prepare-release, build]
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

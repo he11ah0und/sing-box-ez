@@ -19,9 +19,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	g.logLimitEntry.OnSubmitted = func(s string) {
 		var v int
 		if _, err := fmt.Sscanf(s, "%d", &v); err == nil && v >= 0 {
-			g.cfg.SetLogLimit(v)
-			_ = g.cfg.Save()
-			g.log("Log limit set to " + s)
+			g.ctrl.SetLogLimitWithLog(v)
 		}
 	}
 	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel(i18n.T("settings.log_limit.label")), widget.NewButton(i18n.T("settings.btn.save"), func() {
@@ -61,9 +59,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	g.defaultIntervalEntry.OnSubmitted = func(s string) {
 		var h int
 		if _, err := fmt.Sscanf(s, "%d", &h); err == nil && h > 0 {
-			g.cfg.SetDefaultUpdateInterval(h)
-			_ = g.cfg.Save()
-			g.log("Default interval set to " + s + "h")
+			g.ctrl.SetDefaultIntervalWithLog(h)
 		}
 	}
 	intervalRow := container.NewBorder(nil, nil, widget.NewLabel(i18n.T("settings.default_interval.label")), widget.NewButton(i18n.T("settings.btn.save"), func() {

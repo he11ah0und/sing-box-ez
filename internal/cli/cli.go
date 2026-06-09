@@ -14,7 +14,7 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/githuburl"
+	"sing-box-ez/internal/util"
 	"sing-box-ez/internal/paths"
 	"sing-box-ez/internal/plugins"
 	"sing-box-ez/internal/updater"
@@ -306,7 +306,7 @@ func cmdInstall(cfg *config.AppConfig, args []string) error {
 
 func cmdVersion(_ *config.AppConfig, _ []string) error {
 	fmt.Println("sing-box-ez", version.Info())
-	fmt.Println("Repository:", githuburl.DefaultProject().RepoURL())
+	fmt.Println("Repository:", util.DefaultProject().RepoURL())
 	if ver, err := core.GetCoreVersion(core.GetCorePath()); err == nil && ver != "" {
 		fmt.Println("sing-box core: v" + ver)
 	} else {

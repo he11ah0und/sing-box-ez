@@ -4,12 +4,17 @@ go 1.25.0
 
 require (
 	fyne.io/fyne/v2 v2.7.4
+	gioui.org v0.10.0
+	gioui.org/x v0.10.0
+	github.com/nicksnyder/go-i18n/v2 v2.6.1
 	github.com/yuin/gopher-lua v1.1.2
-	golang.org/x/sys v0.30.0
+	golang.org/x/sys v0.39.0
+	golang.org/x/text v0.37.0
 )
 
 require (
 	fyne.io/systray v1.12.1 // indirect
+	gioui.org/shader v1.0.8 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fredbi/uri v1.1.1 // indirect
@@ -30,7 +35,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-runewidth v0.0.17 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
-	github.com/nicksnyder/go-i18n/v2 v2.6.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rymdport/portal v0.4.2 // indirect
@@ -38,8 +42,9 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
-	golang.org/x/image v0.24.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
+	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
+	golang.org/x/image v0.26.0 // indirect
+	golang.org/x/net v0.48.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

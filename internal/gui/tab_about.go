@@ -1,13 +1,10 @@
 package gui
 
 import (
-	"fmt"
 	"net/url"
 
-	"sing-box-ez/internal/githuburl"
+	"sing-box-ez/internal/util"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/paths"
-	"sing-box-ez/internal/updater"
 	"sing-box-ez/internal/version"
 
 	"fyne.io/fyne/v2"
@@ -32,31 +29,30 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 	}
 	var buildURL *url.URL
 	if version.Commit != "unknown" && version.Commit != "" {
-		buildURL, _ = url.Parse(githuburl.DefaultProject().WebReleaseURL(version.Commit))
+		buildURL, _ = url.Parse(util.DefaultProject().WebReleaseURL(version.Commit))
 	} else {
-		buildURL, _ = url.Parse(githuburl.DefaultProject().RepoURL())
+		buildURL, _ = url.Parse(util.DefaultProject().RepoURL())
 	}
 	buildLink := widget.NewHyperlink(i18n.T("about.build.prefix")+buildText, buildURL)
 
-	repoURL, _ := url.Parse(githuburl.DefaultProject().RepoURL())
-	repoLink := widget.NewHyperlink(githuburl.DefaultProject().Slug(), repoURL)
+	repoURL, _ := url.Parse(util.DefaultProject().RepoURL())
+	repoLink := widget.NewHyperlink(util.DefaultProject().Slug(), repoURL)
 
 	notesBtn := widget.NewButton(i18n.T("about.btn.release_notes"), func() {
 		go func() {
 			modal := g.showInfiniteDialog(i18n.T("progress.fetching_notes"))
-			release, err := updater.GetReleaseByTag(version.Commit)
+			release, err := g.ctrl.FetchReleaseNotesWithLog(version.Commit)
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
-				if release.TagName == "" {
-					fyne.Do(func() {
-						d := dialog.NewInformation(i18n.T("about.release_notes.title"),
-							i18n.T("about.release_notes.not_found"),
-							g.window)
-						d.Show()
-					})
-					return
-				}
-				g.log("Failed to fetch release notes: " + err.Error())
+				return
+			}
+			if release.TagName == "" {
+				fyne.Do(func() {
+					d := dialog.NewInformation(i18n.T("about.release_notes.title"),
+						i18n.T("about.release_notes.not_found"),
+						g.window)
+					d.Show()
+				})
 				return
 			}
 			fyne.Do(func() {
@@ -77,25 +73,17 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 	})
 
 	openDataBtn := widget.NewButton(i18n.T("about.btn.open_data"), func() {
-		if err := paths.OpenDataDir(); err != nil {
-			g.log("Failed to open data folder: " + err.Error())
-		}
+		_ = g.ctrl.OpenDataFolderWithLog()
 	})
 
 	selfUpdateBtn := widget.NewButton(i18n.T("about.btn.check_updates"), func() {
 		go func() {
 			modal := g.showInfiniteDialog(i18n.T("progress.checking_updates"))
-			info, err := updater.CheckUpdate(version.Branch)
+			info, err := g.ctrl.CheckSelfUpdateWithLog()
 			fyne.Do(func() { modal.Hide() })
-			if err != nil {
-				g.log("Update check failed: " + err.Error())
+			if err != nil || info == nil {
 				return
 			}
-			if info.ReleaseCount == 0 {
-				g.log("Already on latest version: " + info.Current)
-				return
-			}
-			g.log(fmt.Sprintf("Update available: %s → %s (%d releases behind)", info.Current, info.Latest, info.ReleaseCount))
 			fyne.Do(func() {
 				g.showSelfUpdateDialog(info)
 			})

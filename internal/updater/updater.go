@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"sing-box-ez/internal/githuburl"
+	"sing-box-ez/internal/util"
 	"sing-box-ez/internal/version"
 )
 
@@ -47,7 +47,7 @@ type UpdateInfo struct {
 
 // GetLatestRelease returns the most recent release.
 func GetLatestRelease() (Release, error) {
-	url := githuburl.DefaultProject().APILatestReleaseURL()
+	url := util.DefaultProject().APILatestReleaseURL()
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return Release{}, err
@@ -76,7 +76,7 @@ func GetLatestRelease() (Release, error) {
 // GetReleaseByTag fetches a specific release by its tag name.
 // Returns an error if the release does not exist (404) or the API fails.
 func GetReleaseByTag(tag string) (Release, error) {
-	url := githuburl.DefaultProject().APIReleaseByTagURL(tag)
+	url := util.DefaultProject().APIReleaseByTagURL(tag)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return Release{}, err

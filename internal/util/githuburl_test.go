@@ -1,4 +1,4 @@
-package githuburl
+package util
 
 import "testing"
 

@@ -12,6 +12,7 @@ BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown"
 # Build options — override on the command line:
 #   make build OS=windows ARCH=arm64 GUI=0
 #   make build OS=linux   ARCH=amd64 GUI=1 GUI_BACKEND=wayland
+#   make build ENGINE=fyne           # use fyne GUI instead of gio
 # ---------------------------------------------------------------------------
 OS           ?= $(shell go env GOOS)
 ARCH         ?= $(shell go env GOARCH)
@@ -19,6 +20,7 @@ GUI          ?= 1
 GUI_BACKEND  ?= wayland
 COMPILER     ?= gcc
 PLUGINS      ?= 1
+ENGINE       ?= gio
 
 GOOS    := $(OS)
 GOARCH  := $(ARCH)
@@ -50,9 +52,11 @@ empty :=
 space := $(empty) $(empty)
 TAG_LIST  = $(if $(filter 1,$(GUI)),$(if $(filter linux,$(GOOS)),$(if $(filter wayland,$(GUI_BACKEND)),wayland,),),nogui)
 TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
+TAG_LIST += $(if $(filter fyne,$(ENGINE)),fyne,)
 BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 TYPE_SUFFIX     = $(if $(filter 1,$(GUI)),-gui,-cli)
 GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
+ENGINE_SUFFIX   = $(if $(and $(filter 1,$(GUI)),$(filter fyne,$(ENGINE))),-fyne,)
 EXT         = $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
 
@@ -85,7 +89,7 @@ endif
 # otherwise use auto-detected cross compiler.
 BUILD_CC := $(or $(filter-out cc gcc,$(CC)),$(CROSS_CC))
 
-OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)$(TYPE_SUFFIX)$(GUI_TYPE_SUFFIX)$(EXT)
+OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)$(TYPE_SUFFIX)$(GUI_TYPE_SUFFIX)$(ENGINE_SUFFIX)$(EXT)
 
 # ---------------------------------------------------------------------------
 # Default target
@@ -110,7 +114,8 @@ help:
 	@echo "  clean       Remove build artifacts"
 	@echo ""
 	@echo "Build options (examples):"
-	@echo "  make build                       # native OS/arch, Wayland GUI"
+	@echo "  make build                       # native OS/arch, Wayland GUI (gio)"
+	@echo "  make build ENGINE=fyne           # native OS/arch, fyne GUI"
 	@echo "  make build GUI=0                 # native OS/arch, CLI only"
 	@echo "  make build GUI_BACKEND=x11       # native, X11 GUI"
 	@echo "  make build OS=linux ARCH=arm64 GUI=1"
@@ -122,6 +127,7 @@ help:
 	@echo "  ARCH         Target architecture      (default: current)"
 	@echo "  GUI          1 = with GUI (needs CGO), 0 = CLI only"
 	@echo "  GUI_BACKEND  wayland | x11  (default: wayland)"
+	@echo "  ENGINE       gio | fyne     (default: gio)"
 	@echo "  COMPILER     gcc | musl     (default: gcc)"
 	@echo "  CC           Cross-compiler to use    (auto-detected)"
 
@@ -165,6 +171,9 @@ deps:
 	$(GO) mod download
 	$(GO) mod tidy
 
+vet:
+	$(GO) vet ./...
+
 test:
 	$(GO) test ./...
 
@@ -187,14 +196,14 @@ build:
 	$(if $(BUILD_CC),@echo "Cross-compiler: $(BUILD_CC)")
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
 		$(if $(BUILD_CC),CC=$(BUILD_CC)) \
-		$(GO) build $(BUILD_TAGS) $(LDFLAGS) -o $(OUTPUT) .
+		$(GO) build -trimpath -buildvcs=false $(BUILD_TAGS) $(LDFLAGS) -o $(OUTPUT) .
 	@echo "Built: $(OUTPUT)"
 
 # ---------------------------------------------------------------------------
 # Convenience aliases
 # ---------------------------------------------------------------------------
 build-nogui:
-	$(MAKE) build GUI=0
+	$(MAKE) build GUI=0 PLUGINS=0
 
 # ---------------------------------------------------------------------------
 # Run locally
@@ -204,6 +213,7 @@ run: build
 	$(OUTPUT)
 
 run-nogui: GUI=0
+run-nogui: PLUGINS=0
 run-nogui: build
 	$(OUTPUT)
 
