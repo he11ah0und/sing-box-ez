@@ -229,6 +229,6 @@ jobs:
           body_path: release_notes.md
           files: binaries/*
           draft: false
-          prerelease: true
+          prerelease: ${{ github.ref_name != 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
