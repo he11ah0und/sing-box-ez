@@ -56,7 +56,7 @@ jobs:
           if [ "${{ github.ref_name }}" = "main" ]; then
             cat << 'EOF' > matrix.json
           [
-            {"name":"linux-gui","os":"linux","arch":"amd64","gui":1,"compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-linux-gcc-gui"},
+            {"name":"linux-gui","os":"linux","arch":"amd64","gui":1,"backend":"x11","compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-linux-gcc-gui"},
             {"name":"linux-cli-gcc","os":"linux","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-cli"},
             {"name":"linux-cli-musl","os":"linux","arch":"amd64","gui":0,"compiler":"musl","artifact":"build/sing-box-ez-amd64-linux-musl-cli"},
             {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
