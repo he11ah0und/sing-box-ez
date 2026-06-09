@@ -249,14 +249,6 @@ func (ic *InteractiveController) CoreExists() bool {
 	return CoreExists()
 }
 
-func (ic *InteractiveController) IsAdmin() bool {
-	return IsAdmin()
-}
-
-func (ic *InteractiveController) HasNetAdminCapability() bool {
-	return HasNetAdminCapability(GetCorePath())
-}
-
 func (ic *InteractiveController) ApplySetcap() error {
 	return SetNetAdminCapabilityGUI(GetCorePath())
 }

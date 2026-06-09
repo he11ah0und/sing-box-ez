@@ -2,6 +2,7 @@ package pages
 
 import (
 	"fmt"
+	"image"
 	"sync"
 
 	"gioui.org/layout"
@@ -24,14 +25,12 @@ type AboutPage struct {
 	th   *material.Theme
 	ctrl *core.InteractiveController
 
-	releaseNotesBtn widget.Clickable
-	openDataBtn     widget.Clickable
-	checkUpdatesBtn widget.Clickable
-	switchBranchBtn widget.Clickable
-	repoLink        widget.Clickable
-	buildLink       widget.Clickable
-
-	selectedBranch string
+	releaseNotesBtn     widget.Clickable
+	openReleaseNotesBtn widget.Clickable
+	openDataBtn         widget.Clickable
+	checkUpdatesBtn     widget.Clickable
+	switchBranchBtn     widget.Clickable
+	openRepoBtn         widget.Clickable
 
 	// Branch picker overlay state.
 	pickerActive   bool
@@ -54,7 +53,6 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, showDial
 		showDialog:         showDialog,
 		showDialogMarkdown: showDialogMarkdown,
 		showDialogLoading:  showDialogLoading,
-		selectedBranch:     version.Branch,
 	}
 }
 
@@ -91,6 +89,17 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	if p.releaseNotesBtn.Clicked(gtx) {
 		go p.fetchReleaseNotes()
 	}
+	if p.openReleaseNotesBtn.Clicked(gtx) {
+		var urlStr string
+		if version.Commit != "unknown" && version.Commit != "" {
+			urlStr = githuburl.DefaultProject().WebReleaseURL(version.Commit)
+		} else {
+			urlStr = githuburl.DefaultProject().WebLatestReleaseURL()
+		}
+		if err := openurl.OpenURL(urlStr); err != nil {
+			p.ctrl.Log("Failed to open release notes: " + err.Error())
+		}
+	}
 	if p.openDataBtn.Clicked(gtx) {
 		if err := paths.OpenDataDir(); err != nil {
 			p.ctrl.Log("Failed to open data folder: " + err.Error())
@@ -102,24 +111,18 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	if p.switchBranchBtn.Clicked(gtx) {
 		go p.openBranchPicker()
 	}
-	if p.repoLink.Clicked(gtx) {
-		_ = openurl.OpenURL(githuburl.DefaultProject().RepoURL())
-	}
-	if p.buildLink.Clicked(gtx) {
-		var urlStr string
-		if version.Commit != "unknown" && version.Commit != "" {
-			urlStr = githuburl.DefaultProject().WebReleaseURL(version.Commit)
-		} else {
-			urlStr = githuburl.DefaultProject().RepoURL()
+	if p.openRepoBtn.Clicked(gtx) {
+		if err := openurl.OpenURL(githuburl.DefaultProject().RepoURL()); err != nil {
+			p.ctrl.Log("Failed to open repo: " + err.Error())
 		}
-		_ = openurl.OpenURL(urlStr)
 	}
 
 	p.pickerMu.Lock()
 	for i := range p.pickerBtns {
 		if p.pickerBtns[i].Clicked(gtx) {
-			p.selectedBranch = p.pickerBranches[i].Name
+			branch := p.pickerBranches[i].Name
 			p.pickerActive = false
+			go p.checkUpdatesForBranch(branch)
 		}
 	}
 	if p.pickerCancel.Clicked(gtx) {
@@ -140,19 +143,46 @@ func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.hyperlink(gtx, p.buildLinkText(), &p.buildLink)
+			return material.Body2(p.th, p.commitInfoText()).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.hyperlink(gtx, githuburl.DefaultProject().Slug(), &p.repoLink)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.releaseNotesBtn, i18n.T("about.btn.release_notes")).Layout(gtx)
-			})
+			return material.Body2(p.th, p.buildInfoText()).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.openDataBtn, i18n.T("about.btn.open_data")).Layout(gtx)
+				return material.Button(p.th, &p.openRepoBtn, i18n.T("about.btn.open_repo")).Layout(gtx)
+			})
+		}),
+	}
+	if version.IsDev() {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				lbl := material.Body2(p.th, i18n.T("about.dev_build.label"))
+				lbl.Color = p.th.Palette.ContrastBg
+				return lbl.Layout(gtx)
+			})
+		}))
+	} else {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &p.releaseNotesBtn, i18n.T("about.btn.release_notes")).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &p.openReleaseNotesBtn, i18n.T("about.btn.open_release_notes")).Layout(gtx)
+					}),
+				)
+			})
+		}))
+	}
+	children = append(children,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, &p.checkUpdatesBtn, i18n.T("about.btn.check_updates")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -162,10 +192,10 @@ func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.checkUpdatesBtn, i18n.T("about.btn.check_updates")).Layout(gtx)
+				return material.Button(p.th, &p.openDataBtn, i18n.T("about.btn.open_data")).Layout(gtx)
 			})
 		}),
-	}
+	)
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
@@ -188,7 +218,7 @@ func (p *AboutPage) layoutBranchPicker(gtx layout.Context) layout.Dimensions {
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Body2(p.th, i18n.T("about.branch.label")+p.selectedBranch).Layout(gtx)
+							return material.Body2(p.th, i18n.T("about.branch.label")+version.Branch).Layout(gtx)
 						})
 					}),
 				}
@@ -196,7 +226,7 @@ func (p *AboutPage) layoutBranchPicker(gtx layout.Context) layout.Dimensions {
 				for i, b := range p.pickerBranches {
 					idx := i
 					label := b.Name
-					if b.Name == p.selectedBranch {
+					if b.Name == version.Branch {
 						label = "> " + b.Name
 					}
 					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -217,23 +247,23 @@ func (p *AboutPage) layoutBranchPicker(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func (p *AboutPage) buildLinkText() string {
+func (p *AboutPage) commitInfoText() string {
 	txt := version.Branch
 	if version.Commit != "unknown" && version.Commit != "" {
 		txt += ", " + version.Commit
 	}
-	if dt, err := version.BuildDateTime(); err == nil {
+	if dt, err := version.CommitDateTime(); err == nil {
 		txt += ", " + dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 	}
-	return i18n.T("about.build.prefix") + txt
+	return i18n.T("about.commit_info.prefix") + txt
 }
 
-func (p *AboutPage) hyperlink(gtx layout.Context, text string, btn *widget.Clickable) layout.Dimensions {
-	return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
-		lbl := material.Body2(p.th, text)
-		lbl.Color = p.th.Palette.ContrastBg
-		return lbl.Layout(gtx)
-	})
+func (p *AboutPage) buildInfoText() string {
+	txt := ""
+	if dt, err := version.BuildDateTime(); err == nil {
+		txt = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
+	}
+	return i18n.T("about.build_info.prefix") + txt
 }
 
 func (p *AboutPage) fetchReleaseNotes() {
@@ -259,20 +289,32 @@ func (p *AboutPage) fetchReleaseNotes() {
 
 func (p *AboutPage) checkUpdates() {
 	p.showDialogLoading(i18n.T("about.btn.check_updates"))
-	info, err := updater.CheckUpdateForBranch(p.selectedBranch)
+	info, err := p.ctrl.CheckSelfUpdateWithLog()
 	if err != nil {
-		p.ctrl.Log("Update check failed: " + err.Error())
 		p.showDialog(i18n.T("about.btn.check_updates"), "Update check failed")
 		return
 	}
-	if info.ReleaseCount == 0 {
-		p.ctrl.Log("Already on latest version: " + info.Current)
-		p.showDialog(i18n.T("about.btn.check_updates"), "Already on latest version: "+info.Current)
+	if info == nil {
+		p.showDialog(i18n.T("about.btn.check_updates"), "Already on latest version: "+version.Branch)
 		return
 	}
 	msg := fmt.Sprintf("Update available: %s → %s (%d releases behind)", info.Current, info.Latest, info.ReleaseCount)
 	p.showDialog(i18n.T("about.btn.check_updates"), msg)
-	p.ctrl.Log(msg)
+}
+
+func (p *AboutPage) checkUpdatesForBranch(branch string) {
+	p.showDialogLoading(i18n.T("about.btn.check_updates"))
+	info, err := p.ctrl.CheckSelfUpdateForBranch(branch)
+	if err != nil {
+		p.showDialog(i18n.T("about.btn.check_updates"), "Update check failed")
+		return
+	}
+	if info.ReleaseCount == 0 {
+		p.showDialog(i18n.T("about.btn.check_updates"), "Already on latest version on "+branch)
+		return
+	}
+	msg := fmt.Sprintf("Update available on %s: %s → %s (%d releases behind)", branch, info.Current, info.Latest, info.ReleaseCount)
+	p.showDialog(i18n.T("about.btn.check_updates"), msg)
 }
 
 func (p *AboutPage) openBranchPicker() {

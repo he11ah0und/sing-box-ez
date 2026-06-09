@@ -9,6 +9,8 @@ GO_BIN := $(GOPATH)/bin
 BRANCH     := $(shell git describe --tags --exact-match 2>/dev/null || git branch --show-current 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DEV    := $(shell git diff-index --quiet HEAD 2>/dev/null && echo "false" || echo "true")
+COMMIT_DATE  := $(shell git log -1 --format=%cI 2>/dev/null || echo "unknown")
 
 # ---------------------------------------------------------------------------
 # Build options — override on the command line:
@@ -42,7 +44,9 @@ LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
 	-X 'sing-box-ez/internal/version.BuildArch=$(GOARCH)' \
 	-X 'sing-box-ez/internal/version.BuildGUI=$(GUI)' \
 	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(filter linux,$(GOOS)),$(GUI_BACKEND),)' \
-	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)'"
+	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)' \
+	-X 'sing-box-ez/internal/version.BuildDev=$(BUILD_DEV)' \
+	-X 'sing-box-ez/internal/version.CommitDate=$(COMMIT_DATE)'"
 
 # Lazy-evaluated variables so target-specific overrides are respected.
 # GUI_BACKEND only affects Linux (Wayland vs X11); Windows/macOS use native GLFW.

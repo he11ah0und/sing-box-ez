@@ -48,7 +48,7 @@ func New(cfg *config.AppConfig) *GUI {
 	dialog := NewDialog()
 
 	aboutPage := pages.NewAboutPage(th, g.ctrl, dialog.Show, dialog.ShowMarkdown, dialog.ShowLoading)
-	mainPage := pages.NewMainPage(th, g.ctrl.Controller)
+	mainPage := pages.NewMainPage(th, g.ctrl)
 	logPage := pages.NewLogPage(th, g.ctrl.Controller)
 
 	primary := []pages.Page{mainPage, pages.NewConfigsPage(th, g.ctrl.Controller)}
