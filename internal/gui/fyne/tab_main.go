@@ -12,8 +12,32 @@ import (
 func (g *GUI) buildMainTab() *container.TabItem {
 	g.statusText = canvas.NewText(i18n.T("main.status.stopped"), colRed)
 	g.statusText.TextSize = theme.TextSize()
-	g.activeLbl = widget.NewLabel(i18n.T("main.active.none"))
-	g.refreshActiveLabel()
+
+	configs := g.cfg.GetConfigs()
+	names := make([]string, 0, len(configs))
+	for _, c := range configs {
+		names = append(names, c.Name)
+	}
+	active := g.cfg.GetActiveConfig()
+	selected := ""
+	if active != nil {
+		selected = active.Name
+	}
+	g.configSelect = widget.NewSelect(names, nil)
+	g.configSelect.SetSelected(selected)
+	if selected == "" {
+		g.configSelect.PlaceHolder = i18n.T("main.active.none")
+	}
+	g.configSelect.OnChanged = func(s string) {
+		if s == "" || g.selectingConfig {
+			return
+		}
+		g.selectingConfig = true
+		if err := g.ctrl.ActivateConfigWithLog(s); err == nil {
+			g.refreshActiveLabel()
+		}
+		g.selectingConfig = false
+	}
 
 	g.startBtn = widget.NewButtonWithIcon(i18n.T("main.btn.start"), theme.MediaPlayIcon(), g.onStart)
 	g.stopBtn = widget.NewButtonWithIcon(i18n.T("main.btn.stop"), theme.MediaStopIcon(), g.onStop)
@@ -21,7 +45,7 @@ func (g *GUI) buildMainTab() *container.TabItem {
 	controlRow := container.NewHBox(g.startBtn, g.stopBtn, g.restartBtn)
 
 	content := container.NewVBox(
-		g.activeLbl,
+		g.configSelect,
 		widget.NewSeparator(),
 		g.statusText,
 		widget.NewSeparator(),

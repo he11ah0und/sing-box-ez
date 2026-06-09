@@ -34,12 +34,12 @@ type GUI struct {
 	ctrl   *core.InteractiveController
 
 	// Main tab widgets
-	statusText *canvas.Text
-	activeLbl  *widget.Label
-	startBtn   *widget.Button
-	stopBtn    *widget.Button
-	restartBtn *widget.Button
-	adminCheck *widget.Check
+	statusText   *canvas.Text
+	configSelect *widget.Select
+	startBtn     *widget.Button
+	stopBtn      *widget.Button
+	restartBtn   *widget.Button
+	adminCheck   *widget.Check
 
 	// Configs tab widgets
 	configTable    *widget.Table
@@ -74,8 +74,9 @@ type GUI struct {
 	latestVersion string
 
 	// Lifecycle
-	stopped bool
-	stopMu  sync.Mutex
+	stopped         bool
+	stopMu          sync.Mutex
+	selectingConfig bool
 
 	// Common
 	mu sync.Mutex
@@ -198,11 +199,22 @@ func (g *GUI) onWindowClosed() {
 }
 
 func (g *GUI) refreshActiveLabel() {
-	active := g.cfg.GetActiveConfig()
-	if active != nil {
-		g.activeLbl.SetText(g.t("main.active.prefix") + active.Name)
-	} else {
-		g.activeLbl.SetText(g.t("main.no.config"))
+	configs := g.cfg.GetConfigs()
+	names := make([]string, 0, len(configs))
+	for _, c := range configs {
+		names = append(names, c.Name)
+	}
+	if g.configSelect != nil {
+		g.configSelect.SetOptions(names)
+		active := g.cfg.GetActiveConfig()
+		if active != nil {
+			g.selectingConfig = true
+			g.configSelect.SetSelected(active.Name)
+			g.selectingConfig = false
+		} else {
+			g.configSelect.ClearSelected()
+			g.configSelect.PlaceHolder = g.t("main.active.none")
+		}
 	}
 }
 

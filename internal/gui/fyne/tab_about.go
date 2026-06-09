@@ -1,11 +1,9 @@
 package fynegui
 
 import (
-	"net/url"
-	"sync"
-
 	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/util/githuburl"
+	"sing-box-ez/internal/util/openurl"
 	"sing-box-ez/internal/version"
 
 	"fyne.io/fyne/v2"
@@ -14,23 +12,35 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func buildInfoText() string {
-	return version.BuildFlags()
-}
-
 func (g *GUI) buildAboutTab() *container.TabItem {
-	infoLbl := widget.NewLabel(buildInfoText())
-	buildLink := g.buildAboutBuildLink()
-	repoLink := widget.NewHyperlink(githuburl.DefaultProject().Slug(), g.mustParseURL(githuburl.DefaultProject().RepoURL()))
+	flagsLbl := widget.NewLabel(version.BuildFlags())
+	commitInfoLbl := widget.NewLabel(commitInfoText())
+	buildInfoLbl := widget.NewLabel(buildInfoText())
 
-	notesBtn := widget.NewButton(i18n.T("about.btn.release_notes"), g.showReleaseNotesHandler())
+	openRepoBtn := widget.NewButton(i18n.T("about.btn.open_repo"), func() {
+		_ = openurl.OpenURL(githuburl.DefaultProject().RepoURL())
+	})
+
+	var notesRow fyne.CanvasObject
+	if version.IsDev() {
+		notesRow = widget.NewLabel(i18n.T("about.dev_build.label"))
+	} else {
+		notesBtn := widget.NewButton(i18n.T("about.btn.release_notes"), g.showReleaseNotesHandler())
+		openNotesBtn := widget.NewButton(i18n.T("about.btn.open_release_notes"), func() {
+			var urlStr string
+			if version.Commit != "unknown" && version.Commit != "" {
+				urlStr = githuburl.DefaultProject().WebReleaseURL(version.Commit)
+			} else {
+				urlStr = githuburl.DefaultProject().WebLatestReleaseURL()
+			}
+			_ = openurl.OpenURL(urlStr)
+		})
+		notesRow = container.NewGridWithColumns(2, notesBtn, openNotesBtn)
+	}
+
 	openDataBtn := widget.NewButton(i18n.T("about.btn.open_data"), func() {
 		_ = g.ctrl.OpenDataFolderWithLog()
 	})
-
-	var selectedBranch string
-	var branchesMu sync.Mutex
-	selectedBranch = version.Branch
 
 	switchBranchBtn := widget.NewButton(i18n.T("about.btn.switch_branch"), func() {
 		go func() {
@@ -46,11 +56,19 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 			fyne.Do(func() {
 				branchBox := container.NewVBox()
 				for _, br := range b {
-					name := br.Name
-					btn := widget.NewButton(name, func() {
-						branchesMu.Lock()
-						selectedBranch = name
-						branchesMu.Unlock()
+					branchName := br.Name
+					btn := widget.NewButton(branchName, func() {
+						go func() {
+							modal := g.showInfiniteDialog(i18n.T("progress.checking_updates"))
+							info, err := g.ctrl.CheckSelfUpdateForBranch(branchName)
+							fyne.Do(func() { modal.Hide() })
+							if err != nil || info == nil {
+								return
+							}
+							fyne.Do(func() {
+								g.showSelfUpdateDialog(info)
+							})
+						}()
 					})
 					branchBox.Add(btn)
 				}
@@ -66,11 +84,8 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 
 	selfUpdateBtn := widget.NewButton(i18n.T("about.btn.check_updates"), func() {
 		go func() {
-			branchesMu.Lock()
-			branch := selectedBranch
-			branchesMu.Unlock()
 			modal := g.showInfiniteDialog(i18n.T("progress.checking_updates"))
-			info, err := g.ctrl.CheckSelfUpdateForBranch(branch)
+			info, err := g.ctrl.CheckSelfUpdateWithLog()
 			fyne.Do(func() { modal.Hide() })
 			if err != nil || info == nil {
 				return
@@ -83,40 +98,37 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 
 	content := container.NewVBox(
 		widget.NewLabelWithStyle(i18n.T("about.system.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		infoLbl,
-		buildLink,
-		repoLink,
+		flagsLbl,
+		commitInfoLbl,
+		buildInfoLbl,
+		openRepoBtn,
 		widget.NewSeparator(),
-		notesBtn,
-		openDataBtn,
-		widget.NewSeparator(),
-		switchBranchBtn,
+		notesRow,
 		selfUpdateBtn,
+		switchBranchBtn,
+		openDataBtn,
 	)
 
 	return container.NewTabItem(i18n.T("tab.about"), container.NewScroll(content))
 }
 
-func (g *GUI) mustParseURL(raw string) *url.URL {
-	u, _ := url.Parse(raw)
-	return u
+func commitInfoText() string {
+	txt := version.Branch
+	if version.Commit != "unknown" && version.Commit != "" {
+		txt += ", " + version.Commit
+	}
+	if dt, err := version.CommitDateTime(); err == nil {
+		txt += ", " + dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
+	}
+	return i18n.T("about.commit_info.prefix") + txt
 }
 
-func (g *GUI) buildAboutBuildLink() *widget.Hyperlink {
-	buildText := version.Branch
-	if version.Commit != "unknown" && version.Commit != "" {
-		buildText += ", " + version.Commit
-	}
+func buildInfoText() string {
+	txt := ""
 	if dt, err := version.BuildDateTime(); err == nil {
-		buildText += ", " + dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
+		txt = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 	}
-	var buildURL *url.URL
-	if version.Commit != "unknown" && version.Commit != "" {
-		buildURL, _ = url.Parse(githuburl.DefaultProject().WebReleaseURL(version.Commit))
-	} else {
-		buildURL, _ = url.Parse(githuburl.DefaultProject().RepoURL())
-	}
-	return widget.NewHyperlink(i18n.T("about.build.prefix")+buildText, buildURL)
+	return i18n.T("about.build_info.prefix") + txt
 }
 
 func (g *GUI) showReleaseNotesHandler() func() {
