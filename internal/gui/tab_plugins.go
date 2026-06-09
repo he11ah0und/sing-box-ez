@@ -68,9 +68,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 
 	refreshBtn := widget.NewButton(i18n.T("plugins.btn.refresh"), func() {
 		g.pluginManager.Close()
-		if err := g.pluginManager.Discover(); err != nil {
-			g.log("[plugins] discover error: " + err.Error())
-		}
+		_ = g.ctrl.PluginDiscoverWithLog(g.pluginManager)
 		g.refreshPluginsList()
 	})
 
@@ -86,20 +84,12 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 	if g.cfg.GetPluginsDeveloper() {
 		genDocsBtn := widget.NewButton(i18n.T("plugins.btn.generate_api_docs"), func() {
 			outDir := paths.PluginDocsDir()
-			if err := plugins.GenerateDocs(outDir); err != nil {
-				g.log("[plugins] docs generation failed: " + err.Error())
-			} else {
-				g.log("[plugins] API docs generated: " + outDir)
-			}
+			_ = g.ctrl.PluginGenerateDocsWithLog(plugins.GenerateDocs, outDir)
 		})
 
 		genDefsBtn := widget.NewButton(i18n.T("plugins.btn.generate_vscode_defs"), func() {
 			outDir := paths.PluginDefsDir()
-			if err := plugins.GenerateLuaDefs(outDir); err != nil {
-				g.log("[plugins] defs generation failed: " + err.Error())
-			} else {
-				g.log("[plugins] VS Code Lua defs generated: " + outDir)
-			}
+			_ = g.ctrl.PluginGenerateDefsWithLog(plugins.GenerateLuaDefs, outDir)
 		})
 
 		genTmplBtn := widget.NewButton(i18n.T("plugins.btn.generate_template"), func() {
@@ -165,11 +155,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 }
 
 func (g *GUI) togglePlugin(name string) {
-	if err := g.pluginManager.Toggle(name); err != nil {
-		g.log("[plugins] toggle failed: " + err.Error())
-	} else {
-		g.log("[plugins] toggled: " + name)
-	}
+	_ = g.ctrl.PluginToggleWithLog(g.pluginManager, name)
 	g.refreshPluginsList()
 }
 
@@ -241,14 +227,7 @@ func (g *GUI) showPluginInfo(name string) {
 
 	checkBtn := widget.NewButton(i18n.T("plugins.btn.check_update"), func() {
 		go func() {
-			hasUpdate, latest, err := g.pluginManager.CheckUpdate(name)
-			if err != nil {
-				g.log("[plugins] update check failed for " + name + ": " + err.Error())
-			} else if hasUpdate {
-				g.log("[plugins] update available for " + name + ": v" + latest)
-			} else {
-				g.log("[plugins] " + name + " is up to date")
-			}
+			_, _, _ = g.ctrl.PluginCheckUpdateWithLog(g.pluginManager, name)
 			g.refreshPluginsList()
 		}()
 	})
@@ -285,16 +264,8 @@ func (g *GUI) showInstallPluginDialog() {
 	var d dialog.Dialog
 	saveBtn := widget.NewButton(i18n.T("plugins.btn.install"), func() {
 		url := urlEntry.Text
-		if url == "" {
-			g.log("[plugins] install: URL is required")
-			return
-		}
 		go func() {
-			if err := g.pluginManager.InstallFromURL(url); err != nil {
-				g.log("[plugins] install failed: " + err.Error())
-			} else {
-				g.log("[plugins] installed from: " + url)
-			}
+			_ = g.ctrl.PluginInstallFromURLWithLog(g.pluginManager, url)
 			g.refreshPluginsList()
 		}()
 		d.Hide()
@@ -325,20 +296,12 @@ func (g *GUI) showGenerateTemplateDialog() {
 	var d dialog.Dialog
 	saveBtn := widget.NewButton(i18n.T("plugins.btn.generate"), func() {
 		name := nameEntry.Text
-		if name == "" {
-			g.log("[plugins] template: name is required")
-			return
-		}
 		outDir := filepath.Join(plugins.PluginDir(), name)
 		rel := relationSelect.Selected
 		if rel == "" {
 			rel = "client"
 		}
-		if err := plugins.GeneratePluginTemplate(outDir, name, rel); err != nil {
-			g.log("[plugins] template generation failed: " + err.Error())
-		} else {
-			g.log("[plugins] template generated: " + outDir)
-		}
+		_ = g.ctrl.PluginGenerateTemplateWithLog(plugins.GeneratePluginTemplate, outDir, name, rel)
 		g.refreshPluginsList()
 		d.Hide()
 	})
@@ -353,11 +316,7 @@ func (g *GUI) showGenerateTemplateDialog() {
 
 func (g *GUI) initPlugins() {
 	g.pluginItems = []pluginListItem{}
-	g.pluginManager = plugins.NewManager(g.window, g.tabs, g.cfg, func(line string) {
-		g.log(line)
-	})
-	if err := g.pluginManager.Discover(); err != nil {
-		g.log("[plugins] discover error: " + err.Error())
-	}
+	g.pluginManager = plugins.NewManager(g.window, g.tabs, g.cfg, g.ctrl.PluginManagerLogCallback())
+	_ = g.ctrl.PluginDiscoverWithLog(g.pluginManager)
 	g.refreshPluginsList()
 }

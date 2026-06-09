@@ -61,11 +61,11 @@ type AppConfig struct {
 	SingBoxURL          string `json:"singbox_url,omitempty"`
 	UpdateIntervalHours int    `json:"update_interval_hours"`
 
-	RunAsAdmin       bool   `json:"run_as_admin"`
-	ShowLogs         bool   `json:"show_logs"`
-	WatchCoreLogs    bool   `json:"watch_core_logs"`
-	LogLimit         int    `json:"log_limit"`
-	Language         string `json:"language"`
+	RunAsAdmin           bool   `json:"run_as_admin"`
+	ShowLogs             bool   `json:"show_logs"`
+	WatchCoreLogs        bool   `json:"watch_core_logs"`
+	LogLimit             int    `json:"log_limit"`
+	Language             string `json:"language"`
 	PluginsEnabled       bool   `json:"plugins_enabled"`
 	PluginsDeveloper     bool   `json:"plugins_developer"`
 	CoreAutoRestart      bool   `json:"core_auto_restart"`

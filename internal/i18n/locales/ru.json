@@ -93,6 +93,7 @@
   "about.dialog.close": "Закрыть",
 
   "dialog.btn.cancel": "Отмена",
+  "dialog.btn.confirm": "Подтвердить",
   "dialog.btn.update": "Обновить",
   "dialog.btn.ignore": "Пропустить",
   "dialog.core_update.title": "Доступно обновление ядра",

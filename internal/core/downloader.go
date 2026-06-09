@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"sing-box-ez/internal/githuburl"
+	"sing-box-ez/internal/util"
 	"sing-box-ez/internal/paths"
 )
 
@@ -72,7 +72,7 @@ type githubRelease struct {
 
 func GetLatestVersion() (string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(githuburl.DefaultCoreProject().APILatestReleaseURL())
+	resp, err := client.Get(util.DefaultCoreProject().APILatestReleaseURL())
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +128,7 @@ func DownloadCore(version string, onProgress ProgressFunc) (string, error) {
 	}
 
 	archiveName, binaryName, isZip := platformSuffix(version)
-	url := githuburl.DefaultCoreProject().DownloadReleaseURL(version, archiveName)
+	url := util.DefaultCoreProject().DownloadReleaseURL(version, archiveName)
 
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Get(url)

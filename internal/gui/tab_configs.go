@@ -3,9 +3,6 @@ package gui
 import (
 	"fmt"
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/core"
-
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -113,7 +110,7 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 		}
 		// Col 5: cached
 		var cached string
-		if core.HasCachedConfig(rec.Name) {
+		if g.ctrl.HasCachedConfig(rec.Name) {
 			cached = g.t("configs.table.yes")
 		} else {
 			cached = g.t("configs.table.no")
@@ -167,7 +164,7 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 			case 4:
 				c.SetText(fmt.Sprintf("%dh", rec.UpdateIntervalHours))
 			case 5:
-				if core.HasCachedConfig(rec.Name) {
+				if g.ctrl.HasCachedConfig(rec.Name) {
 					c.SetText(g.t("configs.table.yes"))
 				} else {
 					c.SetText(g.t("configs.table.no"))
@@ -283,14 +280,9 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 	if existing != nil && onDelete != nil {
 		updateBtn := widget.NewButton(g.t("configs.dialog.btn.update_now"), func() {
 			d.Hide()
-			if err := core.DownloadConfigFor(existing.Name, urlEntry.Text); err != nil {
-				g.log("Update failed: " + err.Error())
-			} else {
-				g.cfg.SetLastUpdateFor(existing.Name, time.Now())
-				_ = g.cfg.Save()
+			if err := g.ctrl.UpdateConfigNowWithLog(existing.Name, urlEntry.Text); err == nil {
 				g.refreshConfigData()
 				g.configTable.Refresh()
-				g.log("Config updated: " + existing.Name)
 			}
 		})
 		delBtn := widget.NewButton(g.t("configs.dialog.btn.delete"), func() {
@@ -310,60 +302,28 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 
 func (g *GUI) onAddConfig() {
 	g.showConfigDialog(nil, func(rec config.ConfigRecord) {
-		if rec.Name == "" || rec.URL == "" {
-			g.log("Name and URL are required")
-			return
-		}
-		if g.cfg.GetConfigByName(rec.Name) != nil {
-			g.log("Config with this name already exists")
-			return
-		}
-		g.cfg.AddConfig(rec)
-		if g.cfg.GetActiveName() == "" {
-			g.cfg.SetActiveName(rec.Name)
-			g.manager.SetConfigURL(rec.URL)
-			g.manager.SetConfigName(rec.Name)
+		if err := g.ctrl.AddConfigWithLog(rec); err == nil {
 			g.refreshActiveLabel()
 			g.updateButtons()
+			g.refreshConfigData()
+			g.configTable.Refresh()
 		}
-		_ = g.cfg.Save()
-		g.refreshConfigData()
-		g.configTable.Refresh()
-		g.log("Config added: " + rec.Name)
 	}, nil)
 }
 
 func (g *GUI) onEditConfig() {
 	if g.configSelected < 0 || g.configSelected >= len(g.configData) {
-		g.log("No config selected")
 		return
 	}
 	old := g.configData[g.configSelected]
 	g.showConfigDialog(&old, func(rec config.ConfigRecord) {
-		if rec.Name == "" || rec.URL == "" {
-			g.log("Name and URL are required")
-			return
-		}
-		if rec.Name != old.Name {
-			if g.cfg.GetConfigByName(rec.Name) != nil {
-				g.log("Config with name \"" + rec.Name + "\" already exists")
-				return
+		if err := g.ctrl.EditConfigWithLog(old.Name, rec); err == nil {
+			if old.Name == g.cfg.GetActiveName() || rec.Name == g.cfg.GetActiveName() {
+				g.refreshActiveLabel()
+				g.updateButtons()
 			}
-			g.cfg.RenameConfig(old.Name, rec.Name)
-		}
-		g.cfg.UpdateConfig(rec.Name, rec)
-		_ = g.cfg.Save()
-		if old.Name == g.cfg.GetActiveName() || rec.Name == g.cfg.GetActiveName() {
-			g.manager.SetConfigURL(rec.URL)
-			g.refreshActiveLabel()
-			g.updateButtons()
-		}
-		g.refreshConfigData()
-		g.configTable.Refresh()
-		if rec.Name != old.Name {
-			g.log("Config renamed: " + old.Name + " -> " + rec.Name)
-		} else {
-			g.log("Config updated: " + rec.Name)
+			g.refreshConfigData()
+			g.configTable.Refresh()
 		}
 	}, func() {
 		g.onDeleteConfig()
@@ -372,7 +332,6 @@ func (g *GUI) onEditConfig() {
 
 func (g *GUI) onDeleteConfig() {
 	if g.configSelected < 0 || g.configSelected >= len(g.configData) {
-		g.log("No config selected")
 		return
 	}
 	name := g.configData[g.configSelected].Name
@@ -380,80 +339,40 @@ func (g *GUI) onDeleteConfig() {
 		if !ok {
 			return
 		}
-		g.cfg.RemoveConfig(name)
-		_ = g.cfg.Save()
+		_ = g.ctrl.DeleteConfigWithLog(name)
 		g.refreshConfigData()
 		g.configTable.Refresh()
 		g.refreshActiveLabel()
 		g.updateButtons()
-		g.log("Config deleted: " + name)
 	}, g.window)
 }
 
 func (g *GUI) onActivateConfig() {
 	if g.configSelected < 0 || g.configSelected >= len(g.configData) {
-		g.log("No config selected")
 		return
 	}
 	name := g.configData[g.configSelected].Name
-	rec := g.cfg.GetConfigByName(name)
-	if rec == nil {
-		return
+	if err := g.ctrl.ActivateConfigWithLog(name); err == nil {
+		g.refreshActiveLabel()
+		g.updateButtons()
+		g.configTable.Refresh()
 	}
-
-	if !core.HasCachedConfig(name) {
-		g.log("No cached config for: " + name)
-		return
-	}
-
-	g.cfg.SetActiveName(name)
-	_ = g.cfg.Save()
-	g.manager.SetConfigURL(rec.URL)
-	g.manager.SetConfigName(name)
-	g.refreshActiveLabel()
-	g.updateButtons()
-	g.configTable.Refresh()
-	g.log("Activated config: " + name)
 }
 
 func (g *GUI) onUpdateAllConfigs() {
 	go func() {
-		configs := g.cfg.GetConfigs()
-		total := 0
-		for _, rec := range configs {
-			if rec.URL != "" {
-				total++
-			}
-		}
-		if total == 0 {
-			g.log("No configs to update")
-			return
-		}
-
 		progressModal, progress := g.showProgressDialog(g.t("progress.updating_configs"))
-		updated := 0
-		for _, rec := range configs {
-			if rec.URL == "" {
-				continue
-			}
-			g.log("Updating config: " + rec.Name + "...")
-			if err := core.DownloadConfigFor(rec.Name, rec.URL); err != nil {
-				g.log("Failed to update " + rec.Name + ": " + err.Error())
-			} else {
-				g.cfg.SetLastUpdateFor(rec.Name, time.Now())
-				updated++
-				g.log("Config updated: " + rec.Name)
-			}
+		_, total, err := g.ctrl.UpdateAllConfigsWithLog(func(done, total int) {
 			fyne.Do(func() {
-				progress.SetValue(float64(updated) / float64(total))
+				progress.SetValue(float64(done) / float64(total))
+			})
+		})
+		if err == nil && total > 0 {
+			g.refreshConfigData()
+			fyne.Do(func() {
+				progressModal.Hide()
+				g.configTable.Refresh()
 			})
 		}
-		_ = g.cfg.Save()
-		g.refreshConfigData()
-		fyne.Do(func() {
-			progressModal.Hide()
-			g.configTable.Refresh()
-		})
-		g.log(fmt.Sprintf("Update all finished (%d/%d)", updated, total))
 	}()
 }

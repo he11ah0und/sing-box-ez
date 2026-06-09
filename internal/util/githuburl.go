@@ -1,4 +1,4 @@
-package githuburl
+package util
 
 // Project represents a GitHub owner/repo pair and can construct URLs.
 type Project struct {

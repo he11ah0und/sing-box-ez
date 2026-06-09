@@ -93,6 +93,7 @@
   "about.dialog.close": "Close",
 
   "dialog.btn.cancel": "Cancel",
+  "dialog.btn.confirm": "Confirm",
   "dialog.btn.update": "Update",
   "dialog.btn.ignore": "Ignore",
   "dialog.core_update.title": "Core Update Available",

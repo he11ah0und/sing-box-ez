@@ -93,6 +93,7 @@
   "about.dialog.close": "关闭",
 
   "dialog.btn.cancel": "取消",
+  "dialog.btn.confirm": "确认",
   "dialog.btn.update": "更新",
   "dialog.btn.ignore": "忽略",
   "dialog.core_update.title": "核心更新可用",
