@@ -1,4 +1,4 @@
-package util
+package githuburl
 
 // Project represents a GitHub owner/repo pair and can construct URLs.
 type Project struct {
@@ -35,6 +35,11 @@ func (p Project) RepoURL() string {
 // APIReleasesURL returns the GitHub API endpoint for releases.
 func (p Project) APIReleasesURL() string {
 	return "https://api.github.com/repos/" + p.Slug() + "/releases"
+}
+
+// APIBranchesURL returns the GitHub API endpoint for branches.
+func (p Project) APIBranchesURL() string {
+	return "https://api.github.com/repos/" + p.Slug() + "/branches"
 }
 
 // APILatestReleaseURL returns the GitHub API endpoint for the latest release.

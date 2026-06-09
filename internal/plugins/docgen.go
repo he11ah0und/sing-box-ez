@@ -13,7 +13,7 @@ import (
 // GenerateDocs reflects over the plugin API surface and writes mkdocs markdown files.
 // It writes files into outDir (e.g. "docs/plugin-api").
 func GenerateDocs(outDir string) error {
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	if err := os.MkdirAll(outDir, 0750); err != nil {
 		return err
 	}
 
@@ -50,32 +50,32 @@ func GenerateDocs(outDir string) error {
 		fmt.Fprintf(&idx, "- [%s](api/%s.md)\n", mod.Name, mod.Name)
 	}
 
-	if err := os.WriteFile(filepath.Join(outDir, "index.md"), []byte(idx.String()), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outDir, "index.md"), []byte(idx.String()), 0600); err != nil {
 		return err
 	}
 
 	// Write dev-guide.md
 	guide := generateDevGuide(modules)
-	if err := os.WriteFile(filepath.Join(outDir, "dev-guide.md"), []byte(guide), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outDir, "dev-guide.md"), []byte(guide), 0600); err != nil {
 		return err
 	}
 
 	// Write api-overview.md
 	overview := generateAPIOverview(modules)
-	if err := os.WriteFile(filepath.Join(outDir, "api-overview.md"), []byte(overview), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(outDir, "api-overview.md"), []byte(overview), 0600); err != nil {
 		return err
 	}
 
 	// Ensure api/ subdirectory exists.
 	apiDir := filepath.Join(outDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0750); err != nil {
 		return err
 	}
 
 	// Write one markdown file per module into api/.
 	for _, mod := range modules {
 		doc := generateModuleDoc(mod)
-		if err := os.WriteFile(filepath.Join(apiDir, mod.Name+".md"), []byte(doc), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(apiDir, mod.Name+".md"), []byte(doc), 0600); err != nil {
 			return err
 		}
 	}
@@ -289,17 +289,16 @@ func generateDevGuide(modules []LuaModuleDef) string {
 }
 
 // writeFile utility.
-func writeFile(path string, content string) error {
-	return os.WriteFile(path, []byte(content), 0644)
-}
 
 // CopyFile copies src to dst.
 func CopyFile(src, dst string) error {
+	// #nosec G304 — src and dst are internal paths controlled by the application.
 	in, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
+	// #nosec G304 — src and dst are internal paths controlled by the application.
 	out, err := os.Create(dst)
 	if err != nil {
 		return err

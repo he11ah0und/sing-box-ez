@@ -18,6 +18,7 @@ import (
 // validates the manifest, and moves it into the plugins directory.
 // Returns the loaded manifest.
 func InstallFromURL(url string) (*Manifest, error) {
+	// #nosec G107 — URL is supplied by the user via CLI/GUI and validated by HTTP transport and archive extraction.
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("download failed: %w", err)
@@ -34,40 +35,18 @@ func InstallFromURL(url string) (*Manifest, error) {
 	defer os.Remove(tmpFile.Name())
 
 	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return nil, fmt.Errorf("save failed: %w", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Determine format and extract.
 	contentType := resp.Header.Get("Content-Type")
-	extractDir, err := os.MkdirTemp("", "plugin-extract-*")
+	extractDir, err := extractArchive(tmpFile.Name(), url, contentType)
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(extractDir)
-
-	switch {
-	case strings.HasSuffix(url, ".zip") || contentType == "application/zip":
-		if err := extractZip(tmpFile.Name(), extractDir); err != nil {
-			return nil, fmt.Errorf("extract zip failed: %w", err)
-		}
-	case strings.HasSuffix(url, ".tar.gz") || strings.HasSuffix(url, ".tgz") ||
-		contentType == "application/gzip" || contentType == "application/x-gzip":
-		if err := extractTarGz(tmpFile.Name(), extractDir); err != nil {
-			return nil, fmt.Errorf("extract tar.gz failed: %w", err)
-		}
-	default:
-		// Try zip first, then tar.gz.
-		if err := extractZip(tmpFile.Name(), extractDir); err == nil {
-			break
-		}
-		os.RemoveAll(extractDir)
-		extractDir, _ = os.MkdirTemp("", "plugin-extract-*")
-		if err := extractTarGz(tmpFile.Name(), extractDir); err != nil {
-			return nil, fmt.Errorf("unknown archive format (tried zip and tar.gz): %w", err)
-		}
-	}
 
 	// Find manifest.json (may be nested one level deep).
 	mf, pdir, err := findManifest(extractDir)
@@ -88,6 +67,42 @@ func InstallFromURL(url string) (*Manifest, error) {
 	mf.SourceURL = url
 	mf.Enabled = true
 	return mf, nil
+}
+
+func extractArchive(tmpFile, url, contentType string) (string, error) {
+	extractDir, err := os.MkdirTemp("", "plugin-extract-*")
+	if err != nil {
+		return "", err
+	}
+
+	switch {
+	case strings.HasSuffix(url, ".zip") || contentType == "application/zip":
+		if err := extractZip(tmpFile, extractDir); err != nil {
+			_ = os.RemoveAll(extractDir)
+			return "", fmt.Errorf("extract zip failed: %w", err)
+		}
+	case strings.HasSuffix(url, ".tar.gz") || strings.HasSuffix(url, ".tgz") ||
+		contentType == "application/gzip" || contentType == "application/x-gzip":
+		if err := extractTarGz(tmpFile, extractDir); err != nil {
+			_ = os.RemoveAll(extractDir)
+			return "", fmt.Errorf("extract tar.gz failed: %w", err)
+		}
+	default:
+		// Try zip first, then tar.gz.
+		if err := extractZip(tmpFile, extractDir); err == nil {
+			return extractDir, nil
+		}
+		_ = os.RemoveAll(extractDir)
+		extractDir, err = os.MkdirTemp("", "plugin-extract-*")
+		if err != nil {
+			return "", fmt.Errorf("extract temp dir failed: %w", err)
+		}
+		if err := extractTarGz(tmpFile, extractDir); err != nil {
+			_ = os.RemoveAll(extractDir)
+			return "", fmt.Errorf("unknown archive format (tried zip and tar.gz): %w", err)
+		}
+	}
+	return extractDir, nil
 }
 
 // findManifest searches for manifest.json inside extractDir.
@@ -125,29 +140,32 @@ func extractZip(src, dst string) error {
 	defer r.Close()
 
 	for _, f := range r.File {
-		path := filepath.Join(dst, f.Name)
+		path := filepath.Join(dst, filepath.Clean(f.Name))
 		if !strings.HasPrefix(path, filepath.Clean(dst)+string(os.PathSeparator)) {
 			return fmt.Errorf("illegal file path in zip: %s", f.Name)
 		}
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(path, f.Mode())
+			if err := os.MkdirAll(path, f.Mode()); err != nil {
+				return err
+			}
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 			return err
 		}
+		// #nosec G304 — path was validated against directory traversal via filepath.Clean prefix check above.
 		out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 		if err != nil {
 			return err
 		}
 		rc, err := f.Open()
 		if err != nil {
-			out.Close()
+			_ = out.Close()
 			return err
 		}
-		_, err = io.Copy(out, rc)
-		rc.Close()
-		out.Close()
+		_, err = io.Copy(out, io.LimitReader(rc, 100*1024*1024))
+		_ = rc.Close()
+		_ = out.Close()
 		if err != nil {
 			return err
 		}
@@ -156,6 +174,7 @@ func extractZip(src, dst string) error {
 }
 
 func extractTarGz(src, dst string) error {
+	// #nosec G304 — src is a temp file created by os.CreateTemp in the same package.
 	f, err := os.Open(src)
 	if err != nil {
 		return err
@@ -177,28 +196,29 @@ func extractTarGz(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		path := filepath.Join(dst, hdr.Name)
+		path := filepath.Join(dst, filepath.Clean(hdr.Name))
 		if !strings.HasPrefix(path, filepath.Clean(dst)+string(os.PathSeparator)) {
 			return fmt.Errorf("illegal file path in tar: %s", hdr.Name)
 		}
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(path, os.FileMode(hdr.Mode)); err != nil {
+			if err := os.MkdirAll(path, hdr.FileInfo().Mode()); err != nil {
 				return err
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 				return err
 			}
-			out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(hdr.Mode))
+			// #nosec G304 — path was validated against directory traversal via filepath.Clean prefix check above.
+			out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, hdr.FileInfo().Mode())
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(out, tr); err != nil {
-				out.Close()
+			if _, err := io.Copy(out, io.LimitReader(tr, 100*1024*1024)); err != nil {
+				_ = out.Close()
 				return err
 			}
-			out.Close()
+			_ = out.Close()
 		}
 	}
 	return nil

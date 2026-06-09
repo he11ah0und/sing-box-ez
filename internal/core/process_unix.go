@@ -30,6 +30,7 @@ func KillProcess(pid int, elevated bool) error {
 }
 
 func killTreeElevated(pid int) error {
+	// #nosec G204 — pkexec and pgrep are system binaries; pid is validated process ID.
 	out, err := exec.Command("pkexec", "pgrep", "-P", strconv.Itoa(pid)).Output()
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -37,15 +38,18 @@ func killTreeElevated(pid int) error {
 			// pgrep returns 1 when no children found — that's OK
 		}
 	}
-	for _, line := range strings.Split(string(out), "\n") {
+	for line := range strings.SplitSeq(string(out), "\n") {
 		if childPid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil && childPid > 0 {
+			// #nosec G204 — pkexec and kill are system binaries; childPid is validated from pgrep output.
 			_ = exec.Command("pkexec", "kill", "-9", strconv.Itoa(childPid)).Run()
 		}
 	}
+	// #nosec G204 — pkexec and kill are system binaries; pid is validated process ID.
 	return exec.Command("pkexec", "kill", "-9", strconv.Itoa(pid)).Run()
 }
 
 func killTree(pid int) error {
+	// #nosec G204 — pgrep is a system binary; pid is a validated process ID.
 	out, err := exec.Command("pgrep", "-P", strconv.Itoa(pid)).Output()
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -53,7 +57,7 @@ func killTree(pid int) error {
 			// pgrep returns 1 when no children found — that's OK
 		}
 	}
-	for _, line := range strings.Split(string(out), "\n") {
+	for line := range strings.SplitSeq(string(out), "\n") {
 		if childPid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil && childPid > 0 {
 			_ = killTree(childPid)
 		}
@@ -76,6 +80,7 @@ func SetNetAdminCapabilityGUI(path string) error {
 	if err != nil {
 		return fmt.Errorf("resolve path: %w", err)
 	}
+	// #nosec G204 — pkexec and setcap are system binaries; absPath is resolved internal path.
 	return exec.Command("pkexec", "setcap", "cap_net_admin=+ep", absPath).Run()
 }
 
@@ -87,6 +92,7 @@ func SetNetAdminCapabilityCLI(path string) error {
 	if err != nil {
 		return fmt.Errorf("resolve path: %w", err)
 	}
+	// #nosec G204 — sudo and setcap are system binaries; absPath is resolved internal path.
 	return exec.Command("sudo", "setcap", "cap_net_admin=+ep", absPath).Run()
 }
 
@@ -98,6 +104,7 @@ func HasNetAdminCapability(path string) bool {
 	if err != nil {
 		return false
 	}
+	// #nosec G204 — getcap is a system binary; absPath is resolved internal path.
 	out, err := exec.Command("getcap", absPath).Output()
 	if err != nil {
 		return false

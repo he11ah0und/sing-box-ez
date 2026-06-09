@@ -75,7 +75,7 @@ func (g *GUI) showVersionInfoDialog(latest string) {
 		if err != nil || currentVer == "" {
 			content = container.NewVBox(
 				widget.NewLabel(i18n.T("dialog.version_check.core_not_installed")),
-				widget.NewLabel(i18n.T("dialog.version_check.latest") + latest),
+				widget.NewLabel(i18n.T("dialog.version_check.latest")+latest),
 			)
 		} else {
 			currentLbl := widget.NewLabel(i18n.T("dialog.version_check.current") + currentVer)
