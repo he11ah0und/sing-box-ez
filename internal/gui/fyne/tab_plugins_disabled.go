@@ -1,6 +1,6 @@
 //go:build noplugins
 
-package gui
+package fynegui
 
 import "fyne.io/fyne/v2/container"
 

@@ -1,4 +1,4 @@
-package gui
+package fynegui
 
 import (
 	"sing-box-ez/internal/i18n"

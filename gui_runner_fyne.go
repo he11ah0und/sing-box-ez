@@ -4,11 +4,11 @@ package main
 
 import (
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/gui"
+	fynegui "sing-box-ez/internal/gui/fyne"
 )
 
 func runGUI(cfg *config.AppConfig) bool {
-	g := gui.New(cfg)
+	g := fynegui.New(cfg)
 	g.Run()
 	return true
 }
