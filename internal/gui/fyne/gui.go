@@ -240,9 +240,11 @@ func (g *GUI) sendNotification(title, content string) {
 	if !g.cfg.GetDesktopNotifications() {
 		return
 	}
-	g.app.SendNotification(&fyne.Notification{
-		Title:   title,
-		Content: content,
+	fyne.Do(func() {
+		g.app.SendNotification(&fyne.Notification{
+			Title:   title,
+			Content: content,
+		})
 	})
 }
 
@@ -369,7 +371,7 @@ func (g *GUI) Run() {
 	g.window.Show()
 	go func() {
 		if !g.cfg.GetFirstRunDone() {
-			g.showFirstRunDialog()
+			fyne.DoAndWait(func() { g.showFirstRunDialog() })
 		}
 		g.checkUpdatesOnStartup()
 	}()
@@ -384,15 +386,17 @@ func (g *GUI) checkUpdatesOnStartup() {
 		return
 	}
 	if info != nil && info.ReleaseCount > 0 {
-		g.showSelfUpdateDialog(info)
+		fyne.Do(func() { g.showSelfUpdateDialog(info) })
 		return
 	}
 	if currentVer != "" && latestVer != "" && currentVer != latestVer {
 		g.latestVersion = latestVer
 		if g.latestText != nil {
-			g.latestText.Text = g.t("core.latest.prefix") + latestVer
-			g.latestText.Color = colGreen
-			g.latestText.Refresh()
+			fyne.Do(func() {
+				g.latestText.Text = g.t("core.latest.prefix") + latestVer
+				g.latestText.Color = colGreen
+				g.latestText.Refresh()
+			})
 		}
 		g.showUpdatePrompt(latestVer, currentVer)
 	}
