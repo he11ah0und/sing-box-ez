@@ -1,4 +1,4 @@
-package gio
+package giogui
 
 import (
 	"image/color"
@@ -10,7 +10,7 @@ import (
 	"gioui.org/widget/material"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/gio/pages"
+	"sing-box-ez/internal/gui/gio/pages"
 )
 
 // GUI holds the new Gio-based adaptive UI.

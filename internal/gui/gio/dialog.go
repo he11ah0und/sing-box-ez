@@ -1,4 +1,4 @@
-package gio
+package giogui
 
 import (
 	"image"

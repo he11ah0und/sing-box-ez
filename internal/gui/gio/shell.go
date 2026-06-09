@@ -1,4 +1,4 @@
-package gio
+package giogui
 
 import (
 	"image"
@@ -13,7 +13,7 @@ import (
 	"gioui.org/x/component"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/gio/pages"
+	"sing-box-ez/internal/gui/gio/pages"
 )
 
 // Shell provides an adaptive layout:

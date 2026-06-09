@@ -4,11 +4,11 @@ package main
 
 import (
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/gio"
+	giogui "sing-box-ez/internal/gui/gio"
 )
 
 func runGUI(cfg *config.AppConfig) bool {
-	g := gio.New(cfg)
+	g := giogui.New(cfg)
 	g.Run()
 	return true
 }
