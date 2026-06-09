@@ -167,7 +167,7 @@ jobs:
   finalize-release:
     needs: [prepare-release, build]
     runs-on: ubuntu-latest
-    if: always() && github.ref == 'refs/heads/main'
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/testing')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -223,8 +223,8 @@ jobs:
       - name: Create or update release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: "Latest Build (${{ needs.prepare-release.outputs.tag }})"
+          tag_name: ${{ github.ref_name == 'main' && 'latest' || 'latest-testing' }}
+          name: "${{ github.ref_name == 'main' && 'Latest Build' || 'Latest Testing Build' }} (${{ needs.prepare-release.outputs.tag }})"
           body_path: release_notes.md
           files: binaries/*
           draft: false
