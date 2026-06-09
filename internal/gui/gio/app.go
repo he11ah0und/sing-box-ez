@@ -11,6 +11,7 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/gui/gio/pages"
+	"sing-box-ez/internal/updater"
 )
 
 // GUI holds the new Gio-based adaptive UI.
@@ -45,6 +46,14 @@ func New(cfg *config.AppConfig) *GUI {
 	// Initialize core controller (encapsulates manager + logger + i18n)
 	g.ctrl = core.NewInteractiveController(cfg)
 
+	// Wire startup callbacks (UI-specific dialogs will be shown by the GUI)
+	g.ctrl.OnFirstRun = func() {
+		// TODO: implement first-run dialog for Gio
+	}
+	g.ctrl.OnSelfUpdateAvailable = func(info *updater.UpdateInfo) {
+		// TODO: implement self-update dialog for Gio
+	}
+
 	dialog := NewDialog()
 
 	aboutPage := pages.NewAboutPage(th, g.ctrl, dialog.Show, dialog.ShowMarkdown, dialog.ShowLoading)
@@ -70,6 +79,7 @@ func New(cfg *config.AppConfig) *GUI {
 
 // Run starts the Gio event loop.
 func (g *GUI) Run() {
+	go g.ctrl.RunStartupSequence()
 	go func() {
 		w := new(app.Window)
 		w.Option(

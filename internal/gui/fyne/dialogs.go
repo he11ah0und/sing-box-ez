@@ -54,20 +54,6 @@ func (g *GUI) showInfiniteDialog(title string) dialog.Dialog {
 // Core update dialogs
 // ---------------------------------------------------------------------------
 
-func (g *GUI) showUpdatePrompt(latest, current string) {
-	fyne.DoAndWait(func() {
-		msg := fmt.Sprintf(i18n.T("dialog.core_update.msg"), current, latest)
-		confirm := dialog.NewConfirm(i18n.T("dialog.core_update.title"), msg, func(update bool) {
-			if update {
-				go g.onDownloadCore()
-			}
-		}, g.window)
-		confirm.SetConfirmText(i18n.T("dialog.btn.update"))
-		confirm.SetDismissText(i18n.T("dialog.btn.ignore"))
-		confirm.Show()
-	})
-}
-
 func (g *GUI) showVersionInfoDialog(latest string) {
 	fyne.DoAndWait(func() {
 		currentVer, err := g.ctrl.GetInstalledCoreVersion()
