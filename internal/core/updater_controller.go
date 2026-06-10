@@ -34,8 +34,8 @@ func (c *UpdaterController) ApplySelfUpdate(assetURL string, onProgress func(int
 }
 
 // GetBranches fetches available repository branches.
-func (c *UpdaterController) GetBranches() ([]updater.Branch, error) {
-	return updater.GetBranches()
+func (c *UpdaterController) GetBranches() ([]updater.Channel, error) {
+	return updater.GetChannels()
 }
 
 // ApplySelfUpdateWithLog performs a self-update and logs the result.

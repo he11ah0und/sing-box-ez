@@ -32,7 +32,7 @@ type AboutPage struct {
 	openRepoBtn         widget.Clickable
 
 	// Branch picker state (rendered via Dialog).
-	pickerBranches []updater.Branch
+	pickerBranches []updater.Channel
 	pickerBtns     []widget.Clickable
 	pickerMu       sync.Mutex
 

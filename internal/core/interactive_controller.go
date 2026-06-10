@@ -247,7 +247,7 @@ func (ic *InteractiveController) CheckSelfUpdateWithLog() (*updater.UpdateInfo, 
 	return ic.Updater.CheckSelfUpdateWithLog()
 }
 
-func (ic *InteractiveController) GetBranches() ([]updater.Branch, error) {
+func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 	return ic.Updater.GetBranches()
 }
 

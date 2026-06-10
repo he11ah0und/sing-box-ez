@@ -65,7 +65,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			latest: Release{
 				TagName:     "eb6db22",
 				PublishedAt: now,
-				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", BrowserDownloadURL: "http://example.com/v1"}},
+				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", DownloadURL: "http://example.com/v1"}},
 			},
 			currentBranch: "main",
 			commit:        "4cce75f",
@@ -78,7 +78,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			latest: Release{
 				TagName:     "eb6db22",
 				PublishedAt: now,
-				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", BrowserDownloadURL: "http://example.com/v1"}},
+				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", DownloadURL: "http://example.com/v1"}},
 			},
 			currentBranch: "main",
 			commit:        "unknown",
@@ -91,7 +91,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			latest: Release{
 				TagName:     "eb6db22",
 				PublishedAt: now,
-				Assets:      []Asset{{Name: "other-asset", BrowserDownloadURL: "http://example.com/other"}},
+				Assets:      []Asset{{Name: "other-asset", DownloadURL: "http://example.com/other"}},
 			},
 			currentBranch: "main",
 			commit:        "4cce75f",
@@ -118,9 +118,9 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			version.BuildGUI = ""
 			version.BuildBackend = ""
 
-			info, err := checkUpdateWithLatest(tt.latest, tt.currentBranch)
+			info, err := updateInfoFrom(tt.latest, tt.currentBranch)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("checkUpdateWithLatest() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("updateInfoFrom() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if info.Latest != tt.wantLatest {
 				t.Errorf("Latest = %q, want %q", info.Latest, tt.wantLatest)
