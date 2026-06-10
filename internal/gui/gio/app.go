@@ -1,17 +1,28 @@
 package giogui
 
 import (
+	_ "embed"
+	"fmt"
 	"image/color"
 	"os"
+	"time"
 
 	"gioui.org/app"
+	"gioui.org/font"
+	"gioui.org/font/gofont"
+	"gioui.org/font/opentype"
+	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/gui/gio/pages"
+	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/updater"
+	"sing-box-ez/internal/version"
 )
 
 // GUI holds the new Gio-based adaptive UI.
@@ -29,6 +40,9 @@ type GUI struct {
 
 	// Core controller (business logic)
 	ctrl *core.InteractiveController
+
+	// Dialog reference for startup sequences
+	dialog *Dialog
 }
 
 // New creates a new Gio GUI instance.
@@ -38,6 +52,13 @@ func New(cfg *config.AppConfig) *GUI {
 	th.Palette.Bg = color.NRGBA{R: 18, G: 18, B: 18, A: 255}
 	th.Palette.Fg = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 
+	// Build a font collection with Go font as base + optional emoji support.
+	collection := gofont.Collection()
+	if emoji := tryLoadEmojiFont(); len(emoji) > 0 {
+		collection = append(collection, emoji...)
+	}
+	th.Shaper = text.NewShaper(text.WithCollection(collection))
+
 	g := &GUI{
 		cfg: cfg,
 		th:  th,
@@ -46,24 +67,151 @@ func New(cfg *config.AppConfig) *GUI {
 	// Initialize core controller (encapsulates manager + logger + i18n)
 	g.ctrl = core.NewInteractiveController(cfg)
 
+	dialog := NewDialog()
+	g.dialog = dialog
+
 	// Wire startup callbacks (UI-specific dialogs will be shown by the GUI)
 	g.ctrl.OnFirstRun = func() {
-		// TODO: implement first-run dialog for Gio
+		coreInstalled := g.ctrl.CoreExists()
+
+		var urlEditor widget.Editor
+		urlEditor.SingleLine = true
+
+		var downloadBtn widget.Clickable
+		var addBtn widget.Clickable
+
+		dialog.ShowCustom(i18n.T("first_run.title"), func(gtx layout.Context) layout.Dimensions {
+			if downloadBtn.Clicked(gtx) {
+				go func() {
+					dialog.ShowLoading(i18n.T("progress.checking_version"))
+					_, err := g.ctrl.DownloadCoreWithProgressWithLog(nil)
+					dialog.HideLoading()
+					if err != nil {
+						return
+					}
+					// Re-show first-run dialog with updated state.
+					g.ctrl.OnFirstRun()
+				}()
+			}
+			if addBtn.Clicked(gtx) {
+				url := urlEditor.Text()
+				go func() {
+					dialog.ShowLoading(i18n.T("progress.adding_config"))
+					err := g.ctrl.AddFirstConfigWithLog("default", url)
+					dialog.HideLoading()
+					if err != nil {
+						return
+					}
+					dialog.HideCustom()
+				}()
+			}
+
+			children := []layout.FlexChild{
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.Body1(th, i18n.T("first_run.welcome")).Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.Body2(th, i18n.T("first_run.description")).Layout(gtx)
+				}),
+			}
+
+			status := i18n.T("first_run.core.not_installed")
+			if coreInstalled {
+				status = i18n.T("first_run.core.installed")
+				if ver, err := g.ctrl.GetInstalledCoreVersion(); err == nil && ver != "" {
+					status += "\n" + fmt.Sprintf(i18n.T("first_run.core.version"), ver)
+				}
+			}
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Body2(th, status).Layout(gtx)
+			}))
+
+			if !coreInstalled {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return material.Button(th, &downloadBtn, i18n.T("first_run.btn.download_core")).Layout(gtx)
+					})
+				}))
+			}
+
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					ed := material.Editor(th, &urlEditor, "https://example.com/config.json")
+					return ed.Layout(gtx)
+				})
+			}))
+
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Button(th, &addBtn, i18n.T("first_run.btn.add_config")).Layout(gtx)
+				})
+			}))
+
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		})
 	}
+
 	g.ctrl.OnSelfUpdateAvailable = func(info *updater.UpdateInfo) {
-		// TODO: implement self-update dialog for Gio
+		currentText := version.Commit
+		if currentText == "unknown" || currentText == "" {
+			currentText = info.Current
+		}
+
+		var currentDateStr, latestDateStr, diffStr string
+		if dt, err := version.BuildDateTime(); err == nil {
+			currentDateStr = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
+		} else {
+			currentDateStr = i18n.T("dialog.unknown")
+		}
+		if !info.LatestDate.IsZero() {
+			lt := info.LatestDate.Local()
+			latestDateStr = lt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(info.LatestDate) + ")"
+			if dt, err := version.BuildDateTime(); err == nil {
+				diff := info.LatestDate.Sub(dt)
+				if diff < 0 {
+					diff = -diff
+				}
+				diffStr = fmt.Sprintf(i18n.T("dialog.self_update.behind"), humanDuration(diff))
+			}
+		} else {
+			latestDateStr = i18n.T("dialog.unknown")
+		}
+
+		body := fmt.Sprintf("**%s** %s\n  %s\n\n**%s** %s\n  %s\n\n",
+			i18n.T("dialog.self_update.current"), currentText, currentDateStr,
+			i18n.T("dialog.self_update.latest"), info.Latest, latestDateStr)
+		if diffStr != "" {
+			body += diffStr + "\n\n"
+		}
+		body += "## " + i18n.T("dialog.self_update.changelog") + "\n\n" + info.LatestBody
+
+		dialog.ShowConfirmMarkdown(i18n.T("dialog.self_update.title"), body, func() {
+			dialog.ShowLoading(i18n.T("progress.downloading_update"))
+			go func() {
+				if err := g.ctrl.ApplySelfUpdateWithLog(info.AssetURL, nil); err != nil {
+					dialog.HideLoading()
+					dialog.Show(i18n.T("dialog.self_update.title"), "Update failed: "+err.Error())
+					return
+				}
+				dialog.HideLoading()
+				dialog.Show(i18n.T("dialog.self_update.title"), "Update complete. Please restart.")
+			}()
+		})
 	}
 
-	dialog := NewDialog()
-
-	aboutPage := pages.NewAboutPage(th, g.ctrl, dialog.Show, dialog.ShowMarkdown, dialog.ShowLoading)
-	mainPage := pages.NewMainPage(th, g.ctrl)
+	aboutPage := pages.NewAboutPage(th, g.ctrl, dialog)
+	mainPage := pages.NewMainPage(th, g.ctrl, dialog)
 	logPage := pages.NewLogPage(th, g.ctrl.Controller)
 
-	primary := []pages.Page{mainPage, pages.NewConfigsPage(th, g.ctrl.Controller)}
+	settingsPage := pages.NewSettingsPage(th, g.ctrl, dialog)
+	settingsPage.OnLanguageChange = func() {
+		g.shell.RebuildNav()
+	}
+
+	primary := []pages.Page{mainPage, pages.NewConfigsPage(th, g.ctrl, dialog)}
 	secondary := []pages.Page{
-		pages.NewCorePage(th, g.ctrl.Controller),
-		pages.NewSettingsPage(th, g.ctrl.Controller),
+		pages.NewCorePage(th, g.ctrl, dialog),
+		settingsPage,
 		logPage,
 	}
 	if cfg.GetPluginsEnabled() {
@@ -79,7 +227,6 @@ func New(cfg *config.AppConfig) *GUI {
 
 // Run starts the Gio event loop.
 func (g *GUI) Run() {
-	go g.ctrl.RunStartupSequence()
 	go func() {
 		w := new(app.Window)
 		w.Option(
@@ -103,5 +250,49 @@ func (g *GUI) Run() {
 			}
 		}
 	}()
+
+	// Show global initialization loading dialog immediately so it renders
+	// while the startup sequence runs.
+	g.dialog.ShowLoading(i18n.T("progress.initializing"))
+
+	go func() {
+		g.ctrl.RunStartupSequence()
+		// Small delay so the user actually sees the spinner before it disappears.
+		time.Sleep(400 * time.Millisecond)
+		g.dialog.HideLoading()
+	}()
+
 	app.Main()
+}
+
+//go:embed assets/NotoEmoji.ttf
+var notoEmojiFontData []byte
+
+func tryLoadEmojiFont() []font.FontFace {
+	face, err := opentype.Parse(notoEmojiFontData)
+	if err != nil {
+		return nil
+	}
+	return []font.FontFace{{Font: face.Font(), Face: face}}
+}
+
+func humanDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	}
+	days := int(d.Hours() / 24)
+	if days < 30 {
+		return fmt.Sprintf("%dd", days)
+	}
+	months := days / 30
+	if months < 12 {
+		return fmt.Sprintf("%dmo", months)
+	}
+	return fmt.Sprintf("%dy", months/12)
 }

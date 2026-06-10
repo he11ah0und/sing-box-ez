@@ -5,6 +5,7 @@ import (
 	"gioui.org/widget/material"
 
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/i18n"
 )
 
 // PluginsPage is a placeholder for the plugins screen.
@@ -22,7 +23,7 @@ func NewPluginsPage(th *material.Theme, ctrl *core.Controller) *PluginsPage {
 func (p *PluginsPage) Tag() string { return "plugins" }
 
 // Name returns the page name.
-func (p *PluginsPage) Name() string { return "Plugins" }
+func (p *PluginsPage) Name() string { return i18n.T("tab.plugins") }
 
 // Layout draws the plugins page.
 func (p *PluginsPage) Layout(gtx layout.Context) layout.Dimensions {
