@@ -1,204 +1,70 @@
 package updater
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
+	"context"
 	"os"
 	"runtime"
 	"strings"
-	"time"
 
-	"sing-box-ez/internal/framework/util/githuburl"
 	"sing-box-ez/internal/framework/version"
 )
 
-var httpClient = &http.Client{Timeout: 30 * time.Second}
+var defaultBackend Backend = DefaultGitHubBackend()
 
-// Release represents a GitHub release.
-type Release struct {
-	TagName         string    `json:"tag_name"`
-	TargetCommitish string    `json:"target_commitish"`
-	Name            string    `json:"name"`
-	Body            string    `json:"body"`
-	PublishedAt     time.Time `json:"published_at"`
-	Prerelease      bool      `json:"prerelease"`
-	Assets          []Asset   `json:"assets"`
+// SetBackend configures the update source used by the package-level helpers.
+func SetBackend(b Backend) {
+	defaultBackend = b
 }
 
-// Branch represents a GitHub repository branch.
-type Branch struct {
-	Name   string `json:"name"`
-	Commit struct {
-		SHA string `json:"sha"`
-	} `json:"commit"`
+// CurrentBackend returns the active update backend.
+func CurrentBackend() Backend {
+	return defaultBackend
 }
 
-// Asset represents a release binary asset.
-type Asset struct {
-	Name               string `json:"name"`
-	BrowserDownloadURL string `json:"browser_download_url"`
-	Size               int64  `json:"size"`
-}
-
-// UpdateInfo holds the result of an update check.
-type UpdateInfo struct {
-	Current      string
-	Latest       string
-	ReleaseCount int       // 0 = up to date, 1 = update available
-	LatestBody   string    // body of the latest stable release
-	LatestDate   time.Time // published_at of the latest release
-	AssetURL     string
-	AssetName    string
-}
-
-// GetLatestRelease returns the most recent release.
-func GetLatestRelease() (Release, error) {
-	url := githuburl.DefaultProject().APILatestReleaseURL()
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return Release{}, err
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return Release{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return Release{}, fmt.Errorf("github api %s: %s", resp.Status, string(body))
-	}
-
-	var r Release
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-		return Release{}, err
-	}
-	return r, nil
-}
-
-// GetReleaseByTag fetches a specific release by its tag name.
-// Returns an error if the release does not exist (404) or the API fails.
-func GetReleaseByTag(tag string) (Release, error) {
-	url := githuburl.DefaultProject().APIReleaseByTagURL(tag)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return Release{}, err
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return Release{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return Release{}, fmt.Errorf("release not found")
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return Release{}, fmt.Errorf("github api %s: %s", resp.Status, string(body))
-	}
-
-	var r Release
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-		return Release{}, err
-	}
-	return r, nil
-}
-
-// CheckUpdate compares the current build against the latest GitHub release by commit hash.
+// CheckUpdate compares the current build against the latest release.
 func CheckUpdate(currentBranch string) (*UpdateInfo, error) {
-	latest, err := GetLatestRelease()
+	release, err := defaultBackend.LatestRelease(context.Background(), currentBranch)
 	if err != nil {
 		return nil, err
 	}
-	return checkUpdateWithLatest(latest, currentBranch)
-}
-
-// GetBranches fetches the list of branches from the GitHub API.
-func GetBranches() ([]Branch, error) {
-	url := githuburl.DefaultProject().APIBranchesURL()
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("github api %s: %s", resp.Status, string(body))
-	}
-
-	var branches []Branch
-	if err := json.NewDecoder(resp.Body).Decode(&branches); err != nil {
-		return nil, err
-	}
-	return branches, nil
-}
-
-// GetLatestReleaseForBranch returns the most recent non-prerelease release for the given branch.
-func GetLatestReleaseForBranch(branch string) (Release, error) {
-	url := githuburl.DefaultProject().APIReleasesURL()
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return Release{}, err
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return Release{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return Release{}, fmt.Errorf("github api %s: %s", resp.Status, string(body))
-	}
-
-	var releases []Release
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return Release{}, err
-	}
-
-	for _, r := range releases {
-		if r.TargetCommitish == branch && !r.Prerelease {
-			return r, nil
-		}
-	}
-	return Release{}, fmt.Errorf("no release found for branch %s", branch)
+	return updateInfoFrom(release, currentBranch)
 }
 
 // CheckUpdateForBranch checks for updates on the specified branch.
 func CheckUpdateForBranch(branch string) (*UpdateInfo, error) {
-	latest, err := GetLatestReleaseForBranch(branch)
+	release, err := defaultBackend.LatestRelease(context.Background(), branch)
 	if err != nil {
 		return nil, err
 	}
-	return checkUpdateWithLatest(latest, branch)
+	return updateInfoFrom(release, branch)
 }
 
-func checkUpdateWithLatest(latest Release, currentBranch string) (*UpdateInfo, error) {
-	if latest.Prerelease {
+// GetChannels returns the list of available update channels.
+func GetChannels() ([]Channel, error) {
+	return defaultBackend.ListChannels(context.Background())
+}
+
+// GetReleaseByTag fetches release notes for a specific version tag.
+func GetReleaseByTag(tag string) (Release, error) {
+	return defaultBackend.ReleaseByTag(context.Background(), tag)
+}
+
+// DownloadAsset downloads a release asset to the given path.
+func DownloadAsset(url, dest string, progress func(downloaded, total int64)) error {
+	f, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return defaultBackend.DownloadAsset(context.Background(), url, f, progress)
+}
+
+func updateInfoFrom(release Release, currentBranch string) (*UpdateInfo, error) {
+	if release.Prerelease {
 		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
 	}
 
-	if commitsMatch(latest.TagName, version.Commit) {
+	if commitsMatch(release.TagName, version.Commit) {
 		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
 	}
 
@@ -210,25 +76,24 @@ func checkUpdateWithLatest(latest Release, currentBranch string) (*UpdateInfo, e
 
 	info := &UpdateInfo{
 		Current:      currentBranch,
-		Latest:       latest.TagName,
+		Latest:       release.TagName,
 		ReleaseCount: 1,
-		LatestBody:   latest.Body,
-		LatestDate:   latest.PublishedAt,
+		LatestBody:   release.Body,
+		LatestDate:   release.PublishedAt,
 		AssetName:    assetName,
 	}
 
-	for _, a := range latest.Assets {
+	for _, a := range release.Assets {
 		if a.Name == assetName {
-			info.AssetURL = a.BrowserDownloadURL
+			info.AssetURL = a.DownloadURL
 			break
 		}
 	}
 
-	// Fallback: if no backend-specific asset found on Linux, try the plain GUI asset.
 	if info.AssetURL == "" && fallbackName != assetName {
-		for _, a := range latest.Assets {
+		for _, a := range release.Assets {
 			if a.Name == fallbackName {
-				info.AssetURL = a.BrowserDownloadURL
+				info.AssetURL = a.DownloadURL
 				info.AssetName = fallbackName
 				break
 			}
@@ -237,8 +102,6 @@ func checkUpdateWithLatest(latest Release, currentBranch string) (*UpdateInfo, e
 	return info, nil
 }
 
-// commitsMatch checks whether two commit identifiers refer to the same commit.
-// One may be a short prefix of the other.
 func commitsMatch(a, b string) bool {
 	if a == "" || b == "" {
 		return a == b
@@ -250,48 +113,6 @@ func commitsMatch(a, b string) bool {
 		return strings.HasPrefix(a, b)
 	}
 	return strings.HasPrefix(b, a)
-}
-
-// DownloadAsset downloads a release asset to the given path.
-func DownloadAsset(url, dest string, progress func(downloaded, total int64)) error {
-	resp, err := httpClient.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download %s: %s", url, resp.Status)
-	}
-
-	// #nosec G302,G304 — dest is a trusted download path passed by the caller; 0750 is required for executable assets.
-	f, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	total := resp.ContentLength
-	var downloaded int64
-	buf := make([]byte, 64*1024)
-	for {
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			if _, werr := f.Write(buf[:n]); werr != nil {
-				return werr
-			}
-			downloaded += int64(n)
-			if progress != nil {
-				progress(downloaded, total)
-			}
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // guessAssetName tries to determine the correct asset name for this system.
