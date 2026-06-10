@@ -1,11 +1,12 @@
 package giogui
 
 import (
-	"image"
 	"image/color"
 
+	"gioui.org/io/event"
 	"gioui.org/layout"
-	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -17,10 +18,8 @@ import (
 	"sing-box-ez/internal/util/openurl"
 )
 
-// Dialog is a reusable modal dialog using a ModalLayer.
+// Dialog is a reusable modal dialog.
 type Dialog struct {
-	modal *component.ModalLayer
-
 	title string
 	body  string
 
@@ -50,12 +49,16 @@ type Dialog struct {
 	// Loading state
 	isLoading    bool
 	loadingTitle string
+
+	// Custom content state
+	isCustom   bool
+	customTitle string
+	customBody layout.Widget
 }
 
-// NewDialog creates a new dialog backed by a fresh ModalLayer.
+// NewDialog creates a new dialog.
 func NewDialog() *Dialog {
 	return &Dialog{
-		modal: component.NewModal(),
 		bodyList: widget.List{
 			List: layout.List{Axis: layout.Vertical},
 		},
@@ -69,13 +72,14 @@ func (d *Dialog) Show(title, body string) {
 	d.body = body
 	d.isMarkdown = false
 	d.isLoading = false
+	d.isCustom = false
 	d.closeLabel = i18n.T("about.dialog.close")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil
 	d.onDismiss = nil
 	d.active = true
-	d.bodyList.Position = layout.Position{}
+	d.bodyList = widget.List{List: layout.List{Axis: layout.Vertical}}
 }
 
 // ShowMarkdown displays a dialog with Markdown-rendered body.
@@ -84,13 +88,14 @@ func (d *Dialog) ShowMarkdown(title, body string) {
 	d.body = body
 	d.isMarkdown = true
 	d.isLoading = false
+	d.isCustom = false
 	d.closeLabel = i18n.T("about.dialog.close")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil
 	d.onDismiss = nil
 	d.active = true
-	d.bodyList.Position = layout.Position{}
+	d.bodyList = widget.List{List: layout.List{Axis: layout.Vertical}}
 
 	// Use compact sizes so markdown headings aren't overwhelming in a dialog.
 	d.mdRenderer.Config.DefaultSize = unit.Sp(13)
@@ -125,13 +130,16 @@ func (d *Dialog) SetThemeColors(fg, link color.NRGBA) {
 func (d *Dialog) ShowLoading(title string) {
 	d.loadingTitle = title
 	d.isLoading = true
+	d.isCustom = false
 	d.active = true
 }
 
-// HideLoading closes the loading dialog.
+// HideLoading closes the loading dialog only if it is currently active.
 func (d *Dialog) HideLoading() {
-	d.isLoading = false
-	d.active = false
+	if d.isLoading {
+		d.isLoading = false
+		d.active = false
+	}
 }
 
 // ShowConfirm displays a dialog with Cancel and Confirm buttons.
@@ -142,40 +150,80 @@ func (d *Dialog) ShowConfirm(title, body string, onConfirm func()) {
 	d.onConfirm = onConfirm
 }
 
+// ShowConfirmMarkdown displays a Markdown dialog with Cancel and Confirm buttons.
+func (d *Dialog) ShowConfirmMarkdown(title, body string, onConfirm func()) {
+	d.ShowMarkdown(title, body)
+	d.confirmLabel = i18n.T("dialog.btn.update")
+	d.cancelLabel = i18n.T("dialog.btn.ignore")
+	d.onConfirm = onConfirm
+}
+
+// ShowCustom displays a dialog with arbitrary widget content and a Cancel button.
+func (d *Dialog) ShowCustom(title string, content layout.Widget) {
+	d.customTitle = title
+	d.customBody = content
+	d.isCustom = true
+	d.isLoading = false
+	d.isMarkdown = false
+	d.closeLabel = i18n.T("dialog.btn.cancel")
+	d.confirmLabel = ""
+	d.cancelLabel = ""
+	d.onConfirm = nil
+	d.onDismiss = nil
+	d.active = true
+}
+
+// HideCustom closes the custom dialog.
+func (d *Dialog) HideCustom() {
+	d.isCustom = false
+	d.active = false
+}
+
 // Dismiss closes the dialog programmatically.
 func (d *Dialog) Dismiss() {
 	d.active = false
+	d.isCustom = false
+	d.isMarkdown = false
+	d.isLoading = false
 }
 
 // Visible reports whether the dialog is currently shown.
 func (d *Dialog) Visible() bool {
-	return d.active || d.modal.Visible()
+	return d.active
 }
 
 // Layout renders the dialog if active.
 func (d *Dialog) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	d.th = th
 	if !d.active {
-		if d.modal.Visible() {
-			d.modal.Disappear(gtx.Now)
-		}
 		return layout.Dimensions{}
 	}
 
-	d.modal.Widget = func(gtx layout.Context, th *material.Theme, anim *component.VisibilityAnimation) layout.Dimensions {
-		return d.layoutContent(gtx, th)
-	}
+	// Draw semi-transparent black backdrop over the entire area.
+	backdrop := color.NRGBA{R: 0, G: 0, B: 0, A: 160}
+	paint.FillShape(gtx.Ops, backdrop, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
-	if !d.modal.Visible() {
-		d.modal.Appear(gtx.Now)
-	}
+	// Capture pointer events on the backdrop so they don't leak through to the UI below.
+	area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+	event.Op(gtx.Ops, d)
+	area.Pop()
 
-	return d.modal.Layout(gtx, th)
+	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			return layout.Dimensions{Size: gtx.Constraints.Max}
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return d.layoutContent(gtx, th)
+		}),
+	)
 }
 
 func (d *Dialog) layoutContent(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	if d.isLoading {
 		return d.layoutLoading(gtx, th)
+	}
+	if d.isCustom {
+		return d.layoutCustom(gtx, th)
 	}
 	maxWidth := gtx.Dp(unit.Dp(480))
 	if gtx.Constraints.Max.X < maxWidth {
@@ -184,14 +232,13 @@ func (d *Dialog) layoutContent(gtx layout.Context, th *material.Theme) layout.Di
 	// Limit height so the dialog doesn't overflow the screen.
 	maxHeight := gtx.Constraints.Max.Y - gtx.Dp(unit.Dp(64))
 
-	macro := op.Record(gtx.Ops)
 	cardGtx := gtx
-	cardGtx.Constraints.Min.X = maxWidth
+	cardGtx.Constraints.Min.X = 0
 	cardGtx.Constraints.Max.X = maxWidth
 	cardGtx.Constraints.Min.Y = 0
 	cardGtx.Constraints.Max.Y = maxHeight
 
-	cardDims := component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
+	return component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -208,24 +255,6 @@ func (d *Dialog) layoutContent(gtx layout.Context, th *material.Theme) layout.Di
 			)
 		})
 	})
-	call := macro.Stop()
-
-	offset := image.Point{
-		X: (gtx.Constraints.Max.X - cardDims.Size.X) / 2,
-		Y: (gtx.Constraints.Max.Y - cardDims.Size.Y) / 2,
-	}
-	if offset.X < 0 {
-		offset.X = 0
-	}
-	if offset.Y < 0 {
-		offset.Y = 0
-	}
-
-	trans := op.Offset(offset).Push(gtx.Ops)
-	call.Add(gtx.Ops)
-	trans.Pop()
-
-	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
 func (d *Dialog) layoutScrollableBody(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -240,19 +269,17 @@ func (d *Dialog) layoutScrollableBody(gtx layout.Context, th *material.Theme) la
 }
 
 func (d *Dialog) layoutLoading(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	maxWidth := gtx.Dp(unit.Dp(480))
+	maxWidth := gtx.Dp(unit.Dp(360))
 	if gtx.Constraints.Max.X < maxWidth {
 		maxWidth = gtx.Constraints.Max.X - gtx.Dp(unit.Dp(32))
 	}
 
-	macro := op.Record(gtx.Ops)
 	cardGtx := gtx
-	cardGtx.Constraints.Min.X = maxWidth
+	cardGtx.Constraints.Min.X = 0
 	cardGtx.Constraints.Max.X = maxWidth
 	cardGtx.Constraints.Min.Y = 0
-	cardGtx.Constraints.Max.Y = gtx.Constraints.Max.Y - gtx.Dp(unit.Dp(64))
 
-	cardDims := component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
+	return component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -268,24 +295,41 @@ func (d *Dialog) layoutLoading(gtx layout.Context, th *material.Theme) layout.Di
 			)
 		})
 	})
-	call := macro.Stop()
+}
 
-	offset := image.Point{
-		X: (gtx.Constraints.Max.X - cardDims.Size.X) / 2,
-		Y: (gtx.Constraints.Max.Y - cardDims.Size.Y) / 2,
+func (d *Dialog) layoutCustom(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	maxWidth := gtx.Dp(unit.Dp(480))
+	if gtx.Constraints.Max.X < maxWidth {
+		maxWidth = gtx.Constraints.Max.X - gtx.Dp(unit.Dp(32))
 	}
-	if offset.X < 0 {
-		offset.X = 0
-	}
-	if offset.Y < 0 {
-		offset.Y = 0
-	}
+	maxHeight := gtx.Constraints.Max.Y - gtx.Dp(unit.Dp(64))
 
-	trans := op.Offset(offset).Push(gtx.Ops)
-	call.Add(gtx.Ops)
-	trans.Pop()
+	cardGtx := gtx
+	cardGtx.Constraints.Min.X = 0
+	cardGtx.Constraints.Max.X = maxWidth
+	cardGtx.Constraints.Min.Y = 0
+	cardGtx.Constraints.Max.Y = maxHeight
 
-	return layout.Dimensions{Size: gtx.Constraints.Max}
+	return component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.H6(th, d.customTitle).Layout(gtx)
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						if d.customBody != nil {
+							return d.customBody(gtx)
+						}
+						return layout.Dimensions{}
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return d.layoutButtons(gtx, th)
+				}),
+			)
+		})
+	})
 }
 
 func (d *Dialog) layoutMarkdown(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -329,13 +373,13 @@ func (d *Dialog) layoutButtons(gtx layout.Context, th *material.Theme) layout.Di
 		)
 
 		if len(d.dismiss.History()) > prevDismiss {
-			d.active = false
+			d.Dismiss()
 			if d.onDismiss != nil {
 				d.onDismiss()
 			}
 		}
 		if len(d.confirm.History()) > prevConfirm {
-			d.active = false
+			d.Dismiss()
 			if d.onConfirm != nil {
 				d.onConfirm()
 			}
@@ -350,7 +394,7 @@ func (d *Dialog) layoutButtons(gtx layout.Context, th *material.Theme) layout.Di
 		}),
 	)
 	if len(d.dismiss.History()) > prevDismiss {
-		d.active = false
+		d.Dismiss()
 		if d.onDismiss != nil {
 			d.onDismiss()
 		}

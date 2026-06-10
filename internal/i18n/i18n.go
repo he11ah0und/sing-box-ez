@@ -73,6 +73,20 @@ func SetLanguage(code string) {
 	localizer = i18n.NewLocalizer(bundle, tag.String())
 }
 
+// LanguageName returns the native name of the language for the given code
+// (reads the "locale.name" key from that language's messages).
+func LanguageName(code string) string {
+	tag := language.MustParse(code)
+	loc := i18n.NewLocalizer(bundle, tag.String())
+	msg, err := loc.Localize(&i18n.LocalizeConfig{
+		MessageID: "locale.name",
+	})
+	if err != nil {
+		return code
+	}
+	return msg
+}
+
 // T returns the localized string for the given message ID.
 // Optional template data can be passed for interpolation.
 func T(id string, data ...map[string]any) string {

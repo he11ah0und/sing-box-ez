@@ -1,10 +1,15 @@
 package pages
 
 import (
+	"image"
+	"io"
+	"strings"
 	"time"
 
+	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
@@ -17,6 +22,7 @@ type LogPage struct {
 	th   *material.Theme
 	ctrl *core.Controller
 
+	copyBtn  widget.Clickable
 	clearBtn widget.Clickable
 	list     widget.List
 }
@@ -33,13 +39,21 @@ func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
 func (p *LogPage) Tag() string { return "logs" }
 
 // Name returns the page name.
-func (p *LogPage) Name() string { return "Logs" }
+func (p *LogPage) Name() string { return i18n.T("tab.log") }
 
 // Layout draws the log page.
 func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	// Schedule periodic refresh to poll for new log lines.
 	gtx.Execute(op.InvalidateCmd{At: gtx.Now.Add(100 * time.Millisecond)})
 
+	if p.copyBtn.Clicked(gtx) {
+		lines := p.ctrl.GetLogLines()
+		text := strings.Join(lines, "\n")
+		gtx.Execute(clipboard.WriteCmd{
+			Type: "text/plain",
+			Data: io.NopCloser(strings.NewReader(text)),
+		})
+	}
 	if p.clearBtn.Clicked(gtx) {
 		p.ctrl.ClearLogs()
 	}
@@ -49,6 +63,12 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, &p.copyBtn, i18n.T("log.btn.copy")).Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return material.Button(p.th, &p.clearBtn, i18n.T("log.btn.clear")).Layout(gtx)
 				}),

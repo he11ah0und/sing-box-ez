@@ -1,16 +1,16 @@
 package pages
 
 import (
+	"image"
 	"image/color"
-	"sync"
 
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gioui.org/x/component"
 
-	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/i18n"
 )
@@ -21,23 +21,19 @@ type MainPage struct {
 	ctrl *core.InteractiveController
 
 	configBtn  widget.Clickable
-	startBtn   widget.Clickable
-	stopBtn    widget.Clickable
+	mainBtn    widget.Clickable
 	restartBtn widget.Clickable
 
-	// Config picker overlay state.
-	configPickerActive  bool
-	configPickerConfigs []config.ConfigRecord
-	configPickerBtns    []widget.Clickable
-	configPickerCancel  widget.Clickable
-	configPickerMu      sync.Mutex
+	// Dialog provider is supplied by the shell.
+	dialog DialogProvider
 }
 
 // NewMainPage creates a new main page.
-func NewMainPage(th *material.Theme, ctrl *core.InteractiveController) *MainPage {
+func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog DialogProvider) *MainPage {
 	return &MainPage{
-		th:   th,
-		ctrl: ctrl,
+		th:     th,
+		ctrl:   ctrl,
+		dialog: dialog,
 	}
 }
 
@@ -45,107 +41,62 @@ func NewMainPage(th *material.Theme, ctrl *core.InteractiveController) *MainPage
 func (p *MainPage) Tag() string { return "main" }
 
 // Name returns the page name.
-func (p *MainPage) Name() string { return "Main" }
+func (p *MainPage) Name() string { return i18n.T("tab.main") }
 
 // Layout draws the main page.
 func (p *MainPage) Layout(gtx layout.Context) layout.Dimensions {
+	p.handleInteractions(gtx)
+	return p.layoutMainContent(gtx)
+}
+
+func (p *MainPage) handleInteractions(gtx layout.Context) {
 	if p.configBtn.Clicked(gtx) {
 		p.openConfigPicker()
 	}
-	if p.startBtn.Clicked(gtx) {
-		p.onStart()
-	}
-	if p.stopBtn.Clicked(gtx) {
-		p.onStop()
+	if p.mainBtn.Clicked(gtx) {
+		if p.ctrl.IsRunning() {
+			p.onStop()
+		} else {
+			p.onStart()
+		}
 	}
 	if p.restartBtn.Clicked(gtx) {
 		p.onRestart()
 	}
-
-	p.configPickerMu.Lock()
-	active := p.configPickerActive
-	if active {
-		for i := range p.configPickerBtns {
-			if p.configPickerBtns[i].Clicked(gtx) {
-				name := p.configPickerConfigs[i].Name
-				p.configPickerActive = false
-				go func() {
-					_ = p.ctrl.ActivateConfigWithLog(name)
-				}()
-			}
-		}
-		if p.configPickerCancel.Clicked(gtx) {
-			p.configPickerActive = false
-		}
-	}
-	p.configPickerMu.Unlock()
-
-	dims := p.layoutMainContent(gtx)
-
-	if active {
-		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-				return dims
-			}),
-			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-				return p.layoutConfigPicker(gtx)
-			}),
-		)
-	}
-	return dims
 }
 
 func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 	running := p.ctrl.IsRunning()
-	active := p.ctrl.Config().GetActiveConfig()
+	mainLabel := i18n.T("main.btn.start")
+	if running {
+		mainLabel = i18n.T("main.btn.stop")
+	}
 
 	configText := i18n.T("main.active.none")
-	if active != nil {
+	if active := p.ctrl.Config().GetActiveConfig(); active != nil {
 		configText = i18n.T("main.active.prefix") + active.Name
 	}
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			status := i18n.T("main.status.stopped")
-			col := color.NRGBA{R: 0xE0, G: 0x40, B: 0x40, A: 0xFF}
-			if running {
-				status = i18n.T("main.status.running")
-				col = color.NRGBA{R: 0x40, G: 0xC0, B: 0x40, A: 0xFF}
-			}
-			lbl := material.Body1(p.th, status)
-			lbl.Color = col
-			return lbl.Layout(gtx)
+	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.configBtn, configText).Layout(gtx)
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					btnGtx := gtx
-					if running || active == nil {
-						btnGtx = gtx.Disabled()
-					}
-					return material.Button(p.th, &p.startBtn, i18n.T("main.btn.start")).Layout(btnGtx)
+					return material.Button(p.th, &p.configBtn, configText).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						btnGtx := gtx
-						if !running {
-							btnGtx = gtx.Disabled()
-						}
-						return material.Button(p.th, &p.stopBtn, i18n.T("main.btn.stop")).Layout(btnGtx)
+					return layout.Inset{Top: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return p.roundButton(gtx, p.th, &p.mainBtn, mainLabel, unit.Dp(120))
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						btnGtx := gtx
-						if !running {
-							btnGtx = gtx.Disabled()
-						}
-						return material.Button(p.th, &p.restartBtn, i18n.T("main.btn.restart")).Layout(btnGtx)
+					if !running {
+						return layout.Dimensions{}
+					}
+					return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &p.restartBtn, i18n.T("main.btn.restart")).Layout(gtx)
 					})
 				}),
 			)
@@ -153,57 +104,77 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 	)
 }
 
-func (p *MainPage) layoutConfigPicker(gtx layout.Context) layout.Dimensions {
-	maxWidth := gtx.Dp(unit.Dp(360))
-	if gtx.Constraints.Max.X < maxWidth {
-		maxWidth = gtx.Constraints.Max.X - gtx.Dp(unit.Dp(32))
-	}
-	cardGtx := gtx
-	cardGtx.Constraints.Min.X = maxWidth
-	cardGtx.Constraints.Max.X = maxWidth
-	cardGtx.Constraints.Min.Y = 0
+func (p *MainPage) openConfigPicker() {
+	configs := p.ctrl.Config().GetConfigs()
+	btns := make([]widget.Clickable, len(configs))
 
-	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return component.Surface(p.th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				children := []layout.FlexChild{
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.H6(p.th, i18n.T("main.active.prefix")).Layout(gtx)
-					}),
-				}
-				p.configPickerMu.Lock()
-				for i, cfg := range p.configPickerConfigs {
-					idx := i
-					label := cfg.Name
-					active := p.ctrl.Config().GetActiveConfig()
-					if active != nil && cfg.Name == active.Name {
-						label = "> " + cfg.Name
-					}
-					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &p.configPickerBtns[idx], label).Layout(gtx)
-						})
-					}))
-				}
-				p.configPickerMu.Unlock()
-				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.configPickerCancel, i18n.T("dialog.btn.cancel")).Layout(gtx)
-					})
-				}))
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-			})
+	p.dialog.ShowCustom(i18n.T("main.active.prefix"), func(gtx layout.Context) layout.Dimensions {
+		for i := range configs {
+			if btns[i].Clicked(gtx) {
+				p.dialog.HideCustom()
+				go func(name string) {
+					_ = p.ctrl.ActivateConfigWithLog(name)
+				}(configs[i].Name)
+			}
+		}
+
+		children := []layout.FlexChild{}
+		for i, cfg := range configs {
+			idx := i
+			label := cfg.Name
+			active := p.ctrl.Config().GetActiveConfig()
+			if active != nil && cfg.Name == active.Name {
+				label = "> " + cfg.Name
+			}
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, &btns[idx], label).Layout(gtx)
+				})
+			}))
+		}
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	})
+}
+
+func (p *MainPage) roundButton(gtx layout.Context, th *material.Theme, btn *widget.Clickable, label string, diameter unit.Dp) layout.Dimensions {
+	return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
+		d := gtx.Dp(diameter)
+		gtx.Constraints.Min = image.Point{X: d, Y: d}
+		gtx.Constraints.Max = gtx.Constraints.Min
+
+		bg := th.Palette.ContrastBg
+		if btn.Hovered() {
+			bg = lighten(bg, 20)
+		}
+
+		defer clip.Ellipse{Max: image.Point{X: d, Y: d}}.Push(gtx.Ops).Pop()
+		paint.FillShape(gtx.Ops, bg, clip.Ellipse{Max: image.Point{X: d, Y: d}}.Op(gtx.Ops))
+
+		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(th, label)
+			lbl.Color = th.Palette.ContrastFg
+			return lbl.Layout(gtx)
 		})
 	})
 }
 
-func (p *MainPage) openConfigPicker() {
-	p.configPickerMu.Lock()
-	p.configPickerActive = true
-	configs := p.ctrl.Config().GetConfigs()
-	p.configPickerConfigs = configs
-	p.configPickerBtns = make([]widget.Clickable, len(configs))
-	p.configPickerMu.Unlock()
+func lighten(c color.NRGBA, amount uint8) color.NRGBA {
+	if c.R <= 255-amount {
+		c.R += amount
+	} else {
+		c.R = 255
+	}
+	if c.G <= 255-amount {
+		c.G += amount
+	} else {
+		c.G = 255
+	}
+	if c.B <= 255-amount {
+		c.B += amount
+	} else {
+		c.B = 255
+	}
+	return c
 }
 
 func (p *MainPage) onStart() {

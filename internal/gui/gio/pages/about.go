@@ -9,7 +9,6 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gioui.org/x/component"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/i18n"
@@ -32,27 +31,21 @@ type AboutPage struct {
 	switchBranchBtn     widget.Clickable
 	openRepoBtn         widget.Clickable
 
-	// Branch picker overlay state.
-	pickerActive   bool
+	// Branch picker state (rendered via Dialog).
 	pickerBranches []updater.Branch
 	pickerBtns     []widget.Clickable
-	pickerCancel   widget.Clickable
 	pickerMu       sync.Mutex
 
-	// showDialog callback is provided by the shell to show modal dialogs.
-	showDialog         func(title, body string)
-	showDialogMarkdown func(title, body string)
-	showDialogLoading  func(title string)
+	// Dialog provider is supplied by the shell.
+	dialog DialogProvider
 }
 
 // NewAboutPage creates a new about page.
-func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, showDialog func(title, body string), showDialogMarkdown func(title, body string), showDialogLoading func(title string)) *AboutPage {
+func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog DialogProvider) *AboutPage {
 	return &AboutPage{
-		th:                 th,
-		ctrl:               ctrl,
-		showDialog:         showDialog,
-		showDialogMarkdown: showDialogMarkdown,
-		showDialogLoading:  showDialogLoading,
+		th:     th,
+		ctrl:   ctrl,
+		dialog: dialog,
 	}
 }
 
@@ -60,29 +53,12 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, showDial
 func (p *AboutPage) Tag() string { return "about" }
 
 // Name returns the page name.
-func (p *AboutPage) Name() string { return "About" }
+func (p *AboutPage) Name() string { return i18n.T("tab.about") }
 
 // Layout draws the about page.
 func (p *AboutPage) Layout(gtx layout.Context) layout.Dimensions {
 	p.handleInteractions(gtx)
-
-	dims := p.layoutMainContent(gtx)
-
-	p.pickerMu.Lock()
-	active := p.pickerActive
-	p.pickerMu.Unlock()
-	if active {
-		// Render picker as a centered card on top.
-		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-				return dims
-			}),
-			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-				return p.layoutBranchPicker(gtx)
-			}),
-		)
-	}
-	return dims
+	return p.layoutMainContent(gtx)
 }
 
 func (p *AboutPage) handleInteractions(gtx layout.Context) {
@@ -116,19 +92,6 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 			p.ctrl.Log("Failed to open repo: " + err.Error())
 		}
 	}
-
-	p.pickerMu.Lock()
-	for i := range p.pickerBtns {
-		if p.pickerBtns[i].Clicked(gtx) {
-			branch := p.pickerBranches[i].Name
-			p.pickerActive = false
-			go p.checkUpdatesForBranch(branch)
-		}
-	}
-	if p.pickerCancel.Clicked(gtx) {
-		p.pickerActive = false
-	}
-	p.pickerMu.Unlock()
 }
 
 func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
@@ -199,54 +162,6 @@ func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
-func (p *AboutPage) layoutBranchPicker(gtx layout.Context) layout.Dimensions {
-	maxWidth := gtx.Dp(unit.Dp(360))
-	if gtx.Constraints.Max.X < maxWidth {
-		maxWidth = gtx.Constraints.Max.X - gtx.Dp(unit.Dp(32))
-	}
-	cardGtx := gtx
-	cardGtx.Constraints.Min.X = maxWidth
-	cardGtx.Constraints.Max.X = maxWidth
-	cardGtx.Constraints.Min.Y = 0
-
-	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return component.Surface(p.th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				children := []layout.FlexChild{
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.H6(p.th, i18n.T("about.btn.switch_branch")).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Body2(p.th, i18n.T("about.branch.label")+version.Branch).Layout(gtx)
-						})
-					}),
-				}
-				p.pickerMu.Lock()
-				for i, b := range p.pickerBranches {
-					idx := i
-					label := b.Name
-					if b.Name == version.Branch {
-						label = "> " + b.Name
-					}
-					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &p.pickerBtns[idx], label).Layout(gtx)
-						})
-					}))
-				}
-				p.pickerMu.Unlock()
-				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.pickerCancel, i18n.T("dialog.btn.cancel")).Layout(gtx)
-					})
-				}))
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-			})
-		})
-	})
-}
-
 func (p *AboutPage) commitInfoText() string {
 	txt := version.Branch
 	if version.Commit != "unknown" && version.Commit != "" {
@@ -267,73 +182,102 @@ func (p *AboutPage) buildInfoText() string {
 }
 
 func (p *AboutPage) fetchReleaseNotes() {
-	p.showDialogLoading(i18n.T("about.release_notes.title"))
+	p.dialog.ShowLoading(i18n.T("about.release_notes.title"))
 	release, err := updater.GetReleaseByTag(version.Commit)
 	if err != nil {
 		if release.TagName == "" {
-			p.showDialog(i18n.T("about.release_notes.title"), i18n.T("about.release_notes.not_found"))
+			p.dialog.Show(i18n.T("about.release_notes.title"), i18n.T("about.release_notes.not_found"))
 			p.ctrl.Log("Release notes not found")
 			return
 		}
 		p.ctrl.Log("Failed to fetch release notes: " + err.Error())
-		p.showDialog(i18n.T("about.release_notes.title"), "Failed to fetch release notes")
+		p.dialog.Show(i18n.T("about.release_notes.title"), "Failed to fetch release notes")
 		return
 	}
 	dateStr := release.PublishedAt.Local().Format("2006-01-02 15:04:05")
 	ago := version.HumanDuration(release.PublishedAt)
 	body := fmt.Sprintf("# %s: %s\n\nReleased: %s (%s)\n\n%s",
 		release.TagName, release.Name, dateStr, ago, release.Body)
-	p.showDialogMarkdown(i18n.T("about.release_notes.title")+": "+release.TagName, body)
+	p.dialog.ShowMarkdown(i18n.T("about.release_notes.title")+": "+release.TagName, body)
 	p.ctrl.Log("Release notes fetched: " + release.TagName)
 }
 
 func (p *AboutPage) checkUpdates() {
-	p.showDialogLoading(i18n.T("about.btn.check_updates"))
+	p.dialog.ShowLoading(i18n.T("about.btn.check_updates"))
 	info, err := p.ctrl.CheckSelfUpdateWithLog()
 	if err != nil {
-		p.showDialog(i18n.T("about.btn.check_updates"), "Update check failed")
+		p.dialog.Show(i18n.T("about.btn.check_updates"), "Update check failed")
 		return
 	}
 	if info == nil {
-		p.showDialog(i18n.T("about.btn.check_updates"), "Already on latest version: "+version.Branch)
+		p.dialog.Show(i18n.T("about.btn.check_updates"), "Already on latest version: "+version.Branch)
 		return
 	}
 	msg := fmt.Sprintf("Update available: %s → %s (%d releases behind)", info.Current, info.Latest, info.ReleaseCount)
-	p.showDialog(i18n.T("about.btn.check_updates"), msg)
+	p.dialog.Show(i18n.T("about.btn.check_updates"), msg)
 }
 
 func (p *AboutPage) checkUpdatesForBranch(branch string) {
-	p.showDialogLoading(i18n.T("about.btn.check_updates"))
+	p.dialog.ShowLoading(i18n.T("about.btn.check_updates"))
 	info, err := p.ctrl.CheckSelfUpdateForBranch(branch)
 	if err != nil {
-		p.showDialog(i18n.T("about.btn.check_updates"), "Update check failed")
+		p.dialog.Show(i18n.T("about.btn.check_updates"), "Update check failed")
 		return
 	}
 	if info.ReleaseCount == 0 {
-		p.showDialog(i18n.T("about.btn.check_updates"), "Already on latest version on "+branch)
+		p.dialog.Show(i18n.T("about.btn.check_updates"), "Already on latest version on "+branch)
 		return
 	}
 	msg := fmt.Sprintf("Update available on %s: %s → %s (%d releases behind)", branch, info.Current, info.Latest, info.ReleaseCount)
-	p.showDialog(i18n.T("about.btn.check_updates"), msg)
+	p.dialog.Show(i18n.T("about.btn.check_updates"), msg)
 }
 
 func (p *AboutPage) openBranchPicker() {
-	p.pickerMu.Lock()
-	p.pickerActive = true
-	p.pickerMu.Unlock()
+	p.dialog.ShowLoading(i18n.T("progress.checking_updates"))
 
 	branches, err := p.ctrl.GetBranches()
 	if err != nil {
+		p.dialog.HideLoading()
 		p.ctrl.Log("Failed to load branches: " + err.Error())
-		p.showDialog(i18n.T("about.btn.switch_branch"), "Failed to load branches: "+err.Error())
-		p.pickerMu.Lock()
-		p.pickerActive = false
-		p.pickerMu.Unlock()
+		p.dialog.Show(i18n.T("about.btn.switch_branch"), "Failed to load branches: "+err.Error())
 		return
 	}
+
 	p.pickerMu.Lock()
 	p.pickerBranches = branches
 	p.pickerBtns = make([]widget.Clickable, len(branches))
 	p.pickerMu.Unlock()
+
+	p.dialog.HideLoading()
+
+	p.dialog.ShowCustom(i18n.T("about.btn.switch_branch"), func(gtx layout.Context) layout.Dimensions {
+		p.pickerMu.Lock()
+		branches := p.pickerBranches
+		btns := p.pickerBtns
+		p.pickerMu.Unlock()
+
+		for i := range branches {
+			if btns[i].Clicked(gtx) {
+				p.dialog.HideCustom()
+				go p.checkUpdatesForBranch(branches[i].Name)
+			}
+		}
+
+		children := []layout.FlexChild{}
+		for i, b := range branches {
+			idx := i
+			label := b.Name
+			if b.Name == version.Branch {
+				label = "> " + b.Name
+			}
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, &btns[idx], label).Layout(gtx)
+				})
+			}))
+		}
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	})
+
 	p.ctrl.Log(fmt.Sprintf("Loaded %d branches", len(branches)))
 }

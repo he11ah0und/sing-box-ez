@@ -77,6 +77,22 @@ func NewShell(th *material.Theme, cfg *config.AppConfig, ctrl *core.Controller, 
 	return s
 }
 
+// RebuildNav recreates the static navigation drawer with updated labels.
+func (s *Shell) RebuildNav() {
+	selectedTag := s.staticNav.CurrentNavDestination()
+	staticNav := component.NewNav("sing-box-ez", "")
+	s.staticNav = &staticNav
+	for _, p := range s.primary {
+		s.staticNav.AddNavItem(component.NavItem{Tag: p.Tag(), Name: p.Name()})
+	}
+	for _, p := range s.secondary {
+		s.staticNav.AddNavItem(component.NavItem{Tag: p.Tag(), Name: p.Name()})
+	}
+	if tag, ok := selectedTag.(string); ok && tag != "" {
+		s.staticNav.SetNavDestination(tag)
+	}
+}
+
 // Layout draws the adaptive shell.
 func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 	// Determine available width in dp.
@@ -97,7 +113,7 @@ func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	// Handle static nav item selections (desktop only).
-	if s.staticNav.NavDestinationChanged() {
+	if s.showStaticNav && s.staticNav.NavDestinationChanged() {
 		if tag, ok := s.staticNav.CurrentNavDestination().(string); ok {
 			s.handleNavDestination(tag)
 		}

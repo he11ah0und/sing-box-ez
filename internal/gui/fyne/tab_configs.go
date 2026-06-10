@@ -293,7 +293,7 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 	}
 
 	full := container.NewBorder(nil, footer, nil, nil, content)
-	d = dialog.NewCustom(g.t("configs.dialog.title"), g.t("configs.dialog.btn.cancel"), full, g.window)
+	d = dialog.NewCustomWithoutButtons(g.t("configs.dialog.title"), full, g.window)
 	d.Resize(fyne.NewSize(500, 280))
 	d.Show()
 }

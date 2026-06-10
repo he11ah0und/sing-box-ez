@@ -37,6 +37,10 @@
   "core.admin.label": "以管理员身份运行",
   "core.admin.label_root_setcap": "以 root 身份运行（setcap 已启用，无需 root 使用 TUN）",
   "core.admin.label_root_pkexec": "以 root 身份运行（pkexec，用于 TUN）",
+  "core.mode.admin": "管理员",
+  "core.mode.setcap": "Setcap",
+  "core.mode.setcap_prompt": "setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？",
+  "core.btn.apply": "应用",
 
   "configs.title": "配置",
   "configs.btn.add": "添加",
@@ -130,8 +134,10 @@
   "first_run.config_url": "配置 URL",
   "first_run.btn.add_config": "添加配置",
 
+  "progress.initializing": "初始化中...",
   "progress.checking_updates": "检查更新中...",
   "progress.checking_version": "检查最新版本中...",
+  "progress.adding_config": "添加配置中...",
   "progress.downloading_core": "下载 sing-box 核心 v%s...",
   "progress.downloading_update": "下载更新中...",
   "progress.fetching_notes": "获取发布说明中...",
@@ -186,5 +192,18 @@
   "notify.core_stopped.title": "Sing-box EZ",
   "notify.core_stopped.body": "核心已停止",
   "notify.core_crashed.title": "Sing-box EZ — 核心崩溃",
-  "notify.core_crashed.body": "检测到致命错误。正在自动重启..."
+  "notify.core_crashed.body": "检测到致命错误。正在自动重启...",
+  "duration.seconds": "%d秒",
+  "duration.minutes": "%d分",
+  "duration.hours": "%d时",
+  "duration.days": "%d天",
+  "duration.months": "%d月",
+  "duration.years": "%d年",
+  "locale.name": "中文",
+  "duration.just_now": "刚刚",
+  "duration.minutes_ago": "%d 分钟前",
+  "duration.hours_ago": "%d 小时前",
+  "duration.days_ago": "%d 天前",
+  "duration.months_ago": "%d 个月前",
+  "duration.years_ago": "%d 年前"
 }
