@@ -14,7 +14,7 @@ import (
 	"gioui.org/widget/material"
 
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/i18n"
+	"sing-box-ez/internal/framework/localengine"
 )
 
 // LogPage renders the log viewer.
@@ -39,7 +39,7 @@ func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
 func (p *LogPage) Tag() string { return "logs" }
 
 // Name returns the page name.
-func (p *LogPage) Name() string { return i18n.T("tab.log") }
+func (p *LogPage) Name() string { return localengine.T("tab.log") }
 
 // Layout draws the log page.
 func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
@@ -64,13 +64,13 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &p.copyBtn, i18n.T("log.btn.copy")).Layout(gtx)
+					return material.Button(p.th, &p.copyBtn, localengine.T("log.btn.copy")).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &p.clearBtn, i18n.T("log.btn.clear")).Layout(gtx)
+					return material.Button(p.th, &p.clearBtn, localengine.T("log.btn.clear")).Layout(gtx)
 				}),
 			)
 		}),

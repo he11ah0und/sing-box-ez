@@ -11,7 +11,7 @@ import (
 	"gioui.org/widget/material"
 
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/i18n"
+	"sing-box-ez/internal/framework/localengine"
 )
 
 // SettingsPage renders the application settings screen.
@@ -60,7 +60,7 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 func (p *SettingsPage) Tag() string { return "settings" }
 
 // Name returns the page name.
-func (p *SettingsPage) Name() string { return i18n.T("tab.settings") }
+func (p *SettingsPage) Name() string { return localengine.T("tab.settings") }
 
 // Layout draws the settings page.
 func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
@@ -90,29 +90,29 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, i18n.T("settings.logging.title")).Layout(gtx)
+				return material.H6(p.th, localengine.T("settings.logging.title")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.inputWithLabelAndSave(gtx, i18n.T("settings.log_limit.label"), &p.logLimitEditor, &p.logLimitSave)
+			return p.inputWithLabelAndSave(gtx, localengine.T("settings.log_limit.label"), &p.logLimitEditor, &p.logLimitSave)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.showLogs, i18n.T("settings.show_logs")).Layout(gtx)
+			return material.CheckBox(p.th, &p.showLogs, localengine.T("settings.show_logs")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.desktopNotif, i18n.T("settings.desktop_notifications")).Layout(gtx)
+			return material.CheckBox(p.th, &p.desktopNotif, localengine.T("settings.desktop_notifications")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, i18n.T("settings.config.title")).Layout(gtx)
+				return material.H6(p.th, localengine.T("settings.config.title")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.inputWithLabelAndSave(gtx, i18n.T("settings.default_interval.label"), &p.intervalEditor, &p.intervalSave)
+			return p.inputWithLabelAndSave(gtx, localengine.T("settings.default_interval.label"), &p.intervalEditor, &p.intervalSave)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, i18n.T("settings.language.title")).Layout(gtx)
+				return material.H6(p.th, localengine.T("settings.language.title")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -121,23 +121,23 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 				if lang == "" {
 					lang = "en"
 				}
-				return material.Button(p.th, &p.langBtn, i18n.LanguageName(lang)).Layout(gtx)
+				return material.Button(p.th, &p.langBtn, localengine.LanguageName(lang)).Layout(gtx)
 			})
 		}),
 	)
 }
 
 func (p *SettingsPage) openLangPicker() {
-	langs := i18n.AvailableLanguages()
+	langs := localengine.AvailableLanguages()
 	btns := make([]widget.Clickable, len(langs))
 
-	p.dialog.ShowCustom(i18n.T("settings.language.title"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.ShowCustom(localengine.T("settings.language.title"), func(gtx layout.Context) layout.Dimensions {
 		for i := range langs {
 			if btns[i].Clicked(gtx) {
 				p.dialog.HideCustom()
 				p.ctrl.Config().SetLanguage(langs[i])
 				_ = p.ctrl.Config().Save()
-				i18n.SetLanguage(langs[i])
+				localengine.SetLanguage(langs[i])
 				if p.OnLanguageChange != nil {
 					p.OnLanguageChange()
 				}
@@ -148,7 +148,7 @@ func (p *SettingsPage) openLangPicker() {
 		for i, l := range langs {
 			idx := i
 			lang := l
-			label := i18n.LanguageName(lang)
+			label := localengine.LanguageName(lang)
 			if lang == p.ctrl.Config().GetLanguage() {
 				label = "> " + label
 			}
@@ -177,7 +177,7 @@ func (p *SettingsPage) inputWithLabelAndSave(gtx layout.Context, label string, e
 			return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Button(p.th, saveBtn, i18n.T("settings.btn.save")).Layout(gtx)
+			return material.Button(p.th, saveBtn, localengine.T("settings.btn.save")).Layout(gtx)
 		}),
 	)
 }

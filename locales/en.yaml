@@ -1,0 +1,286 @@
+app:
+  title: Sing-box EZ
+tab:
+  main: Main
+  configs: Configs
+  core: Core
+  settings: Settings
+  log: Log
+  plugins: Plugins
+  about: About
+main:
+  status:
+    stopped: 'Status: stopped'
+    running: 'Status: running'
+  active:
+    none: 'Active config: (none)'
+    prefix: 'Active config: '
+  'no':
+    config: No config selected — select one in the Configs tab
+  btn:
+    start: Start
+    stop: Stop
+    restart: Restart
+core:
+  version:
+    installed: 'Core: v'
+    not_installed: 'Core: not installed'
+  latest:
+    checking: 'Latest: checking...'
+    error: 'Latest: error'
+    prefix: 'Latest: v'
+  btn:
+    download: Download latest sing-box core
+    check: Check latest version
+    restart_admin: Restart as administrator
+    apply_setcap: Apply setcap (TUN without root)
+    apply: Apply
+  auto_restart: Auto-restart core on fatal errors
+  privileges:
+    title: Privileges
+    admin: 'Privileges: running as administrator'
+    user: 'Privileges: running as user'
+    setcap_active: 'Privileges: setcap active (TUN without root)'
+    root_required: 'Privileges: root required for TUN'
+  setcap:
+    unavailable: setcap not available on this OS
+  admin:
+    label: Run as administrator
+    label_root_setcap: Run as root (setcap active, TUN without root)
+    label_root_pkexec: Run as root (pkexec, for TUN)
+  mode:
+    admin: Admin
+    setcap: Setcap
+    setcap_prompt: setcap is not applied to the core binary. Apply it now to enable TUN without root?
+  watch_core_logs: Watch core logs
+configs:
+  title: Configs
+  btn:
+    add: Add
+    edit: Edit
+    delete: Delete
+    activate: Activate
+    update_all: Update all
+  table:
+    name: Name
+    source: Source
+    last_update: Last Update
+    next_update: Next Update
+    period: Period
+    cached: Cached
+    user: user
+    never: never
+    now: now
+    'yes': 'yes'
+    'no': 'no'
+  dialog:
+    title: Config
+    name: Name
+    url: URL
+    period: Period (hours)
+    btn:
+      save: Save
+      update_now: Update now
+      delete: Delete
+      cancel: Cancel
+    delete_title: Delete
+    delete_msg: Delete config
+settings:
+  logging:
+    title: Logging
+  log_limit:
+    label: 'Log limit (lines, 0=unlimited):'
+  btn:
+    save: Save
+  show_logs: Show logs
+  config:
+    title: Config
+  default_interval:
+    label: 'Default update interval (hours):'
+  language:
+    title: Language
+  plugins:
+    title: Plugins
+    enabled: Plugins feature
+    developer: Plugins developer
+  reload_ui:
+    title: Interface
+    btn: Reload UI
+  desktop_notifications: Desktop notifications
+log:
+  title: Log
+  btn:
+    copy: Copy all
+    clear: Clear
+about:
+  system:
+    title: System
+  commit_info:
+    prefix: 'Commit: '
+  build_info:
+    prefix: 'Build: '
+  btn:
+    release_notes: Show release notes
+    open_release_notes: Open release notes
+    open_repo: Open repo
+    open_data: Open data folder
+    check_updates: Check for updates
+    load_branches: Load branches
+    check_branch: Check update for branch
+    switch_branch: Switch branch
+  branch:
+    label: 'Branch: '
+  dev_build:
+    label: Development build — release notes unavailable
+  release_notes:
+    title: Release notes
+    not_found: 'Current build does not match any official release.
+
+
+      This build is not listed among GitHub releases.
+
+      Maybe this is a dev build?'
+    released: 'Released: '
+  dialog:
+    close: Close
+dialog:
+  btn:
+    cancel: Cancel
+    confirm: Confirm
+    update: Update
+    ignore: Ignore
+  core_update:
+    title: Core Update Available
+    msg: 'A new version of sing-box core is available.
+
+
+      Current: v%s
+
+      Latest: v%s
+
+
+      Update now?'
+  version_check:
+    title: Version Check
+    core_not_installed: Core is not installed.
+    latest: 'Latest version: v'
+    current: 'Current: v'
+    latest_installed: ✓ Latest version installed
+    update_available: ✗ Update available
+  download_complete:
+    title: Download Complete
+    msg: 'Sing-box core v%s downloaded successfully.
+
+      Location: %s'
+  self_update:
+    title: Update Available
+    current: 'Current: '
+    latest: 'Latest: '
+    behind: 'Behind by: %s'
+    changelog: 'Changelog:'
+  unknown: unknown
+  error:
+    no_matching_asset: No matching asset found
+  privileges:
+    title: Privileges Required
+    msg_linux: 'sing-box needs elevated privileges to create the TUN device.
+
+
+      Choose an option below:'
+    msg_windows: 'sing-box needs administrator privileges to create the TUN device.
+
+
+      Please restart the application as administrator.'
+    btn_setcap: Apply setcap (recommended)
+    btn_run_as_admin: Enable run as admin
+    btn_restart_admin: Restart as administrator
+first_run:
+  title: First Run
+  welcome: Welcome
+  description: To get started, download sing-box core and add your first config.
+  core:
+    installed: ✓ sing-box core is already installed.
+    not_installed: sing-box core is not installed.
+    version: 'Version: v%s'
+  btn:
+    download_core: Download sing-box core
+    add_config: Add config
+  config_url: Config URL
+  welcome_title: Welcome to Sing-box EZ!
+progress:
+  initializing: Initializing...
+  checking_updates: Checking for updates...
+  checking_version: Checking latest version...
+  adding_config: Adding config...
+  downloading_core: Downloading sing-box core v%s...
+  downloading_update: Downloading update...
+  fetching_notes: Fetching release notes...
+  updating_configs: Updating all configs...
+  applying_setcap: Applying setcap...
+plugins:
+  btn:
+    refresh: Refresh
+    check_all_updates: Check All Updates
+    install_from_url: Install from URL
+    generate_api_docs: Generate API Docs
+    generate_vscode_defs: Generate VS Code Defs
+    generate_template: Generate Template
+    check_update: Check Update
+    enable: Enable
+    disable: Disable
+    unload: Unload
+    install: Install
+    generate: Generate
+  info:
+    name: Name
+    version: Version
+    latest_remote: Latest (remote)
+    author: Author
+    description: Description
+    entrypoint: Entrypoint
+    source: Source
+    package_url: Package URL
+    relation: Relation
+    update_url: Update URL
+    status: Status
+  status:
+    enabled: enabled
+    disabled: disabled
+  note:
+    folder_no_update: 'Note: folder plugins cannot be auto-updated.'
+  dialog:
+    title: 'Plugin: %s'
+  install:
+    url_label: Plugin package URL (zip or tar.gz)
+    title: Install Plugin
+  template:
+    name: Plugin name
+    relation: Relation
+    title: Generate Plugin Template
+notify:
+  core_started:
+    title: Sing-box EZ
+    body: Core started successfully
+  core_stopped:
+    title: Sing-box EZ
+    body: Core stopped
+  core_crashed:
+    title: Sing-box EZ — Core Crashed
+    body: A fatal error was detected. Auto-restarting...
+duration:
+  seconds: '%ds'
+  minutes: '%dm'
+  hours: '%dh'
+  days: '%dd'
+  months: '%dmo'
+  years: '%dy'
+  just_now: just now
+  unit_minutes: '%d min'
+  unit_hours: '%d h'
+  unit_days: '%d days'
+  unit_months: '%d months'
+  unit_years: '%d years'
+  in: in %s
+  ago: '%s ago'
+locale:
+  name: English

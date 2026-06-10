@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
-	"sing-box-ez/internal/i18n"
 )
 
 // InteractiveController is the high-level coordinator for GUI/TUI frontends.
@@ -40,12 +40,12 @@ type InteractiveController struct {
 func NewInteractiveController(cfg *config.AppConfig) *InteractiveController {
 	// Initialize i18n
 	if !cfg.GetFirstRunDone() {
-		lang := i18n.DetectSystemLanguage()
+		lang := localengine.DetectSystemLanguage()
 		cfg.SetLanguage(lang)
 		_ = cfg.Save()
-		i18n.SetLanguage(lang)
+		localengine.SetLanguage(lang)
 	} else if lang := cfg.GetLanguage(); lang != "" {
-		i18n.SetLanguage(lang)
+		localengine.SetLanguage(lang)
 	}
 
 	ctrl := NewController(cfg)

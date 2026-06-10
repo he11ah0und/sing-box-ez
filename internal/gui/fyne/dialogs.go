@@ -12,9 +12,9 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
+	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
-	"sing-box-ez/internal/i18n"
 )
 
 // ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ func (g *GUI) showProgressDialog(title string) (dialog.Dialog, *widget.ProgressB
 	var progress *widget.ProgressBar
 	fyne.DoAndWait(func() {
 		progress = widget.NewProgressBar()
-		cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() {
+		cancelBtn := widget.NewButton(localengine.T("dialog.btn.cancel"), func() {
 			d.Hide()
 		})
 		content := container.NewVBox(widget.NewLabel(title), progress, cancelBtn)
@@ -40,7 +40,7 @@ func (g *GUI) showInfiniteDialog(title string) dialog.Dialog {
 	var d dialog.Dialog
 	fyne.DoAndWait(func() {
 		progress := widget.NewProgressBarInfinite()
-		cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() {
+		cancelBtn := widget.NewButton(localengine.T("dialog.btn.cancel"), func() {
 			d.Hide()
 		})
 		content := container.NewVBox(widget.NewLabel(title), progress, cancelBtn)
@@ -60,21 +60,21 @@ func (g *GUI) showVersionInfoDialog(latest string) {
 		var content *fyne.Container
 		if err != nil || currentVer == "" {
 			content = container.NewVBox(
-				widget.NewLabel(i18n.T("dialog.version_check.core_not_installed")),
-				widget.NewLabel(i18n.T("dialog.version_check.latest")+latest),
+				widget.NewLabel(localengine.T("dialog.version_check.core_not_installed")),
+				widget.NewLabel(localengine.T("dialog.version_check.latest")+latest),
 			)
 		} else {
-			currentLbl := widget.NewLabel(i18n.T("dialog.version_check.current") + currentVer)
-			latestLbl := widget.NewLabel(i18n.T("dialog.version_check.latest") + latest)
+			currentLbl := widget.NewLabel(localengine.T("dialog.version_check.current") + currentVer)
+			latestLbl := widget.NewLabel(localengine.T("dialog.version_check.latest") + latest)
 			if currentVer == latest {
-				status := canvas.NewText(i18n.T("dialog.version_check.latest_installed"), colGreen)
+				status := canvas.NewText(localengine.T("dialog.version_check.latest_installed"), colGreen)
 				content = container.NewVBox(currentLbl, latestLbl, status)
 			} else {
-				status := canvas.NewText(i18n.T("dialog.version_check.update_available"), colOrange)
+				status := canvas.NewText(localengine.T("dialog.version_check.update_available"), colOrange)
 				content = container.NewVBox(currentLbl, latestLbl, status)
 			}
 		}
-		d := dialog.NewCustom(i18n.T("dialog.version_check.title"), i18n.T("about.dialog.close"), content, g.window)
+		d := dialog.NewCustom(localengine.T("dialog.version_check.title"), localengine.T("about.dialog.close"), content, g.window)
 		d.Show()
 	})
 }
@@ -82,9 +82,9 @@ func (g *GUI) showVersionInfoDialog(latest string) {
 func (g *GUI) showDownloadCompleteDialog(ver, path string) {
 	fyne.DoAndWait(func() {
 		content := container.NewVBox(
-			widget.NewLabel(fmt.Sprintf(i18n.T("dialog.download_complete.msg"), ver, path)),
+			widget.NewLabel(fmt.Sprintf(localengine.T("dialog.download_complete.msg"), ver, path)),
 		)
-		d := dialog.NewCustom(i18n.T("dialog.download_complete.title"), i18n.T("about.dialog.close"), content, g.window)
+		d := dialog.NewCustom(localengine.T("dialog.download_complete.title"), localengine.T("about.dialog.close"), content, g.window)
 		d.Show()
 	})
 }
@@ -103,7 +103,7 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	if dt, err := version.BuildDateTime(); err == nil {
 		currentDateStr = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 	} else {
-		currentDateStr = i18n.T("dialog.unknown")
+		currentDateStr = localengine.T("dialog.unknown")
 	}
 	if !info.LatestDate.IsZero() {
 		lt := info.LatestDate.Local()
@@ -113,14 +113,14 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 			if diff < 0 {
 				diff = -diff
 			}
-			diffStr = fmt.Sprintf(i18n.T("dialog.self_update.behind"), humanDuration(diff))
+			diffStr = fmt.Sprintf(localengine.T("dialog.self_update.behind"), humanDuration(diff))
 		}
 	} else {
-		latestDateStr = i18n.T("dialog.unknown")
+		latestDateStr = localengine.T("dialog.unknown")
 	}
 
-	currentLbl := widget.NewLabel(i18n.T("dialog.self_update.current") + currentText + "\n  " + currentDateStr)
-	latestLbl := widget.NewLabel(i18n.T("dialog.self_update.latest") + info.Latest + "\n  " + latestDateStr)
+	currentLbl := widget.NewLabel(localengine.T("dialog.self_update.current") + currentText + "\n  " + currentDateStr)
+	latestLbl := widget.NewLabel(localengine.T("dialog.self_update.latest") + info.Latest + "\n  " + latestDateStr)
 
 	changelog := widget.NewRichTextFromMarkdown(info.LatestBody)
 	changelog.Wrapping = fyne.TextWrapWord
@@ -135,11 +135,11 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 	if diffStr != "" {
 		items = append(items, widget.NewLabel(diffStr))
 	}
-	items = append(items, sepLine, widget.NewLabel(i18n.T("dialog.self_update.changelog")), scroll)
+	items = append(items, sepLine, widget.NewLabel(localengine.T("dialog.self_update.changelog")), scroll)
 
 	content := container.NewVBox(items...)
 
-	confirm := dialog.NewCustomConfirm(i18n.T("dialog.self_update.title"), i18n.T("dialog.btn.update"), i18n.T("dialog.btn.ignore"), content, func(update bool) {
+	confirm := dialog.NewCustomConfirm(localengine.T("dialog.self_update.title"), localengine.T("dialog.btn.update"), localengine.T("dialog.btn.ignore"), content, func(update bool) {
 		if update {
 			go g.doSelfUpdate(info.AssetURL)
 		}
@@ -170,7 +170,7 @@ func humanDuration(d time.Duration) string {
 }
 
 func (g *GUI) doSelfUpdate(assetURL string) {
-	progressModal, progress := g.showProgressDialog(i18n.T("progress.downloading_update"))
+	progressModal, progress := g.showProgressDialog(localengine.T("progress.downloading_update"))
 	if err := g.ctrl.ApplySelfUpdateWithLog(assetURL, func(d, t int64) {
 		fyne.Do(func() {
 			progress.SetValue(float64(d) / float64(t))
@@ -189,28 +189,28 @@ func (g *GUI) showFirstRunDialog() {
 	var d dialog.Dialog
 
 	coreInstalled := g.ctrl.CoreExists()
-	statusText := widget.NewLabel(i18n.T("first_run.welcome_title"))
+	statusText := widget.NewLabel(localengine.T("first_run.welcome_title"))
 	var versionText *widget.Label
 	if coreInstalled {
-		statusText.SetText(i18n.T("first_run.core.installed"))
+		statusText.SetText(localengine.T("first_run.core.installed"))
 		if ver, err := g.ctrl.GetInstalledCoreVersion(); err == nil && ver != "" {
-			versionText = widget.NewLabel(fmt.Sprintf(i18n.T("first_run.core.version"), ver))
+			versionText = widget.NewLabel(fmt.Sprintf(localengine.T("first_run.core.version"), ver))
 		}
 	} else {
-		statusText.SetText(i18n.T("first_run.core.not_installed"))
+		statusText.SetText(localengine.T("first_run.core.not_installed"))
 	}
 
 	urlEntry := widget.NewEntry()
 	urlEntry.SetPlaceHolder("https://example.com/config.json")
 
-	downloadBtn := widget.NewButton(i18n.T("first_run.btn.download_core"), func() {
+	downloadBtn := widget.NewButton(localengine.T("first_run.btn.download_core"), func() {
 		go g.onDownloadCore()
 	})
 	if coreInstalled {
 		downloadBtn.Disable()
 	}
 
-	addBtn := widget.NewButton(i18n.T("first_run.btn.add_config"), func() {
+	addBtn := widget.NewButton(localengine.T("first_run.btn.add_config"), func() {
 		url := urlEntry.Text
 		if err := g.ctrl.AddFirstConfigWithLog("default", url); err != nil {
 			return
@@ -225,8 +225,8 @@ func (g *GUI) showFirstRunDialog() {
 	})
 
 	items := []fyne.CanvasObject{
-		widget.NewLabelWithStyle(i18n.T("first_run.welcome"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabel(i18n.T("first_run.description")),
+		widget.NewLabelWithStyle(localengine.T("first_run.welcome"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabel(localengine.T("first_run.description")),
 		widget.NewSeparator(),
 		statusText,
 	}
@@ -236,13 +236,13 @@ func (g *GUI) showFirstRunDialog() {
 	items = append(items,
 		downloadBtn,
 		widget.NewSeparator(),
-		widget.NewLabel(i18n.T("first_run.config_url")),
+		widget.NewLabel(localengine.T("first_run.config_url")),
 		urlEntry,
 		addBtn,
 	)
 	content := container.NewVBox(items...)
 
-	d = dialog.NewCustomWithoutButtons(i18n.T("first_run.title"), content, g.window)
+	d = dialog.NewCustomWithoutButtons(localengine.T("first_run.title"), content, g.window)
 	d.Resize(fyne.NewSize(480, 320))
 	d.Show()
 }
@@ -262,7 +262,7 @@ func (g *GUI) showPrivilegeDialog() {
 		btn := widget.NewButton(action.Label, func() {
 			d.Hide()
 			go func() {
-				modal := g.showInfiniteDialog(i18n.T("progress.applying_setcap"))
+				modal := g.showInfiniteDialog(localengine.T("progress.applying_setcap"))
 				if action.ID == "restart_admin" {
 					fyne.Do(func() { modal.Hide() })
 				}
@@ -283,7 +283,7 @@ func (g *GUI) showPrivilegeDialog() {
 		content.Add(btn)
 	}
 
-	cancelBtn := widget.NewButton(i18n.T("dialog.btn.cancel"), func() {
+	cancelBtn := widget.NewButton(localengine.T("dialog.btn.cancel"), func() {
 		d.Hide()
 	})
 

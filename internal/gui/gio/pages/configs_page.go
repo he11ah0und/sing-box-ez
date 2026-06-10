@@ -17,8 +17,8 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/version"
-	"sing-box-ez/internal/i18n"
 )
 
 // ConfigsPage renders the configs management screen as vertical cards.
@@ -56,7 +56,7 @@ func (p *ConfigsPage) refreshConfigs() {
 func (p *ConfigsPage) Tag() string { return "configs" }
 
 // Name returns the page name.
-func (p *ConfigsPage) Name() string { return i18n.T("tab.configs") }
+func (p *ConfigsPage) Name() string { return localengine.T("tab.configs") }
 
 // Layout draws the configs page.
 func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
@@ -87,13 +87,13 @@ func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.addBtn, i18n.T("configs.btn.add")).Layout(gtx)
+						return material.Button(p.th, &p.addBtn, localengine.T("configs.btn.add")).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.updateAllBtn, i18n.T("configs.btn.update_all")).Layout(gtx)
+						return material.Button(p.th, &p.updateAllBtn, localengine.T("configs.btn.update_all")).Layout(gtx)
 					}),
 				)
 			})
@@ -139,20 +139,20 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 						return lbl.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Body2(p.th, i18n.T("configs.table.last_update")+": "+p.formatLastUpdate(rec.LastUpdate.Time)).Layout(gtx)
+						return material.Body2(p.th, localengine.T("configs.table.last_update")+": "+p.formatLastUpdate(rec.LastUpdate.Time)).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						next := rec.NextUpdate()
-						return material.Body2(p.th, i18n.T("configs.table.next_update")+": "+p.formatNextUpdate(next)).Layout(gtx)
+						return material.Body2(p.th, localengine.T("configs.table.next_update")+": "+p.formatNextUpdate(next)).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						src := rec.Parent
 						if src == "" || src == "user" {
-							src = i18n.T("configs.table.user")
+							src = localengine.T("configs.table.user")
 						} else if len(src) > 3 && src[:3] == "pl-" {
 							src = src[3:]
 						}
-						return material.Body2(p.th, i18n.T("configs.table.source")+": "+src).Layout(gtx)
+						return material.Body2(p.th, localengine.T("configs.table.source")+": "+src).Layout(gtx)
 					}),
 				)
 			})
@@ -171,14 +171,14 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 
 func (p *ConfigsPage) formatLastUpdate(t time.Time) string {
 	if t.IsZero() {
-		return i18n.T("configs.table.never")
+		return localengine.T("configs.table.never")
 	}
 	return version.HumanDuration(t)
 }
 
 func (p *ConfigsPage) formatNextUpdate(t time.Time) string {
 	if t.IsZero() {
-		return i18n.T("configs.table.now")
+		return localengine.T("configs.table.now")
 	}
 	return version.HumanDurationFrom(time.Until(t), true)
 }
@@ -194,7 +194,7 @@ func (p *ConfigsPage) openAddDialog() {
 
 	var saveBtn widget.Clickable
 
-	p.dialog.ShowCustom(i18n.T("configs.dialog.title"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.ShowCustom(localengine.T("configs.dialog.title"), func(gtx layout.Context) layout.Dimensions {
 		if saveBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			hours := p.ctrl.Config().UpdateIntervalHours
@@ -217,26 +217,26 @@ func (p *ConfigsPage) openAddDialog() {
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, i18n.T("configs.dialog.name")).Layout(gtx)
+				return material.Body2(p.th, localengine.T("configs.dialog.name")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Editor(p.th, &nameEd, "").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, i18n.T("configs.dialog.url")).Layout(gtx)
+				return material.Body2(p.th, localengine.T("configs.dialog.url")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Editor(p.th, &urlEd, "").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, i18n.T("configs.dialog.period")).Layout(gtx)
+				return material.Body2(p.th, localengine.T("configs.dialog.period")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Editor(p.th, &periodEd, "").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &saveBtn, i18n.T("configs.dialog.btn.save")).Layout(gtx)
+					return material.Button(p.th, &saveBtn, localengine.T("configs.dialog.btn.save")).Layout(gtx)
 				})
 			}),
 		)
@@ -263,7 +263,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 	var deleteBtn widget.Clickable
 	var updateNowBtn widget.Clickable
 
-	p.dialog.ShowCustom(i18n.T("configs.dialog.title"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.ShowCustom(localengine.T("configs.dialog.title"), func(gtx layout.Context) layout.Dimensions {
 		if saveBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			hours := old.UpdateIntervalHours
@@ -291,7 +291,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 		if updateNowBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			go func() {
-				p.dialog.ShowLoading(i18n.T("progress.updating_configs"))
+				p.dialog.ShowLoading(localengine.T("progress.updating_configs"))
 				_ = p.ctrl.UpdateConfigNowWithLog(old.Name, urlEd.Text())
 				p.dialog.HideLoading()
 				p.refreshConfigs()
@@ -300,19 +300,19 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, i18n.T("configs.dialog.name")).Layout(gtx)
+				return material.Body2(p.th, localengine.T("configs.dialog.name")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Editor(p.th, &nameEd, "").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, i18n.T("configs.dialog.url")).Layout(gtx)
+				return material.Body2(p.th, localengine.T("configs.dialog.url")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Editor(p.th, &urlEd, "").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, i18n.T("configs.dialog.period")).Layout(gtx)
+				return material.Body2(p.th, localengine.T("configs.dialog.period")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Editor(p.th, &periodEd, "").Layout(gtx)
@@ -321,19 +321,19 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &saveBtn, i18n.T("configs.dialog.btn.save")).Layout(gtx)
+							return material.Button(p.th, &saveBtn, localengine.T("configs.dialog.btn.save")).Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &updateNowBtn, i18n.T("configs.dialog.btn.update_now")).Layout(gtx)
+							return material.Button(p.th, &updateNowBtn, localengine.T("configs.dialog.btn.update_now")).Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &deleteBtn, i18n.T("configs.dialog.btn.delete")).Layout(gtx)
+							return material.Button(p.th, &deleteBtn, localengine.T("configs.dialog.btn.delete")).Layout(gtx)
 						}),
 					)
 				})
@@ -346,7 +346,7 @@ func (p *ConfigsPage) onDelete(name string) {
 	var confirmBtn widget.Clickable
 	var cancelBtn widget.Clickable
 
-	p.dialog.ShowCustom(i18n.T("configs.dialog.delete_title"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.ShowCustom(localengine.T("configs.dialog.delete_title"), func(gtx layout.Context) layout.Dimensions {
 		if confirmBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			go func() {
@@ -360,17 +360,17 @@ func (p *ConfigsPage) onDelete(name string) {
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, i18n.T("configs.dialog.delete_msg")+" \""+name+"\"?").Layout(gtx)
+				return material.Body2(p.th, localengine.T("configs.dialog.delete_msg")+" \""+name+"\"?").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &confirmBtn, i18n.T("configs.dialog.btn.delete")).Layout(gtx)
+							return material.Button(p.th, &confirmBtn, localengine.T("configs.dialog.btn.delete")).Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return material.Button(p.th, &cancelBtn, i18n.T("configs.dialog.btn.cancel")).Layout(gtx)
+								return material.Button(p.th, &cancelBtn, localengine.T("configs.dialog.btn.cancel")).Layout(gtx)
 							})
 						}),
 					)
@@ -381,7 +381,7 @@ func (p *ConfigsPage) onDelete(name string) {
 }
 
 func (p *ConfigsPage) onUpdateAll() {
-	p.dialog.ShowLoading(i18n.T("progress.updating_configs"))
+	p.dialog.ShowLoading(localengine.T("progress.updating_configs"))
 	_, _, err := p.ctrl.UpdateAllConfigsWithLog(nil)
 	p.dialog.HideLoading()
 	if err == nil {
