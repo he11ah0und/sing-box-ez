@@ -18,6 +18,7 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/i18n"
+	"sing-box-ez/internal/version"
 )
 
 // ConfigsPage renders the configs management screen as vertical cards.
@@ -138,11 +139,11 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 						return lbl.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Body2(p.th, i18n.T("configs.table.last_update")+": "+p.formatTime(rec.LastUpdate.Time)).Layout(gtx)
+						return material.Body2(p.th, i18n.T("configs.table.last_update")+": "+p.formatLastUpdate(rec.LastUpdate.Time)).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						next := rec.NextUpdate()
-						return material.Body2(p.th, i18n.T("configs.table.next_update")+": "+p.formatTime(next)).Layout(gtx)
+						return material.Body2(p.th, i18n.T("configs.table.next_update")+": "+p.formatNextUpdate(next)).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						src := rec.Parent
@@ -168,11 +169,18 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 	})
 }
 
-func (p *ConfigsPage) formatTime(t time.Time) string {
+func (p *ConfigsPage) formatLastUpdate(t time.Time) string {
 	if t.IsZero() {
 		return i18n.T("configs.table.never")
 	}
-	return t.Format("2006-01-02 15:04")
+	return version.HumanDuration(t)
+}
+
+func (p *ConfigsPage) formatNextUpdate(t time.Time) string {
+	if t.IsZero() {
+		return i18n.T("configs.table.now")
+	}
+	return version.HumanDurationFrom(time.Until(t), true)
 }
 
 func (p *ConfigsPage) openAddDialog() {
