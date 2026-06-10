@@ -3,8 +3,11 @@ package pages
 import (
 	"image"
 	"image/color"
+	"time"
 
+	"gioui.org/f32"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -23,6 +26,10 @@ type MainPage struct {
 	configBtn  widget.Clickable
 	mainBtn    widget.Clickable
 	restartBtn widget.Clickable
+
+	processing bool
+	spinAngle  float32
+	spinTime   time.Time
 
 	// Dialog provider is supplied by the shell.
 	dialog DialogProvider
@@ -50,18 +57,21 @@ func (p *MainPage) Layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *MainPage) handleInteractions(gtx layout.Context) {
+	if p.processing {
+		return
+	}
 	if p.configBtn.Clicked(gtx) {
 		p.openConfigPicker()
 	}
 	if p.mainBtn.Clicked(gtx) {
 		if p.ctrl.IsRunning() {
-			p.onStop()
+			go p.onStop()
 		} else {
-			p.onStart()
+			go p.onStart()
 		}
 	}
 	if p.restartBtn.Clicked(gtx) {
-		p.onRestart()
+		go p.onRestart()
 	}
 }
 
@@ -88,11 +98,14 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						if p.processing {
+							return p.spinnerButton(gtx, unit.Dp(120))
+						}
 						return p.roundButton(gtx, p.th, &p.mainBtn, mainLabel, unit.Dp(120))
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !running {
+					if !running || p.processing {
 						return layout.Dimensions{}
 					}
 					return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -158,6 +171,30 @@ func (p *MainPage) roundButton(gtx layout.Context, th *material.Theme, btn *widg
 	})
 }
 
+func (p *MainPage) spinnerButton(gtx layout.Context, diameter unit.Dp) layout.Dimensions {
+	d := gtx.Dp(diameter)
+	gtx.Constraints.Min = image.Point{X: d, Y: d}
+	gtx.Constraints.Max = gtx.Constraints.Min
+
+	if !p.spinTime.IsZero() {
+		dt := float32(gtx.Now.Sub(p.spinTime).Seconds())
+		p.spinAngle += dt * 6 // ~1 rotation per second
+	}
+	p.spinTime = gtx.Now
+	gtx.Execute(op.InvalidateCmd{})
+
+	bg := p.th.Palette.ContrastBg
+	defer clip.Ellipse{Max: image.Point{X: d, Y: d}}.Push(gtx.Ops).Pop()
+	paint.FillShape(gtx.Ops, bg, clip.Ellipse{Max: image.Point{X: d, Y: d}}.Op(gtx.Ops))
+
+	center := f32.Point{X: float32(d) / 2, Y: float32(d) / 2}
+	defer op.Affine(f32.Affine2D{}.Rotate(center, p.spinAngle)).Push(gtx.Ops).Pop()
+
+	pc := material.ProgressCircle(p.th, 0.25)
+	pc.Color = p.th.Palette.ContrastFg
+	return pc.Layout(gtx)
+}
+
 func lighten(c color.NRGBA, amount uint8) color.NRGBA {
 	if c.R <= 255-amount {
 		c.R += amount
@@ -178,26 +215,38 @@ func lighten(c color.NRGBA, amount uint8) color.NRGBA {
 }
 
 func (p *MainPage) onStart() {
-	if _, err := p.ctrl.PrepareConfig(); err != nil {
-		p.ctrl.Log(err.Error())
-		return
-	}
-	if err := p.ctrl.Start(); err != nil {
-		p.ctrl.Log("Failed to start: " + err.Error())
-		return
-	}
+	p.processing = true
+	go func() {
+		defer func() { p.processing = false }()
+		if _, err := p.ctrl.PrepareConfig(); err != nil {
+			p.ctrl.Log(err.Error())
+			return
+		}
+		if err := p.ctrl.Start(); err != nil {
+			p.ctrl.Log("Failed to start: " + err.Error())
+			return
+		}
+	}()
 }
 
 func (p *MainPage) onStop() {
-	if err := p.ctrl.Stop(); err != nil {
-		p.ctrl.Log("Failed to stop: " + err.Error())
-		return
-	}
+	p.processing = true
+	go func() {
+		defer func() { p.processing = false }()
+		if err := p.ctrl.Stop(); err != nil {
+			p.ctrl.Log("Failed to stop: " + err.Error())
+			return
+		}
+	}()
 }
 
 func (p *MainPage) onRestart() {
-	if err := p.ctrl.Restart(); err != nil {
-		p.ctrl.Log("Failed to restart: " + err.Error())
-		return
-	}
+	p.processing = true
+	go func() {
+		defer func() { p.processing = false }()
+		if err := p.ctrl.Restart(); err != nil {
+			p.ctrl.Log("Failed to restart: " + err.Error())
+			return
+		}
+	}()
 }
