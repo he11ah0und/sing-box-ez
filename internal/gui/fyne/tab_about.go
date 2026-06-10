@@ -1,10 +1,10 @@
 package fynegui
 
 import (
+	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/util/githuburl"
 	"sing-box-ez/internal/framework/util/openurl"
 	"sing-box-ez/internal/framework/version"
-	"sing-box-ez/internal/i18n"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -17,16 +17,16 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 	commitInfoLbl := widget.NewLabel(commitInfoText())
 	buildInfoLbl := widget.NewLabel(buildInfoText())
 
-	openRepoBtn := widget.NewButton(i18n.T("about.btn.open_repo"), func() {
+	openRepoBtn := widget.NewButton(localengine.T("about.btn.open_repo"), func() {
 		_ = openurl.OpenURL(githuburl.DefaultProject().RepoURL())
 	})
 
 	var notesRow fyne.CanvasObject
 	if version.IsDev() {
-		notesRow = widget.NewLabel(i18n.T("about.dev_build.label"))
+		notesRow = widget.NewLabel(localengine.T("about.dev_build.label"))
 	} else {
-		notesBtn := widget.NewButton(i18n.T("about.btn.release_notes"), g.showReleaseNotesHandler())
-		openNotesBtn := widget.NewButton(i18n.T("about.btn.open_release_notes"), func() {
+		notesBtn := widget.NewButton(localengine.T("about.btn.release_notes"), g.showReleaseNotesHandler())
+		openNotesBtn := widget.NewButton(localengine.T("about.btn.open_release_notes"), func() {
 			var urlStr string
 			if version.Commit != "unknown" && version.Commit != "" {
 				urlStr = githuburl.DefaultProject().WebReleaseURL(version.Commit)
@@ -38,13 +38,13 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 		notesRow = container.NewGridWithColumns(2, notesBtn, openNotesBtn)
 	}
 
-	openDataBtn := widget.NewButton(i18n.T("about.btn.open_data"), func() {
+	openDataBtn := widget.NewButton(localengine.T("about.btn.open_data"), func() {
 		_ = g.ctrl.OpenDataFolderWithLog()
 	})
 
-	switchBranchBtn := widget.NewButton(i18n.T("about.btn.switch_branch"), func() {
+	switchBranchBtn := widget.NewButton(localengine.T("about.btn.switch_branch"), func() {
 		go func() {
-			modal := g.showInfiniteDialog(i18n.T("progress.checking_updates"))
+			modal := g.showInfiniteDialog(localengine.T("progress.checking_updates"))
 			b, err := g.ctrl.GetBranches()
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
@@ -59,7 +59,7 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 					branchName := br.Name
 					btn := widget.NewButton(branchName, func() {
 						go func() {
-							modal := g.showInfiniteDialog(i18n.T("progress.checking_updates"))
+							modal := g.showInfiniteDialog(localengine.T("progress.checking_updates"))
 							info, err := g.ctrl.CheckSelfUpdateForBranch(branchName)
 							fyne.Do(func() { modal.Hide() })
 							if err != nil || info == nil {
@@ -73,18 +73,18 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 					branchBox.Add(btn)
 				}
 				content := container.NewVBox(
-					widget.NewLabel(i18n.T("about.btn.switch_branch")),
+					widget.NewLabel(localengine.T("about.btn.switch_branch")),
 					branchBox,
 				)
-				d := dialog.NewCustom(i18n.T("about.btn.switch_branch"), i18n.T("dialog.btn.cancel"), content, g.window)
+				d := dialog.NewCustom(localengine.T("about.btn.switch_branch"), localengine.T("dialog.btn.cancel"), content, g.window)
 				d.Show()
 			})
 		}()
 	})
 
-	selfUpdateBtn := widget.NewButton(i18n.T("about.btn.check_updates"), func() {
+	selfUpdateBtn := widget.NewButton(localengine.T("about.btn.check_updates"), func() {
 		go func() {
-			modal := g.showInfiniteDialog(i18n.T("progress.checking_updates"))
+			modal := g.showInfiniteDialog(localengine.T("progress.checking_updates"))
 			info, err := g.ctrl.CheckSelfUpdateWithLog()
 			fyne.Do(func() { modal.Hide() })
 			if err != nil || info == nil {
@@ -97,7 +97,7 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 	})
 
 	content := container.NewVBox(
-		widget.NewLabelWithStyle(i18n.T("about.system.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(localengine.T("about.system.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		flagsLbl,
 		commitInfoLbl,
 		buildInfoLbl,
@@ -109,7 +109,7 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 		openDataBtn,
 	)
 
-	return container.NewTabItem(i18n.T("tab.about"), container.NewScroll(content))
+	return container.NewTabItem(localengine.T("tab.about"), container.NewScroll(content))
 }
 
 func commitInfoText() string {
@@ -120,7 +120,7 @@ func commitInfoText() string {
 	if dt, err := version.CommitDateTime(); err == nil {
 		txt += ", " + dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 	}
-	return i18n.T("about.commit_info.prefix") + txt
+	return localengine.T("about.commit_info.prefix") + txt
 }
 
 func buildInfoText() string {
@@ -128,13 +128,13 @@ func buildInfoText() string {
 	if dt, err := version.BuildDateTime(); err == nil {
 		txt = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 	}
-	return i18n.T("about.build_info.prefix") + txt
+	return localengine.T("about.build_info.prefix") + txt
 }
 
 func (g *GUI) showReleaseNotesHandler() func() {
 	return func() {
 		go func() {
-			modal := g.showInfiniteDialog(i18n.T("progress.fetching_notes"))
+			modal := g.showInfiniteDialog(localengine.T("progress.fetching_notes"))
 			release, err := g.ctrl.FetchReleaseNotesWithLog(version.Commit)
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
@@ -142,8 +142,8 @@ func (g *GUI) showReleaseNotesHandler() func() {
 			}
 			if release.TagName == "" {
 				fyne.Do(func() {
-					d := dialog.NewInformation(i18n.T("about.release_notes.title"),
-						i18n.T("about.release_notes.not_found"),
+					d := dialog.NewInformation(localengine.T("about.release_notes.title"),
+						localengine.T("about.release_notes.not_found"),
 						g.window)
 					d.Show()
 				})
@@ -152,7 +152,7 @@ func (g *GUI) showReleaseNotesHandler() func() {
 			fyne.Do(func() {
 				dateStr := release.PublishedAt.Local().Format("2006-01-02 15:04:05")
 				ago := version.HumanDuration(release.PublishedAt)
-				header := widget.NewLabel(i18n.T("about.release_notes.released") + dateStr + " (" + ago + ")")
+				header := widget.NewLabel(localengine.T("about.release_notes.released") + dateStr + " (" + ago + ")")
 				header.TextStyle = fyne.TextStyle{Bold: true}
 
 				notesRich := widget.NewRichTextFromMarkdown(release.Body)
@@ -160,7 +160,7 @@ func (g *GUI) showReleaseNotesHandler() func() {
 				scroll.SetMinSize(fyne.NewSize(500, 400))
 
 				content := container.NewVBox(header, widget.NewSeparator(), scroll)
-				d := dialog.NewCustom(i18n.T("about.release_notes.title")+": "+release.TagName, i18n.T("about.dialog.close"), content, g.window)
+				d := dialog.NewCustom(localengine.T("about.release_notes.title")+": "+release.TagName, localengine.T("about.dialog.close"), content, g.window)
 				d.Show()
 			})
 		}()

@@ -5,7 +5,7 @@ package fynegui
 import (
 	"fmt"
 
-	"sing-box-ez/internal/i18n"
+	"sing-box-ez/internal/framework/localengine"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -22,28 +22,28 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 			g.ctrl.SetLogLimitWithLog(v)
 		}
 	}
-	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel(i18n.T("settings.log_limit.label")), widget.NewButton(i18n.T("settings.btn.save"), func() {
+	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel(localengine.T("settings.log_limit.label")), widget.NewButton(localengine.T("settings.btn.save"), func() {
 		g.logLimitEntry.OnSubmitted(g.logLimitEntry.Text)
 	}), g.logLimitEntry)
 
-	g.showLogsCheck = widget.NewCheck(i18n.T("settings.show_logs"), func(checked bool) {
+	g.showLogsCheck = widget.NewCheck(localengine.T("settings.show_logs"), func(checked bool) {
 		g.cfg.SetShowLogs(checked)
 		_ = g.cfg.Save()
 	})
 	g.showLogsCheck.SetChecked(g.cfg.GetShowLogs())
 
-	g.desktopNotificationsCheck = widget.NewCheck(i18n.T("settings.desktop_notifications"), func(checked bool) {
+	g.desktopNotificationsCheck = widget.NewCheck(localengine.T("settings.desktop_notifications"), func(checked bool) {
 		g.cfg.SetDesktopNotifications(checked)
 		_ = g.cfg.Save()
 	})
 	g.desktopNotificationsCheck.SetChecked(g.cfg.GetDesktopNotifications())
 
 	// --- Language block ---
-	langs := i18n.AvailableLanguages()
+	langs := localengine.AvailableLanguages()
 	langNames := make([]string, len(langs))
 	langMap := make(map[string]string) // native name -> code
 	for i, code := range langs {
-		name := i18n.LanguageName(code)
+		name := localengine.LanguageName(code)
 		langNames[i] = name
 		langMap[name] = code
 	}
@@ -52,12 +52,12 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	if currentLang == "" {
 		currentLang = "en"
 	}
-	langSelect.SetSelected(i18n.LanguageName(currentLang))
+	langSelect.SetSelected(localengine.LanguageName(currentLang))
 	langSelect.OnChanged = func(selected string) {
 		code := langMap[selected]
 		g.cfg.SetLanguage(code)
 		_ = g.cfg.Save()
-		i18n.SetLanguage(code)
+		localengine.SetLanguage(code)
 		g.rebuildUI()
 	}
 
@@ -70,12 +70,12 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 			g.ctrl.SetDefaultIntervalWithLog(h)
 		}
 	}
-	intervalRow := container.NewBorder(nil, nil, widget.NewLabel(i18n.T("settings.default_interval.label")), widget.NewButton(i18n.T("settings.btn.save"), func() {
+	intervalRow := container.NewBorder(nil, nil, widget.NewLabel(localengine.T("settings.default_interval.label")), widget.NewButton(localengine.T("settings.btn.save"), func() {
 		g.defaultIntervalEntry.OnSubmitted(g.defaultIntervalEntry.Text)
 	}), g.defaultIntervalEntry)
 
 	// --- Plugins block ---
-	g.pluginsEnabledCheck = widget.NewCheck(i18n.T("settings.plugins.enabled"), func(checked bool) {
+	g.pluginsEnabledCheck = widget.NewCheck(localengine.T("settings.plugins.enabled"), func(checked bool) {
 		g.cfg.SetPluginsEnabled(checked)
 		_ = g.cfg.Save()
 		if !checked {
@@ -88,7 +88,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	})
 	g.pluginsEnabledCheck.SetChecked(g.cfg.GetPluginsEnabled())
 
-	g.pluginsDeveloperCheck = widget.NewCheck(i18n.T("settings.plugins.developer"), func(checked bool) {
+	g.pluginsDeveloperCheck = widget.NewCheck(localengine.T("settings.plugins.developer"), func(checked bool) {
 		g.cfg.SetPluginsDeveloper(checked)
 		_ = g.cfg.Save()
 	})
@@ -99,30 +99,30 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 
 	// --- Assemble content ---
 	content := container.NewVBox(
-		widget.NewLabelWithStyle(i18n.T("settings.logging.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(localengine.T("settings.logging.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		logLimitRow,
 		g.showLogsCheck,
 		g.desktopNotificationsCheck,
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle(i18n.T("settings.config.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(localengine.T("settings.config.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		intervalRow,
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle(i18n.T("settings.language.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(localengine.T("settings.language.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		langSelect,
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle(i18n.T("settings.reload_ui.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewButton(i18n.T("settings.reload_ui.btn"), func() {
+		widget.NewLabelWithStyle(localengine.T("settings.reload_ui.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewButton(localengine.T("settings.reload_ui.btn"), func() {
 			g.rebuildUI()
 		}),
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle(i18n.T("settings.plugins.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(localengine.T("settings.plugins.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		g.pluginsEnabledCheck,
 		g.pluginsDeveloperCheck,
 	)
 
-	return container.NewTabItem(i18n.T("tab.settings"), container.NewScroll(content))
+	return container.NewTabItem(localengine.T("tab.settings"), container.NewScroll(content))
 }

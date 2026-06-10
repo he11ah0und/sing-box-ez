@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"sing-box-ez/internal/i18n"
+	"sing-box-ez/internal/framework/localengine"
 )
 
 // HumanDuration returns a human-readable string like "2 hours ago" or "3 days ago"
@@ -23,7 +23,7 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 		d = -d
 	}
 	if d < time.Minute {
-		return i18n.T("duration.just_now")
+		return localengine.T("duration.just_now")
 	}
 
 	var unitKey string
@@ -46,9 +46,9 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 		value = int(d.Hours() / 24 / 365)
 	}
 
-	unit := fmt.Sprintf(i18n.T(unitKey), value)
+	unit := fmt.Sprintf(localengine.T(unitKey), value)
 	if future {
-		return fmt.Sprintf(i18n.T("duration.in"), unit)
+		return fmt.Sprintf(localengine.T("duration.in"), unit)
 	}
-	return fmt.Sprintf(i18n.T("duration.ago"), unit)
+	return fmt.Sprintf(localengine.T("duration.ago"), unit)
 }

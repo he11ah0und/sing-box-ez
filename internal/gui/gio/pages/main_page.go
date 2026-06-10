@@ -15,7 +15,7 @@ import (
 	"gioui.org/widget/material"
 
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/i18n"
+	"sing-box-ez/internal/framework/localengine"
 )
 
 // MainPage renders the main control screen with start/stop/restart.
@@ -48,7 +48,7 @@ func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog Di
 func (p *MainPage) Tag() string { return "main" }
 
 // Name returns the page name.
-func (p *MainPage) Name() string { return i18n.T("tab.main") }
+func (p *MainPage) Name() string { return localengine.T("tab.main") }
 
 // Layout draws the main page.
 func (p *MainPage) Layout(gtx layout.Context) layout.Dimensions {
@@ -77,14 +77,14 @@ func (p *MainPage) handleInteractions(gtx layout.Context) {
 
 func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 	running := p.ctrl.IsRunning()
-	mainLabel := i18n.T("main.btn.start")
+	mainLabel := localengine.T("main.btn.start")
 	if running {
-		mainLabel = i18n.T("main.btn.stop")
+		mainLabel = localengine.T("main.btn.stop")
 	}
 
-	configText := i18n.T("main.active.none")
+	configText := localengine.T("main.active.none")
 	if active := p.ctrl.Config().GetActiveConfig(); active != nil {
-		configText = i18n.T("main.active.prefix") + active.Name
+		configText = localengine.T("main.active.prefix") + active.Name
 	}
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
@@ -109,7 +109,7 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 						return layout.Dimensions{}
 					}
 					return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.restartBtn, i18n.T("main.btn.restart")).Layout(gtx)
+						return material.Button(p.th, &p.restartBtn, localengine.T("main.btn.restart")).Layout(gtx)
 					})
 				}),
 			)
@@ -121,7 +121,7 @@ func (p *MainPage) openConfigPicker() {
 	configs := p.ctrl.Config().GetConfigs()
 	btns := make([]widget.Clickable, len(configs))
 
-	p.dialog.ShowCustom(i18n.T("main.active.prefix"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.ShowCustom(localengine.T("main.active.prefix"), func(gtx layout.Context) layout.Dimensions {
 		for i := range configs {
 			if btns[i].Clicked(gtx) {
 				p.dialog.HideCustom()

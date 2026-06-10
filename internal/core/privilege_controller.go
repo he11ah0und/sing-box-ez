@@ -4,8 +4,8 @@ import (
 	"runtime"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
-	"sing-box-ez/internal/i18n"
 )
 
 // PrivilegeAction describes a single action available in the privilege dialog/tab.
@@ -97,12 +97,12 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 		return nil
 	case "windows":
 		return &PrivilegeDialog{
-			Title:   i18n.T("dialog.privileges.title"),
-			Message: i18n.T("dialog.privileges.msg_windows"),
+			Title:   localengine.T("dialog.privileges.title"),
+			Message: localengine.T("dialog.privileges.msg_windows"),
 			Actions: []PrivilegeAction{
 				{
 					ID:    "restart_admin",
-					Label: i18n.T("dialog.privileges.btn_restart_admin"),
+					Label: localengine.T("dialog.privileges.btn_restart_admin"),
 					Handler: func() error {
 						return restartFn()
 					},
@@ -111,19 +111,19 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 		}
 	case "linux":
 		return &PrivilegeDialog{
-			Title:   i18n.T("dialog.privileges.title"),
-			Message: i18n.T("dialog.privileges.msg_linux"),
+			Title:   localengine.T("dialog.privileges.title"),
+			Message: localengine.T("dialog.privileges.msg_linux"),
 			Actions: []PrivilegeAction{
 				{
 					ID:    "setcap",
-					Label: i18n.T("dialog.privileges.btn_setcap"),
+					Label: localengine.T("dialog.privileges.btn_setcap"),
 					Handler: func() error {
 						return c.ApplySetcap()
 					},
 				},
 				{
 					ID:    "run_as_admin",
-					Label: i18n.T("dialog.privileges.btn_run_as_admin"),
+					Label: localengine.T("dialog.privileges.btn_run_as_admin"),
 					Handler: func() error {
 						c.cfg.SetRunAsAdmin(true)
 						c.manager.SetElevated(true)
@@ -148,32 +148,32 @@ func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
 	case "windows":
 		state.IsAdmin = IsAdmin()
 		if state.IsAdmin {
-			state.AdminStatusText = i18n.T("core.privileges.admin")
+			state.AdminStatusText = localengine.T("core.privileges.admin")
 			state.AdminStatusColor = "green"
 		} else {
-			state.AdminStatusText = i18n.T("core.privileges.user")
+			state.AdminStatusText = localengine.T("core.privileges.user")
 			state.AdminStatusColor = "yellow"
 		}
 		state.ShowRestartAdminBtn = !state.IsAdmin
 	case "linux":
 		state.HasSetcap = HasNetAdminCapability(GetCorePath())
 		if state.HasSetcap {
-			state.AdminLabel = i18n.T("core.admin.label_root_setcap")
+			state.AdminLabel = localengine.T("core.admin.label_root_setcap")
 		} else {
-			state.AdminLabel = i18n.T("core.admin.label_root_pkexec")
+			state.AdminLabel = localengine.T("core.admin.label_root_pkexec")
 		}
 		state.ShowSetcapBtn = true
 		status := c.RefreshPrivilegeStatus()
 		switch status {
 		case "active":
-			state.PrivilegeText = i18n.T("core.privileges.setcap_active")
+			state.PrivilegeText = localengine.T("core.privileges.setcap_active")
 			state.PrivilegeColor = "green"
 		case "root_required":
-			state.PrivilegeText = i18n.T("core.privileges.root_required")
+			state.PrivilegeText = localengine.T("core.privileges.root_required")
 			state.PrivilegeColor = "yellow"
 		}
 	default:
-		state.AdminLabel = i18n.T("core.admin.label")
+		state.AdminLabel = localengine.T("core.admin.label")
 	}
 
 	return state

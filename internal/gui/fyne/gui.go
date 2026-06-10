@@ -8,8 +8,8 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/updater"
-	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/plugins"
 
 	"fyne.io/fyne/v2"
@@ -85,7 +85,7 @@ type GUI struct {
 
 func New(cfg *config.AppConfig) *GUI {
 	a := app.New()
-	w := a.NewWindow(i18n.T("app.title"))
+	w := a.NewWindow(localengine.T("app.title"))
 	w.Resize(fyne.NewSize(800, 600))
 
 	g := &GUI{
@@ -97,7 +97,7 @@ func New(cfg *config.AppConfig) *GUI {
 
 	// Wire UI callbacks from core
 	g.ctrl.OnAutoRestart = func() {
-		g.sendNotification(i18n.T("notify.core_crashed.title"), i18n.T("notify.core_crashed.body"))
+		g.sendNotification(localengine.T("notify.core_crashed.title"), localengine.T("notify.core_crashed.body"))
 	}
 	g.ctrl.OnStatusChange = func(running bool) {
 		g.updateButtons()
@@ -160,7 +160,7 @@ func New(cfg *config.AppConfig) *GUI {
 }
 
 func (g *GUI) t(id string, data ...map[string]any) string {
-	return i18n.T(id, data...)
+	return localengine.T(id, data...)
 }
 
 func (g *GUI) buildUI() {
@@ -318,7 +318,7 @@ func (g *GUI) onStart() {
 	if err := g.ctrl.StartCore(); err != nil {
 		return
 	}
-	g.sendNotification(i18n.T("notify.core_started.title"), i18n.T("notify.core_started.body"))
+	g.sendNotification(localengine.T("notify.core_started.title"), localengine.T("notify.core_started.body"))
 	g.updateButtons()
 }
 
@@ -326,7 +326,7 @@ func (g *GUI) onStop() {
 	if err := g.ctrl.StopCore(); err != nil {
 		return
 	}
-	g.sendNotification(i18n.T("notify.core_stopped.title"), i18n.T("notify.core_stopped.body"))
+	g.sendNotification(localengine.T("notify.core_stopped.title"), localengine.T("notify.core_stopped.body"))
 	g.updateButtons()
 }
 
@@ -339,7 +339,7 @@ func (g *GUI) updateButtons() {
 		running := g.ctrl.IsRunning()
 		hasConfig := g.cfg.GetActiveConfig() != nil
 		if running {
-			g.startBtn.SetText(i18n.T("main.btn.stop"))
+			g.startBtn.SetText(localengine.T("main.btn.stop"))
 			g.startBtn.SetIcon(theme.MediaStopIcon())
 			g.startBtn.OnTapped = g.onStop
 			g.startBtn.Enable()
@@ -348,7 +348,7 @@ func (g *GUI) updateButtons() {
 			g.statusText.Color = colGreen
 			g.statusText.Refresh()
 		} else {
-			g.startBtn.SetText(i18n.T("main.btn.start"))
+			g.startBtn.SetText(localengine.T("main.btn.start"))
 			g.startBtn.SetIcon(theme.MediaPlayIcon())
 			g.startBtn.OnTapped = g.onStart
 			if hasConfig {
