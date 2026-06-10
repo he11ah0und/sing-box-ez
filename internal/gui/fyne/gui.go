@@ -16,6 +16,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -38,7 +39,6 @@ type GUI struct {
 	statusText   *canvas.Text
 	configSelect *widget.Select
 	startBtn     *widget.Button
-	stopBtn      *widget.Button
 	restartBtn   *widget.Button
 	adminCheck   *widget.Check
 
@@ -339,19 +339,23 @@ func (g *GUI) updateButtons() {
 		running := g.ctrl.IsRunning()
 		hasConfig := g.cfg.GetActiveConfig() != nil
 		if running {
-			g.startBtn.Disable()
-			g.stopBtn.Enable()
+			g.startBtn.SetText(i18n.T("main.btn.stop"))
+			g.startBtn.SetIcon(theme.MediaStopIcon())
+			g.startBtn.OnTapped = g.onStop
+			g.startBtn.Enable()
 			g.restartBtn.Enable()
 			g.statusText.Text = g.t("main.status.running")
 			g.statusText.Color = colGreen
 			g.statusText.Refresh()
 		} else {
+			g.startBtn.SetText(i18n.T("main.btn.start"))
+			g.startBtn.SetIcon(theme.MediaPlayIcon())
+			g.startBtn.OnTapped = g.onStart
 			if hasConfig {
 				g.startBtn.Enable()
 			} else {
 				g.startBtn.Disable()
 			}
-			g.stopBtn.Disable()
 			g.restartBtn.Disable()
 			g.statusText.Text = g.t("main.status.stopped")
 			g.statusText.Color = colRed
