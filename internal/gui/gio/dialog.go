@@ -73,7 +73,7 @@ func (d *Dialog) Show(title, body string) {
 	d.isMarkdown = false
 	d.isLoading = false
 	d.isCustom = false
-	d.closeLabel = localengine.T("about.dialog.close")
+	d.closeLabel = localengine.T("about", "dialog", "close")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil
@@ -89,7 +89,7 @@ func (d *Dialog) ShowMarkdown(title, body string) {
 	d.isMarkdown = true
 	d.isLoading = false
 	d.isCustom = false
-	d.closeLabel = localengine.T("about.dialog.close")
+	d.closeLabel = localengine.T("about", "dialog", "close")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil
@@ -145,16 +145,16 @@ func (d *Dialog) HideLoading() {
 // ShowConfirm displays a dialog with Cancel and Confirm buttons.
 func (d *Dialog) ShowConfirm(title, body string, onConfirm func()) {
 	d.Show(title, body)
-	d.confirmLabel = localengine.T("dialog.btn.confirm")
-	d.cancelLabel = localengine.T("dialog.btn.cancel")
+	d.confirmLabel = localengine.T("dialog", "btn", "confirm")
+	d.cancelLabel = localengine.T("dialog", "btn", "cancel")
 	d.onConfirm = onConfirm
 }
 
 // ShowConfirmMarkdown displays a Markdown dialog with Cancel and Confirm buttons.
 func (d *Dialog) ShowConfirmMarkdown(title, body string, onConfirm func()) {
 	d.ShowMarkdown(title, body)
-	d.confirmLabel = localengine.T("dialog.btn.update")
-	d.cancelLabel = localengine.T("dialog.btn.ignore")
+	d.confirmLabel = localengine.T("dialog", "btn", "update")
+	d.cancelLabel = localengine.T("dialog", "btn", "ignore")
 	d.onConfirm = onConfirm
 }
 
@@ -165,7 +165,7 @@ func (d *Dialog) ShowCustom(title string, content layout.Widget) {
 	d.isCustom = true
 	d.isLoading = false
 	d.isMarkdown = false
-	d.closeLabel = localengine.T("dialog.btn.cancel")
+	d.closeLabel = localengine.T("dialog", "btn", "cancel")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil

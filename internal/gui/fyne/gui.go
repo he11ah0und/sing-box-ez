@@ -85,7 +85,7 @@ type GUI struct {
 
 func New(cfg *config.AppConfig) *GUI {
 	a := app.New()
-	w := a.NewWindow(localengine.T("app.title"))
+	w := a.NewWindow(localengine.T("app", "title"))
 	w.Resize(fyne.NewSize(800, 600))
 
 	g := &GUI{
@@ -97,7 +97,7 @@ func New(cfg *config.AppConfig) *GUI {
 
 	// Wire UI callbacks from core
 	g.ctrl.OnAutoRestart = func() {
-		g.sendNotification(localengine.T("notify.core_crashed.title"), localengine.T("notify.core_crashed.body"))
+		g.sendNotification(localengine.T("notify", "core_crashed", "title"), localengine.T("notify", "core_crashed", "body"))
 	}
 	g.ctrl.OnStatusChange = func(running bool) {
 		g.updateButtons()
@@ -110,7 +110,7 @@ func New(cfg *config.AppConfig) *GUI {
 	}
 	g.ctrl.OnVersionChange = func(ver string) {
 		if g.versionText != nil {
-			g.versionText.Text = g.t("core.version.installed") + ver
+			g.versionText.Text = g.t("core", "version", "installed") + ver
 			g.versionText.Color = colGreen
 			g.versionText.Refresh()
 		}
@@ -120,10 +120,10 @@ func New(cfg *config.AppConfig) *GUI {
 			return
 		}
 		if active {
-			g.privilegeText.Text = g.t("core.privileges.setcap_active")
+			g.privilegeText.Text = g.t("core", "privileges", "setcap_active")
 			g.privilegeText.Color = colGreen
 		} else {
-			g.privilegeText.Text = g.t("core.privileges.root_required")
+			g.privilegeText.Text = g.t("core", "privileges", "root_required")
 			g.privilegeText.Color = colYellow
 		}
 		g.privilegeText.Refresh()
@@ -131,7 +131,7 @@ func New(cfg *config.AppConfig) *GUI {
 	g.ctrl.OnLatestVersion = func(ver string) {
 		g.latestVersion = ver
 		if g.latestText != nil {
-			g.latestText.Text = g.t("core.latest.prefix") + ver
+			g.latestText.Text = g.t("core", "latest", "prefix") + ver
 			g.latestText.Color = colGreen
 			g.latestText.Refresh()
 		}
@@ -159,8 +159,8 @@ func New(cfg *config.AppConfig) *GUI {
 	return g
 }
 
-func (g *GUI) t(id string, data ...map[string]any) string {
-	return localengine.T(id, data...)
+func (g *GUI) t(parts ...string) string {
+	return localengine.T(parts...)
 }
 
 func (g *GUI) buildUI() {
@@ -220,7 +220,7 @@ func (g *GUI) refreshActiveLabel() {
 			g.selectingConfig = false
 		} else {
 			g.configSelect.ClearSelected()
-			g.configSelect.PlaceHolder = g.t("main.active.none")
+			g.configSelect.PlaceHolder = g.t("main", "active", "none")
 		}
 	}
 }
@@ -266,13 +266,13 @@ func (g *GUI) refreshCoreVersionUI() {
 	ver, err := g.ctrl.GetInstalledCoreVersion()
 	if err == nil && ver != "" {
 		if g.versionText != nil {
-			g.versionText.Text = g.t("core.version.installed") + ver
+			g.versionText.Text = g.t("core", "version", "installed") + ver
 			g.versionText.Color = colGreen
 			g.versionText.Refresh()
 		}
 	} else {
 		if g.versionText != nil {
-			g.versionText.Text = g.t("core.version.not_installed")
+			g.versionText.Text = g.t("core", "version", "not_installed")
 			g.versionText.Color = colRed
 			g.versionText.Refresh()
 		}
@@ -286,17 +286,17 @@ func (g *GUI) refreshPrivilegeStatusUI() {
 	}
 	switch status {
 	case "active":
-		g.privilegeText.Text = g.t("core.privileges.setcap_active")
+		g.privilegeText.Text = g.t("core", "privileges", "setcap_active")
 		g.privilegeText.Color = colGreen
 	case "root_required":
-		g.privilegeText.Text = g.t("core.privileges.root_required")
+		g.privilegeText.Text = g.t("core", "privileges", "root_required")
 		g.privilegeText.Color = colYellow
 	}
 	g.privilegeText.Refresh()
 }
 
 func (g *GUI) onDownloadCore() {
-	modal := g.showInfiniteDialog(g.t("progress.checking_version"))
+	modal := g.showInfiniteDialog(g.t("progress", "checking_version"))
 	path, err := g.ctrl.DownloadCoreWithProgressWithLog(func(downloaded, total int64) {
 		fyne.Do(func() {
 			// progress update handled by dialog if needed
@@ -318,7 +318,7 @@ func (g *GUI) onStart() {
 	if err := g.ctrl.StartCore(); err != nil {
 		return
 	}
-	g.sendNotification(localengine.T("notify.core_started.title"), localengine.T("notify.core_started.body"))
+	g.sendNotification(localengine.T("notify", "core_started", "title"), localengine.T("notify", "core_started", "body"))
 	g.updateButtons()
 }
 
@@ -326,7 +326,7 @@ func (g *GUI) onStop() {
 	if err := g.ctrl.StopCore(); err != nil {
 		return
 	}
-	g.sendNotification(localengine.T("notify.core_stopped.title"), localengine.T("notify.core_stopped.body"))
+	g.sendNotification(localengine.T("notify", "core_stopped", "title"), localengine.T("notify", "core_stopped", "body"))
 	g.updateButtons()
 }
 
@@ -339,16 +339,16 @@ func (g *GUI) updateButtons() {
 		running := g.ctrl.IsRunning()
 		hasConfig := g.cfg.GetActiveConfig() != nil
 		if running {
-			g.startBtn.SetText(localengine.T("main.btn.stop"))
+			g.startBtn.SetText(localengine.T("main", "btn", "stop"))
 			g.startBtn.SetIcon(theme.MediaStopIcon())
 			g.startBtn.OnTapped = g.onStop
 			g.startBtn.Enable()
 			g.restartBtn.Enable()
-			g.statusText.Text = g.t("main.status.running")
+			g.statusText.Text = g.t("main", "status", "running")
 			g.statusText.Color = colGreen
 			g.statusText.Refresh()
 		} else {
-			g.startBtn.SetText(localengine.T("main.btn.start"))
+			g.startBtn.SetText(localengine.T("main", "btn", "start"))
 			g.startBtn.SetIcon(theme.MediaPlayIcon())
 			g.startBtn.OnTapped = g.onStart
 			if hasConfig {
@@ -357,7 +357,7 @@ func (g *GUI) updateButtons() {
 				g.startBtn.Disable()
 			}
 			g.restartBtn.Disable()
-			g.statusText.Text = g.t("main.status.stopped")
+			g.statusText.Text = g.t("main", "status", "stopped")
 			g.statusText.Color = colRed
 			g.statusText.Refresh()
 		}

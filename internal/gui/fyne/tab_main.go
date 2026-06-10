@@ -10,7 +10,7 @@ import (
 )
 
 func (g *GUI) buildMainTab() *container.TabItem {
-	g.statusText = canvas.NewText(localengine.T("main.status.stopped"), colRed)
+	g.statusText = canvas.NewText(localengine.T("main", "status", "stopped"), colRed)
 	g.statusText.TextSize = theme.TextSize()
 
 	configs := g.cfg.GetConfigs()
@@ -26,7 +26,7 @@ func (g *GUI) buildMainTab() *container.TabItem {
 	g.configSelect = widget.NewSelect(names, nil)
 	g.configSelect.SetSelected(selected)
 	if selected == "" {
-		g.configSelect.PlaceHolder = localengine.T("main.active.none")
+		g.configSelect.PlaceHolder = localengine.T("main", "active", "none")
 	}
 	g.configSelect.OnChanged = func(s string) {
 		if s == "" || g.selectingConfig {
@@ -39,8 +39,8 @@ func (g *GUI) buildMainTab() *container.TabItem {
 		g.selectingConfig = false
 	}
 
-	g.startBtn = widget.NewButtonWithIcon(localengine.T("main.btn.start"), theme.MediaPlayIcon(), g.onStart)
-	g.restartBtn = widget.NewButtonWithIcon(localengine.T("main.btn.restart"), theme.ViewRefreshIcon(), g.onRestart)
+	g.startBtn = widget.NewButtonWithIcon(localengine.T("main", "btn", "start"), theme.MediaPlayIcon(), g.onStart)
+	g.restartBtn = widget.NewButtonWithIcon(localengine.T("main", "btn", "restart"), theme.ViewRefreshIcon(), g.onRestart)
 	controlRow := container.NewHBox(g.startBtn, g.restartBtn)
 
 	content := container.NewVBox(
@@ -51,5 +51,5 @@ func (g *GUI) buildMainTab() *container.TabItem {
 		controlRow,
 	)
 
-	return container.NewTabItem(localengine.T("tab.main"), container.NewScroll(content))
+	return container.NewTabItem(localengine.T("tab", "main"), container.NewScroll(content))
 }

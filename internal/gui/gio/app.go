@@ -81,10 +81,10 @@ func New(cfg *config.AppConfig) *GUI {
 		var downloadBtn widget.Clickable
 		var addBtn widget.Clickable
 
-		dialog.ShowCustom(localengine.T("first_run.title"), func(gtx layout.Context) layout.Dimensions {
+		dialog.ShowCustom(localengine.T("first_run", "title"), func(gtx layout.Context) layout.Dimensions {
 			if downloadBtn.Clicked(gtx) {
 				go func() {
-					dialog.ShowLoading(localengine.T("progress.checking_version"))
+					dialog.ShowLoading(localengine.T("progress", "checking_version"))
 					_, err := g.ctrl.DownloadCoreWithProgressWithLog(nil)
 					dialog.HideLoading()
 					if err != nil {
@@ -97,7 +97,7 @@ func New(cfg *config.AppConfig) *GUI {
 			if addBtn.Clicked(gtx) {
 				url := urlEditor.Text()
 				go func() {
-					dialog.ShowLoading(localengine.T("progress.adding_config"))
+					dialog.ShowLoading(localengine.T("progress", "adding_config"))
 					err := g.ctrl.AddFirstConfigWithLog("default", url)
 					dialog.HideLoading()
 					if err != nil {
@@ -109,18 +109,18 @@ func New(cfg *config.AppConfig) *GUI {
 
 			children := []layout.FlexChild{
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Body1(th, localengine.T("first_run.welcome")).Layout(gtx)
+					return material.Body1(th, localengine.T("first_run", "welcome")).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Body2(th, localengine.T("first_run.description")).Layout(gtx)
+					return material.Body2(th, localengine.T("first_run", "description")).Layout(gtx)
 				}),
 			}
 
-			status := localengine.T("first_run.core.not_installed")
+			status := localengine.T("first_run", "core", "not_installed")
 			if coreInstalled {
-				status = localengine.T("first_run.core.installed")
+				status = localengine.T("first_run", "core", "installed")
 				if ver, err := g.ctrl.GetInstalledCoreVersion(); err == nil && ver != "" {
-					status += "\n" + fmt.Sprintf(localengine.T("first_run.core.version"), ver)
+					status += "\n" + fmt.Sprintf(localengine.T("first_run", "core", "version"), ver)
 				}
 			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -130,7 +130,7 @@ func New(cfg *config.AppConfig) *GUI {
 			if !coreInstalled {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(th, &downloadBtn, localengine.T("first_run.btn.download_core")).Layout(gtx)
+						return material.Button(th, &downloadBtn, localengine.T("first_run", "btn", "download_core")).Layout(gtx)
 					})
 				}))
 			}
@@ -144,7 +144,7 @@ func New(cfg *config.AppConfig) *GUI {
 
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(th, &addBtn, localengine.T("first_run.btn.add_config")).Layout(gtx)
+					return material.Button(th, &addBtn, localengine.T("first_run", "btn", "add_config")).Layout(gtx)
 				})
 			}))
 
@@ -162,7 +162,7 @@ func New(cfg *config.AppConfig) *GUI {
 		if dt, err := version.BuildDateTime(); err == nil {
 			currentDateStr = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 		} else {
-			currentDateStr = localengine.T("dialog.unknown")
+			currentDateStr = localengine.T("dialog", "unknown")
 		}
 		if !info.LatestDate.IsZero() {
 			lt := info.LatestDate.Local()
@@ -172,30 +172,30 @@ func New(cfg *config.AppConfig) *GUI {
 				if diff < 0 {
 					diff = -diff
 				}
-				diffStr = fmt.Sprintf(localengine.T("dialog.self_update.behind"), humanDuration(diff))
+				diffStr = fmt.Sprintf(localengine.T("dialog", "self_update", "behind"), humanDuration(diff))
 			}
 		} else {
-			latestDateStr = localengine.T("dialog.unknown")
+			latestDateStr = localengine.T("dialog", "unknown")
 		}
 
 		body := fmt.Sprintf("**%s** %s\n  %s\n\n**%s** %s\n  %s\n\n",
-			localengine.T("dialog.self_update.current"), currentText, currentDateStr,
-			localengine.T("dialog.self_update.latest"), info.Latest, latestDateStr)
+			localengine.T("dialog", "self_update", "current"), currentText, currentDateStr,
+			localengine.T("dialog", "self_update", "latest"), info.Latest, latestDateStr)
 		if diffStr != "" {
 			body += diffStr + "\n\n"
 		}
-		body += "## " + localengine.T("dialog.self_update.changelog") + "\n\n" + info.LatestBody
+		body += "## " + localengine.T("dialog", "self_update", "changelog") + "\n\n" + info.LatestBody
 
-		dialog.ShowConfirmMarkdown(localengine.T("dialog.self_update.title"), body, func() {
-			dialog.ShowLoading(localengine.T("progress.downloading_update"))
+		dialog.ShowConfirmMarkdown(localengine.T("dialog", "self_update", "title"), body, func() {
+			dialog.ShowLoading(localengine.T("progress", "downloading_update"))
 			go func() {
 				if err := g.ctrl.ApplySelfUpdateWithLog(info.AssetURL, nil); err != nil {
 					dialog.HideLoading()
-					dialog.Show(localengine.T("dialog.self_update.title"), "Update failed: "+err.Error())
+					dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
 					return
 				}
 				dialog.HideLoading()
-				dialog.Show(localengine.T("dialog.self_update.title"), "Update complete. Please restart.")
+				dialog.Show(localengine.T("dialog", "self_update", "title"), "Update complete. Please restart.")
 			}()
 		})
 	}
@@ -254,7 +254,7 @@ func (g *GUI) Run() {
 
 	// Show global initialization loading dialog immediately so it renders
 	// while the startup sequence runs.
-	g.dialog.ShowLoading(localengine.T("progress.initializing"))
+	g.dialog.ShowLoading(localengine.T("progress", "initializing"))
 
 	go func() {
 		g.ctrl.RunStartupSequence()

@@ -24,17 +24,17 @@ func (g *GUI) buildLogTab() *container.TabItem {
 		g.logEntry.SetText(text)
 	}
 
-	copyBtn := widget.NewButton(localengine.T("log.btn.copy"), func() {
+	copyBtn := widget.NewButton(localengine.T("log", "btn", "copy"), func() {
 		g.app.Clipboard().SetContent(g.logEntry.Text)
 	})
-	clearBtn := widget.NewButton(localengine.T("log.btn.clear"), func() {
+	clearBtn := widget.NewButton(localengine.T("log", "btn", "clear"), func() {
 		g.ctrl.ClearLogs()
 		g.logEntry.SetText("")
 	})
 
 	toolbar := container.NewHBox(copyBtn, clearBtn)
 
-	return container.NewTabItem(localengine.T("tab.log"),
+	return container.NewTabItem(localengine.T("tab", "log"),
 		container.NewScroll(container.NewBorder(toolbar, nil, nil, nil, g.logEntry)),
 	)
 }

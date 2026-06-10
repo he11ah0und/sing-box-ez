@@ -23,7 +23,7 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 		d = -d
 	}
 	if d < time.Minute {
-		return localengine.T("duration.just_now")
+		return localengine.T("duration", "just_now")
 	}
 
 	var unitKey string
@@ -48,7 +48,7 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 
 	unit := fmt.Sprintf(localengine.T(unitKey), value)
 	if future {
-		return fmt.Sprintf(localengine.T("duration.in"), unit)
+		return fmt.Sprintf(localengine.T("duration", "in"), unit)
 	}
-	return fmt.Sprintf(localengine.T("duration.ago"), unit)
+	return fmt.Sprintf(localengine.T("duration", "ago"), unit)
 }

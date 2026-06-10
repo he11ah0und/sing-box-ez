@@ -66,33 +66,33 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 		return nil
 	}
 
-	refreshBtn := widget.NewButton(localengine.T("plugins.btn.refresh"), func() {
+	refreshBtn := widget.NewButton(localengine.T("plugins", "btn", "refresh"), func() {
 		g.pluginManager.Close()
 		_ = g.ctrl.PluginDiscoverWithLog(g.pluginManager)
 		g.refreshPluginsList()
 	})
 
-	checkUpdatesBtn := widget.NewButton(localengine.T("plugins.btn.check_all_updates"), func() {
+	checkUpdatesBtn := widget.NewButton(localengine.T("plugins", "btn", "check_all_updates"), func() {
 		go g.pluginManager.CheckAllUpdates()
 	})
 
-	installBtn := widget.NewButton(localengine.T("plugins.btn.install_from_url"), func() {
+	installBtn := widget.NewButton(localengine.T("plugins", "btn", "install_from_url"), func() {
 		g.showInstallPluginDialog()
 	})
 
 	var btnRow fyne.CanvasObject
 	if g.cfg.GetPluginsDeveloper() {
-		genDocsBtn := widget.NewButton(localengine.T("plugins.btn.generate_api_docs"), func() {
+		genDocsBtn := widget.NewButton(localengine.T("plugins", "btn", "generate_api_docs"), func() {
 			outDir := paths.PluginDocsDir()
 			_ = g.ctrl.PluginGenerateDocsWithLog(plugins.GenerateDocs, outDir)
 		})
 
-		genDefsBtn := widget.NewButton(localengine.T("plugins.btn.generate_vscode_defs"), func() {
+		genDefsBtn := widget.NewButton(localengine.T("plugins", "btn", "generate_vscode_defs"), func() {
 			outDir := paths.PluginDefsDir()
 			_ = g.ctrl.PluginGenerateDefsWithLog(plugins.GenerateLuaDefs, outDir)
 		})
 
-		genTmplBtn := widget.NewButton(localengine.T("plugins.btn.generate_template"), func() {
+		genTmplBtn := widget.NewButton(localengine.T("plugins", "btn", "generate_template"), func() {
 			g.showGenerateTemplateDialog()
 		})
 
@@ -151,7 +151,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 	)
 
 	content := container.NewBorder(btnRow, nil, nil, nil, g.pluginsList)
-	return container.NewTabItem(localengine.T("tab.plugins"), content)
+	return container.NewTabItem(localengine.T("tab", "plugins"), content)
 }
 
 func (g *GUI) togglePlugin(name string) {
@@ -196,58 +196,58 @@ func (g *GUI) showPluginInfo(name string) {
 		))
 	}
 
-	addRow(localengine.T("plugins.info.name"), mf.Name)
-	addRow(localengine.T("plugins.info.version"), mf.Version)
+	addRow(localengine.T("plugins", "info", "name"), mf.Name)
+	addRow(localengine.T("plugins", "info", "version"), mf.Version)
 	if mf.LatestVersion != "" {
-		addRow(localengine.T("plugins.info.latest_remote"), mf.LatestVersion)
+		addRow(localengine.T("plugins", "info", "latest_remote"), mf.LatestVersion)
 	}
-	addRow(localengine.T("plugins.info.author"), mf.Author)
-	addRow(localengine.T("plugins.info.description"), mf.Description)
-	addRow(localengine.T("plugins.info.entrypoint"), mf.Entry)
-	addRow(localengine.T("plugins.info.source"), mf.SourceType)
+	addRow(localengine.T("plugins", "info", "author"), mf.Author)
+	addRow(localengine.T("plugins", "info", "description"), mf.Description)
+	addRow(localengine.T("plugins", "info", "entrypoint"), mf.Entry)
+	addRow(localengine.T("plugins", "info", "source"), mf.SourceType)
 	if mf.SourceType == "package" && mf.SourceURL != "" {
-		addRow(localengine.T("plugins.info.package_url"), mf.SourceURL)
+		addRow(localengine.T("plugins", "info", "package_url"), mf.SourceURL)
 	}
 	if len(mf.Relations) > 0 {
-		addRow(localengine.T("plugins.info.relation"), strings.Join([]string(mf.Relations), ", "))
+		addRow(localengine.T("plugins", "info", "relation"), strings.Join([]string(mf.Relations), ", "))
 	}
 	if mf.UpdateURL != "" {
-		addRow(localengine.T("plugins.info.update_url"), mf.UpdateURL)
+		addRow(localengine.T("plugins", "info", "update_url"), mf.UpdateURL)
 	}
 	statusKey := "plugins.status.disabled"
 	if mf.Enabled {
 		statusKey = "plugins.status.enabled"
 	}
-	addRow(localengine.T("plugins.info.status"), localengine.T(statusKey))
+	addRow(localengine.T("plugins", "info", "status"), localengine.T(statusKey))
 
 	// If it's a folder without update_url, show a note.
 	if mf.SourceType == "folder" {
-		info.Add(widget.NewLabelWithStyle(localengine.T("plugins.note.folder_no_update"), fyne.TextAlignLeading, fyne.TextStyle{Italic: true}))
+		info.Add(widget.NewLabelWithStyle(localengine.T("plugins", "note", "folder_no_update"), fyne.TextAlignLeading, fyne.TextStyle{Italic: true}))
 	}
 
-	checkBtn := widget.NewButton(localengine.T("plugins.btn.check_update"), func() {
+	checkBtn := widget.NewButton(localengine.T("plugins", "btn", "check_update"), func() {
 		go func() {
 			_, _, _ = g.ctrl.PluginCheckUpdateWithLog(g.pluginManager, name)
 			fyne.Do(func() { g.refreshPluginsList() })
 		}()
 	})
 
-	toggleLabel := localengine.T("plugins.btn.enable")
+	toggleLabel := localengine.T("plugins", "btn", "enable")
 	if mf.Enabled {
-		toggleLabel = localengine.T("plugins.btn.disable")
+		toggleLabel = localengine.T("plugins", "btn", "disable")
 	}
 	toggleBtn := widget.NewButton(toggleLabel, func() {
 		g.togglePlugin(name)
 	})
 
-	unloadBtn := widget.NewButton(localengine.T("plugins.btn.unload"), func() {
+	unloadBtn := widget.NewButton(localengine.T("plugins", "btn", "unload"), func() {
 		g.pluginManager.Unload(name)
 		g.refreshPluginsList()
 	})
 
 	footer := container.NewHBox(checkBtn, toggleBtn, unloadBtn)
 	full := container.NewBorder(nil, footer, nil, nil, container.NewScroll(info))
-	d := dialog.NewCustom(fmt.Sprintf(localengine.T("plugins.dialog.title"), name), localengine.T("about.dialog.close"), full, g.window)
+	d := dialog.NewCustom(fmt.Sprintf(localengine.T("plugins", "dialog", "title"), name), localengine.T("about", "dialog", "close"), full, g.window)
 	d.Resize(fyne.NewSize(480, 420))
 	d.Show()
 }
@@ -257,12 +257,12 @@ func (g *GUI) showInstallPluginDialog() {
 	urlEntry.SetPlaceHolder("https://example.com/my-plugin.zip")
 
 	content := container.NewVBox(
-		widget.NewLabel(localengine.T("plugins.install.url_label")),
+		widget.NewLabel(localengine.T("plugins", "install", "url_label")),
 		urlEntry,
 	)
 
 	var d dialog.Dialog
-	saveBtn := widget.NewButton(localengine.T("plugins.btn.install"), func() {
+	saveBtn := widget.NewButton(localengine.T("plugins", "btn", "install"), func() {
 		url := urlEntry.Text
 		go func() {
 			_ = g.ctrl.PluginInstallFromURLWithLog(g.pluginManager, url)
@@ -271,10 +271,10 @@ func (g *GUI) showInstallPluginDialog() {
 		d.Hide()
 	})
 
-	cancelBtn := widget.NewButton(localengine.T("dialog.btn.cancel"), func() { d.Hide() })
+	cancelBtn := widget.NewButton(localengine.T("dialog", "btn", "cancel"), func() { d.Hide() })
 	footer := container.NewHBox(saveBtn, cancelBtn)
 	full := container.NewBorder(nil, footer, nil, nil, content)
-	d = dialog.NewCustom(localengine.T("plugins.install.title"), "", full, g.window)
+	d = dialog.NewCustom(localengine.T("plugins", "install", "title"), "", full, g.window)
 	d.Resize(fyne.NewSize(500, 180))
 	d.Show()
 }
@@ -287,14 +287,14 @@ func (g *GUI) showGenerateTemplateDialog() {
 	relationSelect.SetSelected("client")
 
 	content := container.NewVBox(
-		widget.NewLabel(localengine.T("plugins.template.name")),
+		widget.NewLabel(localengine.T("plugins", "template", "name")),
 		nameEntry,
-		widget.NewLabel(localengine.T("plugins.template.relation")),
+		widget.NewLabel(localengine.T("plugins", "template", "relation")),
 		relationSelect,
 	)
 
 	var d dialog.Dialog
-	saveBtn := widget.NewButton(localengine.T("plugins.btn.generate"), func() {
+	saveBtn := widget.NewButton(localengine.T("plugins", "btn", "generate"), func() {
 		name := nameEntry.Text
 		outDir := filepath.Join(plugins.PluginDir(), name)
 		rel := relationSelect.Selected
@@ -306,10 +306,10 @@ func (g *GUI) showGenerateTemplateDialog() {
 		d.Hide()
 	})
 
-	cancelBtn := widget.NewButton(localengine.T("dialog.btn.cancel"), func() { d.Hide() })
+	cancelBtn := widget.NewButton(localengine.T("dialog", "btn", "cancel"), func() { d.Hide() })
 	footer := container.NewHBox(saveBtn, cancelBtn)
 	full := container.NewBorder(nil, footer, nil, nil, content)
-	d = dialog.NewCustom(localengine.T("plugins.template.title"), "", full, g.window)
+	d = dialog.NewCustom(localengine.T("plugins", "template", "title"), "", full, g.window)
 	d.Resize(fyne.NewSize(400, 220))
 	d.Show()
 }
