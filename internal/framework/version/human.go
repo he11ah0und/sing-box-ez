@@ -2,6 +2,7 @@ package version
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"sing-box-ez/internal/framework/localengine"
@@ -46,7 +47,7 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 		value = int(d.Hours() / 24 / 365)
 	}
 
-	unit := fmt.Sprintf(localengine.T(unitKey), value)
+	unit := fmt.Sprintf(localengine.T(strings.Split(unitKey, ".")...), value)
 	if future {
 		return fmt.Sprintf(localengine.T("duration", "in"), unit)
 	}
