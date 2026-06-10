@@ -1,0 +1,229 @@
+package core
+
+import (
+	"runtime"
+
+	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/i18n"
+)
+
+// PrivilegeAction describes a single action available in the privilege dialog/tab.
+type PrivilegeAction struct {
+	ID      string
+	Label   string
+	Handler func() error
+}
+
+// PrivilegeDialog describes the platform-specific privilege elevation dialog.
+type PrivilegeDialog struct {
+	Title   string
+	Message string
+	Actions []PrivilegeAction
+}
+
+// PrivilegeTabState describes the platform-specific state for the Core privileges tab.
+type PrivilegeTabState struct {
+	Mode                string // "windows", "linux", "macos"
+	IsAdmin             bool
+	HasSetcap           bool
+	RunAsAdmin          bool
+	AdminStatusText     string
+	AdminStatusColor    string // "green", "yellow"
+	AdminLabel          string
+	PrivilegeText       string
+	PrivilegeColor      string // "green", "yellow"
+	ShowRestartAdminBtn bool
+	ShowSetcapBtn       bool
+}
+
+// PrivilegeController manages platform-specific privilege operations.
+type PrivilegeController struct {
+	cfg      *config.AppConfig
+	manager  *Manager
+	terminal *LogTerminal
+}
+
+// Terminal returns the logging terminal used by this controller.
+func (c *PrivilegeController) Terminal() *LogTerminal {
+	return c.terminal
+}
+
+// NewPrivilegeController creates a new privilege controller.
+func NewPrivilegeController(cfg *config.AppConfig, manager *Manager, terminal *LogTerminal) *PrivilegeController {
+	return &PrivilegeController{
+		cfg:      cfg,
+		manager:  manager,
+		terminal: terminal,
+	}
+}
+
+// HasRequiredPrivileges reports whether the app has the privileges needed to run the core.
+func (c *PrivilegeController) HasRequiredPrivileges() bool {
+	switch runtime.GOOS {
+	case "linux":
+		if HasNetAdminCapability(GetCorePath()) {
+			return true
+		}
+		return c.cfg.RunAsAdmin
+	case "windows":
+		return IsAdmin()
+	default:
+		return true
+	}
+}
+
+// RefreshPrivilegeStatus returns the current Linux privilege status.
+func (c *PrivilegeController) RefreshPrivilegeStatus() string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	if HasNetAdminCapability(GetCorePath()) {
+		return "active"
+	}
+	return "root_required"
+}
+
+// ApplySetcap applies the CAP_NET_ADMIN capability to the core binary.
+func (c *PrivilegeController) ApplySetcap() error {
+	return SetNetAdminCapabilityGUI(GetCorePath())
+}
+
+// GetPrivilegeDialog returns the dialog definition for the current platform,
+// or nil if no privilege dialog is needed (e.g. macOS).
+func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *PrivilegeDialog {
+	switch runtime.GOOS {
+	case "darwin":
+		return nil
+	case "windows":
+		return &PrivilegeDialog{
+			Title:   i18n.T("dialog.privileges.title"),
+			Message: i18n.T("dialog.privileges.msg_windows"),
+			Actions: []PrivilegeAction{
+				{
+					ID:    "restart_admin",
+					Label: i18n.T("dialog.privileges.btn_restart_admin"),
+					Handler: func() error {
+						return restartFn()
+					},
+				},
+			},
+		}
+	case "linux":
+		return &PrivilegeDialog{
+			Title:   i18n.T("dialog.privileges.title"),
+			Message: i18n.T("dialog.privileges.msg_linux"),
+			Actions: []PrivilegeAction{
+				{
+					ID:    "setcap",
+					Label: i18n.T("dialog.privileges.btn_setcap"),
+					Handler: func() error {
+						return c.ApplySetcap()
+					},
+				},
+				{
+					ID:    "run_as_admin",
+					Label: i18n.T("dialog.privileges.btn_run_as_admin"),
+					Handler: func() error {
+						c.cfg.SetRunAsAdmin(true)
+						c.manager.SetElevated(true)
+						return c.cfg.Save()
+					},
+				},
+			},
+		}
+	default:
+		return nil
+	}
+}
+
+// GetPrivilegeTabState returns the current privilege state for rendering the Core tab.
+func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
+	state := PrivilegeTabState{
+		Mode:       runtime.GOOS,
+		RunAsAdmin: c.cfg.RunAsAdmin,
+	}
+
+	switch runtime.GOOS {
+	case "windows":
+		state.IsAdmin = IsAdmin()
+		if state.IsAdmin {
+			state.AdminStatusText = i18n.T("core.privileges.admin")
+			state.AdminStatusColor = "green"
+		} else {
+			state.AdminStatusText = i18n.T("core.privileges.user")
+			state.AdminStatusColor = "yellow"
+		}
+		state.ShowRestartAdminBtn = !state.IsAdmin
+	case "linux":
+		state.HasSetcap = HasNetAdminCapability(GetCorePath())
+		if state.HasSetcap {
+			state.AdminLabel = i18n.T("core.admin.label_root_setcap")
+		} else {
+			state.AdminLabel = i18n.T("core.admin.label_root_pkexec")
+		}
+		state.ShowSetcapBtn = true
+		status := c.RefreshPrivilegeStatus()
+		switch status {
+		case "active":
+			state.PrivilegeText = i18n.T("core.privileges.setcap_active")
+			state.PrivilegeColor = "green"
+		case "root_required":
+			state.PrivilegeText = i18n.T("core.privileges.root_required")
+			state.PrivilegeColor = "yellow"
+		}
+	default:
+		state.AdminLabel = i18n.T("core.admin.label")
+	}
+
+	return state
+}
+
+// RestartAsAdminWithLog attempts to restart as admin and logs the result.
+func (c *PrivilegeController) RestartAsAdminWithLog(restartFn func() error) error {
+	err := restartFn()
+	if err != nil {
+		c.terminal.Error("Failed to restart as admin: " + err.Error())
+	}
+	return err
+}
+
+// SetRunAsAdminWithLog updates the run-as-admin setting and logs the result.
+func (c *PrivilegeController) SetRunAsAdminWithLog(checked bool) error {
+	c.cfg.SetRunAsAdmin(checked)
+	c.manager.SetElevated(checked)
+	if err := c.cfg.Save(); err != nil {
+		c.terminal.Error("Failed to save admin setting: " + err.Error())
+		return err
+	}
+	c.terminal.Infof("Admin mode: %v", checked)
+	return nil
+}
+
+// ApplySetcapWithLog applies setcap and logs the result.
+func (c *PrivilegeController) ApplySetcapWithLog() error {
+	err := c.ApplySetcap()
+	if err != nil {
+		c.terminal.Error("setcap failed: " + err.Error())
+		c.terminal.Error("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
+		return err
+	}
+	c.terminal.Info("setcap applied successfully.")
+	return nil
+}
+
+// ApplyPrivilegeAction executes a privilege action, logs the result, and returns
+// whether it succeeded, whether the privilege UI should refresh, and whether the app should exit.
+func (c *PrivilegeController) ApplyPrivilegeAction(action *PrivilegeAction) (success, needRefresh, needClose bool) {
+	err := action.Handler()
+	if err != nil {
+		c.terminal.Error(action.Label + " failed: " + err.Error())
+		if action.ID == "setcap" {
+			c.terminal.Error("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
+		}
+		return false, false, false
+	}
+	c.terminal.Info(action.Label + " succeeded.")
+	needRefresh = action.ID == "setcap" || action.ID == "run_as_admin"
+	needClose = action.ID == "restart_admin"
+	return true, needRefresh, needClose
+}

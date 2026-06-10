@@ -76,6 +76,10 @@ func (c *Controller) Log(msg string) {
 	c.logger.Log(msg)
 }
 
+func (c *Controller) LogRoot() *LogTerminal {
+	return c.logger.Root()
+}
+
 func (c *Controller) GetLogLines() []string {
 	return c.logger.GetLines()
 }
@@ -87,6 +91,11 @@ func (c *Controller) ClearLogs() {
 // Logger returns the internal logger for advanced use (e.g. setting callbacks).
 func (c *Controller) Logger() *Logger {
 	return c.logger
+}
+
+// Manager returns the internal process manager.
+func (c *Controller) Manager() *Manager {
+	return c.manager
 }
 
 // ---------- Core lifecycle ----------

@@ -219,11 +219,11 @@ func (p *MainPage) onStart() {
 	go func() {
 		defer func() { p.processing = false }()
 		if _, err := p.ctrl.PrepareConfig(); err != nil {
-			p.ctrl.Log(err.Error())
+			p.ctrl.LogTag("core", err.Error())
 			return
 		}
 		if err := p.ctrl.Start(); err != nil {
-			p.ctrl.Log("Failed to start: " + err.Error())
+			p.ctrl.LogTag("core", "Failed to start: " + err.Error())
 			return
 		}
 	}()
@@ -234,7 +234,7 @@ func (p *MainPage) onStop() {
 	go func() {
 		defer func() { p.processing = false }()
 		if err := p.ctrl.Stop(); err != nil {
-			p.ctrl.Log("Failed to stop: " + err.Error())
+			p.ctrl.LogTag("core", "Failed to stop: " + err.Error())
 			return
 		}
 	}()
@@ -245,7 +245,7 @@ func (p *MainPage) onRestart() {
 	go func() {
 		defer func() { p.processing = false }()
 		if err := p.ctrl.Restart(); err != nil {
-			p.ctrl.Log("Failed to restart: " + err.Error())
+			p.ctrl.LogTag("core", "Failed to restart: " + err.Error())
 			return
 		}
 	}()

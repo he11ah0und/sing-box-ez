@@ -7,6 +7,13 @@ import (
 	"os"
 	"time"
 
+	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/gui/gio/pages"
+	"sing-box-ez/internal/i18n"
+	"sing-box-ez/internal/updater"
+	"sing-box-ez/internal/version"
+
 	"gioui.org/app"
 	"gioui.org/font"
 	"gioui.org/font/gofont"
@@ -17,12 +24,6 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/gui/gio/pages"
-	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/updater"
-	"sing-box-ez/internal/version"
 )
 
 // GUI holds the new Gio-based adaptive UI.
@@ -257,8 +258,6 @@ func (g *GUI) Run() {
 
 	go func() {
 		g.ctrl.RunStartupSequence()
-		// Small delay so the user actually sees the spinner before it disappears.
-		time.Sleep(400 * time.Millisecond)
 		g.dialog.HideLoading()
 	}()
 
