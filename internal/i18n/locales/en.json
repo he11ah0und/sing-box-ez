@@ -206,6 +206,11 @@
   "duration.days_ago": "%d days ago",
   "duration.months_ago": "%d months ago",
   "duration.years_ago": "%d years ago",
+  "duration.in_minutes": "in %d min",
+  "duration.in_hours": "in %d h",
+  "duration.in_days": "in %d days",
+  "duration.in_months": "in %d months",
+  "duration.in_years": "in %d years",
   "language.en": "English",
   "language.ru": "Русский",
   "language.zh": "中文"

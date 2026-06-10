@@ -206,6 +206,11 @@
   "duration.days_ago": "%d дн назад",
   "duration.months_ago": "%d мес назад",
   "duration.years_ago": "%d лет назад",
+  "duration.in_minutes": "через %d мин",
+  "duration.in_hours": "через %d ч",
+  "duration.in_days": "через %d дн",
+  "duration.in_months": "через %d мес",
+  "duration.in_years": "через %d лет",
   "language.en": "English",
   "language.ru": "Русский",
   "language.zh": "中文"

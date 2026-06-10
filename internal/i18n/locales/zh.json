@@ -205,5 +205,10 @@
   "duration.hours_ago": "%d 小时前",
   "duration.days_ago": "%d 天前",
   "duration.months_ago": "%d 个月前",
-  "duration.years_ago": "%d 年前"
+  "duration.years_ago": "%d 年前",
+  "duration.in_minutes": "%d 分钟后",
+  "duration.in_hours": "%d 小时后",
+  "duration.in_days": "%d 天后",
+  "duration.in_months": "%d 个月后",
+  "duration.in_years": "%d 年后"
 }
