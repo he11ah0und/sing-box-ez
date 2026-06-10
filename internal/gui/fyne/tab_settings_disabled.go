@@ -22,17 +22,17 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 			g.ctrl.SetLogLimitWithLog(v)
 		}
 	}
-	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel(localengine.T("settings.log_limit.label")), widget.NewButton(localengine.T("settings.btn.save"), func() {
+	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel(localengine.T("settings", "log_limit", "label")), widget.NewButton(localengine.T("settings", "btn", "save"), func() {
 		g.logLimitEntry.OnSubmitted(g.logLimitEntry.Text)
 	}), g.logLimitEntry)
 
-	g.showLogsCheck = widget.NewCheck(localengine.T("settings.show_logs"), func(checked bool) {
+	g.showLogsCheck = widget.NewCheck(localengine.T("settings", "show_logs"), func(checked bool) {
 		g.cfg.SetShowLogs(checked)
 		_ = g.cfg.Save()
 	})
 	g.showLogsCheck.SetChecked(g.cfg.GetShowLogs())
 
-	g.desktopNotificationsCheck = widget.NewCheck(localengine.T("settings.desktop_notifications"), func(checked bool) {
+	g.desktopNotificationsCheck = widget.NewCheck(localengine.T("settings", "desktop_notifications"), func(checked bool) {
 		g.cfg.SetDesktopNotifications(checked)
 		_ = g.cfg.Save()
 	})
@@ -70,31 +70,31 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 			g.ctrl.SetDefaultIntervalWithLog(h)
 		}
 	}
-	intervalRow := container.NewBorder(nil, nil, widget.NewLabel(localengine.T("settings.default_interval.label")), widget.NewButton(localengine.T("settings.btn.save"), func() {
+	intervalRow := container.NewBorder(nil, nil, widget.NewLabel(localengine.T("settings", "default_interval", "label")), widget.NewButton(localengine.T("settings", "btn", "save"), func() {
 		g.defaultIntervalEntry.OnSubmitted(g.defaultIntervalEntry.Text)
 	}), g.defaultIntervalEntry)
 
 	// --- Assemble content ---
 	content := container.NewVBox(
-		widget.NewLabelWithStyle(localengine.T("settings.logging.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(localengine.T("settings", "logging", "title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		logLimitRow,
 		g.showLogsCheck,
 		g.desktopNotificationsCheck,
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle(localengine.T("settings.config.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(localengine.T("settings", "config", "title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		intervalRow,
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle(localengine.T("settings.language.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(localengine.T("settings", "language", "title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		langSelect,
 		widget.NewSeparator(),
 
-		widget.NewLabelWithStyle(localengine.T("settings.reload_ui.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewButton(localengine.T("settings.reload_ui.btn"), func() {
+		widget.NewLabelWithStyle(localengine.T("settings", "reload_ui", "title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewButton(localengine.T("settings", "reload_ui", "btn"), func() {
 			g.rebuildUI()
 		}),
 	)
 
-	return container.NewTabItem(localengine.T("tab.settings"), container.NewScroll(content))
+	return container.NewTabItem(localengine.T("tab", "settings"), container.NewScroll(content))
 }

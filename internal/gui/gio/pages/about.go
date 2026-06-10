@@ -53,7 +53,7 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog D
 func (p *AboutPage) Tag() string { return "about" }
 
 // Name returns the page name.
-func (p *AboutPage) Name() string { return localengine.T("tab.about") }
+func (p *AboutPage) Name() string { return localengine.T("tab", "about") }
 
 // Layout draws the about page.
 func (p *AboutPage) Layout(gtx layout.Context) layout.Dimensions {
@@ -97,7 +97,7 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lbl := material.H6(p.th, localengine.T("about.system.title"))
+			lbl := material.H6(p.th, localengine.T("about", "system", "title"))
 			return lbl.Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -113,14 +113,14 @@ func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.openRepoBtn, localengine.T("about.btn.open_repo")).Layout(gtx)
+				return material.Button(p.th, &p.openRepoBtn, localengine.T("about", "btn", "open_repo")).Layout(gtx)
 			})
 		}),
 	}
 	if version.IsDev() {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Body2(p.th, localengine.T("about.dev_build.label"))
+				lbl := material.Body2(p.th, localengine.T("about", "dev_build", "label"))
 				lbl.Color = p.th.Palette.ContrastBg
 				return lbl.Layout(gtx)
 			})
@@ -130,13 +130,13 @@ func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.releaseNotesBtn, localengine.T("about.btn.release_notes")).Layout(gtx)
+						return material.Button(p.th, &p.releaseNotesBtn, localengine.T("about", "btn", "release_notes")).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
 					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.openReleaseNotesBtn, localengine.T("about.btn.open_release_notes")).Layout(gtx)
+						return material.Button(p.th, &p.openReleaseNotesBtn, localengine.T("about", "btn", "open_release_notes")).Layout(gtx)
 					}),
 				)
 			})
@@ -145,17 +145,17 @@ func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 	children = append(children,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.checkUpdatesBtn, localengine.T("about.btn.check_updates")).Layout(gtx)
+				return material.Button(p.th, &p.checkUpdatesBtn, localengine.T("about", "btn", "check_updates")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.switchBranchBtn, localengine.T("about.btn.switch_branch")).Layout(gtx)
+				return material.Button(p.th, &p.switchBranchBtn, localengine.T("about", "btn", "switch_branch")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.openDataBtn, localengine.T("about.btn.open_data")).Layout(gtx)
+				return material.Button(p.th, &p.openDataBtn, localengine.T("about", "btn", "open_data")).Layout(gtx)
 			})
 		}),
 	)
@@ -170,7 +170,7 @@ func (p *AboutPage) commitInfoText() string {
 	if dt, err := version.CommitDateTime(); err == nil {
 		txt += ", " + dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 	}
-	return localengine.T("about.commit_info.prefix") + txt
+	return localengine.T("about", "commit_info", "prefix") + txt
 }
 
 func (p *AboutPage) buildInfoText() string {
@@ -178,68 +178,68 @@ func (p *AboutPage) buildInfoText() string {
 	if dt, err := version.BuildDateTime(); err == nil {
 		txt = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
 	}
-	return localengine.T("about.build_info.prefix") + txt
+	return localengine.T("about", "build_info", "prefix") + txt
 }
 
 func (p *AboutPage) fetchReleaseNotes() {
-	p.dialog.ShowLoading(localengine.T("about.release_notes.title"))
+	p.dialog.ShowLoading(localengine.T("about", "release_notes", "title"))
 	release, err := updater.GetReleaseByTag(version.Commit)
 	if err != nil {
 		if release.TagName == "" {
-			p.dialog.Show(localengine.T("about.release_notes.title"), localengine.T("about.release_notes.not_found"))
+			p.dialog.Show(localengine.T("about", "release_notes", "title"), localengine.T("about", "release_notes", "not_found"))
 			p.ctrl.LogTag("updater", "Release notes not found")
 			return
 		}
 		p.ctrl.LogTag("updater", "Failed to fetch release notes: "+err.Error())
-		p.dialog.Show(localengine.T("about.release_notes.title"), "Failed to fetch release notes")
+		p.dialog.Show(localengine.T("about", "release_notes", "title"), "Failed to fetch release notes")
 		return
 	}
 	dateStr := release.PublishedAt.Local().Format("2006-01-02 15:04:05")
 	ago := version.HumanDuration(release.PublishedAt)
 	body := fmt.Sprintf("# %s: %s\n\nReleased: %s (%s)\n\n%s",
 		release.TagName, release.Name, dateStr, ago, release.Body)
-	p.dialog.ShowMarkdown(localengine.T("about.release_notes.title")+": "+release.TagName, body)
+	p.dialog.ShowMarkdown(localengine.T("about", "release_notes", "title")+": "+release.TagName, body)
 	p.ctrl.LogTag("updater", "Release notes fetched: "+release.TagName)
 }
 
 func (p *AboutPage) checkUpdates() {
-	p.dialog.ShowLoading(localengine.T("about.btn.check_updates"))
+	p.dialog.ShowLoading(localengine.T("about", "btn", "check_updates"))
 	info, err := p.ctrl.CheckSelfUpdateWithLog()
 	if err != nil {
-		p.dialog.Show(localengine.T("about.btn.check_updates"), "Update check failed")
+		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Update check failed")
 		return
 	}
 	if info == nil {
-		p.dialog.Show(localengine.T("about.btn.check_updates"), "Already on latest version: "+version.Branch)
+		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Already on latest version: "+version.Branch)
 		return
 	}
 	msg := fmt.Sprintf("Update available: %s → %s (%d releases behind)", info.Current, info.Latest, info.ReleaseCount)
-	p.dialog.Show(localengine.T("about.btn.check_updates"), msg)
+	p.dialog.Show(localengine.T("about", "btn", "check_updates"), msg)
 }
 
 func (p *AboutPage) checkUpdatesForBranch(branch string) {
-	p.dialog.ShowLoading(localengine.T("about.btn.check_updates"))
+	p.dialog.ShowLoading(localengine.T("about", "btn", "check_updates"))
 	info, err := p.ctrl.CheckSelfUpdateForBranch(branch)
 	if err != nil {
-		p.dialog.Show(localengine.T("about.btn.check_updates"), "Update check failed")
+		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Update check failed")
 		return
 	}
 	if info.ReleaseCount == 0 {
-		p.dialog.Show(localengine.T("about.btn.check_updates"), "Already on latest version on "+branch)
+		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Already on latest version on "+branch)
 		return
 	}
 	msg := fmt.Sprintf("Update available on %s: %s → %s (%d releases behind)", branch, info.Current, info.Latest, info.ReleaseCount)
-	p.dialog.Show(localengine.T("about.btn.check_updates"), msg)
+	p.dialog.Show(localengine.T("about", "btn", "check_updates"), msg)
 }
 
 func (p *AboutPage) openBranchPicker() {
-	p.dialog.ShowLoading(localengine.T("progress.checking_updates"))
+	p.dialog.ShowLoading(localengine.T("progress", "checking_updates"))
 
 	branches, err := p.ctrl.GetBranches()
 	if err != nil {
 		p.dialog.HideLoading()
 		p.ctrl.LogTag("updater", "Failed to load branches: "+err.Error())
-		p.dialog.Show(localengine.T("about.btn.switch_branch"), "Failed to load branches: "+err.Error())
+		p.dialog.Show(localengine.T("about", "btn", "switch_branch"), "Failed to load branches: "+err.Error())
 		return
 	}
 
@@ -250,7 +250,7 @@ func (p *AboutPage) openBranchPicker() {
 
 	p.dialog.HideLoading()
 
-	p.dialog.ShowCustom(localengine.T("about.btn.switch_branch"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.ShowCustom(localengine.T("about", "btn", "switch_branch"), func(gtx layout.Context) layout.Dimensions {
 		p.pickerMu.Lock()
 		branches := p.pickerBranches
 		btns := p.pickerBtns

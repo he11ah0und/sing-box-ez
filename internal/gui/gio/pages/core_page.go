@@ -66,18 +66,18 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog Di
 func (p *CorePage) refreshVersions() {
 	ver, err := p.ctrl.GetInstalledCoreVersion()
 	if err != nil || ver == "" {
-		p.versionText = localengine.T("core.version.not_installed")
+		p.versionText = localengine.T("core", "version", "not_installed")
 	} else {
-		p.versionText = localengine.T("core.version.installed") + ver
+		p.versionText = localengine.T("core", "version", "installed") + ver
 	}
-	p.latestText = localengine.T("core.latest.checking")
+	p.latestText = localengine.T("core", "latest", "checking")
 }
 
 // Tag returns the page tag.
 func (p *CorePage) Tag() string { return "core" }
 
 // Name returns the page name.
-func (p *CorePage) Name() string { return localengine.T("tab.core") }
+func (p *CorePage) Name() string { return localengine.T("tab", "core") }
 
 // Layout draws the core page.
 func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
@@ -108,7 +108,7 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, localengine.T("tab.core")).Layout(gtx)
+				return material.H6(p.th, localengine.T("tab", "core")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -116,26 +116,26 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.downloadBtn, localengine.T("core.btn.download")).Layout(gtx)
+				return material.Button(p.th, &p.downloadBtn, localengine.T("core", "btn", "download")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.checkBtn, localengine.T("core.btn.check")).Layout(gtx)
+				return material.Button(p.th, &p.checkBtn, localengine.T("core", "btn", "check")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core.auto_restart")).Layout(gtx)
+			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.watchLogs, localengine.T("core.watch_core_logs")).Layout(gtx)
+			return material.CheckBox(p.th, &p.watchLogs, localengine.T("core", "watch_core_logs")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.separator(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, localengine.T("core.privileges.title")).Layout(gtx)
+				return material.H6(p.th, localengine.T("core", "privileges", "title")).Layout(gtx)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -176,7 +176,7 @@ func (p *CorePage) layoutWindowsPrivileges(gtx layout.Context) layout.Dimensions
 	if p.privilegeState.ShowRestartAdminBtn {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.restartAdminBtn, localengine.T("core.btn.restart_admin")).Layout(gtx)
+				return material.Button(p.th, &p.restartAdminBtn, localengine.T("core", "btn", "restart_admin")).Layout(gtx)
 			})
 		}))
 	}
@@ -184,9 +184,9 @@ func (p *CorePage) layoutWindowsPrivileges(gtx layout.Context) layout.Dimensions
 }
 
 func (p *CorePage) layoutLinuxPrivileges(gtx layout.Context) layout.Dimensions {
-	label := localengine.T("core.mode.admin")
+	label := localengine.T("core", "mode", "admin")
 	if p.privilegeMode == "setcap" {
-		label = localengine.T("core.mode.setcap")
+		label = localengine.T("core", "mode", "setcap")
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -208,7 +208,7 @@ func (p *CorePage) openPrivilegePicker() {
 	modes := []string{"admin", "setcap"}
 	btns := make([]widget.Clickable, len(modes))
 
-	p.dialog.ShowCustom(localengine.T("core.privileges.title"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.ShowCustom(localengine.T("core", "privileges", "title"), func(gtx layout.Context) layout.Dimensions {
 		for i := range modes {
 			if btns[i].Clicked(gtx) {
 				p.dialog.HideCustom()
@@ -220,7 +220,7 @@ func (p *CorePage) openPrivilegePicker() {
 		for i, m := range modes {
 			idx := i
 			mode := m
-			label := localengine.T("core.mode." + mode)
+			label := localengine.T("core", "mode", mode)
 			if mode == p.privilegeMode {
 				label = "> " + label
 			}
@@ -258,11 +258,11 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 	var applyBtn widget.Clickable
 	var cancelBtn widget.Clickable
 
-	p.dialog.ShowCustom(localengine.T("core.btn.apply_setcap"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.ShowCustom(localengine.T("core", "btn", "apply_setcap"), func(gtx layout.Context) layout.Dimensions {
 		if applyBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			go func() {
-				p.dialog.ShowLoading(localengine.T("progress.applying_setcap"))
+				p.dialog.ShowLoading(localengine.T("progress", "applying_setcap"))
 				err := p.ctrl.ApplySetcapWithLog()
 				p.dialog.HideLoading()
 				if err == nil {
@@ -278,17 +278,17 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, localengine.T("core.mode.setcap_prompt")).Layout(gtx)
+				return material.Body2(p.th, localengine.T("core", "mode", "setcap_prompt")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &applyBtn, localengine.T("core.btn.apply")).Layout(gtx)
+							return material.Button(p.th, &applyBtn, localengine.T("core", "btn", "apply")).Layout(gtx)
 						}),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return material.Button(p.th, &cancelBtn, localengine.T("dialog.btn.cancel")).Layout(gtx)
+								return material.Button(p.th, &cancelBtn, localengine.T("dialog", "btn", "cancel")).Layout(gtx)
 							})
 						}),
 					)
@@ -299,25 +299,25 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 }
 
 func (p *CorePage) onDownloadCore() {
-	p.dialog.ShowLoading(localengine.T("progress.checking_version"))
+	p.dialog.ShowLoading(localengine.T("progress", "checking_version"))
 	path, err := p.ctrl.DownloadCoreWithProgressWithLog(nil)
 	p.dialog.HideLoading()
 	if err != nil {
 		return
 	}
 	ver, _ := p.ctrl.GetInstalledCoreVersion()
-	p.dialog.Show(localengine.T("core.btn.download"), fmt.Sprintf(localengine.T("dialog.download_complete.msg"), ver, path))
+	p.dialog.Show(localengine.T("core", "btn", "download"), fmt.Sprintf(localengine.T("dialog", "download_complete", "msg"), ver, path))
 	go p.refreshVersions()
 }
 
 func (p *CorePage) onCheckVersion() {
-	p.dialog.ShowLoading(localengine.T("progress.checking_version"))
+	p.dialog.ShowLoading(localengine.T("progress", "checking_version"))
 	ver, err := p.ctrl.GetLatestCoreVersionWithLog()
 	p.dialog.HideLoading()
 	if err != nil {
 		return
 	}
-	p.latestText = localengine.T("core.latest.prefix") + ver
+	p.latestText = localengine.T("core", "latest", "prefix") + ver
 	p.showVersionInfoDialog(ver)
 }
 
@@ -325,16 +325,16 @@ func (p *CorePage) showVersionInfoDialog(latest string) {
 	currentVer, err := p.ctrl.GetInstalledCoreVersion()
 	var body string
 	if err != nil || currentVer == "" {
-		body = localengine.T("dialog.version_check.core_not_installed") + "\n" +
-			localengine.T("dialog.version_check.latest") + latest
+		body = localengine.T("dialog", "version_check", "core_not_installed") + "\n" +
+			localengine.T("dialog", "version_check", "latest") + latest
 	} else {
-		body = localengine.T("dialog.version_check.current") + currentVer + "\n" +
-			localengine.T("dialog.version_check.latest") + latest + "\n"
+		body = localengine.T("dialog", "version_check", "current") + currentVer + "\n" +
+			localengine.T("dialog", "version_check", "latest") + latest + "\n"
 		if currentVer == latest {
-			body += localengine.T("dialog.version_check.latest_installed")
+			body += localengine.T("dialog", "version_check", "latest_installed")
 		} else {
-			body += localengine.T("dialog.version_check.update_available")
+			body += localengine.T("dialog", "version_check", "update_available")
 		}
 	}
-	p.dialog.Show(localengine.T("dialog.version_check.title"), body)
+	p.dialog.Show(localengine.T("dialog", "version_check", "title"), body)
 }

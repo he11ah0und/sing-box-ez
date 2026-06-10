@@ -1,6 +1,6 @@
 // Package localengine provides a tiny in-memory localization engine.
-// It reads nested YAML locale files, flattens keys with dots, and supports
-// text/template interpolation (e.g. {{.Name}}).
+// It reads nested YAML locale files and supports lookup by path segments,
+// e.g. localengine.T("about", "btn", "open_repo").
 package localengine
 
 import (
@@ -10,13 +10,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"text/template"
 
 	"gopkg.in/yaml.v3"
 )
 
 var (
-	bundles     = make(map[string]map[string]string)
+	bundles     = make(map[string]map[string]any)
 	currentLang = "en"
 )
 
@@ -55,59 +54,48 @@ func loadLanguage(lang string, data []byte) error {
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	bundles[lang] = flatten(raw, "")
+	bundles[lang] = raw
 	return nil
 }
 
-func flatten(src map[string]any, prefix string) map[string]string {
-	dst := make(map[string]string)
-	for k, v := range src {
-		key := k
-		if prefix != "" {
-			key = prefix + "." + k
+// lookup walks the nested map for the requested path.
+func lookup(tree map[string]any, path []string) (string, bool) {
+	if len(path) == 0 {
+		return "", false
+	}
+	current, ok := tree[path[0]]
+	if !ok {
+		return "", false
+	}
+	for _, p := range path[1:] {
+		sub, ok := current.(map[string]any)
+		if !ok {
+			return "", false
 		}
-		switch val := v.(type) {
-		case string:
-			dst[key] = val
-		case map[string]any:
-			for nk, nv := range flatten(val, key) {
-				dst[nk] = nv
-			}
-		default:
-			// Non-string leaf values are stringified; this should not happen
-			// for normal translation files but keeps the engine forgiving.
-			dst[key] = fmt.Sprint(val)
+		current, ok = sub[p]
+		if !ok {
+			return "", false
 		}
 	}
-	return dst
+	s, ok := current.(string)
+	return s, ok
 }
 
-// T returns the localized string for the given message id.
-// Optional template data can be passed for interpolation.
-func T(id string, data ...map[string]any) string {
-	msg, ok := bundles[currentLang][id]
-	if !ok || msg == "" {
-		msg = bundles["en"][id]
-	}
-	if msg == "" {
-		return id
-	}
-	var tmplData map[string]any
-	if len(data) > 0 {
-		tmplData = data[0]
-	}
-	if tmplData == nil {
+// joinPath reconstructs a dotted path for error fallback messages.
+func joinPath(path []string) string {
+	return strings.Join(path, ".")
+}
+
+// T returns the localized string for the given path segments.
+// Falls back to English and finally to the dotted path itself.
+func T(path ...string) string {
+	if msg, ok := lookup(bundles[currentLang], path); ok && msg != "" {
 		return msg
 	}
-	tmpl, err := template.New("t").Parse(msg)
-	if err != nil {
+	if msg, ok := lookup(bundles["en"], path); ok && msg != "" {
 		return msg
 	}
-	var b strings.Builder
-	if err := tmpl.Execute(&b, tmplData); err != nil {
-		return msg
-	}
-	return b.String()
+	return joinPath(path)
 }
 
 // SetLanguage sets the active language. Falls back to English for unknown codes.
@@ -150,10 +138,10 @@ func DetectSystemLanguage() string {
 }
 
 // LanguageName returns the native name of the language for the given code
-// (reads the "locale.name" key from that language's messages).
+// (reads locale.name from that language's messages).
 func LanguageName(code string) string {
 	if b, ok := bundles[code]; ok {
-		if name, ok := b["locale.name"]; ok && name != "" {
+		if name, ok := lookup(b, []string{"locale", "name"}); ok && name != "" {
 			return name
 		}
 	}

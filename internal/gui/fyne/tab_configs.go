@@ -54,7 +54,7 @@ func measureTextWidth(text string, bold bool) float32 {
 func (g *GUI) buildConfigsTab() *container.TabItem {
 	g.refreshConfigData()
 
-	headers := []string{g.t("configs.table.name"), g.t("configs.table.source"), g.t("configs.table.last_update"), g.t("configs.table.next_update"), g.t("configs.table.period"), g.t("configs.table.cached")}
+	headers := []string{g.t("configs", "table", "name"), g.t("configs", "table", "source"), g.t("configs", "table", "last_update"), g.t("configs", "table", "next_update"), g.t("configs", "table", "period"), g.t("configs", "table", "cached")}
 	cols := len(headers)
 
 	colWidths := g.computeConfigColumnWidths(headers)
@@ -85,11 +85,11 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 	}
 
 	btnRow := container.NewHBox(
-		widget.NewButton(g.t("configs.btn.add"), g.onAddConfig),
-		widget.NewButton(g.t("configs.btn.edit"), g.onEditConfig),
-		widget.NewButton(g.t("configs.btn.delete"), g.onDeleteConfig),
-		widget.NewButton(g.t("configs.btn.activate"), g.onActivateConfig),
-		widget.NewButton(g.t("configs.btn.update_all"), g.onUpdateAllConfigs),
+		widget.NewButton(g.t("configs", "btn", "add"), g.onAddConfig),
+		widget.NewButton(g.t("configs", "btn", "edit"), g.onEditConfig),
+		widget.NewButton(g.t("configs", "btn", "delete"), g.onDeleteConfig),
+		widget.NewButton(g.t("configs", "btn", "activate"), g.onActivateConfig),
+		widget.NewButton(g.t("configs", "btn", "update_all"), g.onUpdateAllConfigs),
 	)
 
 	totalWidth := float32(0)
@@ -100,7 +100,7 @@ func (g *GUI) buildConfigsTab() *container.TabItem {
 	tableScroll.SetMinSize(fyne.NewSize(totalWidth, 400))
 
 	content := container.NewBorder(btnRow, nil, nil, nil, tableScroll)
-	return container.NewTabItem(g.t("tab.configs"), content)
+	return container.NewTabItem(g.t("tab", "configs"), content)
 }
 
 func (g *GUI) computeConfigColumnWidths(headers []string) []float32 {
@@ -138,7 +138,7 @@ func (g *GUI) configNameWidth(rec config.ConfigRecord) float32 {
 func (g *GUI) configSourceWidth(rec config.ConfigRecord) float32 {
 	src := rec.Parent
 	if src == "" || src == "user" {
-		src = g.t("configs.table.user")
+		src = g.t("configs", "table", "user")
 	} else if len(src) > 3 && src[:3] == "pl-" {
 		src = src[3:]
 	}
@@ -147,7 +147,7 @@ func (g *GUI) configSourceWidth(rec config.ConfigRecord) float32 {
 
 func (g *GUI) configLastUpdateWidth(rec config.ConfigRecord) float32 {
 	if rec.LastUpdate.IsZero() {
-		return measureTextWidth(g.t("configs.table.never"), false)
+		return measureTextWidth(g.t("configs", "table", "never"), false)
 	}
 	return measureTextWidth(rec.LastUpdate.Format(timeLayout), false)
 }
@@ -155,16 +155,16 @@ func (g *GUI) configLastUpdateWidth(rec config.ConfigRecord) float32 {
 func (g *GUI) configNextUpdateWidth(rec config.ConfigRecord) float32 {
 	next := rec.NextUpdate()
 	if next.IsZero() {
-		return measureTextWidth(g.t("configs.table.now"), false)
+		return measureTextWidth(g.t("configs", "table", "now"), false)
 	}
 	return measureTextWidth(next.Format(timeLayout), false)
 }
 
 func (g *GUI) configCachedWidth(rec config.ConfigRecord) float32 {
 	if g.ctrl.HasCachedConfig(rec.Name) {
-		return measureTextWidth(g.t("configs.table.yes"), false)
+		return measureTextWidth(g.t("configs", "table", "yes"), false)
 	}
-	return measureTextWidth(g.t("configs.table.no"), false)
+	return measureTextWidth(g.t("configs", "table", "no"), false)
 }
 
 func (g *GUI) updateConfigTableCell(id widget.TableCellID, obj fyne.CanvasObject) {
@@ -197,29 +197,29 @@ func (g *GUI) configCellText(rec config.ConfigRecord, col int) string {
 	case 1:
 		src := rec.Parent
 		if src == "" || src == "user" {
-			src = g.t("configs.table.user")
+			src = g.t("configs", "table", "user")
 		} else if len(src) > 3 && src[:3] == "pl-" {
 			src = src[3:]
 		}
 		return src
 	case 2:
 		if rec.LastUpdate.IsZero() {
-			return g.t("configs.table.never")
+			return g.t("configs", "table", "never")
 		}
 		return rec.LastUpdate.Format(timeLayout)
 	case 3:
 		next := rec.NextUpdate()
 		if next.IsZero() {
-			return g.t("configs.table.now")
+			return g.t("configs", "table", "now")
 		}
 		return next.Format(timeLayout)
 	case 4:
 		return fmt.Sprintf("%dh", rec.UpdateIntervalHours)
 	case 5:
 		if g.ctrl.HasCachedConfig(rec.Name) {
-			return g.t("configs.table.yes")
+			return g.t("configs", "table", "yes")
 		}
-		return g.t("configs.table.no")
+		return g.t("configs", "table", "no")
 	}
 	return ""
 }
@@ -245,17 +245,17 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 	}
 
 	content := container.NewVBox(
-		widget.NewLabel(g.t("configs.dialog.name")),
+		widget.NewLabel(g.t("configs", "dialog", "name")),
 		nameEntry,
-		widget.NewLabel(g.t("configs.dialog.url")),
+		widget.NewLabel(g.t("configs", "dialog", "url")),
 		urlEntry,
-		widget.NewLabel(g.t("configs.dialog.period")),
+		widget.NewLabel(g.t("configs", "dialog", "period")),
 		periodEntry,
 	)
 
 	var d dialog.Dialog
 
-	saveBtn := widget.NewButton(g.t("configs.dialog.btn.save"), func() {
+	saveBtn := widget.NewButton(g.t("configs", "dialog", "btn", "save"), func() {
 		var hours int
 		_, _ = fmt.Sscanf(periodEntry.Text, "%d", &hours)
 		if hours <= 0 {
@@ -276,24 +276,24 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 
 	var footer *fyne.Container
 	if existing != nil && onDelete != nil {
-		updateBtn := widget.NewButton(g.t("configs.dialog.btn.update_now"), func() {
+		updateBtn := widget.NewButton(g.t("configs", "dialog", "btn", "update_now"), func() {
 			d.Hide()
 			if err := g.ctrl.UpdateConfigNowWithLog(existing.Name, urlEntry.Text); err == nil {
 				g.refreshConfigData()
 				g.configTable.Refresh()
 			}
 		})
-		delBtn := widget.NewButton(g.t("configs.dialog.btn.delete"), func() {
+		delBtn := widget.NewButton(g.t("configs", "dialog", "btn", "delete"), func() {
 			d.Hide()
 			onDelete()
 		})
-		footer = container.NewHBox(saveBtn, updateBtn, delBtn, widget.NewButton(g.t("configs.dialog.btn.cancel"), func() { d.Hide() }))
+		footer = container.NewHBox(saveBtn, updateBtn, delBtn, widget.NewButton(g.t("configs", "dialog", "btn", "cancel"), func() { d.Hide() }))
 	} else {
-		footer = container.NewHBox(saveBtn, widget.NewButton(g.t("configs.dialog.btn.cancel"), func() { d.Hide() }))
+		footer = container.NewHBox(saveBtn, widget.NewButton(g.t("configs", "dialog", "btn", "cancel"), func() { d.Hide() }))
 	}
 
 	full := container.NewBorder(nil, footer, nil, nil, content)
-	d = dialog.NewCustomWithoutButtons(g.t("configs.dialog.title"), full, g.window)
+	d = dialog.NewCustomWithoutButtons(g.t("configs", "dialog", "title"), full, g.window)
 	d.Resize(fyne.NewSize(500, 280))
 	d.Show()
 }
@@ -333,7 +333,7 @@ func (g *GUI) onDeleteConfig() {
 		return
 	}
 	name := g.configData[g.configSelected].Name
-	dialog.ShowConfirm(g.t("configs.dialog.delete_title"), g.t("configs.dialog.delete_msg")+" \""+name+"\"?", func(ok bool) {
+	dialog.ShowConfirm(g.t("configs", "dialog", "delete_title"), g.t("configs", "dialog", "delete_msg")+" \""+name+"\"?", func(ok bool) {
 		if !ok {
 			return
 		}
@@ -359,7 +359,7 @@ func (g *GUI) onActivateConfig() {
 
 func (g *GUI) onUpdateAllConfigs() {
 	go func() {
-		progressModal, progress := g.showProgressDialog(g.t("progress.updating_configs"))
+		progressModal, progress := g.showProgressDialog(g.t("progress", "updating_configs"))
 		_, total, err := g.ctrl.UpdateAllConfigsWithLog(func(done, total int) {
 			fyne.Do(func() {
 				progress.SetValue(float64(done) / float64(total))
