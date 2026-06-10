@@ -73,12 +73,12 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 			urlStr = githuburl.DefaultProject().WebLatestReleaseURL()
 		}
 		if err := openurl.OpenURL(urlStr); err != nil {
-			p.ctrl.Log("Failed to open release notes: " + err.Error())
+			p.ctrl.LogTag("app", "Failed to open release notes: " + err.Error())
 		}
 	}
 	if p.openDataBtn.Clicked(gtx) {
 		if err := paths.OpenDataDir(); err != nil {
-			p.ctrl.Log("Failed to open data folder: " + err.Error())
+			p.ctrl.LogTag("app", "Failed to open data folder: " + err.Error())
 		}
 	}
 	if p.checkUpdatesBtn.Clicked(gtx) {
@@ -89,7 +89,7 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	}
 	if p.openRepoBtn.Clicked(gtx) {
 		if err := openurl.OpenURL(githuburl.DefaultProject().RepoURL()); err != nil {
-			p.ctrl.Log("Failed to open repo: " + err.Error())
+			p.ctrl.LogTag("app", "Failed to open repo: " + err.Error())
 		}
 	}
 }
@@ -187,10 +187,10 @@ func (p *AboutPage) fetchReleaseNotes() {
 	if err != nil {
 		if release.TagName == "" {
 			p.dialog.Show(i18n.T("about.release_notes.title"), i18n.T("about.release_notes.not_found"))
-			p.ctrl.Log("Release notes not found")
+			p.ctrl.LogTag("updater", "Release notes not found")
 			return
 		}
-		p.ctrl.Log("Failed to fetch release notes: " + err.Error())
+		p.ctrl.LogTag("updater", "Failed to fetch release notes: " + err.Error())
 		p.dialog.Show(i18n.T("about.release_notes.title"), "Failed to fetch release notes")
 		return
 	}
@@ -199,7 +199,7 @@ func (p *AboutPage) fetchReleaseNotes() {
 	body := fmt.Sprintf("# %s: %s\n\nReleased: %s (%s)\n\n%s",
 		release.TagName, release.Name, dateStr, ago, release.Body)
 	p.dialog.ShowMarkdown(i18n.T("about.release_notes.title")+": "+release.TagName, body)
-	p.ctrl.Log("Release notes fetched: " + release.TagName)
+	p.ctrl.LogTag("updater", "Release notes fetched: " + release.TagName)
 }
 
 func (p *AboutPage) checkUpdates() {
@@ -238,7 +238,7 @@ func (p *AboutPage) openBranchPicker() {
 	branches, err := p.ctrl.GetBranches()
 	if err != nil {
 		p.dialog.HideLoading()
-		p.ctrl.Log("Failed to load branches: " + err.Error())
+		p.ctrl.LogTag("updater", "Failed to load branches: " + err.Error())
 		p.dialog.Show(i18n.T("about.btn.switch_branch"), "Failed to load branches: "+err.Error())
 		return
 	}
@@ -279,5 +279,5 @@ func (p *AboutPage) openBranchPicker() {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 	})
 
-	p.ctrl.Log(fmt.Sprintf("Loaded %d branches", len(branches)))
+	p.ctrl.LogTag("updater", fmt.Sprintf("Loaded %d branches", len(branches)))
 }
