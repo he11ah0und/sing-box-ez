@@ -1,10 +1,10 @@
 package fynegui
 
 import (
+	"sing-box-ez/internal/framework/util/githuburl"
+	"sing-box-ez/internal/framework/util/openurl"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/util/githuburl"
-	"sing-box-ez/internal/util/openurl"
-	"sing-box-ez/internal/version"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"

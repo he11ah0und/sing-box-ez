@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	Branch    = "dev"
+	Branch    = "unknown"
 	BuildDate = "unknown"
 	Commit    = "unknown"
 
@@ -15,7 +15,7 @@ var (
 	BuildGUI      = "unknown"
 	BuildBackend  = ""
 	BuildCompiler = "unknown"
-	BuildDev      = "false"
+	BuildDev      = "true"
 	CommitDate    = "unknown"
 )
 

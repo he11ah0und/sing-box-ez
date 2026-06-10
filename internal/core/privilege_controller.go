@@ -4,6 +4,7 @@ import (
 	"runtime"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/i18n"
 )
 
@@ -40,16 +41,16 @@ type PrivilegeTabState struct {
 type PrivilegeController struct {
 	cfg      *config.AppConfig
 	manager  *Manager
-	terminal *LogTerminal
+	terminal *logger.LogTerminal
 }
 
 // Terminal returns the logging terminal used by this controller.
-func (c *PrivilegeController) Terminal() *LogTerminal {
+func (c *PrivilegeController) Terminal() *logger.LogTerminal {
 	return c.terminal
 }
 
 // NewPrivilegeController creates a new privilege controller.
-func NewPrivilegeController(cfg *config.AppConfig, manager *Manager, terminal *LogTerminal) *PrivilegeController {
+func NewPrivilegeController(cfg *config.AppConfig, manager *Manager, terminal *logger.LogTerminal) *PrivilegeController {
 	return &PrivilegeController{
 		cfg:      cfg,
 		manager:  manager,

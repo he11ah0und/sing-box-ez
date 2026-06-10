@@ -4,15 +4,17 @@ import (
 	"sync"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/logger"
 )
 
 // Controller is the base entry-point for core business logic.
 // It provides lifecycle management, logging, and config operations.
 // Interactive UI layers should use InteractiveController instead.
 type Controller struct {
-	cfg     *config.AppConfig
-	manager *Manager
-	logger  *Logger
+	cfg       *config.AppConfig
+	manager   *Manager
+	logger    *logger.Logger
+	processor *CoreLogProcessor
 
 	stopped bool
 	stopMu  sync.Mutex
@@ -33,13 +35,16 @@ func NewController(cfg *config.AppConfig) *Controller {
 
 	logWriter := NewCoreLogWriter()
 	manager.SetLogOutput(logWriter)
-	logger := NewLogger(cfg, logWriter, manager)
-	logger.Start()
+
+	log := logger.NewLogger(cfg.GetLogLimit())
+	processor := NewCoreLogProcessor(cfg, manager, logWriter, log.Root())
+	processor.Start()
 
 	c := &Controller{
-		cfg:     cfg,
-		manager: manager,
-		logger:  logger,
+		cfg:       cfg,
+		manager:   manager,
+		logger:    log,
+		processor: processor,
 	}
 
 	return c
@@ -50,8 +55,8 @@ func (c *Controller) Close() {
 	c.stopMu.Lock()
 	c.stopped = true
 	c.stopMu.Unlock()
-	if c.logger != nil {
-		c.logger.Close()
+	if c.processor != nil {
+		c.processor.Stop()
 	}
 	if c.manager.IsRunning() {
 		_ = c.manager.Stop()
@@ -76,7 +81,7 @@ func (c *Controller) Log(msg string) {
 	c.logger.Log(msg)
 }
 
-func (c *Controller) LogRoot() *LogTerminal {
+func (c *Controller) LogRoot() *logger.LogTerminal {
 	return c.logger.Root()
 }
 
@@ -88,9 +93,14 @@ func (c *Controller) ClearLogs() {
 	c.logger.Clear()
 }
 
-// Logger returns the internal logger for advanced use (e.g. setting callbacks).
-func (c *Controller) Logger() *Logger {
+// Logger returns the internal logger for advanced use.
+func (c *Controller) Logger() *logger.Logger {
 	return c.logger
+}
+
+// LogProcessor returns the core log processor (for setting callbacks such as OnAutoRestart).
+func (c *Controller) LogProcessor() *CoreLogProcessor {
+	return c.processor
 }
 
 // Manager returns the internal process manager.

@@ -11,12 +11,12 @@ import (
 	"gioui.org/widget/material"
 
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/framework/util/githuburl"
+	"sing-box-ez/internal/framework/util/openurl"
+	"sing-box-ez/internal/framework/util/paths"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/updater"
-	"sing-box-ez/internal/util/githuburl"
-	"sing-box-ez/internal/util/openurl"
-	"sing-box-ez/internal/util/paths"
-	"sing-box-ez/internal/version"
 )
 
 // AboutPage renders the about / system info screen.
@@ -73,12 +73,12 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 			urlStr = githuburl.DefaultProject().WebLatestReleaseURL()
 		}
 		if err := openurl.OpenURL(urlStr); err != nil {
-			p.ctrl.LogTag("app", "Failed to open release notes: " + err.Error())
+			p.ctrl.LogTag("app", "Failed to open release notes: "+err.Error())
 		}
 	}
 	if p.openDataBtn.Clicked(gtx) {
 		if err := paths.OpenDataDir(); err != nil {
-			p.ctrl.LogTag("app", "Failed to open data folder: " + err.Error())
+			p.ctrl.LogTag("app", "Failed to open data folder: "+err.Error())
 		}
 	}
 	if p.checkUpdatesBtn.Clicked(gtx) {
@@ -89,7 +89,7 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	}
 	if p.openRepoBtn.Clicked(gtx) {
 		if err := openurl.OpenURL(githuburl.DefaultProject().RepoURL()); err != nil {
-			p.ctrl.LogTag("app", "Failed to open repo: " + err.Error())
+			p.ctrl.LogTag("app", "Failed to open repo: "+err.Error())
 		}
 	}
 }
@@ -190,7 +190,7 @@ func (p *AboutPage) fetchReleaseNotes() {
 			p.ctrl.LogTag("updater", "Release notes not found")
 			return
 		}
-		p.ctrl.LogTag("updater", "Failed to fetch release notes: " + err.Error())
+		p.ctrl.LogTag("updater", "Failed to fetch release notes: "+err.Error())
 		p.dialog.Show(i18n.T("about.release_notes.title"), "Failed to fetch release notes")
 		return
 	}
@@ -199,7 +199,7 @@ func (p *AboutPage) fetchReleaseNotes() {
 	body := fmt.Sprintf("# %s: %s\n\nReleased: %s (%s)\n\n%s",
 		release.TagName, release.Name, dateStr, ago, release.Body)
 	p.dialog.ShowMarkdown(i18n.T("about.release_notes.title")+": "+release.TagName, body)
-	p.ctrl.LogTag("updater", "Release notes fetched: " + release.TagName)
+	p.ctrl.LogTag("updater", "Release notes fetched: "+release.TagName)
 }
 
 func (p *AboutPage) checkUpdates() {
@@ -238,7 +238,7 @@ func (p *AboutPage) openBranchPicker() {
 	branches, err := p.ctrl.GetBranches()
 	if err != nil {
 		p.dialog.HideLoading()
-		p.ctrl.LogTag("updater", "Failed to load branches: " + err.Error())
+		p.ctrl.LogTag("updater", "Failed to load branches: "+err.Error())
 		p.dialog.Show(i18n.T("about.btn.switch_branch"), "Failed to load branches: "+err.Error())
 		return
 	}

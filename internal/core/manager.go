@@ -262,6 +262,11 @@ func NewCoreLogWriter() *CoreLogWriter {
 	}
 }
 
+// Chan returns the read side of the log line channel.
+func (w *CoreLogWriter) Chan() <-chan string {
+	return w.Ch
+}
+
 func (w *CoreLogWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

@@ -12,9 +12,9 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
+	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/updater"
-	"sing-box-ez/internal/version"
 )
 
 // ---------------------------------------------------------------------------

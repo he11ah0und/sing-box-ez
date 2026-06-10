@@ -12,9 +12,9 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
+	"sing-box-ez/internal/framework/util/paths"
 	"sing-box-ez/internal/i18n"
 	"sing-box-ez/internal/plugins"
-	"sing-box-ez/internal/util/paths"
 )
 
 // pluginListItem holds the data needed to render one row.

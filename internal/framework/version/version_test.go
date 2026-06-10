@@ -129,12 +129,13 @@ func TestBuildFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldOS, oldArch, oldCompiler, oldGUI, oldBackend := BuildOS, BuildArch, BuildCompiler, BuildGUI, BuildBackend
+			oldOS, oldArch, oldCompiler, oldGUI, oldBackend, oldDev := BuildOS, BuildArch, BuildCompiler, BuildGUI, BuildBackend, BuildDev
 			defer func() {
-				BuildOS, BuildArch, BuildCompiler, BuildGUI, BuildBackend = oldOS, oldArch, oldCompiler, oldGUI, oldBackend
+				BuildOS, BuildArch, BuildCompiler, BuildGUI, BuildBackend, BuildDev = oldOS, oldArch, oldCompiler, oldGUI, oldBackend, oldDev
 			}()
 
 			BuildOS, BuildArch, BuildCompiler, BuildGUI, BuildBackend = tt.buildOS, tt.buildArch, tt.buildCompiler, tt.buildGUI, tt.buildBackend
+			BuildDev = "false"
 			if got := BuildFlags(); got != tt.want {
 				t.Errorf("BuildFlags() = %q, want %q", got, tt.want)
 			}

@@ -14,11 +14,11 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/framework/util/githuburl"
+	"sing-box-ez/internal/framework/util/paths"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/plugins"
-	"sing-box-ez/internal/updater"
-	"sing-box-ez/internal/util/githuburl"
-	"sing-box-ez/internal/util/paths"
-	"sing-box-ez/internal/version"
 )
 
 // cmdDef describes a CLI command.

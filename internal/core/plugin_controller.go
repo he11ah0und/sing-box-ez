@@ -2,20 +2,21 @@ package core
 
 import (
 	"fmt"
+	"sing-box-ez/internal/framework/logger"
 )
 
 // PluginController manages plugin operations and logging.
 type PluginController struct {
-	terminal *LogTerminal
+	terminal *logger.LogTerminal
 }
 
 // Terminal returns the logging terminal used by this controller.
-func (c *PluginController) Terminal() *LogTerminal {
+func (c *PluginController) Terminal() *logger.LogTerminal {
 	return c.terminal
 }
 
 // NewPluginController creates a new plugin controller.
-func NewPluginController(terminal *LogTerminal) *PluginController {
+func NewPluginController(terminal *logger.LogTerminal) *PluginController {
 	return &PluginController{terminal: terminal}
 }
 

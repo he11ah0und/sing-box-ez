@@ -17,8 +17,8 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/version"
 )
 
 // ConfigsPage renders the configs management screen as vertical cards.

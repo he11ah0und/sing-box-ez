@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"sing-box-ez/internal/version"
+	"sing-box-ez/internal/framework/version"
 )
 
 func TestCheckUpdateWithLatest(t *testing.T) {

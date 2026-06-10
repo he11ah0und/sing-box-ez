@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"sing-box-ez/internal/util/githuburl"
-	"sing-box-ez/internal/util/paths"
+	"sing-box-ez/internal/framework/util/githuburl"
+	"sing-box-ez/internal/framework/util/paths"
 )
 
 // ProgressFunc вызывается во время скачивания: скачано, всего.

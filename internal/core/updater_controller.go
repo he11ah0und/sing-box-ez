@@ -2,23 +2,24 @@ package core
 
 import (
 	"fmt"
+	"sing-box-ez/internal/framework/logger"
 
-	"sing-box-ez/internal/updater"
-	"sing-box-ez/internal/version"
+	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/framework/version"
 )
 
 // UpdaterController manages application self-update and release checks.
 type UpdaterController struct {
-	terminal *LogTerminal
+	terminal *logger.LogTerminal
 }
 
 // Terminal returns the logging terminal used by this controller.
-func (c *UpdaterController) Terminal() *LogTerminal {
+func (c *UpdaterController) Terminal() *logger.LogTerminal {
 	return c.terminal
 }
 
 // NewUpdaterController creates a new updater controller.
-func NewUpdaterController(terminal *LogTerminal) *UpdaterController {
+func NewUpdaterController(terminal *logger.LogTerminal) *UpdaterController {
 	return &UpdaterController{terminal: terminal}
 }
 
