@@ -40,9 +40,8 @@ func (g *GUI) buildMainTab() *container.TabItem {
 	}
 
 	g.startBtn = widget.NewButtonWithIcon(i18n.T("main.btn.start"), theme.MediaPlayIcon(), g.onStart)
-	g.stopBtn = widget.NewButtonWithIcon(i18n.T("main.btn.stop"), theme.MediaStopIcon(), g.onStop)
 	g.restartBtn = widget.NewButtonWithIcon(i18n.T("main.btn.restart"), theme.ViewRefreshIcon(), g.onRestart)
-	controlRow := container.NewHBox(g.startBtn, g.stopBtn, g.restartBtn)
+	controlRow := container.NewHBox(g.startBtn, g.restartBtn)
 
 	content := container.NewVBox(
 		g.configSelect,
