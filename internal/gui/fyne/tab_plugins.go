@@ -218,7 +218,7 @@ func (g *GUI) showPluginInfo(name string) {
 	if mf.Enabled {
 		statusKey = "plugins.status.enabled"
 	}
-	addRow(localengine.T("plugins", "info", "status"), localengine.T(statusKey))
+	addRow(localengine.T("plugins", "info", "status"), localengine.T(strings.Split(statusKey, ".")...))
 
 	// If it's a folder without update_url, show a note.
 	if mf.SourceType == "folder" {
