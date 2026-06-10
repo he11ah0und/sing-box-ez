@@ -22,34 +22,33 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 	if d < 0 {
 		d = -d
 	}
-	if future {
-		switch {
-		case d < time.Minute:
-			return i18n.T("duration.just_now")
-		case d < time.Hour:
-			return fmt.Sprintf(i18n.T("duration.in_minutes"), int(d.Minutes()))
-		case d < 24*time.Hour:
-			return fmt.Sprintf(i18n.T("duration.in_hours"), int(d.Hours()))
-		case d < 30*24*time.Hour:
-			return fmt.Sprintf(i18n.T("duration.in_days"), int(d.Hours()/24))
-		case d < 365*24*time.Hour:
-			return fmt.Sprintf(i18n.T("duration.in_months"), int(d.Hours()/24/30))
-		default:
-			return fmt.Sprintf(i18n.T("duration.in_years"), int(d.Hours()/24/365))
-		}
-	}
-	switch {
-	case d < time.Minute:
+	if d < time.Minute {
 		return i18n.T("duration.just_now")
-	case d < time.Hour:
-		return fmt.Sprintf(i18n.T("duration.minutes_ago"), int(d.Minutes()))
-	case d < 24*time.Hour:
-		return fmt.Sprintf(i18n.T("duration.hours_ago"), int(d.Hours()))
-	case d < 30*24*time.Hour:
-		return fmt.Sprintf(i18n.T("duration.days_ago"), int(d.Hours()/24))
-	case d < 365*24*time.Hour:
-		return fmt.Sprintf(i18n.T("duration.months_ago"), int(d.Hours()/24/30))
-	default:
-		return fmt.Sprintf(i18n.T("duration.years_ago"), int(d.Hours()/24/365))
 	}
+
+	var unitKey string
+	var value int
+	switch {
+	case d < time.Hour:
+		unitKey = "duration.unit_minutes"
+		value = int(d.Minutes())
+	case d < 24*time.Hour:
+		unitKey = "duration.unit_hours"
+		value = int(d.Hours())
+	case d < 30*24*time.Hour:
+		unitKey = "duration.unit_days"
+		value = int(d.Hours() / 24)
+	case d < 365*24*time.Hour:
+		unitKey = "duration.unit_months"
+		value = int(d.Hours() / 24 / 30)
+	default:
+		unitKey = "duration.unit_years"
+		value = int(d.Hours() / 24 / 365)
+	}
+
+	unit := fmt.Sprintf(i18n.T(unitKey), value)
+	if future {
+		return fmt.Sprintf(i18n.T("duration.in"), unit)
+	}
+	return fmt.Sprintf(i18n.T("duration.ago"), unit)
 }
