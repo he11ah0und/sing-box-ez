@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -16,8 +17,6 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 	// --- Core block ---
 	g.versionText = canvas.NewText(i18n.T("core.version.not_installed"), color.Black)
 	g.versionText.TextSize = theme.TextSize()
-	g.latestText = canvas.NewText(i18n.T("core.latest.checking"), color.Black)
-	g.latestText.TextSize = theme.TextSize()
 
 	downloadBtn := widget.NewButton(i18n.T("core.btn.download"), func() {
 		go g.onDownloadCore()
@@ -32,11 +31,6 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 				return
 			}
 			g.latestVersion = ver
-			fyne.Do(func() {
-				g.latestText.Text = i18n.T("core.latest.prefix") + ver
-				g.latestText.Color = colGreen
-				g.latestText.Refresh()
-			})
 			g.showVersionInfoDialog(ver)
 		}()
 	})
@@ -77,41 +71,51 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 		}
 		privilegesContent = container.NewVBox(adminStatus, restartBtn)
 	} else {
-		g.adminCheck = widget.NewCheck(state.AdminLabel, func(checked bool) {
-			_ = g.ctrl.SetRunAsAdminWithLog(checked)
-		})
-		g.adminCheck.SetChecked(state.RunAsAdmin)
+		modeOptions := []string{i18n.T("core.mode.admin"), i18n.T("core.mode.setcap")}
+		modeSelect := widget.NewSelect(modeOptions, nil)
 
-		g.privilegeText = canvas.NewText(state.PrivilegeText, color.Black)
-		g.privilegeText.TextSize = theme.TextSize()
-		if state.PrivilegeColor == "green" {
-			g.privilegeText.Color = colGreen
-		} else {
-			g.privilegeText.Color = colYellow
+		currentMode := i18n.T("core.mode.admin")
+		if state.HasSetcap {
+			currentMode = i18n.T("core.mode.setcap")
 		}
+		modeSelect.SetSelected(currentMode)
 
-		var setcapRow fyne.CanvasObject
-		if state.ShowSetcapBtn {
-			setcapBtn := widget.NewButton(i18n.T("core.btn.apply_setcap"), func() {
+		modeSelect.OnChanged = func(selected string) {
+			if selected == i18n.T("core.mode.admin") {
+				_ = g.ctrl.SetRunAsAdminWithLog(true)
+				return
+			}
+			// Switching to setcap
+			if state.HasSetcap {
+				_ = g.ctrl.SetRunAsAdminWithLog(false)
+				return
+			}
+			dialog.ShowConfirm(i18n.T("core.btn.apply_setcap"), i18n.T("core.mode.setcap_prompt"), func(apply bool) {
+				if !apply {
+					modeSelect.SetSelected(i18n.T("core.mode.admin"))
+					return
+				}
 				go func() {
 					modal := g.showInfiniteDialog(i18n.T("progress.applying_setcap"))
 					err := g.ctrl.ApplySetcapWithLog()
 					fyne.Do(func() { modal.Hide() })
 					if err == nil {
-						fyne.Do(func() { g.refreshPrivilegeStatusUI() })
+						_ = g.ctrl.SetRunAsAdminWithLog(false)
+					} else {
+						fyne.Do(func() {
+							modeSelect.SetSelected(i18n.T("core.mode.admin"))
+						})
 					}
 				}()
-			})
-			setcapRow = setcapBtn
-		} else {
-			setcapRow = widget.NewLabel(i18n.T("core.setcap.unavailable"))
+			}, g.window)
 		}
-		privilegesContent = container.NewVBox(g.adminCheck, g.privilegeText, setcapRow)
+
+		privilegesContent = container.NewVBox(modeSelect)
 	}
 
 	content := container.NewVBox(
 		widget.NewLabelWithStyle(i18n.T("tab.core"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		container.NewHBox(g.versionText, g.latestText),
+		g.versionText,
 		downloadBtn,
 		checkBtn,
 		g.coreAutoRestartCheck,

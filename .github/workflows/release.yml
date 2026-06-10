@@ -39,8 +39,19 @@ jobs:
             echo 'message<<EOF'
             echo "## Changes since last release"
             echo ""
-            git log "$range" --pretty=format:'- `%h` %s (%an, %ad)' --date=format:'%Y-%m-%d %H:%M'
-            echo ""
+            git log "$range" --pretty=format:'%H' | while read hash; do
+              subject=$(git log -1 --pretty=%s "$hash")
+              body=$(git log -1 --pretty=%b "$hash")
+              author=$(git log -1 --pretty=%an "$hash")
+              date=$(git log -1 --pretty=%ad --date=format:'%Y-%m-%d %H:%M' "$hash")
+              short=$(git rev-parse --short "$hash")
+              echo "- \`$short\` $subject ($author, $date)"
+              if [ -n "$body" ]; then
+                echo ""
+                echo "$body" | sed 's/^/  /'
+                echo ""
+              fi
+            done
             echo ""
             echo "## Commit Info"
             echo ""

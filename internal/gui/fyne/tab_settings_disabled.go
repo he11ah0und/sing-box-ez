@@ -40,16 +40,24 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 
 	// --- Language block ---
 	langs := i18n.AvailableLanguages()
-	langSelect := widget.NewSelect(langs, nil)
+	langNames := make([]string, len(langs))
+	langMap := make(map[string]string) // native name -> code
+	for i, code := range langs {
+		name := i18n.LanguageName(code)
+		langNames[i] = name
+		langMap[name] = code
+	}
+	langSelect := widget.NewSelect(langNames, nil)
 	currentLang := g.cfg.GetLanguage()
 	if currentLang == "" {
 		currentLang = "en"
 	}
-	langSelect.SetSelected(currentLang)
+	langSelect.SetSelected(i18n.LanguageName(currentLang))
 	langSelect.OnChanged = func(selected string) {
-		g.cfg.SetLanguage(selected)
+		code := langMap[selected]
+		g.cfg.SetLanguage(code)
 		_ = g.cfg.Save()
-		i18n.SetLanguage(selected)
+		i18n.SetLanguage(code)
 		g.rebuildUI()
 	}
 
