@@ -6,23 +6,24 @@ import (
 	"runtime"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/logger"
 )
 
 // CoreController manages the sing-box core lifecycle and downloads.
 type CoreController struct {
 	cfg      *config.AppConfig
 	manager  *Manager
-	logger   *Logger
-	terminal *LogTerminal
+	logger   *logger.Logger
+	terminal *logger.LogTerminal
 }
 
 // Terminal returns the logging terminal used by this controller.
-func (c *CoreController) Terminal() *LogTerminal {
+func (c *CoreController) Terminal() *logger.LogTerminal {
 	return c.terminal
 }
 
 // NewCoreController creates a new core lifecycle controller.
-func NewCoreController(cfg *config.AppConfig, manager *Manager, logger *Logger, terminal *LogTerminal) *CoreController {
+func NewCoreController(cfg *config.AppConfig, manager *Manager, logger *logger.Logger, terminal *logger.LogTerminal) *CoreController {
 	return &CoreController{
 		cfg:      cfg,
 		manager:  manager,

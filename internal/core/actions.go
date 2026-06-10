@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/logger"
 )
 
 // PrepareConfig checks that the core exists, validates the active configuration,
 // and downloads it if necessary. It returns the active config record or an error.
-func PrepareConfig(cfg *config.AppConfig, manager *Manager, logger *Logger) (*config.ConfigRecord, error) {
+func PrepareConfig(cfg *config.AppConfig, manager *Manager, logger *logger.Logger) (*config.ConfigRecord, error) {
 	if !CoreExists() {
 		return nil, errors.New("core not found. Please download it first")
 	}
@@ -40,7 +41,7 @@ func PrepareConfig(cfg *config.AppConfig, manager *Manager, logger *Logger) (*co
 }
 
 // StartCore starts the core process and logs the result.
-func StartCore(manager *Manager, logger *Logger) error {
+func StartCore(manager *Manager, logger *logger.Logger) error {
 	err := manager.Start()
 	if err == nil {
 		logger.Log("Sing-box started")
@@ -49,7 +50,7 @@ func StartCore(manager *Manager, logger *Logger) error {
 }
 
 // StopCore stops the core process and logs the result.
-func StopCore(manager *Manager, logger *Logger) error {
+func StopCore(manager *Manager, logger *logger.Logger) error {
 	err := manager.Stop()
 	if err == nil {
 		logger.Log("Sing-box stopped")
@@ -58,7 +59,7 @@ func StopCore(manager *Manager, logger *Logger) error {
 }
 
 // RestartCore restarts the core process and logs the result.
-func RestartCore(manager *Manager, logger *Logger) error {
+func RestartCore(manager *Manager, logger *logger.Logger) error {
 	logger.Log("Restarting...")
 	err := manager.Restart()
 	if err == nil {

@@ -9,10 +9,10 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/gio/pages"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/updater"
-	"sing-box-ez/internal/version"
 
 	"gioui.org/app"
 	"gioui.org/font"

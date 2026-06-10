@@ -5,22 +5,23 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/logger"
 )
 
 // ConfigController manages configuration records and their lifecycle.
 type ConfigController struct {
 	cfg      *config.AppConfig
 	manager  *Manager
-	terminal *LogTerminal
+	terminal *logger.LogTerminal
 }
 
 // Terminal returns the logging terminal used by this controller.
-func (c *ConfigController) Terminal() *LogTerminal {
+func (c *ConfigController) Terminal() *logger.LogTerminal {
 	return c.terminal
 }
 
 // NewConfigController creates a new config controller.
-func NewConfigController(cfg *config.AppConfig, manager *Manager, terminal *LogTerminal) *ConfigController {
+func NewConfigController(cfg *config.AppConfig, manager *Manager, terminal *logger.LogTerminal) *ConfigController {
 	return &ConfigController{
 		cfg:      cfg,
 		manager:  manager,

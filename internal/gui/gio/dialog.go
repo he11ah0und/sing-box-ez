@@ -14,8 +14,8 @@ import (
 	"gioui.org/x/component"
 	"gioui.org/x/markdown"
 	"gioui.org/x/richtext"
+	"sing-box-ez/internal/framework/util/openurl"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/util/openurl"
 )
 
 // Dialog is a reusable modal dialog.
@@ -51,9 +51,9 @@ type Dialog struct {
 	loadingTitle string
 
 	// Custom content state
-	isCustom   bool
+	isCustom    bool
 	customTitle string
-	customBody layout.Widget
+	customBody  layout.Widget
 }
 
 // NewDialog creates a new dialog.

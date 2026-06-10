@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"sing-box-ez/internal/util/githuburl"
-	"sing-box-ez/internal/version"
+	"sing-box-ez/internal/framework/util/githuburl"
+	"sing-box-ez/internal/framework/version"
 )
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}

@@ -37,16 +37,16 @@ WIN_GUI_FLAG := $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(GUI))),-H wind
 # Static link MinGW runtime on Windows so no extra DLLs are needed.
 WIN_STATIC = $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(CGO_ENABLED))),-linkmode external -extldflags "-static",)
 LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
-	-X 'sing-box-ez/internal/version.Branch=$(BRANCH)' \
-	-X 'sing-box-ez/internal/version.BuildDate=$(BUILD_DATE)' \
-	-X 'sing-box-ez/internal/version.Commit=$(BUILD_COMMIT)' \
-	-X 'sing-box-ez/internal/version.BuildOS=$(GOOS)' \
-	-X 'sing-box-ez/internal/version.BuildArch=$(GOARCH)' \
-	-X 'sing-box-ez/internal/version.BuildGUI=$(GUI)' \
-	-X 'sing-box-ez/internal/version.BuildBackend=$(if $(and $(filter linux,$(GOOS)),$(filter 1,$(GUI))),$(GUI_BACKEND),)' \
-	-X 'sing-box-ez/internal/version.BuildCompiler=$(COMPILER)' \
-	-X 'sing-box-ez/internal/version.BuildDev=$(BUILD_DEV)' \
-	-X 'sing-box-ez/internal/version.CommitDate=$(COMMIT_DATE)'"
+	-X 'sing-box-ez/internal/framework/version.Branch=$(BRANCH)' \
+	-X 'sing-box-ez/internal/framework/version.BuildDate=$(BUILD_DATE)' \
+	-X 'sing-box-ez/internal/framework/version.Commit=$(BUILD_COMMIT)' \
+	-X 'sing-box-ez/internal/framework/version.BuildOS=$(GOOS)' \
+	-X 'sing-box-ez/internal/framework/version.BuildArch=$(GOARCH)' \
+	-X 'sing-box-ez/internal/framework/version.BuildGUI=$(GUI)' \
+	-X 'sing-box-ez/internal/framework/version.BuildBackend=$(if $(and $(filter linux,$(GOOS)),$(filter 1,$(GUI))),$(GUI_BACKEND),)' \
+	-X 'sing-box-ez/internal/framework/version.BuildCompiler=$(COMPILER)' \
+	-X 'sing-box-ez/internal/framework/version.BuildDev=$(BUILD_DEV)' \
+	-X 'sing-box-ez/internal/framework/version.CommitDate=$(COMMIT_DATE)'"
 
 # Lazy-evaluated variables so target-specific overrides are respected.
 # GUI_BACKEND only affects Linux (Wayland vs X11); Windows/macOS use native GLFW.

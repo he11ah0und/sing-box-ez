@@ -4,8 +4,9 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/i18n"
-	"sing-box-ez/internal/updater"
 )
 
 // InteractiveController is the high-level coordinator for GUI/TUI frontends.
@@ -56,9 +57,9 @@ func NewInteractiveController(cfg *config.AppConfig) *InteractiveController {
 	ic.Updater = NewUpdaterController(root.Allocate("updater"))
 	ic.Privileges = NewPrivilegeController(cfg, ctrl.Manager(), root.Allocate("privileges"))
 	ic.Plugins = NewPluginController(root.Allocate("plugins"))
-	ic.App = NewAppController(cfg, root.Allocate("app"))
+	ic.App = NewAppController(cfg, ctrl.Logger(), root.Allocate("app"))
 
-	ctrl.Logger().OnAutoRestart = func() {
+	ctrl.LogProcessor().OnAutoRestart = func() {
 		if ic.OnAutoRestart != nil {
 			ic.OnAutoRestart()
 		}
@@ -80,7 +81,7 @@ func (ic *InteractiveController) Log(msg string) {
 }
 
 // LogRoot returns the root logging terminal for allocating scoped log blocks.
-func (ic *InteractiveController) LogRoot() *LogTerminal {
+func (ic *InteractiveController) LogRoot() *logger.LogTerminal {
 	return ic.Controller.LogRoot()
 }
 
