@@ -36,10 +36,12 @@ type LogPage struct {
 
 // NewLogPage creates a new log page.
 func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
-	return &LogPage{
+	p := &LogPage{
 		th:   th,
 		ctrl: ctrl,
 	}
+	p.list.Axis = layout.Vertical
+	return p
 }
 
 // Tag returns the page tag.
