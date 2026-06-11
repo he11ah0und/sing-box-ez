@@ -40,7 +40,7 @@ func (l *Logger) Root() *LogTerminal {
 // Log appends a user-facing message at info level from the root terminal.
 // Kept for backwards compatibility.
 func (l *Logger) Log(msg string) {
-	l.Root().Info(msg)
+	l.Root().Infof("%s", msg)
 }
 
 // append adds a structured log part and renders it to a text line.

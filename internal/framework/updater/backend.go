@@ -9,7 +9,7 @@ import (
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
-// Release represents a single version/release returned by a Backend.
+// Release represents a single version/release returned by a Source.
 type Release struct {
 	TagName         string    `json:"tag_name"`
 	TargetCommitish string    `json:"target_commitish"`
@@ -20,7 +20,7 @@ type Release struct {
 	Assets          []Asset   `json:"assets"`
 }
 
-// Channel represents an update channel/branch offered by a Backend.
+// Channel represents an update channel/branch offered by a Source.
 type Channel struct {
 	ID     string `json:"name"`
 	Name   string `json:"-"`
@@ -47,14 +47,14 @@ type UpdateInfo struct {
 	AssetName    string
 }
 
-// Backend abstracts the source of application updates.
+// Source abstracts the source of application updates.
 // Implementations may target GitHub releases, a custom update server, etc.
-type Backend interface {
-	// Name returns the backend identifier.
+type Source interface {
+	// Name returns the source identifier.
 	Name() string
 
 	// LatestRelease returns the newest release for the given channel.
-	// An empty channel means the backend's default channel.
+	// An empty channel means the source's default channel.
 	LatestRelease(ctx context.Context, channel string) (Release, error)
 
 	// ListChannels returns available update channels.
@@ -66,3 +66,7 @@ type Backend interface {
 	// DownloadAsset streams the update payload identified by url to w.
 	DownloadAsset(ctx context.Context, url string, w io.Writer, progress func(downloaded, total int64)) error
 }
+
+// Backend is the former name of Source. Kept as a type alias for backwards
+// compatibility; new code should use Source.
+type Backend = Source

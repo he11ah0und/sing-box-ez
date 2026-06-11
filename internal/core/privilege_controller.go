@@ -183,7 +183,7 @@ func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
 func (c *PrivilegeController) RestartAsAdminWithLog(restartFn func() error) error {
 	err := restartFn()
 	if err != nil {
-		c.terminal.Error("Failed to restart as admin: " + err.Error())
+		c.terminal.Errorf("Failed to restart as admin: " + err.Error())
 	}
 	return err
 }
@@ -193,7 +193,7 @@ func (c *PrivilegeController) SetRunAsAdminWithLog(checked bool) error {
 	c.cfg.SetRunAsAdmin(checked)
 	c.manager.SetElevated(checked)
 	if err := c.cfg.Save(); err != nil {
-		c.terminal.Error("Failed to save admin setting: " + err.Error())
+		c.terminal.Errorf("Failed to save admin setting: " + err.Error())
 		return err
 	}
 	c.terminal.Infof("Admin mode: %v", checked)
@@ -204,11 +204,11 @@ func (c *PrivilegeController) SetRunAsAdminWithLog(checked bool) error {
 func (c *PrivilegeController) ApplySetcapWithLog() error {
 	err := c.ApplySetcap()
 	if err != nil {
-		c.terminal.Error("setcap failed: " + err.Error())
-		c.terminal.Error("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
+		c.terminal.Errorf("setcap failed: " + err.Error())
+		c.terminal.Errorf("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
 		return err
 	}
-	c.terminal.Info("setcap applied successfully.")
+	c.terminal.Infof("setcap applied successfully.")
 	return nil
 }
 
@@ -217,13 +217,13 @@ func (c *PrivilegeController) ApplySetcapWithLog() error {
 func (c *PrivilegeController) ApplyPrivilegeAction(action *PrivilegeAction) (success, needRefresh, needClose bool) {
 	err := action.Handler()
 	if err != nil {
-		c.terminal.Error(action.Label + " failed: " + err.Error())
+		c.terminal.Errorf("%s", action.Label+" failed: "+err.Error())
 		if action.ID == "setcap" {
-			c.terminal.Error("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
+			c.terminal.Errorf("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
 		}
 		return false, false, false
 	}
-	c.terminal.Info(action.Label + " succeeded.")
+	c.terminal.Infof("%s", action.Label+" succeeded.")
 	needRefresh = action.ID == "setcap" || action.ID == "run_as_admin"
 	needClose = action.ID == "restart_admin"
 	return true, needRefresh, needClose

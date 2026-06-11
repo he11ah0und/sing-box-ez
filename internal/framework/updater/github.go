@@ -7,21 +7,74 @@ import (
 	"io"
 	"net/http"
 
-	"sing-box-ez/internal/framework/util/githuburl"
+	"sing-box-ez/internal/framework/logger"
 )
+
+const defaultGitHubAPI = "https://api.github.com"
 
 // GitHubBackend fetches releases from the GitHub Releases API.
 type GitHubBackend struct {
-	Project githuburl.Project
+	BaseURL string
+	Owner   string
+	Repo    string
 	Client  *http.Client
+	Log     *logger.LogTerminal
 }
 
-// DefaultGitHubBackend returns a GitHubBackend pointing at the project's repo.
-func DefaultGitHubBackend() *GitHubBackend {
+// NewGitHubBackend returns a GitHubBackend for the public GitHub API.
+func NewGitHubBackend(owner, repo string) *GitHubBackend {
 	return &GitHubBackend{
-		Project: githuburl.DefaultProject(),
+		BaseURL: defaultGitHubAPI,
+		Owner:   owner,
+		Repo:    repo,
 		Client:  httpClient,
 	}
+}
+
+// NewGitHubEnterpriseBackend returns a GitHubBackend for a custom GitHub Enterprise instance.
+func NewGitHubEnterpriseBackend(baseURL, owner, repo string) *GitHubBackend {
+	return &GitHubBackend{
+		BaseURL: baseURL,
+		Owner:   owner,
+		Repo:    repo,
+		Client:  httpClient,
+	}
+}
+
+func (b *GitHubBackend) log() *logger.LogTerminal {
+	if b.Log != nil {
+		return b.Log
+	}
+	return &logger.LogTerminal{}
+}
+
+func (b *GitHubBackend) slug() string { return b.Owner + "/" + b.Repo }
+
+func (b *GitHubBackend) apiBase() string {
+	if b.BaseURL == "" {
+		return defaultGitHubAPI
+	}
+	return b.BaseURL
+}
+
+func (b *GitHubBackend) apiReposURL() string {
+	return b.apiBase() + "/repos/" + b.slug()
+}
+
+func (b *GitHubBackend) apiReleasesURL() string {
+	return b.apiReposURL() + "/releases"
+}
+
+func (b *GitHubBackend) apiLatestReleaseURL() string {
+	return b.apiReleasesURL() + "/latest"
+}
+
+func (b *GitHubBackend) apiReleaseByTagURL(tag string) string {
+	return b.apiReleasesURL() + "/tags/" + tag
+}
+
+func (b *GitHubBackend) apiBranchesURL() string {
+	return b.apiReposURL() + "/branches"
 }
 
 // Name returns the backend identifier.
@@ -45,6 +98,7 @@ func (b *GitHubBackend) newGitHubRequest(ctx context.Context, method, url string
 }
 
 func (b *GitHubBackend) doJSON(req *http.Request, out any) error {
+	b.log().Debugf("%s %s", req.Method, req.URL.String())
 	resp, err := b.client().Do(req)
 	if err != nil {
 		return err
@@ -58,7 +112,7 @@ func (b *GitHubBackend) doJSON(req *http.Request, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// LatestRelease implements Backend.
+// LatestRelease implements Source.
 func (b *GitHubBackend) LatestRelease(ctx context.Context, channel string) (Release, error) {
 	var r Release
 	var err error
@@ -71,7 +125,7 @@ func (b *GitHubBackend) LatestRelease(ctx context.Context, channel string) (Rele
 }
 
 func (b *GitHubBackend) latestStable(ctx context.Context) (Release, error) {
-	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.Project.APILatestReleaseURL(), nil)
+	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiLatestReleaseURL(), nil)
 	if err != nil {
 		return Release{}, err
 	}
@@ -83,7 +137,7 @@ func (b *GitHubBackend) latestStable(ctx context.Context) (Release, error) {
 }
 
 func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (Release, error) {
-	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.Project.APIReleasesURL(), nil)
+	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiReleasesURL(), nil)
 	if err != nil {
 		return Release{}, err
 	}
@@ -99,9 +153,9 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 	return Release{}, fmt.Errorf("no release found for channel %s", channel)
 }
 
-// ListChannels implements Backend.
+// ListChannels implements Source.
 func (b *GitHubBackend) ListChannels(ctx context.Context) ([]Channel, error) {
-	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.Project.APIBranchesURL(), nil)
+	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiBranchesURL(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -117,9 +171,9 @@ func (b *GitHubBackend) ListChannels(ctx context.Context) ([]Channel, error) {
 	return channels, nil
 }
 
-// ReleaseByTag implements Backend.
+// ReleaseByTag implements Source.
 func (b *GitHubBackend) ReleaseByTag(ctx context.Context, tag string) (Release, error) {
-	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.Project.APIReleaseByTagURL(tag), nil)
+	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiReleaseByTagURL(tag), nil)
 	if err != nil {
 		return Release{}, err
 	}
@@ -130,12 +184,13 @@ func (b *GitHubBackend) ReleaseByTag(ctx context.Context, tag string) (Release, 
 	return r, nil
 }
 
-// DownloadAsset implements Backend.
+// DownloadAsset implements Source.
 func (b *GitHubBackend) DownloadAsset(ctx context.Context, url string, w io.Writer, progress func(downloaded, total int64)) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
+	b.log().Debugf("GET %s", url)
 	resp, err := b.client().Do(req)
 	if err != nil {
 		return err

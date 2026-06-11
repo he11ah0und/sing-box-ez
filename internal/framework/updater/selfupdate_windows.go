@@ -8,18 +8,10 @@ import (
 	"os/exec"
 )
 
-// ApplyUpdate downloads the new binary, hands over to a PowerShell script,
-// and exits the current process.
-func ApplyUpdate(assetURL string, progress func(downloaded, total int64)) error {
-	exe, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("cannot locate executable: %w", err)
-	}
-
+// defaultRestart hands over to a short-lived PowerShell script that waits for
+// this process to exit, replaces the binary, and starts the new one.
+func defaultRestart(exe string) error {
 	tmp := exe + ".tmp"
-	if err := DownloadAsset(assetURL, tmp, progress); err != nil {
-		return fmt.Errorf("download failed: %w", err)
-	}
 
 	// PowerShell script: wait for us to exit, replace binary, restart.
 	script := fmt.Sprintf(`

@@ -13,9 +13,7 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/updater"
-	"sing-box-ez/internal/framework/util/githuburl"
 	"sing-box-ez/internal/framework/util/openurl"
-	"sing-box-ez/internal/framework/util/paths"
 	"sing-box-ez/internal/framework/version"
 )
 
@@ -68,16 +66,16 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	if p.openReleaseNotesBtn.Clicked(gtx) {
 		var urlStr string
 		if version.Commit != "unknown" && version.Commit != "" {
-			urlStr = githuburl.DefaultProject().WebReleaseURL(version.Commit)
+			urlStr = "https://github.com/he11ah0und/sing-box-ez/releases/tag/" + version.Commit
 		} else {
-			urlStr = githuburl.DefaultProject().WebLatestReleaseURL()
+			urlStr = "https://github.com/he11ah0und/sing-box-ez/releases/latest"
 		}
 		if err := openurl.OpenURL(urlStr); err != nil {
 			p.ctrl.LogTag("app", "Failed to open release notes: "+err.Error())
 		}
 	}
 	if p.openDataBtn.Clicked(gtx) {
-		if err := paths.OpenDataDir(); err != nil {
+		if err := p.ctrl.OpenDataDir(); err != nil {
 			p.ctrl.LogTag("app", "Failed to open data folder: "+err.Error())
 		}
 	}
@@ -88,7 +86,7 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 		go p.openBranchPicker()
 	}
 	if p.openRepoBtn.Clicked(gtx) {
-		if err := openurl.OpenURL(githuburl.DefaultProject().RepoURL()); err != nil {
+		if err := openurl.OpenURL("https://github.com/he11ah0und/sing-box-ez"); err != nil {
 			p.ctrl.LogTag("app", "Failed to open repo: "+err.Error())
 		}
 	}

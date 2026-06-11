@@ -13,9 +13,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"sing-box-ez/internal/framework/util/githuburl"
-	"sing-box-ez/internal/framework/util/paths"
 )
 
 // ProgressFunc вызывается во время скачивания: скачано, всего.
@@ -51,19 +48,11 @@ func DownloadConfigFor(name, url string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(paths.CachedConfig(name), data, 0600)
+	return os.WriteFile(CachedConfig(name), data, 0600)
 }
 
 func GetConfigPath(name string) string {
-	return paths.CachedConfig(name)
-}
-
-func HasCachedConfig(name string) bool {
-	return paths.HasCachedConfig(name)
-}
-
-func ListCachedConfigs() ([]string, error) {
-	return paths.ListCachedConfigs()
+	return CachedConfig(name)
 }
 
 type githubRelease struct {
@@ -72,7 +61,7 @@ type githubRelease struct {
 
 func GetLatestVersion() (string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(githuburl.DefaultCoreProject().APILatestReleaseURL())
+	resp, err := client.Get("https://api.github.com/repos/SagerNet/sing-box/releases/latest")
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +117,7 @@ func DownloadCore(version string, onProgress ProgressFunc) (string, error) {
 	}
 
 	archiveName, binaryName, isZip := platformSuffix(version)
-	url := githuburl.DefaultCoreProject().DownloadReleaseURL(version, archiveName)
+	url := "https://github.com/SagerNet/sing-box/releases/download/v" + version + "/" + archiveName
 
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Get(url)
@@ -157,7 +146,7 @@ func DownloadCore(version string, onProgress ProgressFunc) (string, error) {
 		return "", err
 	}
 
-	targetPath := paths.CoreBinary()
+	targetPath := CoreBinary()
 	if isZip {
 		err = extractZip(tmpFile.Name(), targetPath, binaryName)
 	} else {
@@ -168,7 +157,7 @@ func DownloadCore(version string, onProgress ProgressFunc) (string, error) {
 	}
 
 	if runtime.GOOS != "windows" {
-		// #nosec G302 — core binary must be executable; path is controlled by the app (paths.CoreBinary).
+		// #nosec G302 — core binary must be executable; path is controlled by the app (CoreBinary).
 		_ = os.Chmod(targetPath, 0750)
 	}
 
@@ -199,9 +188,9 @@ func extractTarGz(archivePath, targetPath, binaryName string) error {
 			return err
 		}
 		if strings.HasSuffix(hdr.Name, binaryName) && hdr.FileInfo().Mode().IsRegular() {
-			// #nosec G304 — targetPath is the managed core binary path (paths.CoreBinary).
-			// #nosec G304 — targetPath is the managed core binary path (paths.CoreBinary).
-			// #nosec G304 — targetPath is the managed core binary path (paths.CoreBinary).
+			// #nosec G304 — targetPath is the managed core binary path (CoreBinary).
+			// #nosec G304 — targetPath is the managed core binary path (CoreBinary).
+			// #nosec G304 — targetPath is the managed core binary path (CoreBinary).
 			out, err := os.Create(targetPath)
 			if err != nil {
 				return err
@@ -227,7 +216,7 @@ func extractZip(archivePath, targetPath, binaryName string) error {
 			if err != nil {
 				return err
 			}
-			// #nosec G304 — targetPath is the managed core binary path (paths.CoreBinary).
+			// #nosec G304 — targetPath is the managed core binary path (CoreBinary).
 			out, err := os.Create(targetPath)
 			if err != nil {
 				_ = rc.Close()
@@ -243,7 +232,7 @@ func extractZip(archivePath, targetPath, binaryName string) error {
 }
 
 func GetCorePath() string {
-	return paths.CoreBinary()
+	return CoreBinary()
 }
 
 func CoreExists() bool {

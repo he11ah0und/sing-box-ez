@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,8 +16,6 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/updater"
-	"sing-box-ez/internal/framework/util/githuburl"
-	"sing-box-ez/internal/framework/util/paths"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/plugins"
 )
@@ -64,7 +63,46 @@ func PrintHelp(w io.Writer) {
 	}
 }
 
-func Run(args []string) error {
+const (
+	defaultGitHubOwner = "he11ah0und"
+	defaultGitHubRepo  = "sing-box-ez"
+)
+
+func defaultDataDir() string {
+	switch runtime.GOOS {
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = os.Getenv("LOCALAPPDATA")
+		}
+		if appData == "" {
+			appData = os.TempDir()
+		}
+		return filepath.Join(appData, "sing-box-ez")
+	default:
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
+		return filepath.Join(home, ".sing-box-ez")
+	}
+}
+
+// ensureUpdater installs default updater managers when none are configured.
+// This lets CLI commands use package-level updater helpers even when cli.Run
+// is invoked without going through the full app bootstrap.
+func ensureUpdater() {
+	if updater.CurrentManager() != nil {
+		return
+	}
+	gh := updater.NewGitHubBackend(defaultGitHubOwner, defaultGitHubRepo)
+	updater.SetManager(&updater.Manager{
+		Source: gh,
+		Apply:  &updater.SelfUpdateApply{},
+	})
+}
+
+func Run(args []string, dataDir string) error {
 	if len(args) < 1 {
 		PrintHelp(os.Stderr)
 		return fmt.Errorf("")
@@ -76,10 +114,17 @@ func Run(args []string) error {
 		return fmt.Errorf("unknown command: %s", args[0])
 	}
 
-	cfg, err := config.Load()
+	if dataDir == "" {
+		dataDir = defaultDataDir()
+	}
+	core.BaseDir = dataDir
+
+	cfg, err := config.Load(dataDir)
 	if err != nil {
 		return err
 	}
+
+	ensureUpdater()
 
 	return cmd.fn(cfg, args[1:])
 }
@@ -131,7 +176,7 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 
 	pid := manager.GetPID()
 	if pid > 0 {
-		_ = os.WriteFile(paths.PIDFile(), []byte(strconv.Itoa(pid)), 0600)
+		_ = os.WriteFile(filepath.Join(cfg.DataDir, ".pid"), []byte(strconv.Itoa(pid)), 0600)
 	}
 
 	fmt.Printf("sing-box started (PID %d)\n", pid)
@@ -145,12 +190,12 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 	if err := manager.Stop(); err != nil {
 		fmt.Printf("stop warning: %v\n", err)
 	}
-	_ = os.Remove(paths.PIDFile())
+	_ = os.Remove(filepath.Join(cfg.DataDir, ".pid"))
 	return nil
 }
 
 func cmdStop(cfg *config.AppConfig, _ []string) error {
-	data, err := os.ReadFile(paths.PIDFile())
+	data, err := os.ReadFile(filepath.Join(cfg.DataDir, ".pid"))
 	if err != nil {
 		return fmt.Errorf("pid file not found, is sing-box running?")
 	}
@@ -168,7 +213,7 @@ func cmdStop(cfg *config.AppConfig, _ []string) error {
 	if err := core.KillProcess(pid, elevated); err != nil {
 		fmt.Printf("kill warning: %v\n", err)
 	}
-	_ = os.Remove(paths.PIDFile())
+	_ = os.Remove(filepath.Join(cfg.DataDir, ".pid"))
 	fmt.Println("Stopped")
 	return nil
 }
@@ -208,7 +253,7 @@ func cmdDownload(cfg *config.AppConfig, _ []string) error {
 }
 
 func cmdStatus(cfg *config.AppConfig, _ []string) error {
-	data, err := os.ReadFile(paths.PIDFile())
+	data, err := os.ReadFile(filepath.Join(cfg.DataDir, ".pid"))
 	if err != nil {
 		fmt.Println("Status: not running (no pid file)")
 		return nil
@@ -219,7 +264,7 @@ func cmdStatus(cfg *config.AppConfig, _ []string) error {
 		return nil
 	}
 	fmt.Println("Status: not running (stale pid file)")
-	_ = os.Remove(paths.PIDFile())
+	_ = os.Remove(filepath.Join(cfg.DataDir, ".pid"))
 	return nil
 }
 
@@ -238,7 +283,7 @@ func cmdSetcap(cfg *config.AppConfig, _ []string) error {
 }
 
 func cmdDocs(cfg *config.AppConfig, _ []string) error {
-	outDir := paths.PluginDocsDir()
+	outDir := filepath.Join(cfg.DataDir, plugins.DocsDir())
 	fmt.Println("Generating plugin API docs to:", outDir)
 	if err := plugins.GenerateDocs(outDir); err != nil {
 		return fmt.Errorf("docs generation failed: %w", err)
@@ -254,7 +299,7 @@ func cmdDocs(cfg *config.AppConfig, _ []string) error {
 }
 
 func cmdDefs(cfg *config.AppConfig, _ []string) error {
-	outDir := paths.PluginDefsDir()
+	outDir := filepath.Join(cfg.DataDir, plugins.DefsDir())
 	fmt.Println("Generating VS Code Lua definitions to:", outDir)
 	if err := plugins.GenerateLuaDefs(outDir); err != nil {
 		return fmt.Errorf("defs generation failed: %w", err)
@@ -284,7 +329,7 @@ func cmdTemplate(cfg *config.AppConfig, args []string) error {
 	if len(args) > 1 {
 		rel = args[1]
 	}
-	outDir := paths.Data(filepath.Join("plugins", name))
+	outDir := filepath.Join(cfg.DataDir, "plugins", name)
 	if err := plugins.GeneratePluginTemplate(outDir, name, rel); err != nil {
 		return err
 	}
@@ -308,7 +353,7 @@ func cmdInstall(cfg *config.AppConfig, args []string) error {
 
 func cmdVersion(_ *config.AppConfig, _ []string) error {
 	fmt.Println("sing-box-ez", version.Info())
-	fmt.Println("Repository:", githuburl.DefaultProject().RepoURL())
+	fmt.Println("Repository:", "https://github.com/he11ah0und/sing-box-ez")
 	if ver, err := core.GetCoreVersion(core.GetCorePath()); err == nil && ver != "" {
 		fmt.Println("sing-box core: v" + ver)
 	} else {

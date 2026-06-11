@@ -6,10 +6,13 @@ package app
 import (
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"sing-box-ez/internal/cli"
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/framework/util/paths"
+	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework"
 )
 
 // parseDataDir extracts --data-dir from args and returns the directory + remaining args.
@@ -26,26 +29,55 @@ func parseDataDir(args []string) (string, []string) {
 
 // Run bootstraps the application: parses CLI flags, initializes paths,
 // loads config, and either runs a CLI command or starts the GUI.
-func Run(args []string, runGUI func(*config.AppConfig) bool) {
-	dataDir, remaining := parseDataDir(args)
-	if dataDir != "" {
-		paths.SetDataDir(dataDir)
+// runGUI receives both the loaded config and the framework App so the GUI can
+// wire framework-level services into the core controller.
+func defaultDataDir() string {
+	switch runtime.GOOS {
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = os.Getenv("LOCALAPPDATA")
+		}
+		if appData == "" {
+			appData = os.TempDir()
+		}
+		return filepath.Join(appData, "sing-box-ez")
+	default:
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
+		return filepath.Join(home, ".sing-box-ez")
 	}
-	paths.Init()
+}
 
-	cfg, err := config.Load()
+func Run(args []string, runGUI func(*config.AppConfig, *framework.App) bool) {
+	dataDir, remaining := parseDataDir(args)
+	if dataDir == "" {
+		dataDir = defaultDataDir()
+	}
+	_ = os.MkdirAll(dataDir, 0750)
+	_ = os.MkdirAll(filepath.Join(dataDir, "configs"), 0750)
+	_ = os.MkdirAll(filepath.Join(dataDir, "plugins"), 0750)
+	_ = os.MkdirAll(filepath.Join(dataDir, "docs"), 0750)
+
+	core.BaseDir = dataDir
+
+	cfg, err := config.Load(dataDir)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	app := NewApp(cfg)
+
 	if len(remaining) > 0 {
-		if err := cli.Run(remaining); err != nil {
+		if err := cli.Run(remaining, dataDir); err != nil {
 			log.Fatalf("CLI error: %v", err)
 		}
 		return
 	}
 
-	if !runGUI(cfg) {
+	if !runGUI(cfg, app.App) {
 		// GUI could not start (no display, no wayland, etc).
 		// Exit gracefully so make/run does not show a scary error.
 		os.Exit(0)
