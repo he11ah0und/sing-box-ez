@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
@@ -28,20 +29,24 @@ type LogPage struct {
 
 	copyBtn  widget.Clickable
 	clearBtn widget.Clickable
-	list     widget.List
+	editor   widget.Editor
 	lastText string
 	lines    []string
-	editors  []widget.Editor
+	// runeOffsets[i] = [start,end) rune offsets of lines[i] inside the editor text.
+	runeOffsets [][2]int
 }
 
 // NewLogPage creates a new log page.
 func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
-	p := &LogPage{
-		th:   th,
-		ctrl: ctrl,
+	ed := widget.Editor{
+		SingleLine: false,
+		ReadOnly:   true,
 	}
-	p.list.Axis = layout.Vertical
-	return p
+	return &LogPage{
+		th:     th,
+		ctrl:   ctrl,
+		editor: ed,
+	}
 }
 
 // Tag returns the page tag.
@@ -73,7 +78,14 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	if text != p.lastText {
 		p.lastText = text
 		p.lines = lines
-		p.syncEditors()
+		p.editor.SetText(text)
+		// Compute rune offsets for each line so we can query Regions later.
+		p.runeOffsets = make([][2]int, len(lines))
+		offset := 0
+		for i, line := range lines {
+			p.runeOffsets[i] = [2]int{offset, offset + utf8.RuneCountInString(line)}
+			offset += utf8.RuneCountInString(line) + 1 // +1 for '\n'
+		}
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -91,43 +103,32 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 			)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(p.th, &p.list).Layout(gtx, len(p.lines), func(gtx layout.Context, index int) layout.Dimensions {
-				return p.logLine(gtx, p.lines[index], &p.editors[index])
-			})
+			ed := material.Editor(p.th, &p.editor, "")
+			ed.Font.Typeface = "Go Mono"
+			ed.TextSize = unit.Sp(12)
+
+			// Record the editor so we can paint backgrounds behind the text.
+			macro := op.Record(gtx.Ops)
+			dims := ed.Layout(gtx)
+			call := macro.Stop()
+
+			// Paint per-line backgrounds using the shaped text regions.
+			for i := range p.lines {
+				if i >= len(p.runeOffsets) {
+					break
+				}
+				start, end := p.runeOffsets[i][0], p.runeOffsets[i][1]
+				regions := p.editor.Regions(start, end, nil)
+				bg, _ := logLineColors(p.lines[i])
+				for _, r := range regions {
+					paint.FillShape(gtx.Ops, bg, clip.Rect(r.Bounds).Op())
+				}
+			}
+
+			call.Add(gtx.Ops)
+			return dims
 		}),
 	)
-}
-
-// syncEditors ensures the editors slice matches the lines slice.
-func (p *LogPage) syncEditors() {
-	if len(p.lines) > len(p.editors) {
-		for i := len(p.editors); i < len(p.lines); i++ {
-			ed := widget.Editor{ReadOnly: true, SingleLine: false}
-			ed.SetText(p.lines[i])
-			p.editors = append(p.editors, ed)
-		}
-	} else if len(p.lines) < len(p.editors) {
-		p.editors = p.editors[:len(p.lines)]
-	}
-	for i := range p.lines {
-		if p.editors[i].Text() != p.lines[i] {
-			p.editors[i].SetText(p.lines[i])
-		}
-	}
-}
-
-func (p *LogPage) logLine(gtx layout.Context, line string, ed *widget.Editor) layout.Dimensions {
-	bg, fg := logLineColors(line)
-	macro := op.Record(gtx.Ops)
-	edStyle := material.Editor(p.th, ed, "")
-	edStyle.Font.Typeface = "Go Mono"
-	edStyle.TextSize = unit.Sp(12)
-	edStyle.Color = fg
-	dims := layout.UniformInset(unit.Dp(2)).Layout(gtx, edStyle.Layout)
-	call := macro.Stop()
-	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: dims.Size}.Op())
-	call.Add(gtx.Ops)
-	return dims
 }
 
 func logLineColors(line string) (bg, fg color.NRGBA) {
@@ -135,7 +136,6 @@ func logLineColors(line string) (bg, fg color.NRGBA) {
 	bg = color.NRGBA{R: 20, G: 20, B: 20, A: 255}
 	fg = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
 
-	// Format: [HH:MM:SS] [LEVEL] ... — find the LEVEL token.
 	switch {
 	case strings.Contains(line, "[DBG]"):
 		bg = color.NRGBA{R: 25, G: 35, B: 25, A: 255}
