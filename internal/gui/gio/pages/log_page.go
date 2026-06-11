@@ -128,13 +128,16 @@ type logPart struct {
 // Expected format: [HH:MM:SS] [LEVEL] source -> message
 func parseLogLine(line string) []logPart {
 	var parts []logPart
-	gray := color.NRGBA{R: 120, G: 120, B: 120, A: 255}
-	lightGray := color.NRGBA{R: 150, G: 150, B: 150, A: 255}
+
+	// Distinct non-gray accent colors for structural tokens.
+	dateColor   := color.NRGBA{R: 230, G: 180, B: 70, A: 255}  // warm gold
+	sourceColor := color.NRGBA{R: 70, G: 200, B: 180, A: 255}  // teal/cyan
+	arrowColor  := color.NRGBA{R: 200, G: 100, B: 160, A: 255} // pink/magenta
 
 	arrowIdx := strings.Index(line, " -> ")
 	if arrowIdx < 0 {
-		// Unrecognized format: return as single gray part.
-		parts = append(parts, logPart{text: line, color: gray})
+		// Unrecognized format: return as single gold part.
+		parts = append(parts, logPart{text: line, color: dateColor})
 		return parts
 	}
 
@@ -143,10 +146,10 @@ func parseLogLine(line string) []logPart {
 
 	// Extract timestamp: first [HH:MM:SS]
 	if idx := strings.Index(header, "] "); idx >= 0 {
-		parts = append(parts, logPart{text: header[:idx+1] + " ", color: gray})
+		parts = append(parts, logPart{text: header[:idx+1] + " ", color: dateColor})
 		header = strings.TrimSpace(header[idx+2:])
 	} else {
-		parts = append(parts, logPart{text: header + " ", color: gray})
+		parts = append(parts, logPart{text: header + " ", color: dateColor})
 		header = ""
 	}
 
@@ -165,11 +168,11 @@ func parseLogLine(line string) []logPart {
 
 	// Remaining header is source.
 	if header != "" {
-		parts = append(parts, logPart{text: header + " ", color: lightGray})
+		parts = append(parts, logPart{text: header + " ", color: sourceColor})
 	}
 
 	// Arrow.
-	parts = append(parts, logPart{text: "-> ", color: gray})
+	parts = append(parts, logPart{text: "-> ", color: arrowColor})
 
 	// Message uses the level color.
 	parts = append(parts, logPart{text: message, color: levelColor})
