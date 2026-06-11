@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
@@ -29,24 +28,19 @@ type LogPage struct {
 
 	copyBtn  widget.Clickable
 	clearBtn widget.Clickable
-	editor   widget.Editor
+	list     widget.List
 	lastText string
 	lines    []string
-	// runeOffsets[i] = [start,end) rune offsets of lines[i] inside the editor text.
-	runeOffsets [][2]int
 }
 
 // NewLogPage creates a new log page.
 func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
-	ed := widget.Editor{
-		SingleLine: false,
-		ReadOnly:   true,
+	p := &LogPage{
+		th:   th,
+		ctrl: ctrl,
 	}
-	return &LogPage{
-		th:     th,
-		ctrl:   ctrl,
-		editor: ed,
-	}
+	p.list.Axis = layout.Vertical
+	return p
 }
 
 // Tag returns the page tag.
@@ -78,14 +72,6 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	if text != p.lastText {
 		p.lastText = text
 		p.lines = lines
-		p.editor.SetText(text)
-		// Compute rune offsets for each line so we can query Regions later.
-		p.runeOffsets = make([][2]int, len(lines))
-		offset := 0
-		for i, line := range lines {
-			p.runeOffsets[i] = [2]int{offset, offset + utf8.RuneCountInString(line)}
-			offset += utf8.RuneCountInString(line) + 1 // +1 for '\n'
-		}
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -103,52 +89,120 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 			)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			ed := material.Editor(p.th, &p.editor, "")
-			ed.Font.Typeface = "Go Mono"
-			ed.TextSize = unit.Sp(12)
-
-			// Record the editor so we can paint backgrounds behind the text.
-			macro := op.Record(gtx.Ops)
-			dims := ed.Layout(gtx)
-			call := macro.Stop()
-
-			// Paint per-line backgrounds using the shaped text regions.
-			for i := range p.lines {
-				if i >= len(p.runeOffsets) {
-					break
-				}
-				start, end := p.runeOffsets[i][0], p.runeOffsets[i][1]
-				regions := p.editor.Regions(start, end, nil)
-				bg, _ := logLineColors(p.lines[i])
-				for _, r := range regions {
-					paint.FillShape(gtx.Ops, bg, clip.Rect(r.Bounds).Op())
-				}
-			}
-
-			call.Add(gtx.Ops)
-			return dims
+			return material.List(p.th, &p.list).Layout(gtx, len(p.lines), func(gtx layout.Context, index int) layout.Dimensions {
+				return p.logLine(gtx, p.lines[index])
+			})
 		}),
 	)
 }
 
-func logLineColors(line string) (bg, fg color.NRGBA) {
-	// Default colors.
-	bg = color.NRGBA{R: 20, G: 20, B: 20, A: 255}
-	fg = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+func (p *LogPage) logLine(gtx layout.Context, line string) layout.Dimensions {
+	bg := logLineBg(line)
 
+	macro := op.Record(gtx.Ops)
+	parts := parseLogLine(line)
+	children := make([]layout.FlexChild, 0, len(parts))
+	for _, part := range parts {
+		part := part // capture
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Label(p.th, unit.Sp(12), part.text)
+			lbl.Font.Typeface = "Go Mono"
+			lbl.Color = part.color
+			return lbl.Layout(gtx)
+		}))
+	}
+	dims := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Baseline}.Layout(gtx, children...)
+	call := macro.Stop()
+
+	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: dims.Size}.Op())
+	call.Add(gtx.Ops)
+	return dims
+}
+
+type logPart struct {
+	text  string
+	color color.NRGBA
+}
+
+// parseLogLine splits a log line into colored parts.
+// Expected format: [HH:MM:SS] [LEVEL] source -> message
+func parseLogLine(line string) []logPart {
+	var parts []logPart
+	gray := color.NRGBA{R: 120, G: 120, B: 120, A: 255}
+	lightGray := color.NRGBA{R: 150, G: 150, B: 150, A: 255}
+
+	arrowIdx := strings.Index(line, " -> ")
+	if arrowIdx < 0 {
+		// Unrecognized format: return as single gray part.
+		parts = append(parts, logPart{text: line, color: gray})
+		return parts
+	}
+
+	message := line[arrowIdx+4:]
+	header := line[:arrowIdx]
+
+	// Extract timestamp: first [HH:MM:SS]
+	if idx := strings.Index(header, "] "); idx >= 0 {
+		parts = append(parts, logPart{text: header[:idx+1] + " ", color: gray})
+		header = strings.TrimSpace(header[idx+2:])
+	} else {
+		parts = append(parts, logPart{text: header + " ", color: gray})
+		header = ""
+	}
+
+	// Extract level: next [LEVEL]
+	levelColor := color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+	if idx := strings.Index(header, "] "); idx >= 0 {
+		level := header[:idx+1]
+		levelColor = levelColorFor(level)
+		parts = append(parts, logPart{text: level + " ", color: levelColor})
+		header = strings.TrimSpace(header[idx+2:])
+	} else if header != "" {
+		levelColor = levelColorFor(header)
+		parts = append(parts, logPart{text: header + " ", color: levelColor})
+		header = ""
+	}
+
+	// Remaining header is source.
+	if header != "" {
+		parts = append(parts, logPart{text: header + " ", color: lightGray})
+	}
+
+	// Arrow.
+	parts = append(parts, logPart{text: "-> ", color: gray})
+
+	// Message uses the level color.
+	parts = append(parts, logPart{text: message, color: levelColor})
+
+	return parts
+}
+
+func levelColorFor(level string) color.NRGBA {
+	switch level {
+	case "[DBG]":
+		return color.NRGBA{R: 180, G: 180, B: 180, A: 255} // light gray
+	case "[INF]":
+		return color.NRGBA{R: 100, G: 150, B: 255, A: 255} // light blue
+	case "[WRN]":
+		return color.NRGBA{R: 255, G: 200, B: 100, A: 255} // light orange
+	case "[ERR]":
+		return color.NRGBA{R: 255, G: 100, B: 100, A: 255} // light red
+	default:
+		return color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+	}
+}
+
+func logLineBg(line string) color.NRGBA {
 	switch {
 	case strings.Contains(line, "[DBG]"):
-		bg = color.NRGBA{R: 25, G: 35, B: 25, A: 255}
-		fg = color.NRGBA{R: 100, G: 200, B: 100, A: 255}
+		return color.NRGBA{R: 30, G: 30, B: 30, A: 255}
 	case strings.Contains(line, "[INF]"):
-		bg = color.NRGBA{R: 20, G: 30, B: 50, A: 255}
-		fg = color.NRGBA{R: 100, G: 150, B: 255, A: 255}
+		return color.NRGBA{R: 20, G: 30, B: 50, A: 255}
 	case strings.Contains(line, "[WRN]"):
-		bg = color.NRGBA{R: 50, G: 40, B: 20, A: 255}
-		fg = color.NRGBA{R: 255, G: 200, B: 100, A: 255}
+		return color.NRGBA{R: 50, G: 40, B: 20, A: 255}
 	case strings.Contains(line, "[ERR]"):
-		bg = color.NRGBA{R: 50, G: 20, B: 20, A: 255}
-		fg = color.NRGBA{R: 255, G: 100, B: 100, A: 255}
+		return color.NRGBA{R: 50, G: 20, B: 20, A: 255}
+	default:
+		return color.NRGBA{R: 20, G: 20, B: 20, A: 255}
 	}
-	return
 }
