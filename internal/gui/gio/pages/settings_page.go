@@ -3,9 +3,13 @@ package pages
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"strconv"
 
 	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -25,16 +29,22 @@ type SettingsPage struct {
 
 	OnLanguageChange func()
 
+	// Dirty tracking – original saved values.
+	origLogLimit     string
+	origInterval     string
+	origShowLogs     bool
+	origDesktopNotif bool
+	origLang         string
+
+	// Pending (unsaved) language selection.
+	pendingLang string
+
 	logLimitEditor widget.Editor
-	logLimitSave   widget.Clickable
-
-	showLogs     widget.Bool
-	desktopNotif widget.Bool
-
 	intervalEditor widget.Editor
-	intervalSave   widget.Clickable
-
-	langBtn widget.Clickable
+	showLogs       widget.Bool
+	desktopNotif   widget.Bool
+	langBtn        widget.Clickable
+	saveBtn        widget.Clickable
 }
 
 // NewSettingsPage creates a new settings page.
@@ -45,14 +55,24 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 		dialog: dialog,
 	}
 
+	p.origLogLimit = fmt.Sprintf("%d", ctrl.Config().GetLogLimit())
 	p.logLimitEditor.SingleLine = true
-	p.logLimitEditor.SetText(fmt.Sprintf("%d", ctrl.Config().GetLogLimit()))
+	p.logLimitEditor.Filter = "0123456789"
+	p.logLimitEditor.SetText(p.origLogLimit)
 
+	p.origInterval = fmt.Sprintf("%d", ctrl.Config().UpdateIntervalHours)
 	p.intervalEditor.SingleLine = true
-	p.intervalEditor.SetText(fmt.Sprintf("%d", ctrl.Config().UpdateIntervalHours))
+	p.intervalEditor.Filter = "0123456789"
+	p.intervalEditor.SetText(p.origInterval)
 
-	p.showLogs.Value = ctrl.Config().GetShowLogs()
-	p.desktopNotif.Value = ctrl.Config().GetDesktopNotifications()
+	p.origShowLogs = ctrl.Config().GetShowLogs()
+	p.showLogs.Value = p.origShowLogs
+
+	p.origDesktopNotif = ctrl.Config().GetDesktopNotifications()
+	p.desktopNotif.Value = p.origDesktopNotif
+
+	p.origLang = ctrl.Config().GetLanguage()
+	p.pendingLang = p.origLang
 
 	return p
 }
@@ -62,26 +82,41 @@ func (p *SettingsPage) Tag() string { return "settings" }
 
 // Name returns the page name.
 func (p *SettingsPage) Name() string { return localengine.T("tab", "settings") }
+
+// Icon returns the page icon.
 func (p *SettingsPage) Icon() *widget.Icon { return icons.ActionSettings }
+
+func (p *SettingsPage) isDirty() bool {
+	return p.logLimitEditor.Text() != p.origLogLimit ||
+		p.intervalEditor.Text() != p.origInterval ||
+		p.showLogs.Value != p.origShowLogs ||
+		p.desktopNotif.Value != p.origDesktopNotif ||
+		p.pendingLang != p.origLang
+}
 
 // Layout draws the settings page.
 func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
-	if p.logLimitSave.Clicked(gtx) {
+	if p.isDirty() && p.saveBtn.Clicked(gtx) {
 		if v, err := strconv.Atoi(p.logLimitEditor.Text()); err == nil && v >= 0 {
 			p.ctrl.SetLogLimitWithLog(v)
+			p.origLogLimit = fmt.Sprintf("%d", v)
 		}
-	}
-	if p.intervalSave.Clicked(gtx) {
 		if h, err := strconv.Atoi(p.intervalEditor.Text()); err == nil && h > 0 {
 			p.ctrl.SetDefaultIntervalWithLog(h)
+			p.origInterval = fmt.Sprintf("%d", h)
 		}
-	}
-	if changed := p.showLogs.Update(gtx); changed {
 		p.ctrl.Config().SetShowLogs(p.showLogs.Value)
-		_ = p.ctrl.Config().Save()
-	}
-	if changed := p.desktopNotif.Update(gtx); changed {
+		p.origShowLogs = p.showLogs.Value
 		p.ctrl.Config().SetDesktopNotifications(p.desktopNotif.Value)
+		p.origDesktopNotif = p.desktopNotif.Value
+		if p.pendingLang != p.origLang {
+			p.ctrl.Config().SetLanguage(p.pendingLang)
+			localengine.SetLanguage(p.pendingLang)
+			p.origLang = p.pendingLang
+			if p.OnLanguageChange != nil {
+				p.OnLanguageChange()
+			}
+		}
 		_ = p.ctrl.Config().Save()
 	}
 
@@ -89,20 +124,50 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 		p.openLangPicker()
 	}
 
+	logLimitDirty := p.logLimitEditor.Text() != p.origLogLimit
+	intervalDirty := p.intervalEditor.Text() != p.origInterval
+	showLogsDirty := p.showLogs.Value != p.origShowLogs
+	desktopNotifDirty := p.desktopNotif.Value != p.origDesktopNotif
+	langDirty := p.pendingLang != p.origLang
+	dirty := p.isDirty()
+
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		// Header row with Save button on the right.
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, localengine.T("settings", "logging", "title")).Layout(gtx)
-			})
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return material.H6(p.th, localengine.T("settings", "logging", "title")).Layout(gtx)
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !dirty {
+						return layout.Dimensions{}
+					}
+					return material.Button(p.th, &p.saveBtn, localengine.T("settings", "btn", "save")).Layout(gtx)
+				}),
+			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.inputWithLabelAndSave(gtx, localengine.T("settings", "log_limit", "label"), &p.logLimitEditor, &p.logLimitSave)
+			label := localengine.T("settings", "log_limit", "label")
+			if logLimitDirty {
+				label += " *"
+			}
+			return p.inputWithLabel(gtx, label, &p.logLimitEditor, logLimitDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.showLogs, localengine.T("settings", "show_logs")).Layout(gtx)
+			label := localengine.T("settings", "show_logs")
+			if showLogsDirty {
+				label += " *"
+			}
+			return material.CheckBox(p.th, &p.showLogs, label).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.desktopNotif, localengine.T("settings", "desktop_notifications")).Layout(gtx)
+			label := localengine.T("settings", "desktop_notifications")
+			if desktopNotifDirty {
+				label += " *"
+			}
+			return material.CheckBox(p.th, &p.desktopNotif, label).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -110,7 +175,11 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.inputWithLabelAndSave(gtx, localengine.T("settings", "default_interval", "label"), &p.intervalEditor, &p.intervalSave)
+			label := localengine.T("settings", "default_interval", "label")
+			if intervalDirty {
+				label += " *"
+			}
+			return p.inputWithLabel(gtx, label, &p.intervalEditor, intervalDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -118,12 +187,16 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lang := p.pendingLang
+			if lang == "" {
+				lang = "en"
+			}
+			btnLabel := localengine.LanguageName(lang)
+			if langDirty {
+				btnLabel += " *"
+			}
 			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				lang := p.ctrl.Config().GetLanguage()
-				if lang == "" {
-					lang = "en"
-				}
-				return material.Button(p.th, &p.langBtn, localengine.LanguageName(lang)).Layout(gtx)
+				return material.Button(p.th, &p.langBtn, btnLabel).Layout(gtx)
 			})
 		}),
 	)
@@ -137,12 +210,7 @@ func (p *SettingsPage) openLangPicker() {
 		for i := range langs {
 			if btns[i].Clicked(gtx) {
 				p.dialog.HideCustom()
-				p.ctrl.Config().SetLanguage(langs[i])
-				_ = p.ctrl.Config().Save()
-				localengine.SetLanguage(langs[i])
-				if p.OnLanguageChange != nil {
-					p.OnLanguageChange()
-				}
+				p.pendingLang = langs[i]
 			}
 		}
 
@@ -151,7 +219,7 @@ func (p *SettingsPage) openLangPicker() {
 			idx := i
 			lang := l
 			label := localengine.LanguageName(lang)
-			if lang == p.ctrl.Config().GetLanguage() {
+			if lang == p.pendingLang {
 				label = "> " + label
 			}
 			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -164,22 +232,33 @@ func (p *SettingsPage) openLangPicker() {
 	})
 }
 
-func (p *SettingsPage) inputWithLabelAndSave(gtx layout.Context, label string, ed *widget.Editor, saveBtn *widget.Clickable) layout.Dimensions {
-	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+func (p *SettingsPage) inputWithLabel(gtx layout.Context, label string, ed *widget.Editor, dirty bool) layout.Dimensions {
+	bg := color.NRGBA{R: 40, G: 40, B: 40, A: 255}
+	if dirty {
+		bg = color.NRGBA{R: 80, G: 70, B: 20, A: 255}
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Body2(p.th, label).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.Editor(p.th, ed, "").Layout(gtx)
+			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(4))}}
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Button(p.th, saveBtn, localengine.T("settings", "btn", "save")).Layout(gtx)
+			macro := op.Record(gtx.Ops)
+			dims := widget.Border{
+				Color:        color.NRGBA{R: 128, G: 128, B: 128, A: 128},
+				CornerRadius: unit.Dp(4),
+				Width:        unit.Dp(1),
+			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Editor(p.th, ed, "").Layout(gtx)
+				})
+			})
+			call := macro.Stop()
+			paint.FillShape(gtx.Ops, bg, clip.Rect{Max: dims.Size}.Op())
+			call.Add(gtx.Ops)
+			return dims
 		}),
 	)
 }
