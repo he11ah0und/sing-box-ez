@@ -2,6 +2,7 @@ package pages
 
 import (
 	"image"
+	"image/color"
 	"io"
 	"strings"
 	"time"
@@ -9,6 +10,8 @@ import (
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -25,20 +28,16 @@ type LogPage struct {
 
 	copyBtn  widget.Clickable
 	clearBtn widget.Clickable
-	editor   widget.Editor
+	list     widget.List
 	lastText string
+	lines    []string
 }
 
 // NewLogPage creates a new log page.
 func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
-	ed := widget.Editor{
-		SingleLine: false,
-		ReadOnly:   true,
-	}
 	return &LogPage{
-		th:     th,
-		ctrl:   ctrl,
-		editor: ed,
+		th:   th,
+		ctrl: ctrl,
 	}
 }
 
@@ -70,7 +69,7 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	text := strings.Join(lines, "\n")
 	if text != p.lastText {
 		p.lastText = text
-		p.editor.SetText(text)
+		p.lines = lines
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -88,10 +87,49 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 			)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			ed := material.Editor(p.th, &p.editor, "")
-			ed.Font.Typeface = "Go Mono"
-			ed.TextSize = unit.Sp(12)
-			return ed.Layout(gtx)
+			return material.List(p.th, &p.list).Layout(gtx, len(p.lines), func(gtx layout.Context, index int) layout.Dimensions {
+				return p.logLine(gtx, p.lines[index])
+			})
 		}),
 	)
+}
+
+func (p *LogPage) logLine(gtx layout.Context, line string) layout.Dimensions {
+	bg, fg := logLineColors(line)
+	// Fill background for the whole row.
+	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
+
+	lbl := material.Label(p.th, unit.Sp(12), line)
+	lbl.Font.Typeface = "Go Mono"
+	lbl.Color = fg
+	return layout.UniformInset(unit.Dp(2)).Layout(gtx, lbl.Layout)
+}
+
+func logLineColors(line string) (bg, fg color.NRGBA) {
+	// Default colors.
+	bg = color.NRGBA{R: 20, G: 20, B: 20, A: 255}
+	fg = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+
+	// Extract level from format: [HH:MM:SS] [LEVEL] ...
+	if idx := strings.Index(line, "["); idx >= 0 {
+		rest := line[idx+1:]
+		if idx2 := strings.Index(rest, "]"); idx2 >= 0 {
+			level := rest[:idx2]
+			switch level {
+			case "DBG":
+				bg = color.NRGBA{R: 25, G: 35, B: 25, A: 255}
+				fg = color.NRGBA{R: 100, G: 200, B: 100, A: 255}
+			case "INF":
+				bg = color.NRGBA{R: 20, G: 30, B: 50, A: 255}
+				fg = color.NRGBA{R: 100, G: 150, B: 255, A: 255}
+			case "WRN":
+				bg = color.NRGBA{R: 50, G: 40, B: 20, A: 255}
+				fg = color.NRGBA{R: 255, G: 200, B: 100, A: 255}
+			case "ERR":
+				bg = color.NRGBA{R: 50, G: 20, B: 20, A: 255}
+				fg = color.NRGBA{R: 255, G: 100, B: 100, A: 255}
+			}
+		}
+	}
+	return
 }
