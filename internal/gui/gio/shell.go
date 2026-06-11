@@ -139,29 +139,14 @@ func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 				s.collapsed = !s.collapsed
 			}
 			if s.collapsed {
-				gtx.Constraints.Max.X = gtx.Dp(unit.Dp(72))
+				gtx.Constraints.Max.X = gtx.Dp(unit.Dp(56))
 				gtx.Constraints.Min.X = gtx.Constraints.Max.X
 				return s.layoutCollapsedNav(gtx)
 			}
 			// Persistent rail: 240dp wide on desktop.
 			gtx.Constraints.Max.X = gtx.Dp(unit.Dp(240))
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Clickable(gtx, &s.toggleBtn, func(gtx layout.Context) layout.Dimensions {
-							return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								icon := icons.NavigationMenu
-								return icon.Layout(gtx, s.th.Palette.Fg)
-							})
-						})
-					})
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					paint.FillShape(gtx.Ops, s.th.Palette.Bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
-					return s.staticNav.Layout(gtx, s.th, &s.staticAnim)
-				}),
-			)
+			return s.layoutExpandedNav(gtx)
 		}),
 		// Main content area + optional bottom nav.
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -205,6 +190,108 @@ func (s *Shell) handleNavDestination(tag string) {
 }
 
 // layoutCollapsedNav renders the icon-only rail for collapsed desktop sidebar.
+func (s *Shell) layoutExpandedNav(gtx layout.Context) layout.Dimensions {
+	// Handle clicks before layout.
+	allPages := append(s.primary, s.secondary...)
+	for i := range s.collapsedClicks {
+		if i < len(allPages) && s.collapsedClicks[i].Clicked(gtx) {
+			s.handleNavDestination(allPages[i].Tag())
+		}
+	}
+
+	// Fill sidebar background.
+	paint.FillShape(gtx.Ops, s.th.Palette.Bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			// Toggle button at the top, aligned like other nav items.
+			gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
+			gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+			return material.Clickable(gtx, &s.toggleBtn, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Left: unit.Dp(16), Top: unit.Dp(12), Right: unit.Dp(12), Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									gtx.Constraints.Min = image.Pt(0, 0) // reset so icon uses default 24dp size
+									return icons.NavigationMenu.Layout(gtx, s.th.Palette.Fg)
+								})
+							}),
+						)
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}),
+				)
+			})
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			children := make([]layout.FlexChild, len(allPages))
+			for i, p := range allPages {
+				idx := i
+				page := p
+				active := false
+				if idx < len(s.primary) {
+					active = s.currentPage == idx
+				} else {
+					active = s.secondaryTag == page.Tag() && s.currentPage == len(s.primary)
+				}
+				children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return s.expandedNavItem(gtx, page, &s.collapsedClicks[idx], active)
+				})
+			}
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		}),
+	)
+}
+
+// expandedNavItem renders a single icon+label row in the expanded rail.
+func (s *Shell) expandedNavItem(gtx layout.Context, page pages.Page, btn *widget.Clickable, active bool) layout.Dimensions {
+	gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
+	gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+	col := s.th.Palette.Fg
+	bg := color.NRGBA{}
+	if active {
+		col = s.th.Palette.ContrastFg
+		bg = s.th.Palette.ContrastBg
+	}
+	return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
+		if bg.A > 0 {
+			paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
+		}
+		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(16), Top: unit.Dp(12), Right: unit.Dp(12), Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min = image.Pt(0, 0) // reset so icon uses default 24dp size
+							icon := page.Icon()
+							if icon == nil {
+								return layout.Dimensions{}
+							}
+							return icon.Layout(gtx, col)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Body1(s.th, page.Name())
+						lbl.Color = col
+						return lbl.Layout(gtx)
+					}),
+				)
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+		)
+	})
+}
+
 func (s *Shell) layoutCollapsedNav(gtx layout.Context) layout.Dimensions {
 	// Handle clicks before layout.
 	allPages := append(s.primary, s.secondary...)
@@ -220,17 +307,14 @@ func (s *Shell) layoutCollapsedNav(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Toggle button at the top.
-			return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Clickable(gtx, &s.toggleBtn, func(gtx layout.Context) layout.Dimensions {
-					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						icon := icons.NavigationMenu
-						return icon.Layout(gtx, s.th.Palette.Fg)
-					})
+			gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
+			gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+			return material.Clickable(gtx, &s.toggleBtn, func(gtx layout.Context) layout.Dimensions {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min = image.Pt(0, 0)
+					return icons.NavigationMenu.Layout(gtx, s.th.Palette.Fg)
 				})
 			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(8))}}
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			children := make([]layout.FlexChild, len(allPages))
@@ -244,9 +328,10 @@ func (s *Shell) layoutCollapsedNav(gtx layout.Context) layout.Dimensions {
 					active = s.secondaryTag == page.Tag() && s.currentPage == len(s.primary)
 				}
 				children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return s.collapsedNavItem(gtx, page, &s.collapsedClicks[idx], active)
-					})
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
+					gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+					return s.collapsedNavItem(gtx, page, &s.collapsedClicks[idx], active)
 				})
 			}
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -269,6 +354,7 @@ func (s *Shell) collapsedNavItem(gtx layout.Context, page pages.Page, btn *widge
 			paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 		}
 		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Pt(0, 0)
 			icon := page.Icon()
 			if icon == nil {
 				return layout.Dimensions{}
@@ -373,7 +459,7 @@ func (s *Shell) secondaryButton(gtx layout.Context, label string, icon *widget.I
 			Width: float32(gtx.Dp(unit.Dp(1))),
 		}.Op())
 
-		return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Left: unit.Dp(16), Top: unit.Dp(12), Right: unit.Dp(12), Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			col := s.th.Palette.Fg
 			if active {
 				col = s.th.Palette.ContrastFg
