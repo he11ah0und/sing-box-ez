@@ -31,6 +31,7 @@ type LogPage struct {
 	list     widget.List
 	lastText string
 	lines    []string
+	editors  []widget.Editor
 }
 
 // NewLogPage creates a new log page.
@@ -70,6 +71,7 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	if text != p.lastText {
 		p.lastText = text
 		p.lines = lines
+		p.syncEditors()
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -88,21 +90,42 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return material.List(p.th, &p.list).Layout(gtx, len(p.lines), func(gtx layout.Context, index int) layout.Dimensions {
-				return p.logLine(gtx, p.lines[index])
+				return p.logLine(gtx, p.lines[index], &p.editors[index])
 			})
 		}),
 	)
 }
 
-func (p *LogPage) logLine(gtx layout.Context, line string) layout.Dimensions {
-	bg, fg := logLineColors(line)
-	// Fill background for the whole row.
-	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
+// syncEditors ensures the editors slice matches the lines slice.
+func (p *LogPage) syncEditors() {
+	if len(p.lines) > len(p.editors) {
+		for i := len(p.editors); i < len(p.lines); i++ {
+			ed := widget.Editor{ReadOnly: true, SingleLine: false}
+			ed.SetText(p.lines[i])
+			p.editors = append(p.editors, ed)
+		}
+	} else if len(p.lines) < len(p.editors) {
+		p.editors = p.editors[:len(p.lines)]
+	}
+	for i := range p.lines {
+		if p.editors[i].Text() != p.lines[i] {
+			p.editors[i].SetText(p.lines[i])
+		}
+	}
+}
 
-	lbl := material.Label(p.th, unit.Sp(12), line)
-	lbl.Font.Typeface = "Go Mono"
-	lbl.Color = fg
-	return layout.UniformInset(unit.Dp(2)).Layout(gtx, lbl.Layout)
+func (p *LogPage) logLine(gtx layout.Context, line string, ed *widget.Editor) layout.Dimensions {
+	bg, fg := logLineColors(line)
+	macro := op.Record(gtx.Ops)
+	edStyle := material.Editor(p.th, ed, "")
+	edStyle.Font.Typeface = "Go Mono"
+	edStyle.TextSize = unit.Sp(12)
+	edStyle.Color = fg
+	dims := layout.UniformInset(unit.Dp(2)).Layout(gtx, edStyle.Layout)
+	call := macro.Stop()
+	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: dims.Size}.Op())
+	call.Add(gtx.Ops)
+	return dims
 }
 
 func logLineColors(line string) (bg, fg color.NRGBA) {
