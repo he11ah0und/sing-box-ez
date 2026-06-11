@@ -53,6 +53,11 @@ func (fs *OSFileSystem) Open(name string) (*os.File, error) {
 	return os.Open(fs.resolve(name))
 }
 
+// ReadDir reads the named directory.
+func (fs *OSFileSystem) ReadDir(name string) ([]os.DirEntry, error) {
+	return os.ReadDir(fs.resolve(name))
+}
+
 // Rename renames (moves) a file.
 func (fs *OSFileSystem) Rename(oldpath, newpath string) error {
 	return os.Rename(fs.resolve(oldpath), fs.resolve(newpath))

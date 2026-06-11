@@ -5,12 +5,12 @@ package localengine
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 
+	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
 
 	"gopkg.in/yaml.v3"
@@ -29,9 +29,9 @@ func log() *logger.LogTerminal {
 	return &logger.LogTerminal{}
 }
 
-// LoadFromFS reads all *.yaml files from dir inside fs and parses them as locales.
-func LoadFromFS(fsys fs.FS, dir string) error {
-	files, err := fs.ReadDir(fsys, dir)
+// LoadFromFS reads all *.yaml files from dir inside fsys and parses them as locales.
+func LoadFromFS(fsys fs.FileSystem, dir string) error {
+	files, err := fsys.ReadDir(dir)
 	if err != nil {
 		log().Errorf("read locale dir %q: %v", dir, err)
 		return fmt.Errorf("read locale dir %q: %w", dir, err)
@@ -44,7 +44,7 @@ func LoadFromFS(fsys fs.FS, dir string) error {
 		if !strings.HasSuffix(f.Name(), ".yaml") {
 			continue
 		}
-		data, err := fs.ReadFile(fsys, filepath.Join(dir, f.Name()))
+		data, err := fsys.ReadFile(filepath.Join(dir, f.Name()))
 		if err != nil {
 			log().Errorf("read locale %s: %v", f.Name(), err)
 			return fmt.Errorf("read locale %s: %w", f.Name(), err)
@@ -63,7 +63,7 @@ func LoadFromFS(fsys fs.FS, dir string) error {
 
 // LoadFromDir reads all *.yaml files from dir on the local filesystem.
 func LoadFromDir(dir string) error {
-	return LoadFromFS(os.DirFS(dir), ".")
+	return LoadFromFS(fs.NewOSFileSystem(dir), "")
 }
 
 func loadLanguage(lang string, data []byte) error {

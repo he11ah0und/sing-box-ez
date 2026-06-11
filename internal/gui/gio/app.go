@@ -232,7 +232,7 @@ func (g *GUI) Run() {
 	go func() {
 		w := new(app.Window)
 		w.Option(
-			app.Title("sing-box-ez"),
+			app.Title(localengine.T("app", "title")),
 			app.Size(unit.Dp(800), unit.Dp(600)),
 		)
 		g.win = w

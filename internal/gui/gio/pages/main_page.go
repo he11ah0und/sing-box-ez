@@ -13,6 +13,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -49,6 +50,7 @@ func (p *MainPage) Tag() string { return "main" }
 
 // Name returns the page name.
 func (p *MainPage) Name() string { return localengine.T("tab", "main") }
+func (p *MainPage) Icon() *widget.Icon { return icons.ActionHome }
 
 // Layout draws the main page.
 func (p *MainPage) Layout(gtx layout.Context) layout.Dimensions {

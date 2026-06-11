@@ -1,10 +1,13 @@
 package app
 
 import (
+	"embed"
+
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/fs"
+	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
 )
@@ -18,7 +21,8 @@ type App struct {
 }
 
 // NewApp creates a new core App from the loaded configuration.
-func NewApp(cfg *config.AppConfig) *App {
+// localesFS is the embedded file system containing locale YAML files.
+func NewApp(cfg *config.AppConfig, localesFS embed.FS) *App {
 	if cfg == nil {
 		return nil
 	}
@@ -26,6 +30,10 @@ func NewApp(cfg *config.AppConfig) *App {
 		App: framework.NewApp(framework.Config{
 			LoggerLimit: cfg.GetLogLimit(),
 			BaseDir:     cfg.DataDir,
+			LoadLocales: func(log *logger.LogTerminal) error {
+				localengine.Log = log
+				return localengine.LoadFromFS(&fs.EmbedFS{FS: localesFS}, "locales")
+			},
 			BuildUpdaters: func(log *logger.Logger, fsys fs.FileSystem) []*updater.Manager {
 				// App self-updater
 				appMgr := &updater.Manager{Log: log.Root().Allocate("updater")}

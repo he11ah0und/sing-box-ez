@@ -9,6 +9,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -61,6 +62,7 @@ func (p *SettingsPage) Tag() string { return "settings" }
 
 // Name returns the page name.
 func (p *SettingsPage) Name() string { return localengine.T("tab", "settings") }
+func (p *SettingsPage) Icon() *widget.Icon { return icons.ActionSettings }
 
 // Layout draws the settings page.
 func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {

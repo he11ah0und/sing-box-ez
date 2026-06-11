@@ -30,6 +30,12 @@ type Config struct {
 	// BaseDir is the root directory for the file system. If empty the current
 	// working directory is used.
 	BaseDir string
+	// LoadLocales is called during app construction to load localization
+	// bundles. The framework passes a scoped logger so the implementation
+	// can set localengine.Log and load locale files from any backend
+	// (e.g. embed.FS, OS directory, or a custom fs.FileSystem).
+	// If nil, localengine is only initialised with a logger.
+	LoadLocales func(log *logger.LogTerminal) error
 	// BuildUpdaters returns the list of updater managers that should be
 	// registered in the app. The framework passes the root logger and the
 	// file system so each manager can allocate its own scoped terminal and
@@ -48,6 +54,11 @@ func NewApp(cfg Config) *App {
 
 	log := logger.NewLogger(cfg.LoggerLimit)
 	localengine.Log = log.Root().Allocate("localengine")
+	if cfg.LoadLocales != nil {
+		if err := cfg.LoadLocales(localengine.Log); err != nil {
+			localengine.Log.Warnf("locale load failed: %v", err)
+		}
+	}
 	appFS := fs.NewOSFileSystem(cfg.BaseDir)
 
 	var updaters []*updater.Manager
