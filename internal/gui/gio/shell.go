@@ -376,6 +376,11 @@ func (s *Shell) collapsedNavItem(gtx layout.Context, page pages.Page, btn *widge
 	})
 }
 
+// noInsetPage is implemented by pages that don't want the default 16dp padding.
+type noInsetPage interface {
+	NoInset() bool
+}
+
 // layoutContent renders the current page with a background color.
 func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 	// Fill background.
@@ -387,6 +392,9 @@ func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 
 	for i, p := range s.primary {
 		if s.currentPage == i {
+			if nip, ok := p.(noInsetPage); ok && nip.NoInset() {
+				return p.Layout(gtx)
+			}
 			return layout.UniformInset(unit.Dp(16)).Layout(gtx, p.Layout)
 		}
 	}
@@ -417,6 +425,9 @@ func (s *Shell) layoutSecondaryPage(gtx layout.Context) layout.Dimensions {
 func (s *Shell) layoutSubPage(gtx layout.Context) layout.Dimensions {
 	for _, p := range s.secondary {
 		if p.Tag() == s.secondaryTag {
+			if nip, ok := p.(noInsetPage); ok && nip.NoInset() {
+				return p.Layout(gtx)
+			}
 			return layout.UniformInset(unit.Dp(16)).Layout(gtx, p.Layout)
 		}
 	}
