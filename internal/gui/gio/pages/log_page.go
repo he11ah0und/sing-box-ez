@@ -12,6 +12,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -24,14 +25,20 @@ type LogPage struct {
 
 	copyBtn  widget.Clickable
 	clearBtn widget.Clickable
-	list     widget.List
+	editor   widget.Editor
+	lastText string
 }
 
 // NewLogPage creates a new log page.
 func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
+	ed := widget.Editor{
+		SingleLine: false,
+		ReadOnly:   true,
+	}
 	return &LogPage{
-		th:   th,
-		ctrl: ctrl,
+		th:     th,
+		ctrl:   ctrl,
+		editor: ed,
 	}
 }
 
@@ -40,6 +47,7 @@ func (p *LogPage) Tag() string { return "logs" }
 
 // Name returns the page name.
 func (p *LogPage) Name() string { return localengine.T("tab", "log") }
+func (p *LogPage) Icon() *widget.Icon { return icons.ActionBugReport }
 
 // Layout draws the log page.
 func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
@@ -59,6 +67,11 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	lines := p.ctrl.GetLogLines()
+	text := strings.Join(lines, "\n")
+	if text != p.lastText {
+		p.lastText = text
+		p.editor.SetText(text)
+	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -75,14 +88,10 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 			)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			p.list.Axis = layout.Vertical
-			return p.list.Layout(gtx, len(lines), func(gtx layout.Context, index int) layout.Dimensions {
-				line := ""
-				if index < len(lines) {
-					line = lines[index]
-				}
-				return material.Body2(p.th, line).Layout(gtx)
-			})
+			ed := material.Editor(p.th, &p.editor, "")
+			ed.Font.Typeface = "Go Mono"
+			ed.TextSize = unit.Sp(12)
+			return ed.Layout(gtx)
 		}),
 	)
 }

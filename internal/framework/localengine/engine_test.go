@@ -4,22 +4,36 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"testing/fstest"
+
+	"sing-box-ez/internal/framework/fs"
 )
 
 func resetBundles() {
 	bundles = make(map[string]map[string]any)
 }
 
-func TestSetLanguage(t *testing.T) {
-	fsys := fstest.MapFS{
-		"en.yaml": &fstest.MapFile{Data: []byte("tab:\n  settings: Settings\nlocale:\n  name: English\n")},
-		"ru.yaml": &fstest.MapFile{Data: []byte("tab:\n  settings: Настройки\nlocale:\n  name: Русский\n")},
-		"zh.yaml": &fstest.MapFile{Data: []byte("tab:\n  settings: 设置\nlocale:\n  name: 中文\n")},
+// newTestFS writes the given file contents to a temporary directory and
+// returns an OSFileSystem rooted there.
+func newTestFS(t *testing.T, files map[string]string) fs.FileSystem {
+	t.Helper()
+	dir := t.TempDir()
+	for name, data := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0644); err != nil {
+			t.Fatalf("write test file %s: %v", name, err)
+		}
 	}
+	return fs.NewOSFileSystem(dir)
+}
+
+func TestSetLanguage(t *testing.T) {
+	fsys := newTestFS(t, map[string]string{
+		"en.yaml": "tab:\n  settings: Settings\nlocale:\n  name: English\n",
+		"ru.yaml": "tab:\n  settings: Настройки\nlocale:\n  name: Русский\n",
+		"zh.yaml": "tab:\n  settings: 设置\nlocale:\n  name: 中文\n",
+	})
 
 	resetBundles()
-	if err := LoadFromFS(fsys, "."); err != nil {
+	if err := LoadFromFS(fsys, ""); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 
@@ -35,12 +49,12 @@ func TestSetLanguage(t *testing.T) {
 }
 
 func TestNestedKeys(t *testing.T) {
-	fsys := fstest.MapFS{
-		"en.yaml": &fstest.MapFile{Data: []byte("about:\n  btn:\n    open_repo: Open repo\n    open_data: Open data\n")},
-	}
+	fsys := newTestFS(t, map[string]string{
+		"en.yaml": "about:\n  btn:\n    open_repo: Open repo\n    open_data: Open data\n",
+	})
 
 	resetBundles()
-	if err := LoadFromFS(fsys, "."); err != nil {
+	if err := LoadFromFS(fsys, ""); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 
@@ -53,13 +67,13 @@ func TestNestedKeys(t *testing.T) {
 }
 
 func TestFallbackToEnglish(t *testing.T) {
-	fsys := fstest.MapFS{
-		"en.yaml": &fstest.MapFile{Data: []byte("only:\n  english: Hello\n")},
-		"ru.yaml": &fstest.MapFile{Data: []byte("other: Другое\n")},
-	}
+	fsys := newTestFS(t, map[string]string{
+		"en.yaml": "only:\n  english: Hello\n",
+		"ru.yaml": "other: Другое\n",
+	})
 
 	resetBundles()
-	if err := LoadFromFS(fsys, "."); err != nil {
+	if err := LoadFromFS(fsys, ""); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 
@@ -79,13 +93,13 @@ func TestMissingKeyReturnsPath(t *testing.T) {
 }
 
 func TestLanguageName(t *testing.T) {
-	fsys := fstest.MapFS{
-		"en.yaml": &fstest.MapFile{Data: []byte("locale:\n  name: English\n")},
-		"ru.yaml": &fstest.MapFile{Data: []byte("locale:\n  name: Русский\n")},
-	}
+	fsys := newTestFS(t, map[string]string{
+		"en.yaml": "locale:\n  name: English\n",
+		"ru.yaml": "locale:\n  name: Русский\n",
+	})
 
 	resetBundles()
-	if err := LoadFromFS(fsys, "."); err != nil {
+	if err := LoadFromFS(fsys, ""); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 

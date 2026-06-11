@@ -13,13 +13,13 @@ const (
 func (l LogLevel) String() string {
 	switch l {
 	case LogLevelDebug:
-		return "DEBUG"
+		return "DBG"
 	case LogLevelInfo:
-		return "INFO"
+		return "INF"
 	case LogLevelWarn:
-		return "WARN"
+		return "WRN"
 	case LogLevelError:
-		return "ERROR"
+		return "ERR"
 	default:
 		return "?"
 	}

@@ -11,6 +11,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -78,6 +79,7 @@ func (p *CorePage) Tag() string { return "core" }
 
 // Name returns the page name.
 func (p *CorePage) Name() string { return localengine.T("tab", "core") }
+func (p *CorePage) Icon() *widget.Icon { return icons.AVPlayArrow }
 
 // Layout draws the core page.
 func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {

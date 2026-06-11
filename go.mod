@@ -13,6 +13,7 @@ require (
 
 require (
 	fyne.io/systray v1.12.1 // indirect
+	gio.tools/icons v0.0.0-20240708021058-44790e75e701 // indirect
 	gioui.org/shader v1.0.8 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

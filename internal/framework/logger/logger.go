@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -70,11 +71,17 @@ func (l *Logger) append(part *LogPart) {
 // renderLocked formats a LogPart into a text line.
 func (l *Logger) renderLocked(part *LogPart) string {
 	timestamp := part.Timestamp.Format("15:04:05")
+	blockPath := part.Source.BlockPath()
 	var source string
 	if part.SameSource {
 		source = "[" + part.Source.id + "]"
+		// Pad on the left so the short source is right-aligned with the full
+		// block-path width and the arrow stays in the same column.
+		if len(source) < len(blockPath) {
+			source = strings.Repeat(" ", len(blockPath)-len(source)) + source
+		}
 	} else {
-		source = part.Source.BlockPath()
+		source = blockPath
 	}
 	return fmt.Sprintf("[%s] [%s] %s -> %s", timestamp, part.Level.String(), source, part.Message)
 }

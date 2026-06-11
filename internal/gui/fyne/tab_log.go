@@ -17,6 +17,7 @@ func (g *GUI) buildLogTab() *container.TabItem {
 	}
 
 	g.logEntry = widget.NewMultiLineEntry()
+	g.logEntry.TextStyle = fyne.TextStyle{Monospace: true}
 	g.logEntry.Wrapping = fyne.TextWrapBreak
 	g.logEntry.OnChanged = func(s string) {
 		lines := g.ctrl.GetLogLines()

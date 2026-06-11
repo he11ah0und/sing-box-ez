@@ -2,7 +2,9 @@ package pages
 
 import (
 	"gioui.org/layout"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -24,6 +26,7 @@ func (p *PluginsPage) Tag() string { return "plugins" }
 
 // Name returns the page name.
 func (p *PluginsPage) Name() string { return localengine.T("tab", "plugins") }
+func (p *PluginsPage) Icon() *widget.Icon { return icons.ActionExtension }
 
 // Layout draws the plugins page.
 func (p *PluginsPage) Layout(gtx layout.Context) layout.Dimensions {
