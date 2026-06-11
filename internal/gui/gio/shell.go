@@ -268,17 +268,17 @@ func (s *Shell) navItem(gtx layout.Context, label string, icon *widget.Icon, btn
 				return layout.Dimensions{Size: gtx.Constraints.Min}
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if label == "" {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Min = image.Pt(0, 0)
+						if icon == nil {
+							return layout.Dimensions{}
+						}
+						return icon.Layout(gtx, col)
+					})
+				}
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if label == "" {
-							return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								gtx.Constraints.Min = image.Pt(0, 0)
-								if icon == nil {
-									return layout.Dimensions{}
-								}
-								return icon.Layout(gtx, col)
-							})
-						}
 						return layout.Inset{Left: unit.Dp(16), Top: unit.Dp(12), Right: unit.Dp(12), Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min = image.Pt(0, 0) // reset so icon uses default 24dp size
 							if icon == nil {
@@ -291,9 +291,6 @@ func (s *Shell) navItem(gtx layout.Context, label string, icon *widget.Icon, btn
 						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(12)), Y: 0}}
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if label == "" {
-							return layout.Dimensions{}
-						}
 						lbl := material.Body1(s.th, label)
 						lbl.Color = col
 						return lbl.Layout(gtx)
@@ -388,20 +385,18 @@ func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 	}
 	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
-	return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		for i, p := range s.primary {
-			if s.currentPage == i {
-				return p.Layout(gtx)
-			}
+	for i, p := range s.primary {
+		if s.currentPage == i {
+			return layout.UniformInset(unit.Dp(16)).Layout(gtx, p.Layout)
 		}
-		if s.currentPage == len(s.primary) {
-			return s.layoutSecondaryPage(gtx)
-		}
-		if len(s.primary) > 0 {
-			return s.primary[0].Layout(gtx)
-		}
-		return material.Body1(s.th, "No pages").Layout(gtx)
-	})
+	}
+	if s.currentPage == len(s.primary) {
+		return s.layoutSecondaryPage(gtx)
+	}
+	if len(s.primary) > 0 {
+		return layout.UniformInset(unit.Dp(16)).Layout(gtx, s.primary[0].Layout)
+	}
+	return material.Body1(s.th, "No pages").Layout(gtx)
 }
 
 // layoutSecondaryPage shows either the selected sub-page (on desktop via side rail)
@@ -422,7 +417,7 @@ func (s *Shell) layoutSecondaryPage(gtx layout.Context) layout.Dimensions {
 func (s *Shell) layoutSubPage(gtx layout.Context) layout.Dimensions {
 	for _, p := range s.secondary {
 		if p.Tag() == s.secondaryTag {
-			return p.Layout(gtx)
+			return layout.UniformInset(unit.Dp(16)).Layout(gtx, p.Layout)
 		}
 	}
 	return material.Body1(s.th, "Select an item from the menu").Layout(gtx)
