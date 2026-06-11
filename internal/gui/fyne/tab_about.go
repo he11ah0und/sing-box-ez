@@ -2,7 +2,6 @@ package fynegui
 
 import (
 	"sing-box-ez/internal/framework/localengine"
-	"sing-box-ez/internal/framework/util/githuburl"
 	"sing-box-ez/internal/framework/util/openurl"
 	"sing-box-ez/internal/framework/version"
 
@@ -18,7 +17,7 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 	buildInfoLbl := widget.NewLabel(buildInfoText())
 
 	openRepoBtn := widget.NewButton(localengine.T("about", "btn", "open_repo"), func() {
-		_ = openurl.OpenURL(githuburl.DefaultProject().RepoURL())
+		_ = openurl.OpenURL("https://github.com/he11ah0und/sing-box-ez")
 	})
 
 	var notesRow fyne.CanvasObject
@@ -29,9 +28,9 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 		openNotesBtn := widget.NewButton(localengine.T("about", "btn", "open_release_notes"), func() {
 			var urlStr string
 			if version.Commit != "unknown" && version.Commit != "" {
-				urlStr = githuburl.DefaultProject().WebReleaseURL(version.Commit)
+				urlStr = "https://github.com/he11ah0und/sing-box-ez/releases/tag/" + version.Commit
 			} else {
-				urlStr = githuburl.DefaultProject().WebLatestReleaseURL()
+				urlStr = "https://github.com/he11ah0und/sing-box-ez/releases/latest"
 			}
 			_ = openurl.OpenURL(urlStr)
 		})

@@ -48,13 +48,13 @@ func (c *CoreController) DownloadCoreWithProgress(onProgress func(downloaded, to
 	if err != nil {
 		return "", err
 	}
-	c.terminal.Info("Latest version: v" + ver)
+	c.terminal.Infof("Latest version: v" + ver)
 
 	path, err := DownloadCore("", onProgress)
 	if err != nil {
 		return "", err
 	}
-	c.terminal.Info("Core downloaded to: " + path)
+	c.terminal.Infof("Core downloaded to: " + path)
 	return path, nil
 }
 
@@ -67,39 +67,39 @@ func (c *CoreController) CoreExists() bool {
 func (c *CoreController) StartCore() error {
 	_, err := PrepareConfig(c.cfg, c.manager, c.logger)
 	if err != nil {
-		c.terminal.Error(err.Error())
+		c.terminal.Errorf("%s", err.Error())
 		return err
 	}
 	if err := StartCore(c.manager, c.logger); err != nil {
-		c.terminal.Error("Failed to start: " + err.Error())
+		c.terminal.Errorf("Failed to start: " + err.Error())
 		return err
 	}
-	c.terminal.Info("Core started")
+	c.terminal.Infof("Core started")
 	return nil
 }
 
 // StopCore stops the core process and logs the result.
 func (c *CoreController) StopCore() error {
 	if err := StopCore(c.manager, c.logger); err != nil {
-		c.terminal.Error("Failed to stop: " + err.Error())
+		c.terminal.Errorf("Failed to stop: " + err.Error())
 		return err
 	}
-	c.terminal.Info("Core stopped")
+	c.terminal.Infof("Core stopped")
 	return nil
 }
 
 // RestartCore restarts the core process and logs the result.
 func (c *CoreController) RestartCore() error {
-	c.terminal.Info("Restarting...")
+	c.terminal.Infof("Restarting...")
 	if err := StopCore(c.manager, c.logger); err != nil {
-		c.terminal.Error("Failed to restart: " + err.Error())
+		c.terminal.Errorf("Failed to restart: " + err.Error())
 		return err
 	}
 	if err := StartCore(c.manager, c.logger); err != nil {
-		c.terminal.Error("Failed to restart: " + err.Error())
+		c.terminal.Errorf("Failed to restart: " + err.Error())
 		return err
 	}
-	c.terminal.Info("Core restarted")
+	c.terminal.Infof("Core restarted")
 	return nil
 }
 
@@ -107,7 +107,7 @@ func (c *CoreController) RestartCore() error {
 func (c *CoreController) GetLatestCoreVersionWithLog() (string, error) {
 	ver, err := c.GetLatestCoreVersion()
 	if err != nil {
-		c.terminal.Error("Check failed: " + err.Error())
+		c.terminal.Errorf("Check failed: " + err.Error())
 		return "", err
 	}
 	return ver, nil
@@ -117,7 +117,7 @@ func (c *CoreController) GetLatestCoreVersionWithLog() (string, error) {
 func (c *CoreController) DownloadCoreWithProgressWithLog(onProgress func(int64, int64)) (string, error) {
 	path, err := c.DownloadCoreWithProgress(onProgress)
 	if err != nil {
-		c.terminal.Error("Failed to download core: " + err.Error())
+		c.terminal.Errorf("Failed to download core: " + err.Error())
 		return "", err
 	}
 	return path, nil

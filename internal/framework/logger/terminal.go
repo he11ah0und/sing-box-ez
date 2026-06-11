@@ -34,29 +34,49 @@ func (t *LogTerminal) Allocate(id string) *LogTerminal {
 	return &LogTerminal{logger: t.logger, id: id, parent: t}
 }
 
-// Debug logs a debug-level message from this terminal.
-func (t *LogTerminal) Debug(msg string) { t.log(LogLevelDebug, msg) }
-
-// Info logs an info-level message from this terminal.
-func (t *LogTerminal) Info(msg string) { t.log(LogLevelInfo, msg) }
-
-// Warn logs a warning-level message from this terminal.
-func (t *LogTerminal) Warn(msg string) { t.log(LogLevelWarn, msg) }
-
-// Error logs an error-level message from this terminal.
-func (t *LogTerminal) Error(msg string) { t.log(LogLevelError, msg) }
-
-// Errorf logs a formatted error-level message from this terminal.
-func (t *LogTerminal) Errorf(format string, args ...interface{}) {
-	t.Error(fmt.Sprintf(format, args...))
+// Debugf logs a debug-level message from this terminal.
+// When the first argument is a format string and additional arguments are
+// provided, fmt.Sprintf is used; otherwise the arguments are printed with
+// fmt.Sprint. This avoids go vet format-string warnings while keeping a
+// single convenient API.
+func (t *LogTerminal) Debugf(v ...interface{}) {
+	t.writef(LogLevelDebug, v)
 }
 
-// Infof logs a formatted info-level message from this terminal.
-func (t *LogTerminal) Infof(format string, args ...interface{}) {
-	t.Info(fmt.Sprintf(format, args...))
+// Infof logs an info-level message from this terminal.
+func (t *LogTerminal) Infof(v ...interface{}) {
+	t.writef(LogLevelInfo, v)
+}
+
+// Warnf logs a warning-level message from this terminal.
+func (t *LogTerminal) Warnf(v ...interface{}) {
+	t.writef(LogLevelWarn, v)
+}
+
+// Errorf logs an error-level message from this terminal.
+func (t *LogTerminal) Errorf(v ...interface{}) {
+	t.writef(LogLevelError, v)
+}
+
+func (t *LogTerminal) writef(level LogLevel, v []interface{}) {
+	if t == nil || t.logger == nil {
+		return
+	}
+	var msg string
+	if len(v) > 0 {
+		if format, ok := v[0].(string); ok && len(v) > 1 {
+			msg = fmt.Sprintf(format, v[1:]...)
+		} else {
+			msg = fmt.Sprint(v...)
+		}
+	}
+	t.log(level, msg)
 }
 
 func (t *LogTerminal) log(level LogLevel, msg string) {
+	if t == nil || t.logger == nil {
+		return
+	}
 	t.logger.append(&LogPart{
 		Level:   level,
 		Source:  t,

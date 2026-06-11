@@ -9,6 +9,7 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
@@ -47,7 +48,7 @@ type GUI struct {
 }
 
 // New creates a new Gio GUI instance.
-func New(cfg *config.AppConfig) *GUI {
+func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 	th := material.NewTheme()
 	// Dark theme by default
 	th.Palette.Bg = color.NRGBA{R: 18, G: 18, B: 18, A: 255}
@@ -66,7 +67,7 @@ func New(cfg *config.AppConfig) *GUI {
 	}
 
 	// Initialize core controller (encapsulates manager + logger + i18n)
-	g.ctrl = core.NewInteractiveController(cfg)
+	g.ctrl = core.NewInteractiveController(cfg, fwApp)
 
 	dialog := NewDialog()
 	g.dialog = dialog

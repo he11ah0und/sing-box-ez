@@ -8,6 +8,7 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/plugins"
@@ -83,7 +84,7 @@ type GUI struct {
 	mu sync.Mutex
 }
 
-func New(cfg *config.AppConfig) *GUI {
+func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 	a := app.New()
 	w := a.NewWindow(localengine.T("app", "title"))
 	w.Resize(fyne.NewSize(800, 600))
@@ -92,7 +93,7 @@ func New(cfg *config.AppConfig) *GUI {
 		app:    a,
 		window: w,
 		cfg:    cfg,
-		ctrl:   core.NewInteractiveController(cfg),
+		ctrl:   core.NewInteractiveController(cfg, fwApp),
 	}
 
 	// Wire UI callbacks from core

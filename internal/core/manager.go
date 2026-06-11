@@ -61,8 +61,8 @@ func absPath(p string) (string, error) {
 
 func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string) (*exec.Cmd, error) {
 	if !m.elevated {
-		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
-		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+		// #nosec G204 — corePath and configPath are internal managed paths (CoreBinary / CachedConfig).
+		// #nosec G204 — corePath and configPath are internal managed paths (CoreBinary / CachedConfig).
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	}
 
@@ -70,7 +70,7 @@ func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string)
 	case "linux":
 		// если setcap уже применён — запускаем напрямую без pkexec
 		if HasNetAdminCapability(corePath) {
-			// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+			// #nosec G204 — corePath and configPath are internal managed paths (CoreBinary / CachedConfig).
 			return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 		}
 		absCore, err := absPath(corePath)
@@ -99,10 +99,10 @@ func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string)
 		if m.elevated && !IsAdmin() {
 			return nil, fmt.Errorf("administrator privileges required: please run sing-box-ez as administrator")
 		}
-		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+		// #nosec G204 — corePath and configPath are internal managed paths (CoreBinary / CachedConfig).
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	default:
-		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+		// #nosec G204 — corePath and configPath are internal managed paths (CoreBinary / CachedConfig).
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	}
 }

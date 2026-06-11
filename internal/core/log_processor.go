@@ -115,7 +115,7 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 			if time.Since(p.lastAutoRestart) > 30*time.Second {
 				p.lastAutoRestart = time.Now()
 				p.autoRestartMu.Unlock()
-				p.terminal.Info("Detected core fatal error, auto-restarting...")
+				p.terminal.Infof("Detected core fatal error, auto-restarting...")
 				go func() {
 					if err := p.manager.Restart(); err != nil {
 						p.terminal.Errorf("Auto-restart failed: %v", err)
@@ -129,7 +129,7 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 			}
 		}
 		if watch {
-			p.terminal.Info(msg)
+			p.terminal.Infof("%s", msg)
 		}
 	}
 }

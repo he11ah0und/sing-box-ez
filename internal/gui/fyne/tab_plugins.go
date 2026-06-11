@@ -13,7 +13,6 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"sing-box-ez/internal/framework/localengine"
-	"sing-box-ez/internal/framework/util/paths"
 	"sing-box-ez/internal/plugins"
 )
 
@@ -83,12 +82,12 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 	var btnRow fyne.CanvasObject
 	if g.cfg.GetPluginsDeveloper() {
 		genDocsBtn := widget.NewButton(localengine.T("plugins", "btn", "generate_api_docs"), func() {
-			outDir := paths.PluginDocsDir()
+			outDir := filepath.Join(g.cfg.DataDir, plugins.DocsDir())
 			_ = g.ctrl.PluginGenerateDocsWithLog(plugins.GenerateDocs, outDir)
 		})
 
 		genDefsBtn := widget.NewButton(localengine.T("plugins", "btn", "generate_vscode_defs"), func() {
-			outDir := paths.PluginDefsDir()
+			outDir := filepath.Join(g.cfg.DataDir, plugins.DefsDir())
 			_ = g.ctrl.PluginGenerateDefsWithLog(plugins.GenerateLuaDefs, outDir)
 		})
 

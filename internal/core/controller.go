@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/logger"
 )
 
@@ -13,7 +14,7 @@ import (
 type Controller struct {
 	cfg       *config.AppConfig
 	manager   *Manager
-	logger    *logger.Logger
+	app       *framework.App
 	processor *CoreLogProcessor
 
 	stopped bool
@@ -21,7 +22,7 @@ type Controller struct {
 }
 
 // NewController creates a new base controller with manager and logger.
-func NewController(cfg *config.AppConfig) *Controller {
+func NewController(cfg *config.AppConfig, fwApp *framework.App) *Controller {
 	active := cfg.GetActiveConfig()
 	url := ""
 	if active != nil {
@@ -36,14 +37,14 @@ func NewController(cfg *config.AppConfig) *Controller {
 	logWriter := NewCoreLogWriter()
 	manager.SetLogOutput(logWriter)
 
-	log := logger.NewLogger(cfg.GetLogLimit())
+	log := fwApp.Logger
 	processor := NewCoreLogProcessor(cfg, manager, logWriter, log.Root())
 	processor.Start()
 
 	c := &Controller{
 		cfg:       cfg,
 		manager:   manager,
-		logger:    log,
+		app:       fwApp,
 		processor: processor,
 	}
 
@@ -75,27 +76,42 @@ func (c *Controller) Config() *config.AppConfig {
 	return c.cfg
 }
 
+// ---------- Framework app ----------
+
+// Framework returns the framework App containing cross-cutting services.
+func (c *Controller) Framework() *framework.App {
+	return c.app
+}
+
+// OpenDataDir opens the app's base directory in the system file manager.
+func (c *Controller) OpenDataDir() error {
+	if c.app == nil {
+		return nil
+	}
+	return c.app.OpenDataDir()
+}
+
 // ---------- Logging ----------
 
 func (c *Controller) Log(msg string) {
-	c.logger.Log(msg)
+	c.app.Logger.Log(msg)
 }
 
 func (c *Controller) LogRoot() *logger.LogTerminal {
-	return c.logger.Root()
+	return c.app.Logger.Root()
 }
 
 func (c *Controller) GetLogLines() []string {
-	return c.logger.GetLines()
+	return c.app.Logger.GetLines()
 }
 
 func (c *Controller) ClearLogs() {
-	c.logger.Clear()
+	c.app.Logger.Clear()
 }
 
 // Logger returns the internal logger for advanced use.
 func (c *Controller) Logger() *logger.Logger {
-	return c.logger
+	return c.app.Logger
 }
 
 // LogProcessor returns the core log processor (for setting callbacks such as OnAutoRestart).
@@ -111,19 +127,19 @@ func (c *Controller) Manager() *Manager {
 // ---------- Core lifecycle ----------
 
 func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
-	return PrepareConfig(c.cfg, c.manager, c.logger)
+	return PrepareConfig(c.cfg, c.manager, c.app.Logger)
 }
 
 func (c *Controller) Start() error {
-	return StartCore(c.manager, c.logger)
+	return StartCore(c.manager, c.app.Logger)
 }
 
 func (c *Controller) Stop() error {
-	return StopCore(c.manager, c.logger)
+	return StopCore(c.manager, c.app.Logger)
 }
 
 func (c *Controller) Restart() error {
-	return RestartCore(c.manager, c.logger)
+	return RestartCore(c.manager, c.app.Logger)
 }
 
 func (c *Controller) IsRunning() bool {

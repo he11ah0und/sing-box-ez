@@ -2,61 +2,98 @@ package updater
 
 import (
 	"context"
-	"os"
+	"errors"
 	"runtime"
 	"strings"
 
 	"sing-box-ez/internal/framework/version"
 )
 
-var defaultBackend Backend = DefaultGitHubBackend()
+var defaultManager *Manager
 
-// SetBackend configures the update source used by the package-level helpers.
-func SetBackend(b Backend) {
-	defaultBackend = b
+// SetManager configures the update manager used by the package-level helpers.
+func SetManager(m *Manager) {
+	defaultManager = m
 }
 
-// CurrentBackend returns the active update backend.
-func CurrentBackend() Backend {
-	return defaultBackend
+// CurrentManager returns the active update manager.
+func CurrentManager() *Manager {
+	return defaultManager
+}
+
+// SetBackend configures the source backend on the default manager. Kept for
+// backwards compatibility; prefer constructing a Manager and calling SetManager.
+func SetBackend(b Source) {
+	if defaultManager == nil {
+		defaultManager = &Manager{}
+	}
+	defaultManager.Source = b
+}
+
+// CurrentBackend returns the source backend of the default manager. Kept for
+// backwards compatibility; prefer Manager.Source.
+func CurrentBackend() Source {
+	if defaultManager == nil {
+		return nil
+	}
+	return defaultManager.Source
+}
+
+func managerErr() error {
+	return errors.New("updater manager not configured")
 }
 
 // CheckUpdate compares the current build against the latest release.
 func CheckUpdate(currentBranch string) (*UpdateInfo, error) {
-	release, err := defaultBackend.LatestRelease(context.Background(), currentBranch)
-	if err != nil {
-		return nil, err
+	if defaultManager == nil {
+		return nil, managerErr()
 	}
-	return updateInfoFrom(release, currentBranch)
+	return defaultManager.Check(context.Background(), currentBranch)
 }
 
 // CheckUpdateForBranch checks for updates on the specified branch.
 func CheckUpdateForBranch(branch string) (*UpdateInfo, error) {
-	release, err := defaultBackend.LatestRelease(context.Background(), branch)
-	if err != nil {
-		return nil, err
+	if defaultManager == nil {
+		return nil, managerErr()
 	}
-	return updateInfoFrom(release, branch)
+	return defaultManager.Check(context.Background(), branch)
 }
 
 // GetChannels returns the list of available update channels.
 func GetChannels() ([]Channel, error) {
-	return defaultBackend.ListChannels(context.Background())
+	if defaultManager == nil {
+		return nil, managerErr()
+	}
+	return defaultManager.Channels(context.Background())
 }
 
 // GetReleaseByTag fetches release notes for a specific version tag.
 func GetReleaseByTag(tag string) (Release, error) {
-	return defaultBackend.ReleaseByTag(context.Background(), tag)
+	if defaultManager == nil {
+		return Release{}, managerErr()
+	}
+	return defaultManager.ReleaseNotes(context.Background(), tag)
 }
 
 // DownloadAsset downloads a release asset to the given path.
 func DownloadAsset(url, dest string, progress func(downloaded, total int64)) error {
-	f, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
-	if err != nil {
-		return err
+	if defaultManager == nil {
+		return managerErr()
 	}
-	defer f.Close()
-	return defaultBackend.DownloadAsset(context.Background(), url, f, progress)
+	return defaultManager.DownloadAsset(context.Background(), url, dest, progress)
+}
+
+// ApplyUpdate applies a self update from the given asset URL.
+// Kept for backwards compatibility; prefer using Manager.Install directly.
+func ApplyUpdate(assetURL string, progress func(downloaded, total int64)) error {
+	if defaultManager == nil {
+		return managerErr()
+	}
+	if defaultManager.Apply == nil {
+		return errors.New("updater manager has no apply backend configured")
+	}
+	info := &UpdateInfo{AssetURL: assetURL}
+	return defaultManager.Install(context.Background(), info, progress)
 }
 
 func updateInfoFrom(release Release, currentBranch string) (*UpdateInfo, error) {

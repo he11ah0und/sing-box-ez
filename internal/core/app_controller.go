@@ -2,8 +2,8 @@ package core
 
 import (
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/logger"
-	"sing-box-ez/internal/framework/util/paths"
 )
 
 // AppController manages general application-level actions and settings.
@@ -11,6 +11,7 @@ type AppController struct {
 	cfg      *config.AppConfig
 	logger   *logger.Logger
 	terminal *logger.LogTerminal
+	app      *framework.App
 }
 
 // Terminal returns the logging terminal used by this controller.
@@ -19,15 +20,18 @@ func (c *AppController) Terminal() *logger.LogTerminal {
 }
 
 // NewAppController creates a new app controller.
-func NewAppController(cfg *config.AppConfig, log *logger.Logger, terminal *logger.LogTerminal) *AppController {
-	return &AppController{cfg: cfg, logger: log, terminal: terminal}
+func NewAppController(cfg *config.AppConfig, log *logger.Logger, terminal *logger.LogTerminal, fwApp *framework.App) *AppController {
+	return &AppController{cfg: cfg, logger: log, terminal: terminal, app: fwApp}
 }
 
 // OpenDataFolderWithLog opens the data directory and logs errors.
 func (c *AppController) OpenDataFolderWithLog() error {
-	err := paths.OpenDataDir()
+	if c.app == nil {
+		return nil
+	}
+	err := c.app.OpenDataDir()
 	if err != nil {
-		c.terminal.Error("Failed to open data folder: " + err.Error())
+		c.terminal.Errorf("Failed to open data folder: " + err.Error())
 		return err
 	}
 	return nil

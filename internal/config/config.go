@@ -3,7 +3,7 @@ package config
 import (
 	"encoding/json"
 	"os"
-	"sing-box-ez/internal/framework/util/paths"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -72,6 +72,8 @@ type AppConfig struct {
 	DesktopNotifications bool   `json:"desktop_notifications"`
 	FirstRunDone         bool   `json:"first_run_done"`
 
+	DataDir string `json:"-"`
+
 	mu       sync.RWMutex
 	profiles *Profiles
 }
@@ -95,13 +97,14 @@ type rawConfig struct {
 	ActiveName string         `json:"active_name"`
 }
 
-func Load() (*AppConfig, error) {
-	cfg, err := loadSettings()
+func Load(dataDir string) (*AppConfig, error) {
+	cfg, err := loadSettings(dataDir)
 	if err != nil {
 		return nil, err
 	}
+	cfg.DataDir = dataDir
 
-	profiles, err := LoadProfiles()
+	profiles, err := LoadProfiles(dataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -109,14 +112,14 @@ func Load() (*AppConfig, error) {
 
 	// Migrate legacy configs stored in config.json if profiles.json is empty.
 	if len(profiles.Configs) == 0 {
-		legacy, err := loadRawSettings()
+		legacy, err := loadRawSettings(dataDir)
 		if err == nil && (len(legacy.Configs) > 0 || legacy.ActiveName != "") {
 			profiles.Configs = legacy.Configs
 			profiles.ActiveName = legacy.ActiveName
 			if profiles.Configs == nil {
 				profiles.Configs = []ConfigRecord{}
 			}
-			_ = profiles.Save()
+			_ = profiles.Save(dataDir)
 		}
 		// Also migrate legacy single URL into the new list if needed.
 		if cfg.SingBoxURL != "" && len(profiles.Configs) == 0 {
@@ -128,7 +131,7 @@ func Load() (*AppConfig, error) {
 			})
 			profiles.ActiveName = "default"
 			cfg.SingBoxURL = ""
-			_ = profiles.Save()
+			_ = profiles.Save(dataDir)
 			_ = cfg.Save()
 		}
 	}
@@ -136,8 +139,8 @@ func Load() (*AppConfig, error) {
 	return cfg, nil
 }
 
-func loadSettings() (*AppConfig, error) {
-	data, err := os.ReadFile(paths.AppConfig())
+func loadSettings(dataDir string) (*AppConfig, error) {
+	data, err := os.ReadFile(filepath.Join(dataDir, "config.json"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return defaultAppConfig(), nil
@@ -154,8 +157,8 @@ func loadSettings() (*AppConfig, error) {
 	return &cfg, nil
 }
 
-func loadRawSettings() (*rawConfig, error) {
-	data, err := os.ReadFile(paths.AppConfig())
+func loadRawSettings(dataDir string) (*rawConfig, error) {
+	data, err := os.ReadFile(filepath.Join(dataDir, "config.json"))
 	if err != nil {
 		return nil, err
 	}
@@ -176,11 +179,14 @@ func (c *AppConfig) Save() error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(paths.AppConfig(), data, 0600); err != nil {
+	if c.DataDir == "" {
+		return os.ErrInvalid
+	}
+	if err := os.WriteFile(filepath.Join(c.DataDir, "config.json"), data, 0600); err != nil {
 		return err
 	}
 	if c.profiles != nil {
-		return c.profiles.Save()
+		return c.profiles.Save(c.DataDir)
 	}
 	return nil
 }

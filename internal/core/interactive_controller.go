@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
@@ -37,7 +38,7 @@ type InteractiveController struct {
 
 // NewInteractiveController creates an interactive controller, initializes i18n,
 // starts background maintenance loops, and wires sub-controllers.
-func NewInteractiveController(cfg *config.AppConfig) *InteractiveController {
+func NewInteractiveController(cfg *config.AppConfig, fwApp *framework.App) *InteractiveController {
 	// Initialize i18n
 	if !cfg.GetFirstRunDone() {
 		lang := localengine.DetectSystemLanguage()
@@ -48,16 +49,16 @@ func NewInteractiveController(cfg *config.AppConfig) *InteractiveController {
 		localengine.SetLanguage(lang)
 	}
 
-	ctrl := NewController(cfg)
+	ctrl := NewController(cfg, fwApp)
 	root := ctrl.LogRoot()
 
 	ic := &InteractiveController{Controller: ctrl}
 	ic.Core = NewCoreController(cfg, ctrl.Manager(), ctrl.Logger(), root.Allocate("core"))
 	ic.Configs = NewConfigController(cfg, ctrl.Manager(), root.Allocate("config"))
-	ic.Updater = NewUpdaterController(root.Allocate("updater"))
+	ic.Updater = NewUpdaterController(fwApp, root.Allocate("updater"))
 	ic.Privileges = NewPrivilegeController(cfg, ctrl.Manager(), root.Allocate("privileges"))
 	ic.Plugins = NewPluginController(root.Allocate("plugins"))
-	ic.App = NewAppController(cfg, ctrl.Logger(), root.Allocate("app"))
+	ic.App = NewAppController(cfg, ctrl.Logger(), root.Allocate("app"), fwApp)
 
 	ctrl.LogProcessor().OnAutoRestart = func() {
 		if ic.OnAutoRestart != nil {
@@ -74,7 +75,7 @@ func NewInteractiveController(cfg *config.AppConfig) *InteractiveController {
 
 // Log logs a message from the root terminal and optionally invokes the OnLog callback.
 func (ic *InteractiveController) Log(msg string) {
-	ic.Controller.LogRoot().Info(msg)
+	ic.Controller.LogRoot().Infof("%s", msg)
 	if ic.OnLog != nil {
 		ic.OnLog(msg)
 	}
@@ -112,19 +113,19 @@ func (ic *InteractiveController) updateChecker() {
 		}
 		active := ic.Controller.Config().GetActiveConfig()
 		if active != nil && active.ShouldUpdate() && ic.IsRunning() {
-			ic.Configs.Terminal().Info("Auto-updating config...")
+			ic.Configs.Terminal().Infof("Auto-updating config...")
 			ic.Manager().SetConfigName(active.Name)
 			if err := ic.UpdateConfig(); err != nil {
-				ic.Configs.Terminal().Error("Auto-update failed: " + err.Error())
+				ic.Configs.Terminal().Errorf("Auto-update failed: " + err.Error())
 			} else {
 				ic.Controller.Config().SetLastUpdateFor(active.Name, time.Now())
 				_ = ic.Controller.Config().Save()
 				if ic.OnConfigUpdate != nil {
 					ic.OnConfigUpdate()
 				}
-				ic.Configs.Terminal().Info("Config auto-updated, restarting core...")
+				ic.Configs.Terminal().Infof("Config auto-updated, restarting core...")
 				if err := ic.Core.RestartCore(); err != nil {
-					ic.Core.Terminal().Error("Auto-restart failed: " + err.Error())
+					ic.Core.Terminal().Errorf("Auto-restart failed: " + err.Error())
 				}
 			}
 		}
@@ -337,18 +338,18 @@ func (ic *InteractiveController) ApplyPrivilegeAction(action *PrivilegeAction) (
 func (ic *InteractiveController) LogTag(tag, msg string) {
 	switch tag {
 	case "core":
-		ic.Core.Terminal().Info(msg)
+		ic.Core.Terminal().Infof(msg)
 	case "config":
-		ic.Configs.Terminal().Info(msg)
+		ic.Configs.Terminal().Infof(msg)
 	case "updater":
-		ic.Updater.Terminal().Info(msg)
+		ic.Updater.Terminal().Infof(msg)
 	case "privileges":
-		ic.Privileges.Terminal().Info(msg)
+		ic.Privileges.Terminal().Infof(msg)
 	case "plugins":
-		ic.Plugins.Terminal().Info(msg)
+		ic.Plugins.Terminal().Infof(msg)
 	case "app":
-		ic.App.Terminal().Info(msg)
+		ic.App.Terminal().Infof(msg)
 	default:
-		ic.LogRoot().Info(msg)
+		ic.LogRoot().Infof("%s", msg)
 	}
 }
