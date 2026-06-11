@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gioui.org/font"
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -15,6 +16,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/styledtext"
 	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
@@ -50,6 +52,9 @@ func (p *LogPage) Tag() string { return "logs" }
 func (p *LogPage) Name() string { return localengine.T("tab", "log") }
 func (p *LogPage) Icon() *widget.Icon { return icons.ActionBugReport }
 
+// NoInset tells the shell not to wrap this page in padding.
+func (p *LogPage) NoInset() bool { return true }
+
 // Layout draws the log page.
 func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	// Schedule periodic refresh to poll for new log lines.
@@ -76,20 +81,27 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &p.copyBtn, localengine.T("log", "btn", "copy")).Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &p.clearBtn, localengine.T("log", "btn", "clear")).Layout(gtx)
-				}),
-			)
+			return layout.Inset{Top: unit.Dp(8), Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &p.copyBtn, localengine.T("log", "btn", "copy")).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &p.clearBtn, localengine.T("log", "btn", "clear")).Layout(gtx)
+					}),
+				)
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(8))}}
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(p.th, &p.list).Layout(gtx, len(p.lines), func(gtx layout.Context, index int) layout.Dimensions {
+			listStyle := material.List(p.th, &p.list)
+			listStyle.AnchorStrategy = material.Overlay
+			return listStyle.Layout(gtx, len(p.lines), func(gtx layout.Context, index int) layout.Dimensions {
 				return p.logLine(gtx, p.lines[index])
 			})
 		}),
@@ -98,20 +110,21 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 
 func (p *LogPage) logLine(gtx layout.Context, line string) layout.Dimensions {
 	bg := logLineBg(line)
+	parts := parseLogLine(line)
+
+	styles := make([]styledtext.SpanStyle, len(parts))
+	for i, part := range parts {
+		styles[i] = styledtext.SpanStyle{
+			Content: part.text,
+			Color:   part.color,
+			Font:    font.Font{Typeface: "Go Mono"},
+			Size:    unit.Sp(12),
+		}
+	}
 
 	macro := op.Record(gtx.Ops)
-	parts := parseLogLine(line)
-	children := make([]layout.FlexChild, 0, len(parts))
-	for _, part := range parts {
-		part := part // capture
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Label(p.th, unit.Sp(12), part.text)
-			lbl.Font.Typeface = "Go Mono"
-			lbl.Color = part.color
-			return lbl.Layout(gtx)
-		}))
-	}
-	dims := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Baseline}.Layout(gtx, children...)
+	txt := styledtext.Text(p.th.Shaper, styles...)
+	dims := txt.Layout(gtx, nil)
 	call := macro.Stop()
 
 	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: dims.Size}.Op())
@@ -130,9 +143,9 @@ func parseLogLine(line string) []logPart {
 	var parts []logPart
 
 	// Distinct non-gray accent colors for structural tokens.
-	dateColor   := color.NRGBA{R: 230, G: 180, B: 70, A: 255}  // warm gold
-	sourceColor := color.NRGBA{R: 70, G: 200, B: 180, A: 255}  // teal/cyan
-	arrowColor  := color.NRGBA{R: 200, G: 100, B: 160, A: 255} // pink/magenta
+	dateColor   := color.NRGBA{R: 200, G: 140, B: 60, A: 255} // burnt orange
+	sourceColor := color.NRGBA{R: 140, G: 200, B: 80, A: 255} // lime green
+	arrowColor  := color.NRGBA{R: 255, G: 255, B: 255, A: 255} // white
 
 	arrowIdx := strings.Index(line, " -> ")
 	if arrowIdx < 0 {

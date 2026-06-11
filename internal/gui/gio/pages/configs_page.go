@@ -60,6 +60,9 @@ func (p *ConfigsPage) Tag() string { return "configs" }
 func (p *ConfigsPage) Name() string { return localengine.T("tab", "configs") }
 func (p *ConfigsPage) Icon() *widget.Icon { return icons.ActionList }
 
+// NoInset tells the shell not to wrap this page in padding.
+func (p *ConfigsPage) NoInset() bool { return true }
+
 // Layout draws the configs page.
 func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
 	if p.addBtn.Clicked(gtx) {
@@ -115,7 +118,6 @@ func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
 func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigRecord) layout.Dimensions {
 	isCached := p.ctrl.HasCachedConfig(rec.Name)
 	isActive := rec.Name == p.ctrl.Config().GetActiveName()
-
 	click := p.cardClicks[rec.Name]
 
 	var bg color.NRGBA
@@ -125,36 +127,40 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 		bg = color.NRGBA{R: 120, G: 60, B: 40, A: 255} // dark orange
 	}
 
-	return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4), Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			// Record content to measure before drawing background.
 			macro := op.Record(gtx.Ops)
 			dims := layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				name := rec.Name
-				if isActive {
-					name = "> " + name
+				src := rec.Parent
+				if src == "" || src == "user" {
+					src = localengine.T("configs", "table", "user")
+				} else if len(src) > 3 && src[:3] == "pl-" {
+					src = src[3:]
 				}
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+
+				meta := fmt.Sprintf("%s: %s  •  %s: %s  •  %s: %s",
+					localengine.T("configs", "table", "last_update"),
+					p.formatLastUpdate(rec.LastUpdate.Time),
+					localengine.T("configs", "table", "next_update"),
+					p.formatNextUpdate(rec.NextUpdate()),
+					localengine.T("configs", "table", "source"),
+					src)
+
+				nameColor := p.th.Palette.Fg
+				if isActive {
+					nameColor = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+				}
+
+				return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body1(p.th, name)
+						lbl := material.Body1(p.th, rec.Name)
 						lbl.Font.Weight = font.Bold
+						lbl.Color = nameColor
 						return lbl.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Body2(p.th, localengine.T("configs", "table", "last_update")+": "+p.formatLastUpdate(rec.LastUpdate.Time)).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						next := rec.NextUpdate()
-						return material.Body2(p.th, localengine.T("configs", "table", "next_update")+": "+p.formatNextUpdate(next)).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						src := rec.Parent
-						if src == "" || src == "user" {
-							src = localengine.T("configs", "table", "user")
-						} else if len(src) > 3 && src[:3] == "pl-" {
-							src = src[3:]
-						}
-						return material.Body2(p.th, localengine.T("configs", "table", "source")+": "+src).Layout(gtx)
+						lbl := material.Body2(p.th, meta)
+						return lbl.Layout(gtx)
 					}),
 				)
 			})
