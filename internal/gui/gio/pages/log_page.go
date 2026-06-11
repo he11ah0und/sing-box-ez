@@ -135,26 +135,20 @@ func logLineColors(line string) (bg, fg color.NRGBA) {
 	bg = color.NRGBA{R: 20, G: 20, B: 20, A: 255}
 	fg = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
 
-	// Extract level from format: [HH:MM:SS] [LEVEL] ...
-	if idx := strings.Index(line, "["); idx >= 0 {
-		rest := line[idx+1:]
-		if idx2 := strings.Index(rest, "]"); idx2 >= 0 {
-			level := rest[:idx2]
-			switch level {
-			case "DBG":
-				bg = color.NRGBA{R: 25, G: 35, B: 25, A: 255}
-				fg = color.NRGBA{R: 100, G: 200, B: 100, A: 255}
-			case "INF":
-				bg = color.NRGBA{R: 20, G: 30, B: 50, A: 255}
-				fg = color.NRGBA{R: 100, G: 150, B: 255, A: 255}
-			case "WRN":
-				bg = color.NRGBA{R: 50, G: 40, B: 20, A: 255}
-				fg = color.NRGBA{R: 255, G: 200, B: 100, A: 255}
-			case "ERR":
-				bg = color.NRGBA{R: 50, G: 20, B: 20, A: 255}
-				fg = color.NRGBA{R: 255, G: 100, B: 100, A: 255}
-			}
-		}
+	// Format: [HH:MM:SS] [LEVEL] ... — find the LEVEL token.
+	switch {
+	case strings.Contains(line, "[DBG]"):
+		bg = color.NRGBA{R: 25, G: 35, B: 25, A: 255}
+		fg = color.NRGBA{R: 100, G: 200, B: 100, A: 255}
+	case strings.Contains(line, "[INF]"):
+		bg = color.NRGBA{R: 20, G: 30, B: 50, A: 255}
+		fg = color.NRGBA{R: 100, G: 150, B: 255, A: 255}
+	case strings.Contains(line, "[WRN]"):
+		bg = color.NRGBA{R: 50, G: 40, B: 20, A: 255}
+		fg = color.NRGBA{R: 255, G: 200, B: 100, A: 255}
+	case strings.Contains(line, "[ERR]"):
+		bg = color.NRGBA{R: 50, G: 20, B: 20, A: 255}
+		fg = color.NRGBA{R: 255, G: 100, B: 100, A: 255}
 	}
 	return
 }
