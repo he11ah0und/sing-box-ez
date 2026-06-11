@@ -143,8 +143,8 @@ func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X = gtx.Constraints.Max.X
 				return s.layoutCollapsedNav(gtx)
 			}
-			// Persistent rail: 240dp wide on desktop.
-			gtx.Constraints.Max.X = gtx.Dp(unit.Dp(240))
+			// Persistent rail: 200dp wide on desktop.
+			gtx.Constraints.Max.X = gtx.Dp(unit.Dp(200))
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return s.layoutExpandedNav(gtx)
 		}),
@@ -240,7 +240,7 @@ func (s *Shell) layoutExpandedNav(gtx layout.Context) layout.Dimensions {
 					active = s.secondaryTag == page.Tag() && s.currentPage == len(s.primary)
 				}
 				children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return s.expandedNavItem(gtx, page, &s.collapsedClicks[idx], active)
+					return s.navItem(gtx, page.Name(), page.Icon(), &s.collapsedClicks[idx], active)
 				})
 			}
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
@@ -248,8 +248,9 @@ func (s *Shell) layoutExpandedNav(gtx layout.Context) layout.Dimensions {
 	)
 }
 
-// expandedNavItem renders a single icon+label row in the expanded rail.
-func (s *Shell) expandedNavItem(gtx layout.Context, page pages.Page, btn *widget.Clickable, active bool) layout.Dimensions {
+// navItem renders a single navigation row (icon + optional label) used in
+// expanded sidebar, mobile bottom nav and mobile secondary list.
+func (s *Shell) navItem(gtx layout.Context, label string, icon *widget.Icon, btn *widget.Clickable, active bool) layout.Dimensions {
 	gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
 	gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
 	col := s.th.Palette.Fg
@@ -269,9 +270,17 @@ func (s *Shell) expandedNavItem(gtx layout.Context, page pages.Page, btn *widget
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if label == "" {
+							return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								gtx.Constraints.Min = image.Pt(0, 0)
+								if icon == nil {
+									return layout.Dimensions{}
+								}
+								return icon.Layout(gtx, col)
+							})
+						}
 						return layout.Inset{Left: unit.Dp(16), Top: unit.Dp(12), Right: unit.Dp(12), Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min = image.Pt(0, 0) // reset so icon uses default 24dp size
-							icon := page.Icon()
 							if icon == nil {
 								return layout.Dimensions{}
 							}
@@ -279,7 +288,13 @@ func (s *Shell) expandedNavItem(gtx layout.Context, page pages.Page, btn *widget
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body1(s.th, page.Name())
+						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(12)), Y: 0}}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if label == "" {
+							return layout.Dimensions{}
+						}
+						lbl := material.Body1(s.th, label)
 						lbl.Color = col
 						return lbl.Layout(gtx)
 					}),
@@ -430,7 +445,7 @@ func (s *Shell) layoutSecondaryList(gtx layout.Context) layout.Dimensions {
 		icon := p.Icon()
 		active := s.secondaryTag == tag
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.secondaryButton(gtx, name, icon, &s.secClicks[idx], active)
+			return s.navItem(gtx, name, icon, &s.secClicks[idx], active)
 		}))
 		if i < len(s.secondary)-1 {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -442,47 +457,7 @@ func (s *Shell) layoutSecondaryList(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
-// secondaryButton renders a button for the secondary list on mobile.
-func (s *Shell) secondaryButton(gtx layout.Context, label string, icon *widget.Icon, btn *widget.Clickable, active bool) layout.Dimensions {
-	return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
-		bg := s.th.Palette.Bg
-		if active {
-			bg = s.th.Palette.ContrastBg
-		}
-		paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
-		// Draw a subtle border around the item.
-		borderCol := color.NRGBA{R: 128, G: 128, B: 128, A: 64}
-		border := clip.Rect{Max: gtx.Constraints.Max}
-		paint.FillShape(gtx.Ops, borderCol, clip.Stroke{
-			Path:  border.Path(),
-			Width: float32(gtx.Dp(unit.Dp(1))),
-		}.Op())
-
-		return layout.Inset{Left: unit.Dp(16), Top: unit.Dp(12), Right: unit.Dp(12), Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			col := s.th.Palette.Fg
-			if active {
-				col = s.th.Palette.ContrastFg
-			}
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if icon == nil {
-						return layout.Dimensions{}
-					}
-					return icon.Layout(gtx, col)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(12)), Y: 0}}
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Body1(s.th, label)
-					lbl.Color = col
-					return lbl.Layout(gtx)
-				}),
-			)
-		})
-	})
-}
 
 // layoutBottomNav renders the bottom navigation bar.
 func (s *Shell) layoutBottomNav(gtx layout.Context) layout.Dimensions {
@@ -505,18 +480,15 @@ func (s *Shell) layoutBottomNav(gtx layout.Context) layout.Dimensions {
 	children := make([]layout.FlexChild, len(s.navBtns))
 	for i := range s.navBtns {
 		idx := i
-		label := ""
 		var icon *widget.Icon
 		if idx < len(s.primary) {
-			label = s.primary[idx].Name()
 			icon = s.primary[idx].Icon()
 		} else {
-			label = "Menu"
 			icon = icons.NavigationMenu
 		}
 		active := s.currentPage == idx
 		children[i] = layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return s.navButton(gtx, label, icon, &s.navBtns[idx], active)
+			return s.navItem(gtx, "", icon, &s.navBtns[idx], active)
 		})
 	}
 
@@ -542,35 +514,4 @@ func (s *Shell) layoutBottomNav(gtx layout.Context) layout.Dimensions {
 	return dims
 }
 
-// navButton renders a single bottom navigation button (icon + label).
-func (s *Shell) navButton(gtx layout.Context, label string, icon *widget.Icon, btn *widget.Clickable, active bool) layout.Dimensions {
-	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{
-					Top:    unit.Dp(6),
-					Bottom: unit.Dp(6),
-				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					col := s.th.Palette.Fg
-					if active {
-						col = s.th.Palette.ContrastFg
-					}
-					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if icon == nil {
-								return layout.Dimensions{}
-							}
-							return icon.Layout(gtx, col)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Body2(s.th, label)
-							lbl.Color = col
-							lbl.TextSize = unit.Sp(11)
-							return lbl.Layout(gtx)
-						}),
-					)
-				})
-			})
-		}),
-	)
-}
+
