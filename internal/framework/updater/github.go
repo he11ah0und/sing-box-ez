@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/net"
+	frameworkprogress "sing-box-ez/internal/framework/progress"
 )
 
 const defaultGitHubAPI = "https://api.github.com"
@@ -19,7 +21,7 @@ type GitHubBackend struct {
 	BaseURL string
 	Owner   string
 	Repo    string
-	Client  *http.Client
+	Net     *net.Client
 	Log     *logger.LogTerminal
 }
 
@@ -31,7 +33,7 @@ func NewGitHubBackend(parent *logger.LogTerminal, owner, repo string) *GitHubBac
 		BaseURL: defaultGitHubAPI,
 		Owner:   owner,
 		Repo:    repo,
-		Client:  httpClient,
+		Net:     net.NewClient(parent),
 		Log:     parent.Allocate("gh-" + owner + "-" + repo),
 	}
 }
@@ -42,7 +44,7 @@ func NewGitHubEnterpriseBackend(parent *logger.LogTerminal, baseURL, owner, repo
 		BaseURL: baseURL,
 		Owner:   owner,
 		Repo:    repo,
-		Client:  httpClient,
+		Net:     net.NewClient(parent),
 		Log:     parent.Allocate("gh-" + owner + "-" + repo),
 	}
 }
@@ -79,11 +81,11 @@ func (b *GitHubBackend) apiBranchesURL() string {
 // Name returns the backend identifier.
 func (b *GitHubBackend) Name() string { return "github" }
 
-func (b *GitHubBackend) client() *http.Client {
-	if b.Client != nil {
-		return b.Client
+func (b *GitHubBackend) netClient() *net.Client {
+	if b.Net != nil {
+		return b.Net
 	}
-	return httpClient
+	return net.NewClient(b.Log)
 }
 
 func (b *GitHubBackend) newGitHubRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
@@ -97,17 +99,11 @@ func (b *GitHubBackend) newGitHubRequest(ctx context.Context, method, url string
 }
 
 func (b *GitHubBackend) doJSON(req *http.Request, out any) error {
-	b.Log.Debugf("%s %s", req.Method, req.URL.String())
-	resp, err := b.client().Do(req)
+	resp, err := b.netClient().Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return b.Log.Errorf("github api %s: %s", resp.Status, string(body))
-	}
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
@@ -206,42 +202,18 @@ func (b *GitHubBackend) DownloadAsset(ctx context.Context, asset Asset, w io.Wri
 	if asset.URL == "" {
 		return b.Log.Errorf("asset has no download URL")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.URL, nil)
-	if err != nil {
-		return err
-	}
-	b.Log.Debugf("GET %s", asset.URL)
-	resp, err := b.client().Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return b.Log.Errorf("download %s: %s", asset.URL, resp.Status)
-	}
-
-	total := resp.ContentLength
-	var downloaded int64
-	buf := make([]byte, 64*1024)
-	for {
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			if _, werr := w.Write(buf[:n]); werr != nil {
-				return werr
-			}
-			downloaded += int64(n)
-			if progress != nil {
-				progress(downloaded, total)
-			}
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
+	c := b.netClient()
+	if progress != nil {
+		c.Progress = &frameworkprogress.Config{
+			Callback: func(s frameworkprogress.State) {
+				if s.Op == "download" {
+					progress(s.Current, s.Total)
+				}
+			},
+			Interval: 0,
 		}
 	}
-	return nil
+	return c.Download(ctx, asset.URL, w)
 }
 
 // --- GitHub API JSON structs ---
