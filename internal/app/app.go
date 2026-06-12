@@ -4,7 +4,6 @@ import (
 	"embed"
 
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
@@ -39,15 +38,12 @@ func NewApp(cfg *config.AppConfig) *App {
 				// App self-updater
 				appMgr := updater.NewManager(log.Root, "updater")
 				appMgr.Source = updater.NewGitHubBackend(appMgr.Log, "he11ah0und", "sing-box-ez")
-				appMgr.Apply = &updater.SelfUpdateApply{}
+				appMgr.Apply = updater.NewSelfUpdateApply(appMgr.Log)
 
 				// Core updater (downloads sing-box core binary via FS)
 				coreMgr := updater.NewManager(log.Root, "core-updater")
 				coreMgr.Source = updater.NewGitHubBackend(coreMgr.Log, "SagerNet", "sing-box")
-				coreMgr.Apply = &updater.CoreUpdateApply{
-					FS:       fsys,
-					DestPath: core.CoreBinary(),
-				}
+				coreMgr.Apply = updater.NewFilesUpdateApply(coreMgr.Log)
 
 				return []*updater.Manager{appMgr, coreMgr}
 			},
