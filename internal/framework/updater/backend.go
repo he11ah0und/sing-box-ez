@@ -20,6 +20,15 @@ type Release struct {
 	Assets      []Asset
 }
 
+// Supported archive formats for Asset.Format. Empty string means a raw file.
+const (
+	FormatRaw    = ""
+	FormatZIP    = "zip"
+	FormatTarGz  = "tar.gz"
+	FormatTarBz2 = "tar.bz2"
+	Format7z     = "7z"
+)
+
 // Asset represents a single downloadable binary artifact.
 type Asset struct {
 	Name   string
@@ -27,6 +36,7 @@ type Asset struct {
 	Size   int64
 	Hashes map[string]string // e.g. sha256, md5, sha512
 	Tags   []string          // platform tags: os, arch, gui, compiler, backend, ...
+	Format string            // FormatRaw, FormatZIP, FormatTarGz, FormatTarBz2, Format7z
 }
 
 // Channel represents an update channel/branch offered by a Source.
@@ -44,7 +54,8 @@ type UpdateInfo struct {
 	LatestDate   time.Time // published date of the latest release
 	AssetURL     string
 	AssetName    string
-	Asset        Asset // full selected asset metadata
+	Asset        Asset       // full selected asset metadata (used by self-update)
+	Files        []UpdateFile // auxiliary files to update (used by files-update)
 }
 
 // Source abstracts the source of application updates.
@@ -70,6 +81,12 @@ type Source interface {
 // Backend is the former name of Source. Kept as a type alias for backwards
 // compatibility; new code should use Source.
 type Backend = Source
+
+// UpdateFile describes a single non-self file to update.
+type UpdateFile struct {
+	Asset    Asset
+	DestPath string
+}
 
 // AssetCriteria describes a desired platform/build.
 type AssetCriteria struct {
