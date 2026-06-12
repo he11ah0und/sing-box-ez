@@ -15,18 +15,18 @@ type ConfigController struct {
 	terminal *logger.LogTerminal
 }
 
-// Terminal returns the logging terminal used by this controller.
-func (c *ConfigController) Terminal() *logger.LogTerminal {
-	return c.terminal
-}
-
 // NewConfigController creates a new config controller.
-func NewConfigController(cfg *config.AppConfig, manager *Manager, terminal *logger.LogTerminal) *ConfigController {
+func NewConfigController(cfg *config.AppConfig, manager *Manager, parent *logger.LogTerminal) *ConfigController {
 	return &ConfigController{
 		cfg:      cfg,
 		manager:  manager,
-		terminal: terminal,
+		terminal: parent.Allocate("config"),
 	}
+}
+
+// Terminal returns the controller's logger terminal.
+func (c *ConfigController) Terminal() *logger.LogTerminal {
+	return c.terminal
 }
 
 // HasCachedConfig reports whether a cached config exists for the given name.
@@ -39,11 +39,10 @@ func (c *ConfigController) DownloadConfigFor(name, url string) error {
 	return DownloadConfigFor(name, url)
 }
 
-// AddFirstConfigWithLog adds the initial config during first-run and logs the result.
-func (c *ConfigController) AddFirstConfigWithLog(name, url string) error {
+// AddFirstConfig adds the initial config during first-run and logs the result.
+func (c *ConfigController) AddFirstConfig(name, url string) error {
 	if url == "" {
-		c.terminal.Errorf("First run: empty config URL")
-		return fmt.Errorf("empty config URL")
+		return c.terminal.Errorf("First run: empty config URL")
 	}
 	rec := config.ConfigRecord{
 		Name:                name,
@@ -61,12 +60,10 @@ func (c *ConfigController) AddFirstConfigWithLog(name, url string) error {
 	return nil
 }
 
-// UpdateConfigNowWithLog downloads a config and logs the result.
-func (c *ConfigController) UpdateConfigNowWithLog(name, url string) error {
-	err := c.DownloadConfigFor(name, url)
-	if err != nil {
-		c.terminal.Errorf("Update failed: " + err.Error())
-		return err
+// UpdateConfigNow downloads a config and logs the result.
+func (c *ConfigController) UpdateConfigNow(name, url string) error {
+	if err := c.DownloadConfigFor(name, url); err != nil {
+		return c.terminal.Errorf("Update failed: %v", err)
 	}
 	c.cfg.SetLastUpdateFor(name, time.Now())
 	_ = c.cfg.Save()
@@ -74,15 +71,13 @@ func (c *ConfigController) UpdateConfigNowWithLog(name, url string) error {
 	return nil
 }
 
-// AddConfigWithLog adds a config and logs the result.
-func (c *ConfigController) AddConfigWithLog(rec config.ConfigRecord) error {
+// AddConfig adds a config and logs the result.
+func (c *ConfigController) AddConfig(rec config.ConfigRecord) error {
 	if rec.Name == "" || rec.URL == "" {
-		c.terminal.Errorf("Name and URL are required")
-		return fmt.Errorf("name and URL are required")
+		return c.terminal.Errorf("Name and URL are required")
 	}
 	if c.cfg.GetConfigByName(rec.Name) != nil {
-		c.terminal.Errorf("Config with this name already exists")
-		return fmt.Errorf("config already exists")
+		return c.terminal.Errorf("Config with this name already exists")
 	}
 	c.cfg.AddConfig(rec)
 	if c.cfg.GetActiveName() == "" {
@@ -95,16 +90,14 @@ func (c *ConfigController) AddConfigWithLog(rec config.ConfigRecord) error {
 	return nil
 }
 
-// EditConfigWithLog edits or renames a config and logs the result.
-func (c *ConfigController) EditConfigWithLog(oldName string, rec config.ConfigRecord) error {
+// EditConfig edits or renames a config and logs the result.
+func (c *ConfigController) EditConfig(oldName string, rec config.ConfigRecord) error {
 	if rec.Name == "" || rec.URL == "" {
-		c.terminal.Errorf("Name and URL are required")
-		return fmt.Errorf("name and URL are required")
+		return c.terminal.Errorf("Name and URL are required")
 	}
 	if rec.Name != oldName {
 		if c.cfg.GetConfigByName(rec.Name) != nil {
-			c.terminal.Errorf("Config with name %q already exists", rec.Name)
-			return fmt.Errorf("config already exists")
+			return c.terminal.Errorf("Config with name %q already exists", rec.Name)
 		}
 		c.cfg.RenameConfig(oldName, rec.Name)
 	}
@@ -121,23 +114,22 @@ func (c *ConfigController) EditConfigWithLog(oldName string, rec config.ConfigRe
 	return nil
 }
 
-// DeleteConfigWithLog deletes a config and logs the result.
-func (c *ConfigController) DeleteConfigWithLog(name string) error {
+// DeleteConfig deletes a config and logs the result.
+func (c *ConfigController) DeleteConfig(name string) error {
 	c.cfg.RemoveConfig(name)
 	_ = c.cfg.Save()
 	c.terminal.Infof("Config deleted: " + name)
 	return nil
 }
 
-// ActivateConfigWithLog activates a cached config and logs the result.
-func (c *ConfigController) ActivateConfigWithLog(name string) error {
+// ActivateConfig activates a cached config and logs the result.
+func (c *ConfigController) ActivateConfig(name string) error {
 	rec := c.cfg.GetConfigByName(name)
 	if rec == nil {
 		return fmt.Errorf("config not found")
 	}
 	if !c.HasCachedConfig(name) {
-		c.terminal.Errorf("No cached config for: " + name)
-		return fmt.Errorf("no cached config")
+		return c.terminal.Errorf("No cached config for: %s", name)
 	}
 	c.cfg.SetActiveName(name)
 	_ = c.cfg.Save()
@@ -147,8 +139,8 @@ func (c *ConfigController) ActivateConfigWithLog(name string) error {
 	return nil
 }
 
-// UpdateAllConfigsWithLog updates all configs and logs progress.
-func (c *ConfigController) UpdateAllConfigsWithLog(progress func(done, total int)) (int, int, error) {
+// UpdateAllConfigs updates all configs and logs progress.
+func (c *ConfigController) UpdateAllConfigs(progress func(done, total int)) (int, int, error) {
 	configs := c.cfg.GetConfigs()
 	total := 0
 	for _, rec := range configs {
@@ -167,7 +159,7 @@ func (c *ConfigController) UpdateAllConfigsWithLog(progress func(done, total int
 		}
 		c.terminal.Infof("Updating config: " + rec.Name + "...")
 		if err := c.DownloadConfigFor(rec.Name, rec.URL); err != nil {
-			c.terminal.Errorf("Failed to update " + rec.Name + ": " + err.Error())
+			c.terminal.Errorf("Failed to update %s: %v", rec.Name, err)
 		} else {
 			c.cfg.SetLastUpdateFor(rec.Name, time.Now())
 			updated++

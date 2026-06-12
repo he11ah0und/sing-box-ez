@@ -278,7 +278,7 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 	if existing != nil && onDelete != nil {
 		updateBtn := widget.NewButton(g.t("configs", "dialog", "btn", "update_now"), func() {
 			d.Hide()
-			if err := g.ctrl.UpdateConfigNowWithLog(existing.Name, urlEntry.Text); err == nil {
+			if err := g.ctrl.UpdateConfigNow(existing.Name, urlEntry.Text); err == nil {
 				g.refreshConfigData()
 				g.configTable.Refresh()
 			}
@@ -300,7 +300,7 @@ func (g *GUI) showConfigDialog(existing *config.ConfigRecord, onSave func(config
 
 func (g *GUI) onAddConfig() {
 	g.showConfigDialog(nil, func(rec config.ConfigRecord) {
-		if err := g.ctrl.AddConfigWithLog(rec); err == nil {
+		if err := g.ctrl.AddConfig(rec); err == nil {
 			g.refreshActiveLabel()
 			g.updateButtons()
 			g.refreshConfigData()
@@ -315,7 +315,7 @@ func (g *GUI) onEditConfig() {
 	}
 	old := g.configData[g.configSelected]
 	g.showConfigDialog(&old, func(rec config.ConfigRecord) {
-		if err := g.ctrl.EditConfigWithLog(old.Name, rec); err == nil {
+		if err := g.ctrl.EditConfig(old.Name, rec); err == nil {
 			if old.Name == g.cfg.GetActiveName() || rec.Name == g.cfg.GetActiveName() {
 				g.refreshActiveLabel()
 				g.updateButtons()
@@ -337,7 +337,7 @@ func (g *GUI) onDeleteConfig() {
 		if !ok {
 			return
 		}
-		_ = g.ctrl.DeleteConfigWithLog(name)
+		_ = g.ctrl.DeleteConfig(name)
 		g.refreshConfigData()
 		g.configTable.Refresh()
 		g.refreshActiveLabel()
@@ -350,7 +350,7 @@ func (g *GUI) onActivateConfig() {
 		return
 	}
 	name := g.configData[g.configSelected].Name
-	if err := g.ctrl.ActivateConfigWithLog(name); err == nil {
+	if err := g.ctrl.ActivateConfig(name); err == nil {
 		g.refreshActiveLabel()
 		g.updateButtons()
 		g.configTable.Refresh()
@@ -360,7 +360,7 @@ func (g *GUI) onActivateConfig() {
 func (g *GUI) onUpdateAllConfigs() {
 	go func() {
 		progressModal, progress := g.showProgressDialog(g.t("progress", "updating_configs"))
-		_, total, err := g.ctrl.UpdateAllConfigsWithLog(func(done, total int) {
+		_, total, err := g.ctrl.UpdateAllConfigs(func(done, total int) {
 			fyne.Do(func() {
 				progress.SetValue(float64(done) / float64(total))
 			})

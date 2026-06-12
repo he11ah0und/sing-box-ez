@@ -16,13 +16,14 @@ type Controller struct {
 	manager   *Manager
 	app       *framework.App
 	processor *CoreLogProcessor
+	terminal  *logger.LogTerminal
 
 	stopped bool
 	stopMu  sync.Mutex
 }
 
 // NewController creates a new base controller with manager and logger.
-func NewController(cfg *config.AppConfig, fwApp *framework.App) *Controller {
+func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.LogTerminal) *Controller {
 	active := cfg.GetActiveConfig()
 	url := ""
 	if active != nil {
@@ -37,8 +38,8 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App) *Controller {
 	logWriter := NewCoreLogWriter()
 	manager.SetLogOutput(logWriter)
 
-	log := fwApp.Logger
-	processor := NewCoreLogProcessor(cfg, manager, logWriter, log.Root())
+	terminal := parent.Allocate("controller")
+	processor := NewCoreLogProcessor(cfg, manager, logWriter, terminal)
 	processor.Start()
 
 	c := &Controller{
@@ -46,6 +47,7 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App) *Controller {
 		manager:   manager,
 		app:       fwApp,
 		processor: processor,
+		terminal:  terminal,
 	}
 
 	return c
@@ -97,21 +99,12 @@ func (c *Controller) Log(msg string) {
 	c.app.Logger.Log(msg)
 }
 
-func (c *Controller) LogRoot() *logger.LogTerminal {
-	return c.app.Logger.Root()
-}
-
 func (c *Controller) GetLogLines() []string {
 	return c.app.Logger.GetLines()
 }
 
 func (c *Controller) ClearLogs() {
 	c.app.Logger.Clear()
-}
-
-// Logger returns the internal logger for advanced use.
-func (c *Controller) Logger() *logger.Logger {
-	return c.app.Logger
 }
 
 // LogProcessor returns the core log processor (for setting callbacks such as OnAutoRestart).
@@ -164,4 +157,9 @@ func (c *Controller) SetElevated(v bool) {
 
 func (c *Controller) UpdateConfig() error {
 	return c.manager.UpdateConfig()
+}
+
+// Terminal returns the controller's logger terminal.
+func (c *Controller) Terminal() *logger.LogTerminal {
+	return c.terminal
 }

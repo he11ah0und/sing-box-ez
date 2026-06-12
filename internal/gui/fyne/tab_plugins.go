@@ -7,13 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/plugins"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
-	"sing-box-ez/internal/framework/localengine"
-	"sing-box-ez/internal/plugins"
 )
 
 // pluginListItem holds the data needed to render one row.
@@ -67,7 +68,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 
 	refreshBtn := widget.NewButton(localengine.T("plugins", "btn", "refresh"), func() {
 		g.pluginManager.Close()
-		_ = g.ctrl.PluginDiscoverWithLog(g.pluginManager)
+		_ = g.ctrl.PluginDiscover(g.pluginManager)
 		g.refreshPluginsList()
 	})
 
@@ -83,12 +84,12 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 	if g.cfg.GetPluginsDeveloper() {
 		genDocsBtn := widget.NewButton(localengine.T("plugins", "btn", "generate_api_docs"), func() {
 			outDir := filepath.Join(g.cfg.DataDir, plugins.DocsDir())
-			_ = g.ctrl.PluginGenerateDocsWithLog(plugins.GenerateDocs, outDir)
+			_ = g.ctrl.PluginGenerateDocs(plugins.GenerateDocs, outDir)
 		})
 
 		genDefsBtn := widget.NewButton(localengine.T("plugins", "btn", "generate_vscode_defs"), func() {
 			outDir := filepath.Join(g.cfg.DataDir, plugins.DefsDir())
-			_ = g.ctrl.PluginGenerateDefsWithLog(plugins.GenerateLuaDefs, outDir)
+			_ = g.ctrl.PluginGenerateDefs(plugins.GenerateLuaDefs, outDir)
 		})
 
 		genTmplBtn := widget.NewButton(localengine.T("plugins", "btn", "generate_template"), func() {
@@ -154,7 +155,7 @@ func (g *GUI) buildPluginsTab() *container.TabItem {
 }
 
 func (g *GUI) togglePlugin(name string) {
-	_ = g.ctrl.PluginToggleWithLog(g.pluginManager, name)
+	_ = g.ctrl.PluginToggle(g.pluginManager, name)
 	g.refreshPluginsList()
 }
 
@@ -226,7 +227,7 @@ func (g *GUI) showPluginInfo(name string) {
 
 	checkBtn := widget.NewButton(localengine.T("plugins", "btn", "check_update"), func() {
 		go func() {
-			_, _, _ = g.ctrl.PluginCheckUpdateWithLog(g.pluginManager, name)
+			_, _, _ = g.ctrl.PluginCheckUpdate(g.pluginManager, name)
 			fyne.Do(func() { g.refreshPluginsList() })
 		}()
 	})
@@ -264,7 +265,7 @@ func (g *GUI) showInstallPluginDialog() {
 	saveBtn := widget.NewButton(localengine.T("plugins", "btn", "install"), func() {
 		url := urlEntry.Text
 		go func() {
-			_ = g.ctrl.PluginInstallFromURLWithLog(g.pluginManager, url)
+			_ = g.ctrl.PluginInstallFromURL(g.pluginManager, url)
 			fyne.Do(func() { g.refreshPluginsList() })
 		}()
 		d.Hide()
@@ -300,7 +301,7 @@ func (g *GUI) showGenerateTemplateDialog() {
 		if rel == "" {
 			rel = "client"
 		}
-		_ = g.ctrl.PluginGenerateTemplateWithLog(plugins.GeneratePluginTemplate, outDir, name, rel)
+		_ = g.ctrl.PluginGenerateTemplate(plugins.GeneratePluginTemplate, outDir, name, rel)
 		g.refreshPluginsList()
 		d.Hide()
 	})
@@ -316,6 +317,6 @@ func (g *GUI) showGenerateTemplateDialog() {
 func (g *GUI) initPlugins() {
 	g.pluginItems = []pluginListItem{}
 	g.pluginManager = plugins.NewManager(plugins.NewUIBuilder(g.window, g.tabs), g.cfg, g.ctrl.PluginManagerLogCallback())
-	_ = g.ctrl.PluginDiscoverWithLog(g.pluginManager)
+	_ = g.ctrl.PluginDiscover(g.pluginManager)
 	g.refreshPluginsList()
 }

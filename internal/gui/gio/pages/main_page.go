@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"time"
 
+	"gio.tools/icons"
 	"gioui.org/f32"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -13,7 +14,6 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -49,7 +49,7 @@ func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog Di
 func (p *MainPage) Tag() string { return "main" }
 
 // Name returns the page name.
-func (p *MainPage) Name() string { return localengine.T("tab", "main") }
+func (p *MainPage) Name() string       { return localengine.T("tab", "main") }
 func (p *MainPage) Icon() *widget.Icon { return icons.ActionHome }
 
 // Layout draws the main page.
@@ -128,7 +128,7 @@ func (p *MainPage) openConfigPicker() {
 			if btns[i].Clicked(gtx) {
 				p.dialog.HideCustom()
 				go func(name string) {
-					_ = p.ctrl.ActivateConfigWithLog(name)
+					_ = p.ctrl.ActivateConfig(name)
 				}(configs[i].Name)
 			}
 		}
@@ -221,11 +221,11 @@ func (p *MainPage) onStart() {
 	go func() {
 		defer func() { p.processing = false }()
 		if _, err := p.ctrl.PrepareConfig(); err != nil {
-			p.ctrl.LogTag("core", err.Error())
+			p.ctrl.Core.Terminal().Infof("%s", err.Error())
 			return
 		}
 		if err := p.ctrl.Start(); err != nil {
-			p.ctrl.LogTag("core", "Failed to start: "+err.Error())
+			p.ctrl.Core.Terminal().Infof("Failed to start: %v", err)
 			return
 		}
 	}()
@@ -236,7 +236,7 @@ func (p *MainPage) onStop() {
 	go func() {
 		defer func() { p.processing = false }()
 		if err := p.ctrl.Stop(); err != nil {
-			p.ctrl.LogTag("core", "Failed to stop: "+err.Error())
+			p.ctrl.Core.Terminal().Infof("Failed to stop: %v", err)
 			return
 		}
 	}()
@@ -247,7 +247,7 @@ func (p *MainPage) onRestart() {
 	go func() {
 		defer func() { p.processing = false }()
 		if err := p.ctrl.Restart(); err != nil {
-			p.ctrl.LogTag("core", "Failed to restart: "+err.Error())
+			p.ctrl.Core.Terminal().Infof("Failed to restart: %v", err)
 			return
 		}
 	}()

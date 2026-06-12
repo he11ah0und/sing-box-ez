@@ -17,14 +17,14 @@ type UpdaterController struct {
 	terminal *logger.LogTerminal
 }
 
-// Terminal returns the logging terminal used by this controller.
-func (c *UpdaterController) Terminal() *logger.LogTerminal {
-	return c.terminal
+// NewUpdaterController creates a new updater controller.
+func NewUpdaterController(fwApp *framework.App, parent *logger.LogTerminal) *UpdaterController {
+	return &UpdaterController{fwApp: fwApp, terminal: parent.Allocate("updater")}
 }
 
-// NewUpdaterController creates a new updater controller.
-func NewUpdaterController(fwApp *framework.App, terminal *logger.LogTerminal) *UpdaterController {
-	return &UpdaterController{fwApp: fwApp, terminal: terminal}
+// Terminal returns the controller's logger terminal.
+func (c *UpdaterController) Terminal() *logger.LogTerminal {
+	return c.terminal
 }
 
 func (c *UpdaterController) manager() *updater.Manager {
@@ -41,24 +41,6 @@ func (c *UpdaterController) manager() *updater.Manager {
 	return updater.CurrentManager()
 }
 
-// CheckSelfUpdate checks for self updates.
-func (c *UpdaterController) CheckSelfUpdate() (*updater.UpdateInfo, error) {
-	m := c.manager()
-	if m == nil {
-		return nil, fmt.Errorf("updater manager not configured")
-	}
-	return m.Check(context.Background(), version.Branch)
-}
-
-// ApplySelfUpdate applies a self update from the given asset URL.
-func (c *UpdaterController) ApplySelfUpdate(assetURL string, onProgress func(int64, int64)) error {
-	m := c.manager()
-	if m == nil {
-		return fmt.Errorf("updater manager not configured")
-	}
-	return m.Install(context.Background(), &updater.UpdateInfo{AssetURL: assetURL}, onProgress)
-}
-
 // GetBranches fetches available repository branches.
 func (c *UpdaterController) GetBranches() ([]updater.Channel, error) {
 	m := c.manager()
@@ -68,26 +50,30 @@ func (c *UpdaterController) GetBranches() ([]updater.Channel, error) {
 	return m.Channels(context.Background())
 }
 
-// ApplySelfUpdateWithLog performs a self-update and logs the result.
-func (c *UpdaterController) ApplySelfUpdateWithLog(assetURL string, onProgress func(int64, int64)) error {
+// ApplySelfUpdate performs a self-update and logs the result.
+func (c *UpdaterController) ApplySelfUpdate(assetURL string, onProgress func(downloaded, total int64)) error {
 	if assetURL == "" {
-		c.terminal.Errorf("Self-update: no matching asset for this system")
-		return fmt.Errorf("no matching asset")
+		return c.terminal.Errorf("Self-update: no matching asset for this system")
 	}
-	err := c.ApplySelfUpdate(assetURL, onProgress)
-	if err != nil {
-		c.terminal.Errorf("Self-update failed: %s", err.Error())
-		return err
+	m := c.manager()
+	if m == nil {
+		return c.terminal.Errorf("updater manager not configured")
+	}
+	if err := m.Install(context.Background(), &updater.UpdateInfo{AssetURL: assetURL}, onProgress); err != nil {
+		return c.terminal.Errorf("Self-update failed: %s", err.Error())
 	}
 	return nil
 }
 
-// CheckSelfUpdateWithLog checks for self updates and logs the result.
-func (c *UpdaterController) CheckSelfUpdateWithLog() (*updater.UpdateInfo, error) {
-	info, err := c.CheckSelfUpdate()
+// CheckSelfUpdate checks for self updates and logs the result.
+func (c *UpdaterController) CheckSelfUpdate() (*updater.UpdateInfo, error) {
+	m := c.manager()
+	if m == nil {
+		return nil, c.terminal.Errorf("updater manager not configured")
+	}
+	info, err := m.Check(context.Background(), version.Branch)
 	if err != nil {
-		c.terminal.Errorf("Update check failed: %s", err.Error())
-		return nil, err
+		return nil, c.terminal.Errorf("Update check failed: %s", err.Error())
 	}
 	if info.ReleaseCount == 0 {
 		c.terminal.Infof("Already on latest version: %s", info.Current)
@@ -116,9 +102,9 @@ func (c *UpdaterController) CheckSelfUpdateForBranch(branch string) (*updater.Up
 	return info, nil
 }
 
-// FetchReleaseNotesWithLog fetches release notes and logs errors.
+// FetchReleaseNotes fetches release notes and logs errors.
 // Returns the release and an error (err != nil only when TagName is non-empty).
-func (c *UpdaterController) FetchReleaseNotesWithLog(commit string) (updater.Release, error) {
+func (c *UpdaterController) FetchReleaseNotes(commit string) (updater.Release, error) {
 	m := c.manager()
 	if m == nil {
 		return updater.Release{}, fmt.Errorf("updater manager not configured")

@@ -31,11 +31,12 @@ type Config struct {
 	// working directory is used.
 	BaseDir string
 	// LoadLocales is called during app construction to load localization
-	// bundles. The framework passes a scoped logger so the implementation
-	// can set localengine.Log and load locale files from any backend
-	// (e.g. embed.FS, OS directory, or a custom fs.FileSystem).
+	// bundles. The framework passes the localengine.LoadFromFS loader so the
+	// implementation can load locale files from any backend (e.g. embed.FS,
+	// OS directory, or a custom fs.FileSystem). It may call the loader
+	// multiple times for different sources.
 	// If nil, localengine is only initialised with a logger.
-	LoadLocales func(log *logger.LogTerminal) error
+	LoadLocales func(load func(fsys fs.FileSystem, dir string) error) error
 	// BuildUpdaters returns the list of updater managers that should be
 	// registered in the app. The framework passes the root logger and the
 	// file system so each manager can allocate its own scoped terminal and
@@ -53,11 +54,10 @@ func NewApp(cfg Config) *App {
 	}
 
 	log := logger.NewLogger(cfg.LoggerLimit)
-	localengine.Log = log.Root().Allocate("localengine")
+
+	localengine.SetLogger(log.Root)
 	if cfg.LoadLocales != nil {
-		if err := cfg.LoadLocales(localengine.Log); err != nil {
-			localengine.Log.Warnf("locale load failed: %v", err)
-		}
+		_ = cfg.LoadLocales(localengine.LoadFromFS)
 	}
 	appFS := fs.NewOSFileSystem(cfg.BaseDir)
 
@@ -90,7 +90,7 @@ func (a *App) Start() error {
 		return errors.New("framework.App is nil")
 	}
 	_ = a.FS.MkdirAll("", 0750)
-	a.Logger.Root().Infof("framework started")
+	a.Logger.Root.Infof("framework started")
 	return nil
 }
 
@@ -99,7 +99,7 @@ func (a *App) Stop() error {
 	if a == nil {
 		return errors.New("framework.App is nil")
 	}
-	a.Logger.Root().Infof("framework stopped")
+	a.Logger.Root.Infof("framework stopped")
 	return nil
 }
 

@@ -171,7 +171,7 @@ func humanDuration(d time.Duration) string {
 
 func (g *GUI) doSelfUpdate(assetURL string) {
 	progressModal, progress := g.showProgressDialog(localengine.T("progress", "downloading_update"))
-	if err := g.ctrl.ApplySelfUpdateWithLog(assetURL, func(d, t int64) {
+	if err := g.ctrl.ApplySelfUpdate(assetURL, func(d, t int64) {
 		fyne.Do(func() {
 			progress.SetValue(float64(d) / float64(t))
 		})
@@ -212,7 +212,7 @@ func (g *GUI) showFirstRunDialog() {
 
 	addBtn := widget.NewButton(localengine.T("first_run", "btn", "add_config"), func() {
 		url := urlEntry.Text
-		if err := g.ctrl.AddFirstConfigWithLog("default", url); err != nil {
+		if err := g.ctrl.AddFirstConfig("default", url); err != nil {
 			return
 		}
 		g.refreshConfigData()

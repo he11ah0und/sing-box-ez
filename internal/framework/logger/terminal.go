@@ -53,9 +53,15 @@ func (t *LogTerminal) Warnf(v ...interface{}) {
 	t.writef(LogLevelWarn, v)
 }
 
-// Errorf logs an error-level message from this terminal.
-func (t *LogTerminal) Errorf(v ...interface{}) {
-	t.writef(LogLevelError, v)
+// Errorf logs an error-level message from this terminal and returns the
+// formatted error. This allows idiomatic one-line error handling such as
+//   return t.Errorf("download failed: %w", err)
+func (t *LogTerminal) Errorf(format string, v ...interface{}) error {
+	err := fmt.Errorf(format, v...)
+	if t != nil && t.logger != nil {
+		t.log(LogLevelError, err.Error())
+	}
+	return err
 }
 
 func (t *LogTerminal) writef(level LogLevel, v []interface{}) {

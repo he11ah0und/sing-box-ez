@@ -33,7 +33,7 @@ func (g *GUI) buildMainTab() *container.TabItem {
 			return
 		}
 		g.selectingConfig = true
-		if err := g.ctrl.ActivateConfigWithLog(s); err == nil {
+		if err := g.ctrl.ActivateConfig(s); err == nil {
 			g.refreshActiveLabel()
 		}
 		g.selectingConfig = false

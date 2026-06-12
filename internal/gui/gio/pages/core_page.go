@@ -5,13 +5,13 @@ import (
 	"image"
 	"image/color"
 
+	"gio.tools/icons"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -78,7 +78,7 @@ func (p *CorePage) refreshVersions() {
 func (p *CorePage) Tag() string { return "core" }
 
 // Name returns the page name.
-func (p *CorePage) Name() string { return localengine.T("tab", "core") }
+func (p *CorePage) Name() string       { return localengine.T("tab", "core") }
 func (p *CorePage) Icon() *widget.Icon { return icons.AVPlayArrow }
 
 // Layout draws the core page.
@@ -91,7 +91,7 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 	}
 	if p.restartAdminBtn.Clicked(gtx) {
 		go func() {
-			_ = p.ctrl.RestartAsAdminWithLog()
+			_ = p.ctrl.RestartAsAdmin()
 		}()
 	}
 	if p.privilegePickerBtn.Clicked(gtx) {
@@ -242,7 +242,7 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 	}
 
 	if mode == "admin" {
-		_ = p.ctrl.SetRunAsAdminWithLog(true)
+		_ = p.ctrl.SetRunAsAdmin(true)
 		p.privilegeMode = "admin"
 		p.privilegeState = p.ctrl.GetPrivilegeTabState()
 		return
@@ -250,7 +250,7 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 
 	// Switching to setcap
 	if p.privilegeState.HasSetcap {
-		_ = p.ctrl.SetRunAsAdminWithLog(false)
+		_ = p.ctrl.SetRunAsAdmin(false)
 		p.privilegeMode = "setcap"
 		p.privilegeState = p.ctrl.GetPrivilegeTabState()
 		return
@@ -265,10 +265,10 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 			p.dialog.HideCustom()
 			go func() {
 				p.dialog.ShowLoading(localengine.T("progress", "applying_setcap"))
-				err := p.ctrl.ApplySetcapWithLog()
+				err := p.ctrl.ApplySetcap()
 				p.dialog.HideLoading()
 				if err == nil {
-					_ = p.ctrl.SetRunAsAdminWithLog(false)
+					_ = p.ctrl.SetRunAsAdmin(false)
 					p.privilegeMode = "setcap"
 					p.privilegeState = p.ctrl.GetPrivilegeTabState()
 				}
@@ -302,7 +302,7 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 
 func (p *CorePage) onDownloadCore() {
 	p.dialog.ShowLoading(localengine.T("progress", "checking_version"))
-	path, err := p.ctrl.DownloadCoreWithProgressWithLog(nil)
+	path, err := p.ctrl.DownloadCoreWithProgress(nil)
 	p.dialog.HideLoading()
 	if err != nil {
 		return
@@ -314,7 +314,7 @@ func (p *CorePage) onDownloadCore() {
 
 func (p *CorePage) onCheckVersion() {
 	p.dialog.ShowLoading(localengine.T("progress", "checking_version"))
-	ver, err := p.ctrl.GetLatestCoreVersionWithLog()
+	ver, err := p.ctrl.GetLatestCoreVersion()
 	p.dialog.HideLoading()
 	if err != nil {
 		return

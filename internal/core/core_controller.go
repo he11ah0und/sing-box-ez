@@ -17,19 +17,19 @@ type CoreController struct {
 	terminal *logger.LogTerminal
 }
 
-// Terminal returns the logging terminal used by this controller.
-func (c *CoreController) Terminal() *logger.LogTerminal {
-	return c.terminal
-}
-
 // NewCoreController creates a new core lifecycle controller.
-func NewCoreController(cfg *config.AppConfig, manager *Manager, logger *logger.Logger, terminal *logger.LogTerminal) *CoreController {
+func NewCoreController(cfg *config.AppConfig, manager *Manager, logger *logger.Logger, parent *logger.LogTerminal) *CoreController {
 	return &CoreController{
 		cfg:      cfg,
 		manager:  manager,
 		logger:   logger,
-		terminal: terminal,
+		terminal: parent.Allocate("core"),
 	}
+}
+
+// Terminal returns the controller's logger terminal.
+func (c *CoreController) Terminal() *logger.LogTerminal {
+	return c.terminal
 }
 
 // GetInstalledCoreVersion returns the installed core version.
@@ -37,12 +37,16 @@ func (c *CoreController) GetInstalledCoreVersion() (string, error) {
 	return GetCoreVersion(GetCorePath())
 }
 
-// GetLatestCoreVersion returns the latest available core version.
+// GetLatestCoreVersion returns the latest available core version and logs errors.
 func (c *CoreController) GetLatestCoreVersion() (string, error) {
-	return GetLatestVersion()
+	ver, err := GetLatestVersion()
+	if err != nil {
+		return "", c.terminal.Errorf("Check failed: %v", err)
+	}
+	return ver, nil
 }
 
-// DownloadCoreWithProgress downloads the latest core and reports progress.
+// DownloadCoreWithProgress downloads the latest core, reports progress and logs the result.
 func (c *CoreController) DownloadCoreWithProgress(onProgress func(downloaded, total int64)) (string, error) {
 	ver, err := GetLatestVersion()
 	if err != nil {
@@ -52,7 +56,7 @@ func (c *CoreController) DownloadCoreWithProgress(onProgress func(downloaded, to
 
 	path, err := DownloadCore("", onProgress)
 	if err != nil {
-		return "", err
+		return "", c.terminal.Errorf("Failed to download core: %v", err)
 	}
 	c.terminal.Infof("Core downloaded to: " + path)
 	return path, nil
@@ -67,12 +71,10 @@ func (c *CoreController) CoreExists() bool {
 func (c *CoreController) StartCore() error {
 	_, err := PrepareConfig(c.cfg, c.manager, c.logger)
 	if err != nil {
-		c.terminal.Errorf("%s", err.Error())
-		return err
+		return c.terminal.Errorf("Failed to start: %v", err)
 	}
 	if err := StartCore(c.manager, c.logger); err != nil {
-		c.terminal.Errorf("Failed to start: " + err.Error())
-		return err
+		return c.terminal.Errorf("Failed to start: %v", err)
 	}
 	c.terminal.Infof("Core started")
 	return nil
@@ -81,8 +83,7 @@ func (c *CoreController) StartCore() error {
 // StopCore stops the core process and logs the result.
 func (c *CoreController) StopCore() error {
 	if err := StopCore(c.manager, c.logger); err != nil {
-		c.terminal.Errorf("Failed to stop: " + err.Error())
-		return err
+		return c.terminal.Errorf("Failed to stop: %v", err)
 	}
 	c.terminal.Infof("Core stopped")
 	return nil
@@ -92,35 +93,13 @@ func (c *CoreController) StopCore() error {
 func (c *CoreController) RestartCore() error {
 	c.terminal.Infof("Restarting...")
 	if err := StopCore(c.manager, c.logger); err != nil {
-		c.terminal.Errorf("Failed to restart: " + err.Error())
-		return err
+		return c.terminal.Errorf("Failed to restart: %v", err)
 	}
 	if err := StartCore(c.manager, c.logger); err != nil {
-		c.terminal.Errorf("Failed to restart: " + err.Error())
-		return err
+		return c.terminal.Errorf("Failed to restart: %v", err)
 	}
 	c.terminal.Infof("Core restarted")
 	return nil
-}
-
-// GetLatestCoreVersionWithLog fetches the latest core version and logs errors.
-func (c *CoreController) GetLatestCoreVersionWithLog() (string, error) {
-	ver, err := c.GetLatestCoreVersion()
-	if err != nil {
-		c.terminal.Errorf("Check failed: " + err.Error())
-		return "", err
-	}
-	return ver, nil
-}
-
-// DownloadCoreWithProgressWithLog downloads the core and logs the result.
-func (c *CoreController) DownloadCoreWithProgressWithLog(onProgress func(int64, int64)) (string, error) {
-	path, err := c.DownloadCoreWithProgress(onProgress)
-	if err != nil {
-		c.terminal.Errorf("Failed to download core: " + err.Error())
-		return "", err
-	}
-	return path, nil
 }
 
 // RestartAsAdmin restarts the application with elevated privileges (Windows only).

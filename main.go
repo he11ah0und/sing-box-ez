@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-	app.Run(os.Args[1:], localesFS, runGUI)
+	app.Run(os.Args[1:], runGUI)
 }
