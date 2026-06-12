@@ -15,6 +15,7 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/plugins"
@@ -95,7 +96,7 @@ func ensureUpdater() {
 	if updater.CurrentManager() != nil {
 		return
 	}
-	gh := updater.NewGitHubBackend(defaultGitHubOwner, defaultGitHubRepo)
+	gh := updater.NewGitHubBackend(logger.NewLogger(0).Root, defaultGitHubOwner, defaultGitHubRepo)
 	updater.SetManager(&updater.Manager{
 		Source: gh,
 		Apply:  &updater.SelfUpdateApply{},
@@ -409,14 +410,14 @@ func cmdSelfUpdate(_ *config.AppConfig, _ []string) error {
 		fmt.Println("Already up to date.")
 		return nil
 	}
-	if info.AssetURL == "" {
+	if info.Asset.URL == "" {
 		return fmt.Errorf("no matching asset found for this system (%s)", info.AssetName)
 	}
 
 	fmt.Printf("Updating %s → %s\n", info.Current, info.Latest)
 	fmt.Printf("Downloading %s...\n", info.AssetName)
 
-	if err := updater.ApplyUpdate(info.AssetURL, nil); err != nil {
+	if err := updater.ApplyUpdate(info.Asset, nil); err != nil {
 		return fmt.Errorf("update failed: %w", err)
 	}
 	return nil

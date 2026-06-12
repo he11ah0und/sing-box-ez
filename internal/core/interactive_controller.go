@@ -186,8 +186,8 @@ func (ic *InteractiveController) ApplySetcap() error {
 	return ic.Privileges.ApplySetcap()
 }
 
-func (ic *InteractiveController) ApplySelfUpdate(assetURL string, onProgress func(downloaded, total int64)) error {
-	return ic.Updater.ApplySelfUpdate(assetURL, onProgress)
+func (ic *InteractiveController) ApplySelfUpdate(asset updater.Asset, onProgress func(downloaded, total int64)) error {
+	return ic.Updater.ApplySelfUpdate(asset, onProgress)
 }
 
 func (ic *InteractiveController) HasCachedConfig(name string) bool {

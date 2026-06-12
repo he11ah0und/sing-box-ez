@@ -141,7 +141,7 @@ func (g *GUI) showSelfUpdateDialog(info *updater.UpdateInfo) {
 
 	confirm := dialog.NewCustomConfirm(localengine.T("dialog", "self_update", "title"), localengine.T("dialog", "btn", "update"), localengine.T("dialog", "btn", "ignore"), content, func(update bool) {
 		if update {
-			go g.doSelfUpdate(info.AssetURL)
+			go g.doSelfUpdate(info.Asset)
 		}
 	}, g.window)
 	confirm.Show()
@@ -169,9 +169,9 @@ func humanDuration(d time.Duration) string {
 	return fmt.Sprintf("%dy", months/12)
 }
 
-func (g *GUI) doSelfUpdate(assetURL string) {
+func (g *GUI) doSelfUpdate(asset updater.Asset) {
 	progressModal, progress := g.showProgressDialog(localengine.T("progress", "downloading_update"))
-	if err := g.ctrl.ApplySelfUpdate(assetURL, func(d, t int64) {
+	if err := g.ctrl.ApplySelfUpdate(asset, func(d, t int64) {
 		fyne.Do(func() {
 			progress.SetValue(float64(d) / float64(t))
 		})

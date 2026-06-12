@@ -190,7 +190,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 		dialog.ShowConfirmMarkdown(localengine.T("dialog", "self_update", "title"), body, func() {
 			dialog.ShowLoading(localengine.T("progress", "downloading_update"))
 			go func() {
-				if err := g.ctrl.ApplySelfUpdate(info.AssetURL, nil); err != nil {
+				if err := g.ctrl.ApplySelfUpdate(info.Asset, nil); err != nil {
 					dialog.HideLoading()
 					dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
 					return

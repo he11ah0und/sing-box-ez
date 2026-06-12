@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"sing-box-ez/internal/framework/logger"
 )
@@ -22,22 +25,26 @@ type GitHubBackend struct {
 }
 
 // NewGitHubBackend returns a GitHubBackend for the public GitHub API.
-func NewGitHubBackend(owner, repo string) *GitHubBackend {
+// The logger terminal is allocated from parent as "gh-{owner}-{repo}" so
+// multiple GitHub backends can be distinguished in the logs.
+func NewGitHubBackend(parent *logger.LogTerminal, owner, repo string) *GitHubBackend {
 	return &GitHubBackend{
 		BaseURL: defaultGitHubAPI,
 		Owner:   owner,
 		Repo:    repo,
 		Client:  httpClient,
+		Log:     parent.Allocate("gh-" + owner + "-" + repo),
 	}
 }
 
 // NewGitHubEnterpriseBackend returns a GitHubBackend for a custom GitHub Enterprise instance.
-func NewGitHubEnterpriseBackend(baseURL, owner, repo string) *GitHubBackend {
+func NewGitHubEnterpriseBackend(parent *logger.LogTerminal, baseURL, owner, repo string) *GitHubBackend {
 	return &GitHubBackend{
 		BaseURL: baseURL,
 		Owner:   owner,
 		Repo:    repo,
 		Client:  httpClient,
+		Log:     parent.Allocate("gh-" + owner + "-" + repo),
 	}
 }
 
@@ -122,11 +129,11 @@ func (b *GitHubBackend) latestStable(ctx context.Context) (Release, error) {
 	if err != nil {
 		return Release{}, err
 	}
-	var r Release
-	if err := b.doJSON(req, &r); err != nil {
+	var raw ghRelease
+	if err := b.doJSON(req, &raw); err != nil {
 		return Release{}, err
 	}
-	return r, nil
+	return b.toRelease(raw), nil
 }
 
 func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (Release, error) {
@@ -134,13 +141,13 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 	if err != nil {
 		return Release{}, err
 	}
-	var releases []Release
-	if err := b.doJSON(req, &releases); err != nil {
+	var raw []ghRelease
+	if err := b.doJSON(req, &raw); err != nil {
 		return Release{}, err
 	}
-	for _, r := range releases {
+	for _, r := range raw {
 		if r.TargetCommitish == channel && !r.Prerelease {
-			return r, nil
+			return b.toRelease(r), nil
 		}
 	}
 	return Release{}, fmt.Errorf("no release found for channel %s", channel)
@@ -152,45 +159,66 @@ func (b *GitHubBackend) ListChannels(ctx context.Context) ([]Channel, error) {
 	if err != nil {
 		return nil, err
 	}
-	var channels []Channel
-	if err := b.doJSON(req, &channels); err != nil {
+	var raw []ghBranch
+	if err := b.doJSON(req, &raw); err != nil {
 		return nil, err
 	}
-	for i := range channels {
-		if channels[i].Name == "" {
-			channels[i].Name = channels[i].ID
+	channels := make([]Channel, len(raw))
+	for i, br := range raw {
+		name := br.Name
+		if name == "" {
+			name = br.Name
 		}
+		channels[i] = Channel{ID: br.Name, Name: name}
 	}
 	return channels, nil
 }
 
-// ReleaseByTag implements Source.
-func (b *GitHubBackend) ReleaseByTag(ctx context.Context, tag string) (Release, error) {
-	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiReleaseByTagURL(tag), nil)
-	if err != nil {
-		return Release{}, err
+// ReleaseByVersion implements Source.
+func (b *GitHubBackend) ReleaseByVersion(ctx context.Context, version string) (Release, error) {
+	// Try the version as-is first, then with/without a leading 'v'.
+	// This accommodates both semver tags ("v1.9.0") and commit-hash tags
+	// used by sing-box-ez ("eb6db22").
+	candidates := []string{version}
+	if strings.HasPrefix(version, "v") {
+		candidates = append(candidates, strings.TrimPrefix(version, "v"))
+	} else {
+		candidates = append(candidates, "v"+version)
 	}
-	var r Release
-	if err := b.doJSON(req, &r); err != nil {
-		return Release{}, err
+
+	var lastErr error
+	for _, tag := range candidates {
+		req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiReleaseByTagURL(tag), nil)
+		if err != nil {
+			return Release{}, err
+		}
+		var raw ghRelease
+		if err := b.doJSON(req, &raw); err != nil {
+			lastErr = err
+			continue
+		}
+		return b.toRelease(raw), nil
 	}
-	return r, nil
+	return Release{}, lastErr
 }
 
 // DownloadAsset implements Source.
-func (b *GitHubBackend) DownloadAsset(ctx context.Context, url string, w io.Writer, progress func(downloaded, total int64)) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (b *GitHubBackend) DownloadAsset(ctx context.Context, asset Asset, w io.Writer, progress func(downloaded, total int64)) error {
+	if asset.URL == "" {
+		return fmt.Errorf("asset has no download URL")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.URL, nil)
 	if err != nil {
 		return err
 	}
-	b.Log.Debugf("GET %s", url)
+	b.Log.Debugf("GET %s", asset.URL)
 	resp, err := b.client().Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download %s: %s", url, resp.Status)
+		return fmt.Errorf("download %s: %s", asset.URL, resp.Status)
 	}
 
 	total := resp.ContentLength
@@ -215,4 +243,76 @@ func (b *GitHubBackend) DownloadAsset(ctx context.Context, url string, w io.Writ
 		}
 	}
 	return nil
+}
+
+// --- GitHub API JSON structs ---
+
+type ghRelease struct {
+	TagName         string    `json:"tag_name"`
+	TargetCommitish string    `json:"target_commitish"`
+	Name            string    `json:"name"`
+	Body            string    `json:"body"`
+	PublishedAt     time.Time `json:"published_at"`
+	Prerelease      bool      `json:"prerelease"`
+	Assets          []ghAsset `json:"assets"`
+}
+
+type ghAsset struct {
+	Name        string `json:"name"`
+	DownloadURL string `json:"browser_download_url"`
+	Size        int64  `json:"size"`
+}
+
+type ghBranch struct {
+	Name string `json:"name"`
+}
+
+func (b *GitHubBackend) toRelease(raw ghRelease) Release {
+	release := Release{
+		Version:     raw.TagName,
+		Channel:     raw.TargetCommitish,
+		Name:        raw.Name,
+		Body:        raw.Body,
+		PublishedAt: raw.PublishedAt,
+		Prerelease:  raw.Prerelease,
+		Assets:      make([]Asset, len(raw.Assets)),
+	}
+	for i, a := range raw.Assets {
+		release.Assets[i] = Asset{
+			Name:   a.Name,
+			URL:    a.DownloadURL,
+			Size:   a.Size,
+			Tags:   b.assetTags(release, a.Name),
+			Hashes: make(map[string]string),
+		}
+	}
+	return release
+}
+
+// assetTags extracts platform tags from an asset filename.
+// It strips the project name and version, then splits the remainder by '-'.
+func (b *GitHubBackend) assetTags(release Release, name string) []string {
+	base := name
+	if ext := filepath.Ext(base); ext != "" {
+		base = base[:len(base)-len(ext)]
+	}
+
+	// Strip project name prefix (e.g. "sing-box-", "sing-box-ez-").
+	if strings.HasPrefix(base, b.Repo+"-") {
+		base = base[len(b.Repo)+1:]
+	}
+
+	// Strip version (with and without leading 'v').
+	ver := strings.TrimPrefix(release.Version, "v")
+	if ver != "" {
+		base = strings.ReplaceAll(base, "v"+ver, "")
+		base = strings.ReplaceAll(base, ver, "")
+	}
+
+	base = strings.ReplaceAll(base, "--", "-")
+	base = strings.Trim(base, "-")
+	if base == "" {
+		return nil
+	}
+	return strings.Split(base, "-")
 }

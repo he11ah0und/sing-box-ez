@@ -38,16 +38,12 @@ func NewApp(cfg *config.AppConfig) *App {
 			BuildUpdaters: func(log *logger.Logger, fsys fs.FileSystem) []*updater.Manager {
 				// App self-updater
 				appMgr := updater.NewManager(log.Root, "updater")
-				appGh := updater.NewGitHubBackend("he11ah0und", "sing-box-ez")
-				appGh.Log = appMgr.Log.Allocate("github")
-				appMgr.Source = appGh
+				appMgr.Source = updater.NewGitHubBackend(appMgr.Log, "he11ah0und", "sing-box-ez")
 				appMgr.Apply = &updater.SelfUpdateApply{}
 
 				// Core updater (downloads sing-box core binary via FS)
 				coreMgr := updater.NewManager(log.Root, "core-updater")
-				coreGh := updater.NewGitHubBackend("SagerNet", "sing-box")
-				coreGh.Log = coreMgr.Log.Allocate("github-core")
-				coreMgr.Source = coreGh
+				coreMgr.Source = updater.NewGitHubBackend(coreMgr.Log, "SagerNet", "sing-box")
 				coreMgr.Apply = &updater.CoreUpdateApply{
 					FS:       fsys,
 					DestPath: core.CoreBinary(),

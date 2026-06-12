@@ -51,15 +51,16 @@ func (c *UpdaterController) GetBranches() ([]updater.Channel, error) {
 }
 
 // ApplySelfUpdate performs a self-update and logs the result.
-func (c *UpdaterController) ApplySelfUpdate(assetURL string, onProgress func(downloaded, total int64)) error {
-	if assetURL == "" {
+func (c *UpdaterController) ApplySelfUpdate(asset updater.Asset, onProgress func(downloaded, total int64)) error {
+	if asset.URL == "" {
 		return c.terminal.Errorf("Self-update: no matching asset for this system")
 	}
 	m := c.manager()
 	if m == nil {
 		return c.terminal.Errorf("updater manager not configured")
 	}
-	if err := m.Install(context.Background(), &updater.UpdateInfo{AssetURL: assetURL}, onProgress); err != nil {
+	info := &updater.UpdateInfo{Asset: asset, AssetURL: asset.URL, AssetName: asset.Name}
+	if err := m.Install(context.Background(), info, onProgress); err != nil {
 		return c.terminal.Errorf("Self-update failed: %s", err.Error())
 	}
 	return nil
@@ -103,7 +104,7 @@ func (c *UpdaterController) CheckSelfUpdateForBranch(branch string) (*updater.Up
 }
 
 // FetchReleaseNotes fetches release notes and logs errors.
-// Returns the release and an error (err != nil only when TagName is non-empty).
+// Returns the release and an error (err != nil only when Version is non-empty).
 func (c *UpdaterController) FetchReleaseNotes(commit string) (updater.Release, error) {
 	m := c.manager()
 	if m == nil {
@@ -111,7 +112,7 @@ func (c *UpdaterController) FetchReleaseNotes(commit string) (updater.Release, e
 	}
 	release, err := m.ReleaseNotes(context.Background(), commit)
 	if err != nil {
-		if release.TagName == "" {
+		if release.Version == "" {
 			return release, nil
 		}
 		c.terminal.Errorf("Failed to fetch release notes: %s", err.Error())

@@ -183,9 +183,9 @@ func (p *AboutPage) buildInfoText() string {
 
 func (p *AboutPage) fetchReleaseNotes() {
 	p.dialog.ShowLoading(localengine.T("about", "release_notes", "title"))
-	release, err := updater.GetReleaseByTag(version.Commit)
+	release, err := updater.GetReleaseByVersion(version.Commit)
 	if err != nil {
-		if release.TagName == "" {
+		if release.Version == "" {
 			p.dialog.Show(localengine.T("about", "release_notes", "title"), localengine.T("about", "release_notes", "not_found"))
 			p.ctrl.Updater.Terminal().Infof("Release notes not found")
 			return
@@ -197,9 +197,9 @@ func (p *AboutPage) fetchReleaseNotes() {
 	dateStr := release.PublishedAt.Local().Format("2006-01-02 15:04:05")
 	ago := version.HumanDuration(release.PublishedAt)
 	body := fmt.Sprintf("# %s: %s\n\nReleased: %s (%s)\n\n%s",
-		release.TagName, release.Name, dateStr, ago, release.Body)
-	p.dialog.ShowMarkdown(localengine.T("about", "release_notes", "title")+": "+release.TagName, body)
-	p.ctrl.Updater.Terminal().Infof("Release notes fetched: %s", release.TagName)
+		release.Version, release.Name, dateStr, ago, release.Body)
+	p.dialog.ShowMarkdown(localengine.T("about", "release_notes", "title")+": "+release.Version, body)
+	p.ctrl.Updater.Terminal().Infof("Release notes fetched: %s", release.Version)
 }
 
 func (p *AboutPage) checkUpdates() {

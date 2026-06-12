@@ -139,7 +139,7 @@ func (g *GUI) showReleaseNotesHandler() func() {
 			if err != nil {
 				return
 			}
-			if release.TagName == "" {
+			if release.Version == "" {
 				fyne.Do(func() {
 					d := dialog.NewInformation(localengine.T("about", "release_notes", "title"),
 						localengine.T("about", "release_notes", "not_found"),
@@ -159,7 +159,7 @@ func (g *GUI) showReleaseNotesHandler() func() {
 				scroll.SetMinSize(fyne.NewSize(500, 400))
 
 				content := container.NewVBox(header, widget.NewSeparator(), scroll)
-				d := dialog.NewCustom(localengine.T("about", "release_notes", "title")+": "+release.TagName, localengine.T("about", "dialog", "close"), content, g.window)
+				d := dialog.NewCustom(localengine.T("about", "release_notes", "title")+": "+release.Version, localengine.T("about", "dialog", "close"), content, g.window)
 				d.Show()
 			})
 		}()
