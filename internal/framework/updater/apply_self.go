@@ -7,6 +7,7 @@ import (
 
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
+	luavm "sing-box-ez/internal/framework/lua"
 )
 
 // selfUpdatePlatform abstracts the platform-specific steps required to replace
@@ -23,9 +24,11 @@ type selfUpdatePlatform interface {
 
 // SelfUpdateApply replaces the running binary and restarts the process.
 type SelfUpdateApply struct {
-	Log      *logger.LogTerminal
-	FS       fs.FileSystem
-	Platform selfUpdatePlatform
+	Log           *logger.LogTerminal
+	FS            fs.FileSystem
+	BaseDir       string
+	InstallScript []byte
+	Platform      selfUpdatePlatform
 }
 
 // NewSelfUpdateApply creates a SelfUpdateApply with a logger allocated from parent.
@@ -42,7 +45,7 @@ func NewSelfUpdateApply(parent *logger.LogTerminal, fsys fs.FileSystem) *SelfUpd
 func (a *SelfUpdateApply) Name() string { return "self-update" }
 
 // Apply downloads the update asset and replaces the running binary.
-func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateInfo, progress func(downloaded, total int64)) error {
+func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateInfo, onProgress func(downloaded, total int64)) error {
 	if info.Asset.URL == "" {
 		return a.Log.Errorf("no asset URL provided")
 	}
@@ -62,18 +65,33 @@ func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateI
 
 	switch info.Asset.Format {
 	case FormatRaw:
-		return a.applyRaw(ctx, source, info, exe, platform, progress)
+		return a.applyRaw(ctx, source, info, exe, platform, onProgress)
 	case FormatZIP, FormatTarGz, FormatTarBz2:
-		return a.applyArchive(ctx, source, info, exe, platform, progress)
+		return a.applyArchive(ctx, source, info, exe, platform, onProgress)
 	default:
 		return a.Log.Errorf("unsupported asset format %q", info.Asset.Format)
 	}
 }
 
-func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info UpdateInfo, exe string, platform selfUpdatePlatform, progress func(downloaded, total int64)) error {
+func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info UpdateInfo, exe string, platform selfUpdatePlatform, onProgress func(downloaded, total int64)) error {
 	tmp := exe + ".tmp"
-	if err := a.downloadAssetToFile(ctx, source, info.Asset, tmp, progress); err != nil {
+	if err := a.downloadAssetToFile(ctx, source, info.Asset, tmp, onProgress); err != nil {
 		return err
+	}
+
+	if len(a.InstallScript) > 0 {
+		vm := luavm.NewVM(a.Log, a.BaseDir, a.FS, []string{tmp}, tmp)
+		vm.Progress = toProgressConfig("copy", onProgress)
+		defer vm.Close()
+
+		result, err := vm.Run(a.InstallScript, a.installContext(info, tmp))
+		if err != nil {
+			_ = a.FS.Remove(tmp)
+			return err
+		}
+		if result.ReplaceBinary != "" {
+			tmp = result.ReplaceBinary
+		}
 	}
 
 	if err := platform.replace(exe, tmp); err != nil {
@@ -84,7 +102,7 @@ func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info Upda
 	return platform.restart(exe)
 }
 
-func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info UpdateInfo, exe string, platform selfUpdatePlatform, progress func(downloaded, total int64)) error {
+func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info UpdateInfo, exe string, platform selfUpdatePlatform, onProgress func(downloaded, total int64)) error {
 	tmpDir, err := os.MkdirTemp("", "sing-box-ez-update-*")
 	if err != nil {
 		return a.Log.Errorf("cannot create extract dir: %v", err)
@@ -92,36 +110,60 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 	defer os.RemoveAll(tmpDir)
 
 	tmpFile := filepath.Join(tmpDir, info.Asset.Name)
-	if err := a.downloadAssetToFile(ctx, source, info.Asset, tmpFile, progress); err != nil {
+	if err := a.downloadAssetToFile(ctx, source, info.Asset, tmpFile, onProgress); err != nil {
 		return err
 	}
 
-	if err := extractArchive(a.FS, info.Asset.Format, tmpFile, tmpDir); err != nil {
-		return a.Log.Errorf("extract archive failed: %v", err)
+	var replaceWith string
+	if len(a.InstallScript) > 0 {
+		assetFS, err := fs.NewArchiveFS(tmpFile, info.Asset.Format)
+		if err != nil {
+			return a.Log.Errorf("open archive fs: %v", err)
+		}
+
+		vm := luavm.NewVM(a.Log, a.BaseDir, a.FS, []string{tmpDir}, tmpFile)
+		vm.SetAssetFS(assetFS)
+		vm.Progress = toProgressConfig("copy", onProgress)
+		defer vm.Close()
+
+		result, err := vm.Run(a.InstallScript, a.installContext(info, tmpFile))
+		if err != nil {
+			return err
+		}
+		replaceWith = result.ReplaceBinary
+	} else {
+		assetFS, err := fs.NewArchiveFS(tmpFile, info.Asset.Format)
+		if err != nil {
+			return a.Log.Errorf("open archive fs: %v", err)
+		}
+		newExe, err := findBinaryInDir(assetFS, tmpDir, filepath.Base(exe))
+		if err != nil {
+			return a.Log.Errorf("locate updated binary: %v", err)
+		}
+		if newExe == "" {
+			return a.Log.Errorf("binary %q not found in archive", filepath.Base(exe))
+		}
+		replaceWith = newExe
 	}
 
-	newExe, err := findBinaryInDir(a.FS, tmpDir, filepath.Base(exe))
-	if err != nil {
-		return a.Log.Errorf("locate updated binary: %v", err)
-	}
-	if newExe == "" {
-		return a.Log.Errorf("binary %q not found in archive", filepath.Base(exe))
+	if replaceWith == "" {
+		return a.Log.Errorf("install script did not return replace_binary")
 	}
 
-	if err := platform.replace(exe, newExe); err != nil {
+	if err := platform.replace(exe, replaceWith); err != nil {
 		return a.Log.Errorf("replace binary failed: %v", err)
 	}
 
 	return platform.restart(exe)
 }
 
-func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source, asset Asset, path string, progress func(downloaded, total int64)) error {
+func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source, asset Asset, path string, onProgress func(downloaded, total int64)) error {
 	f, err := a.FS.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
 		return a.Log.Errorf("cannot create %q: %v", path, err)
 	}
 
-	downloadErr := source.DownloadAsset(ctx, asset, f, progress)
+	downloadErr := source.DownloadAsset(ctx, asset, f, onProgress)
 	if closeErr := f.Close(); closeErr != nil && downloadErr == nil {
 		downloadErr = closeErr
 	}
@@ -131,3 +173,22 @@ func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source
 	}
 	return nil
 }
+
+func (a *SelfUpdateApply) installContext(info UpdateInfo, assetPath string) luavm.InstallContext {
+	return luavm.InstallContext{
+		Asset: luavm.AssetInfo{
+			Path:   assetPath,
+			Format: info.Asset.Format,
+			Name:   info.Asset.Name,
+			Size:   info.Asset.Size,
+		},
+		Release: luavm.ReleaseInfo{
+			Version:     info.Latest,
+			Channel:     "",
+			Body:        info.LatestBody,
+			PublishedAt: info.LatestDate,
+		},
+	}
+}
+
+

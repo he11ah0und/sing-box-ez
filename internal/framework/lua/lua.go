@@ -24,6 +24,7 @@ type VM struct {
 	BaseDir       string
 	MainFS        frameworkfs.FileSystem
 	AssetFS       frameworkfs.FileSystem
+	assetPath     string
 	AllowedWrites []string
 	Progress      *progress.Config
 }
@@ -57,7 +58,7 @@ type InstallResult struct {
 }
 
 // NewVM creates a new Lua VM with the given sandbox settings.
-func NewVM(parent *logger.LogTerminal, baseDir string, mainFS frameworkfs.FileSystem, allowedWrites []string) *VM {
+func NewVM(parent *logger.LogTerminal, baseDir string, mainFS frameworkfs.FileSystem, allowedWrites []string, assetPath string) *VM {
 	if baseDir == "" {
 		baseDir = "."
 	}
@@ -67,7 +68,13 @@ func NewVM(parent *logger.LogTerminal, baseDir string, mainFS frameworkfs.FileSy
 		BaseDir:       baseDir,
 		MainFS:        mainFS,
 		AllowedWrites: allowedWrites,
+		assetPath:     assetPath,
 	}
+}
+
+// SetAssetFS overrides the read-only asset file system.
+func (vm *VM) SetAssetFS(fsys frameworkfs.FileSystem) {
+	vm.AssetFS = fsys
 }
 
 // Close releases the Lua VM.
@@ -192,6 +199,9 @@ func (vm *VM) isReadAllowed(abs string) bool {
 		}
 	}
 	if isUnderOrEqual(abs, vm.BaseDir) {
+		return true
+	}
+	if vm.assetPath != "" && isUnderOrEqual(abs, vm.assetPath) {
 		return true
 	}
 	return false
