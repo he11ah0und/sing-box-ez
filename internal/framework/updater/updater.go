@@ -67,32 +67,32 @@ func GetChannels() ([]Channel, error) {
 	return defaultManager.Channels(context.Background())
 }
 
-// GetReleaseByTag fetches release notes for a specific version tag.
-func GetReleaseByTag(tag string) (Release, error) {
+// GetReleaseByVersion fetches release notes for a specific version identifier.
+func GetReleaseByVersion(version string) (Release, error) {
 	if defaultManager == nil {
 		return Release{}, managerErr()
 	}
-	return defaultManager.ReleaseNotes(context.Background(), tag)
+	return defaultManager.ReleaseNotes(context.Background(), version)
 }
 
 // DownloadAsset downloads a release asset to the given path.
-func DownloadAsset(url, dest string, progress func(downloaded, total int64)) error {
+func DownloadAsset(asset Asset, dest string, progress func(downloaded, total int64)) error {
 	if defaultManager == nil {
 		return managerErr()
 	}
-	return defaultManager.DownloadAsset(context.Background(), url, dest, progress)
+	return defaultManager.DownloadAsset(context.Background(), asset, dest, progress)
 }
 
-// ApplyUpdate applies a self update from the given asset URL.
+// ApplyUpdate applies a self update from the given asset.
 // Kept for backwards compatibility; prefer using Manager.Install directly.
-func ApplyUpdate(assetURL string, progress func(downloaded, total int64)) error {
+func ApplyUpdate(asset Asset, progress func(downloaded, total int64)) error {
 	if defaultManager == nil {
 		return managerErr()
 	}
 	if defaultManager.Apply == nil {
 		return errors.New("updater manager has no apply backend configured")
 	}
-	info := &UpdateInfo{AssetURL: assetURL}
+	info := &UpdateInfo{Asset: asset, AssetURL: asset.URL, AssetName: asset.Name}
 	return defaultManager.Install(context.Background(), info, progress)
 }
 
@@ -101,42 +101,53 @@ func updateInfoFrom(release Release, currentBranch string) (*UpdateInfo, error) 
 		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
 	}
 
-	if commitsMatch(release.TagName, version.Commit) {
+	if commitsMatch(release.Version, version.Commit) {
 		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
 	}
 
-	assetName := guessAssetName()
-	fallbackName := assetName
-	if version.BuildBackend != "" && version.BuildOS == "linux" {
-		fallbackName = strings.TrimSuffix(assetName, "-"+version.BuildBackend)
+	asset, ok := FindAsset(release, AssetCriteria{Tags: currentAssetTags(false)})
+	if !ok && version.BuildBackend != "" && version.BuildOS == "linux" {
+		asset, ok = FindAsset(release, AssetCriteria{Tags: currentAssetTags(true)})
 	}
 
 	info := &UpdateInfo{
 		Current:      currentBranch,
-		Latest:       release.TagName,
+		Latest:       release.Version,
 		ReleaseCount: 1,
 		LatestBody:   release.Body,
 		LatestDate:   release.PublishedAt,
-		AssetName:    assetName,
-	}
-
-	for _, a := range release.Assets {
-		if a.Name == assetName {
-			info.AssetURL = a.DownloadURL
-			break
-		}
-	}
-
-	if info.AssetURL == "" && fallbackName != assetName {
-		for _, a := range release.Assets {
-			if a.Name == fallbackName {
-				info.AssetURL = a.DownloadURL
-				info.AssetName = fallbackName
-				break
-			}
-		}
+		AssetName:    asset.Name,
+		AssetURL:     asset.URL,
+		Asset:        asset,
 	}
 	return info, nil
+}
+
+// currentAssetTags returns the platform tags for the current build.
+// If fallback is true, the linux backend tag is omitted.
+func currentAssetTags(fallback bool) []string {
+	goos := version.BuildOS
+	if goos == "unknown" || goos == "" {
+		goos = runtime.GOOS
+	}
+	goarch := version.BuildArch
+	if goarch == "unknown" || goarch == "" {
+		goarch = runtime.GOARCH
+	}
+
+	tags := []string{goarch, goos}
+	if version.BuildCompiler != "" && version.BuildCompiler != "unknown" {
+		tags = append(tags, version.BuildCompiler)
+	}
+	if version.BuildGUI == "1" {
+		tags = append(tags, "gui")
+	} else if version.BuildGUI == "0" {
+		tags = append(tags, "cli")
+	}
+	if version.BuildBackend != "" && goos == "linux" && !fallback {
+		tags = append(tags, version.BuildBackend)
+	}
+	return tags
 }
 
 func commitsMatch(a, b string) bool {
@@ -152,37 +163,4 @@ func commitsMatch(a, b string) bool {
 	return strings.HasPrefix(b, a)
 }
 
-// guessAssetName tries to determine the correct asset name for this system.
-func guessAssetName() string {
-	goos := version.BuildOS
-	if goos == "unknown" || goos == "" {
-		goos = runtime.GOOS
-	}
-	goarch := version.BuildArch
-	if goarch == "unknown" || goarch == "" {
-		goarch = runtime.GOARCH
-	}
 
-	ext := ""
-	if goos == "windows" {
-		ext = ".exe"
-	}
-
-	base := "sing-box-ez-" + goarch + "-" + goos
-
-	if version.BuildCompiler != "" && version.BuildCompiler != "unknown" {
-		base += "-" + version.BuildCompiler
-	}
-
-	if version.BuildGUI == "1" {
-		base += "-gui"
-	} else if version.BuildGUI == "0" {
-		base += "-cli"
-	}
-
-	if version.BuildBackend != "" && goos == "linux" {
-		base += "-" + version.BuildBackend
-	}
-
-	return base + ext
-}

@@ -27,7 +27,7 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 	if m.Source == nil {
 		return nil, fmt.Errorf("updater manager has no source backend configured")
 	}
-	m.Log.Debugf("checking for updates on channel %q", channel)
+	m.Log.Infof("checking for updates on channel %q", channel)
 	release, err := m.Source.LatestRelease(ctx, channel)
 	if err != nil {
 		return nil, m.Log.Errorf("update check failed: %v", err)
@@ -77,13 +77,13 @@ func (m *Manager) Channels(ctx context.Context) ([]Channel, error) {
 	return channels, nil
 }
 
-// ReleaseNotes fetches release metadata for a specific tag.
-func (m *Manager) ReleaseNotes(ctx context.Context, tag string) (Release, error) {
+// ReleaseNotes fetches release metadata for a specific version.
+func (m *Manager) ReleaseNotes(ctx context.Context, version string) (Release, error) {
 	if m.Source == nil {
 		return Release{}, fmt.Errorf("updater manager has no source backend configured")
 	}
-	m.Log.Debugf("fetching release notes for %q", tag)
-	release, err := m.Source.ReleaseByTag(ctx, tag)
+	m.Log.Debugf("fetching release notes for %q", version)
+	release, err := m.Source.ReleaseByVersion(ctx, version)
 	if err != nil {
 		return Release{}, m.Log.Errorf("fetch release notes failed: %v", err)
 	}
@@ -91,17 +91,17 @@ func (m *Manager) ReleaseNotes(ctx context.Context, tag string) (Release, error)
 }
 
 // DownloadAsset downloads a release asset to the given path.
-func (m *Manager) DownloadAsset(ctx context.Context, url, dest string, progress func(downloaded, total int64)) error {
+func (m *Manager) DownloadAsset(ctx context.Context, asset Asset, dest string, progress func(downloaded, total int64)) error {
 	if m.Source == nil {
 		return fmt.Errorf("updater manager has no source backend configured")
 	}
-	m.Log.Infof("downloading asset %s → %s", url, dest)
+	m.Log.Infof("downloading asset %s → %s", asset.Name, dest)
 	f, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
 		return m.Log.Errorf("open dest failed: %v", err)
 	}
 	defer f.Close()
-	if err := m.Source.DownloadAsset(ctx, url, f, progress); err != nil {
+	if err := m.Source.DownloadAsset(ctx, asset, f, progress); err != nil {
 		return m.Log.Errorf("download failed: %v", err)
 	}
 	m.Log.Infof("download completed")

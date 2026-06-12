@@ -23,7 +23,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 		{
 			name: "latest is prerelease",
 			latest: Release{
-				TagName: "eb6db22", Prerelease: true, PublishedAt: now,
+				Version: "eb6db22", Prerelease: true, PublishedAt: now,
 			},
 			currentBranch: "main",
 			commit:        "eb6db22",
@@ -31,9 +31,9 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			wantCount:     0,
 		},
 		{
-			name: "commit matches latest tag exactly",
+			name: "commit matches latest version exactly",
 			latest: Release{
-				TagName: "eb6db22", PublishedAt: now,
+				Version: "eb6db22", PublishedAt: now,
 			},
 			currentBranch: "main",
 			commit:        "eb6db22",
@@ -41,9 +41,9 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			wantCount:     0,
 		},
 		{
-			name: "full commit matches short tag",
+			name: "full commit matches short version",
 			latest: Release{
-				TagName: "eb6db22", PublishedAt: now,
+				Version: "eb6db22", PublishedAt: now,
 			},
 			currentBranch: "main",
 			commit:        "eb6db22e67e2c4ff043e3e66559eba0ab61d1660",
@@ -51,9 +51,9 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			wantCount:     0,
 		},
 		{
-			name: "short commit matches full tag",
+			name: "short commit matches full version",
 			latest: Release{
-				TagName: "eb6db22e67e2c4ff043e3e66559eba0ab61d1660", PublishedAt: now,
+				Version: "eb6db22e67e2c4ff043e3e66559eba0ab61d1660", PublishedAt: now,
 			},
 			currentBranch: "main",
 			commit:        "eb6db22",
@@ -63,9 +63,9 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 		{
 			name: "different commit — update available",
 			latest: Release{
-				TagName:     "eb6db22",
+				Version:     "eb6db22",
 				PublishedAt: now,
-				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", DownloadURL: "http://example.com/v1"}},
+				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", URL: "http://example.com/v1", Tags: []string{"amd64", "linux"}}},
 			},
 			currentBranch: "main",
 			commit:        "4cce75f",
@@ -76,9 +76,9 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 		{
 			name: "unknown commit — update available",
 			latest: Release{
-				TagName:     "eb6db22",
+				Version:     "eb6db22",
 				PublishedAt: now,
-				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", DownloadURL: "http://example.com/v1"}},
+				Assets:      []Asset{{Name: "sing-box-ez-amd64-linux", URL: "http://example.com/v1", Tags: []string{"amd64", "linux"}}},
 			},
 			currentBranch: "main",
 			commit:        "unknown",
@@ -89,9 +89,9 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 		{
 			name: "asset not found",
 			latest: Release{
-				TagName:     "eb6db22",
+				Version:     "eb6db22",
 				PublishedAt: now,
-				Assets:      []Asset{{Name: "other-asset", DownloadURL: "http://example.com/other"}},
+				Assets:      []Asset{{Name: "other-asset", URL: "http://example.com/other", Tags: []string{"other"}}},
 			},
 			currentBranch: "main",
 			commit:        "4cce75f",
@@ -105,9 +105,11 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			oldBranch, oldCommit := version.Branch, version.Commit
 			oldOS, oldArch := version.BuildOS, version.BuildArch
+			oldCompiler, oldGUI, oldBackend := version.BuildCompiler, version.BuildGUI, version.BuildBackend
 			defer func() {
 				version.Branch, version.Commit = oldBranch, oldCommit
 				version.BuildOS, version.BuildArch = oldOS, oldArch
+				version.BuildCompiler, version.BuildGUI, version.BuildBackend = oldCompiler, oldGUI, oldBackend
 			}()
 
 			version.Branch = tt.currentBranch
@@ -161,7 +163,7 @@ func TestCommitsMatch(t *testing.T) {
 	}
 }
 
-func TestGuessAssetName(t *testing.T) {
+func TestCurrentAssetTags(t *testing.T) {
 	tests := []struct {
 		name          string
 		buildOS       string
@@ -169,23 +171,24 @@ func TestGuessAssetName(t *testing.T) {
 		buildCompiler string
 		buildGUI      string
 		buildBackend  string
-		want          string
+		fallback      bool
+		want          []string
 	}{
 		{
-			name:          "linux gui wayland gcc",
-			buildOS:       "linux",
-			buildArch:     "amd64",
+			name:      "linux gui wayland gcc",
+			buildOS:   "linux",
+			buildArch: "amd64",
 			buildCompiler: "gcc",
 			buildGUI:      "1",
 			buildBackend:  "wayland",
-			want:          "sing-box-ez-amd64-linux-gcc-gui-wayland",
+			want:          []string{"amd64", "linux", "gcc", "gui", "wayland"},
 		},
 		{
 			name:      "windows gui",
 			buildOS:   "windows",
 			buildArch: "amd64",
 			buildGUI:  "1",
-			want:      "sing-box-ez-amd64-windows-gui.exe",
+			want:      []string{"amd64", "windows", "gui"},
 		},
 		{
 			name:          "linux cli musl",
@@ -193,34 +196,50 @@ func TestGuessAssetName(t *testing.T) {
 			buildArch:     "amd64",
 			buildCompiler: "musl",
 			buildGUI:      "0",
-			want:          "sing-box-ez-amd64-linux-musl-cli",
+			want:          []string{"amd64", "linux", "musl", "cli"},
 		},
 		{
 			name:      "darwin cli",
 			buildOS:   "darwin",
 			buildArch: "arm64",
 			buildGUI:  "0",
-			want:      "sing-box-ez-arm64-darwin-cli",
+			want:      []string{"arm64", "darwin", "cli"},
 		},
 		{
 			name:      "minimal known vars",
 			buildOS:   "linux",
 			buildArch: "amd64",
-			want:      "sing-box-ez-amd64-linux",
+			want:      []string{"amd64", "linux"},
+		},
+		{
+			name:         "linux backend fallback",
+			buildOS:      "linux",
+			buildArch:    "amd64",
+			buildGUI:     "1",
+			buildBackend: "wayland",
+			fallback:     true,
+			want:         []string{"amd64", "linux", "gui"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldOS, oldArch, oldCompiler, oldGUI, oldBackend := version.BuildOS, version.BuildArch, version.BuildCompiler, version.BuildGUI, version.BuildBackend
+			oldOS, oldArch := version.BuildOS, version.BuildArch
+			oldCompiler, oldGUI, oldBackend := version.BuildCompiler, version.BuildGUI, version.BuildBackend
 			defer func() {
-				version.BuildOS, version.BuildArch, version.BuildCompiler, version.BuildGUI, version.BuildBackend = oldOS, oldArch, oldCompiler, oldGUI, oldBackend
+				version.BuildOS, version.BuildArch = oldOS, oldArch
+				version.BuildCompiler, version.BuildGUI, version.BuildBackend = oldCompiler, oldGUI, oldBackend
 			}()
 
 			version.BuildOS, version.BuildArch, version.BuildCompiler, version.BuildGUI, version.BuildBackend = tt.buildOS, tt.buildArch, tt.buildCompiler, tt.buildGUI, tt.buildBackend
-			got := guessAssetName()
-			if got != tt.want {
-				t.Errorf("guessAssetName() = %q, want %q", got, tt.want)
+			got := currentAssetTags(tt.fallback)
+			if len(got) != len(tt.want) {
+				t.Fatalf("currentAssetTags(%v) = %v, want %v", tt.fallback, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("currentAssetTags(%v)[%d] = %q, want %q", tt.fallback, i, got[i], tt.want[i])
+				}
 			}
 		})
 	}

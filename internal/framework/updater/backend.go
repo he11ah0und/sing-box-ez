@@ -11,29 +11,28 @@ var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 // Release represents a single version/release returned by a Source.
 type Release struct {
-	TagName         string    `json:"tag_name"`
-	TargetCommitish string    `json:"target_commitish"`
-	Name            string    `json:"name"`
-	Body            string    `json:"body"`
-	PublishedAt     time.Time `json:"published_at"`
-	Prerelease      bool      `json:"prerelease"`
-	Assets          []Asset   `json:"assets"`
-}
-
-// Channel represents an update channel/branch offered by a Source.
-type Channel struct {
-	ID     string `json:"name"`
-	Name   string `json:"-"`
-	Commit struct {
-		SHA string `json:"sha"`
-	} `json:"commit"`
+	Version     string
+	Channel     string
+	Name        string
+	Body        string
+	PublishedAt time.Time
+	Prerelease  bool
+	Assets      []Asset
 }
 
 // Asset represents a single downloadable binary artifact.
 type Asset struct {
-	Name        string `json:"name"`
-	DownloadURL string `json:"browser_download_url"`
-	Size        int64  `json:"size"`
+	Name   string
+	URL    string
+	Size   int64
+	Hashes map[string]string // e.g. sha256, md5, sha512
+	Tags   []string          // platform tags: os, arch, gui, compiler, backend, ...
+}
+
+// Channel represents an update channel/branch offered by a Source.
+type Channel struct {
+	ID   string
+	Name string
 }
 
 // UpdateInfo holds the result of an update check in a UI-friendly form.
@@ -45,6 +44,7 @@ type UpdateInfo struct {
 	LatestDate   time.Time // published date of the latest release
 	AssetURL     string
 	AssetName    string
+	Asset        Asset // full selected asset metadata
 }
 
 // Source abstracts the source of application updates.
@@ -60,13 +60,47 @@ type Source interface {
 	// ListChannels returns available update channels.
 	ListChannels(ctx context.Context) ([]Channel, error)
 
-	// ReleaseByTag fetches release notes/metadata for a specific version identifier.
-	ReleaseByTag(ctx context.Context, tag string) (Release, error)
+	// ReleaseByVersion fetches release notes/metadata for a specific version identifier.
+	ReleaseByVersion(ctx context.Context, version string) (Release, error)
 
-	// DownloadAsset streams the update payload identified by url to w.
-	DownloadAsset(ctx context.Context, url string, w io.Writer, progress func(downloaded, total int64)) error
+	// DownloadAsset streams the update payload identified by asset to w.
+	DownloadAsset(ctx context.Context, asset Asset, w io.Writer, progress func(downloaded, total int64)) error
 }
 
 // Backend is the former name of Source. Kept as a type alias for backwards
 // compatibility; new code should use Source.
 type Backend = Source
+
+// AssetCriteria describes a desired platform/build.
+type AssetCriteria struct {
+	Branch  string
+	Version string
+	Tags    []string // all of these tags must be present in the asset
+}
+
+// FindAsset returns the first asset in the release whose tags contain all
+// criteria.Tags.
+func FindAsset(release Release, criteria AssetCriteria) (Asset, bool) {
+	for _, a := range release.Assets {
+		if containsAll(a.Tags, criteria.Tags) {
+			return a, true
+		}
+	}
+	return Asset{}, false
+}
+
+func containsAll(haystack, needles []string) bool {
+	if len(needles) == 0 {
+		return true
+	}
+	set := make(map[string]struct{}, len(haystack))
+	for _, v := range haystack {
+		set[v] = struct{}{}
+	}
+	for _, v := range needles {
+		if _, ok := set[v]; !ok {
+			return false
+		}
+	}
+	return true
+}

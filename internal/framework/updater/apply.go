@@ -31,7 +31,7 @@ func (a *SelfUpdateApply) Name() string { return "self-update" }
 
 // Apply downloads the update asset and replaces the running binary.
 func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateInfo, progress func(downloaded, total int64)) error {
-	if info.AssetURL == "" {
+	if info.Asset.URL == "" {
 		return fmt.Errorf("no asset URL provided")
 	}
 
@@ -46,7 +46,7 @@ func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateI
 		return fmt.Errorf("cannot create temporary binary: %w", err)
 	}
 
-	downloadErr := source.DownloadAsset(ctx, info.AssetURL, f, progress)
+	downloadErr := source.DownloadAsset(ctx, info.Asset, f, progress)
 	if closeErr := f.Close(); closeErr != nil && downloadErr == nil {
 		downloadErr = closeErr
 	}
@@ -87,7 +87,7 @@ func (a *CoreUpdateApply) Name() string { return "core-update" }
 
 // Apply downloads the update asset and replaces the destination file.
 func (a *CoreUpdateApply) Apply(ctx context.Context, source Source, info UpdateInfo, progress func(downloaded, total int64)) error {
-	if info.AssetURL == "" {
+	if info.Asset.URL == "" {
 		return fmt.Errorf("no asset URL provided")
 	}
 	if a.FS == nil {
@@ -103,7 +103,7 @@ func (a *CoreUpdateApply) Apply(ctx context.Context, source Source, info UpdateI
 		return fmt.Errorf("cannot create temporary file: %w", err)
 	}
 
-	downloadErr := source.DownloadAsset(ctx, info.AssetURL, f, progress)
+	downloadErr := source.DownloadAsset(ctx, info.Asset, f, progress)
 	if closeErr := f.Close(); closeErr != nil && downloadErr == nil {
 		downloadErr = closeErr
 	}
