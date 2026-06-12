@@ -4,9 +4,11 @@ import (
 	"embed"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/net"
 	"sing-box-ez/internal/framework/updater"
 )
 
@@ -35,6 +37,9 @@ func NewApp(cfg *config.AppConfig) *App {
 				return load(&fs.EmbedFS{FS: localesFS}, "locales")
 			},
 			BuildUpdaters: func(log *logger.Logger, fsys fs.FileSystem) []*updater.Manager {
+				// Wire core helpers to framework services.
+				core.Init(cfg.DataDir, fsys, net.NewClient(log.Root), log.Root)
+
 				// App self-updater
 				appMgr := updater.NewManager(log.Root, "updater")
 				appMgr.Source = updater.NewGitHubBackend(appMgr.Log, "he11ah0und", "sing-box-ez")
