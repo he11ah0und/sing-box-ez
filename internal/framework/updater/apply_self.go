@@ -30,9 +30,10 @@ type SelfUpdateApply struct {
 
 // NewSelfUpdateApply creates a SelfUpdateApply with a logger allocated from parent.
 func NewSelfUpdateApply(parent *logger.LogTerminal) *SelfUpdateApply {
+	log := parent.Allocate("apply")
 	return &SelfUpdateApply{
-		Log:      parent.Allocate("apply"),
-		Platform: newSelfUpdatePlatform(),
+		Log:      log,
+		Platform: newSelfUpdatePlatform(log),
 	}
 }
 
@@ -52,7 +53,7 @@ func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateI
 
 	platform := a.Platform
 	if platform == nil {
-		platform = newSelfUpdatePlatform()
+		platform = newSelfUpdatePlatform(a.Log)
 	}
 
 	switch info.Asset.Format {
