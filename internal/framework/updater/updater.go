@@ -107,7 +107,7 @@ func updateInfoFrom(release Release, currentBranch string) (*UpdateInfo, error) 
 
 	asset, ok := FindAsset(release, AssetCriteria{Tags: currentAssetTags(false)})
 	if !ok && version.BuildBackend != "" && version.BuildOS == "linux" {
-		asset, ok = FindAsset(release, AssetCriteria{Tags: currentAssetTags(true)})
+		asset, _ = FindAsset(release, AssetCriteria{Tags: currentAssetTags(true)})
 	}
 
 	info := &UpdateInfo{
