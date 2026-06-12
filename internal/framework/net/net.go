@@ -40,6 +40,22 @@ func NewClientWithProgress(parent *logger.LogTerminal, cfg *progress.Config) *Cl
 	return c
 }
 
+// Do executes the provided request and returns the response. It validates the
+// status code and logs errors.
+func (c *Client) Do(req *http.Request) (*http.Response, error) {
+	c.Log.Debugf("%s %s", req.Method, req.URL.String())
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, c.Log.Errorf("%s %s failed: %v", req.Method, req.URL.String(), err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4*1024))
+		_ = resp.Body.Close()
+		return nil, c.Log.Errorf("%s %s returned %s: %s", req.Method, req.URL.String(), resp.Status, string(body))
+	}
+	return resp, nil
+}
+
 // GetReader performs a GET request and returns the response body together with
 // the content length. The caller is responsible for closing the body.
 func (c *Client) GetReader(ctx context.Context, url string) (io.ReadCloser, int64, error) {
