@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,20 +36,10 @@ func (p *progressReader) Read(buf []byte) (int, error) {
 }
 
 func DownloadConfigFor(name, url string) error {
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return err
+	if Net == nil || FS == nil {
+		return fmt.Errorf("core services not initialized")
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(CachedConfig(name), data, 0600)
+	return Net.DownloadToFile(context.Background(), FS, url, CachedConfig(name))
 }
 
 func GetConfigPath(name string) string {
