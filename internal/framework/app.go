@@ -59,7 +59,7 @@ func NewApp(cfg Config) *App {
 	if cfg.LoadLocales != nil {
 		_ = cfg.LoadLocales(localengine.LoadFromFS)
 	}
-	appFS := fs.NewOSFileSystem(cfg.BaseDir)
+	appFS := fs.NewOSFileSystemWithLog(log.Root, cfg.BaseDir)
 
 	var updaters []*updater.Manager
 	if cfg.BuildUpdaters != nil {

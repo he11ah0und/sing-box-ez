@@ -10,80 +10,64 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
+
+	frameworkfs "sing-box-ez/internal/framework/fs"
 )
 
-// extractArchive extracts the archive read from r into the directory dest.
-// Supported formats: FormatZIP, FormatTarGz, FormatTarBz2.
-func extractArchive(format string, r io.Reader, dest string) error {
+// extractArchive extracts the archive at archivePath from fsys into the
+// directory dest. Supported formats: FormatZIP, FormatTarGz, FormatTarBz2.
+func extractArchive(fsys frameworkfs.FileSystem, format, archivePath, dest string) error {
 	absDest, err := filepath.Abs(dest)
 	if err != nil {
 		return fmt.Errorf("resolve destination: %w", err)
 	}
-	if err := os.MkdirAll(absDest, 0750); err != nil {
+	if err := fsys.MkdirAll(absDest, 0750); err != nil {
 		return fmt.Errorf("create destination: %w", err)
 	}
 
+	f, err := fsys.Open(archivePath)
+	if err != nil {
+		return fmt.Errorf("open archive: %w", err)
+	}
+	defer f.Close()
+
 	switch format {
 	case FormatZIP:
-		return extractZIP(r, absDest)
+		return extractZIP(fsys, f, absDest)
 	case FormatTarGz:
-		gr, err := gzip.NewReader(r)
+		gr, err := gzip.NewReader(f)
 		if err != nil {
 			return fmt.Errorf("gzip header: %w", err)
 		}
 		defer gr.Close()
-		return extractTar(gr, absDest)
+		return extractTar(fsys, gr, absDest)
 	case FormatTarBz2:
-		return extractTar(bzip2.NewReader(r), absDest)
+		return extractTar(fsys, bzip2.NewReader(f), absDest)
 	default:
 		return fmt.Errorf("unsupported archive format %q", format)
 	}
 }
 
-func extractZIP(r io.Reader, dest string) error {
-	var zr *zip.Reader
-	if ra, ok := r.(io.ReaderAt); ok {
-		size, err := sizeFromReaderAt(ra)
-		if err != nil {
-			return err
-		}
-		zr, err = zip.NewReader(ra, size)
-		if err != nil {
-			return fmt.Errorf("zip header: %w", err)
-		}
-	} else {
-		tmp, err := os.CreateTemp("", "sing-box-ez-zip-*.tmp")
-		if err != nil {
-			return fmt.Errorf("create temp file: %w", err)
-		}
-		defer os.Remove(tmp.Name())
-
-		size, err := io.Copy(tmp, r)
-		if err != nil {
-			_ = tmp.Close()
-			return fmt.Errorf("buffer zip: %w", err)
-		}
-		if _, err := tmp.Seek(0, io.SeekStart); err != nil {
-			_ = tmp.Close()
-			return fmt.Errorf("rewind temp file: %w", err)
-		}
-		zr, err = zip.NewReader(tmp, size)
-		_ = tmp.Close()
-		if err != nil {
-			return fmt.Errorf("zip header: %w", err)
-		}
+func extractZIP(fsys frameworkfs.FileSystem, f *os.File, dest string) error {
+	fi, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("stat archive: %w", err)
 	}
 
-	for _, f := range zr.File {
-		if err := extractZIPFile(f, dest); err != nil {
+	zr, err := zip.NewReader(f, fi.Size())
+	if err != nil {
+		return fmt.Errorf("zip header: %w", err)
+	}
+
+	for _, entry := range zr.File {
+		if err := extractZIPFile(fsys, entry, dest); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func extractZIPFile(f *zip.File, dest string) error {
+func extractZIPFile(fsys frameworkfs.FileSystem, f *zip.File, dest string) error {
 	name := filepath.FromSlash(f.Name)
 	if name == "" || strings.Contains(name, "..") {
 		return nil
@@ -94,10 +78,10 @@ func extractZIPFile(f *zip.File, dest string) error {
 	}
 
 	if f.FileInfo().IsDir() {
-		return os.MkdirAll(path, 0750)
+		return fsys.MkdirAll(path, 0750)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+	if err := fsys.MkdirAll(filepath.Dir(path), 0750); err != nil {
 		return fmt.Errorf("create dir: %w", err)
 	}
 
@@ -111,10 +95,10 @@ func extractZIPFile(f *zip.File, dest string) error {
 	if mode == 0 {
 		mode = 0750
 	}
-	return writeExtractedFile(path, rc, mode.Perm(), f.Modified)
+	return writeExtractedFile(fsys, path, rc, mode.Perm())
 }
 
-func extractTar(r io.Reader, dest string) error {
+func extractTar(fsys frameworkfs.FileSystem, r io.Reader, dest string) error {
 	tr := tar.NewReader(r)
 	for {
 		h, err := tr.Next()
@@ -136,7 +120,7 @@ func extractTar(r io.Reader, dest string) error {
 
 		switch h.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(path, 0750); err != nil {
+			if err := fsys.MkdirAll(path, 0750); err != nil {
 				return fmt.Errorf("create dir %q: %w", path, err)
 			}
 		case tar.TypeReg:
@@ -144,10 +128,10 @@ func extractTar(r io.Reader, dest string) error {
 			if mode == 0 {
 				mode = 0750
 			}
-			if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+			if err := fsys.MkdirAll(filepath.Dir(path), 0750); err != nil {
 				return fmt.Errorf("create dir: %w", err)
 			}
-			if err := writeExtractedFile(path, tr, mode, h.ModTime); err != nil {
+			if err := writeExtractedFile(fsys, path, tr, mode); err != nil {
 				return err
 			}
 		case tar.TypeSymlink:
@@ -161,9 +145,9 @@ func extractTar(r io.Reader, dest string) error {
 	return nil
 }
 
-func writeExtractedFile(path string, r io.Reader, mode os.FileMode, mtime time.Time) error {
+func writeExtractedFile(fsys frameworkfs.FileSystem, path string, r io.Reader, mode os.FileMode) error {
 	tmp := path + ".tmp"
-	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	out, err := fsys.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return fmt.Errorf("create %q: %w", tmp, err)
 	}
@@ -171,21 +155,17 @@ func writeExtractedFile(path string, r io.Reader, mode os.FileMode, mtime time.T
 	_, copyErr := io.Copy(out, r)
 	closeErr := out.Close()
 	if copyErr != nil {
-		_ = os.Remove(tmp)
+		_ = fsys.Remove(tmp)
 		return fmt.Errorf("write %q: %w", path, copyErr)
 	}
 	if closeErr != nil {
-		_ = os.Remove(tmp)
+		_ = fsys.Remove(tmp)
 		return fmt.Errorf("close %q: %w", tmp, closeErr)
 	}
 
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	if err := fsys.Rename(tmp, path); err != nil {
+		_ = fsys.Remove(tmp)
 		return fmt.Errorf("rename %q: %w", path, err)
-	}
-
-	if !mtime.IsZero() {
-		_ = os.Chtimes(path, time.Now(), mtime)
 	}
 	return nil
 }
@@ -203,16 +183,26 @@ func safeJoin(dest, name string) (string, error) {
 	return abs, nil
 }
 
-func sizeFromReaderAt(ra io.ReaderAt) (int64, error) {
-	if s, ok := ra.(interface{ Size() int64 }); ok {
-		return s.Size(), nil
+func findBinaryInDir(fsys frameworkfs.FileSystem, dir, base string) (string, error) {
+	entries, err := fsys.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("read dir %q: %w", dir, err)
 	}
-	if s, ok := ra.(interface{ Stat() (os.FileInfo, error) }); ok {
-		fi, err := s.Stat()
-		if err != nil {
-			return 0, fmt.Errorf("stat reader: %w", err)
+	for _, e := range entries {
+		path := filepath.Join(dir, e.Name())
+		if e.IsDir() {
+			found, err := findBinaryInDir(fsys, path, base)
+			if err != nil {
+				return "", err
+			}
+			if found != "" {
+				return found, nil
+			}
+			continue
 		}
-		return fi.Size(), nil
+		if e.Name() == base {
+			return path, nil
+		}
 	}
-	return 0, fmt.Errorf("zip extraction requires a seekable reader")
+	return "", nil
 }
