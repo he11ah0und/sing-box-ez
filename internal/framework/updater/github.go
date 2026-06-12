@@ -3,7 +3,6 @@ package updater
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -107,7 +106,7 @@ func (b *GitHubBackend) doJSON(req *http.Request, out any) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("github api %s: %s", resp.Status, string(body))
+		return b.Log.Errorf("github api %s: %s", resp.Status, string(body))
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
 }
@@ -150,7 +149,7 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 			return b.toRelease(r), nil
 		}
 	}
-	return Release{}, fmt.Errorf("no release found for channel %s", channel)
+	return Release{}, b.Log.Errorf("no release found for channel %s", channel)
 }
 
 // ListChannels implements Source.
@@ -205,7 +204,7 @@ func (b *GitHubBackend) ReleaseByVersion(ctx context.Context, version string) (R
 // DownloadAsset implements Source.
 func (b *GitHubBackend) DownloadAsset(ctx context.Context, asset Asset, w io.Writer, progress func(downloaded, total int64)) error {
 	if asset.URL == "" {
-		return fmt.Errorf("asset has no download URL")
+		return b.Log.Errorf("asset has no download URL")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.URL, nil)
 	if err != nil {
@@ -218,7 +217,7 @@ func (b *GitHubBackend) DownloadAsset(ctx context.Context, asset Asset, w io.Wri
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download %s: %s", asset.URL, resp.Status)
+		return b.Log.Errorf("download %s: %s", asset.URL, resp.Status)
 	}
 
 	total := resp.ContentLength

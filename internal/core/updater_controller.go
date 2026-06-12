@@ -61,7 +61,7 @@ func (c *UpdaterController) ApplySelfUpdate(asset updater.Asset, onProgress func
 	}
 	info := &updater.UpdateInfo{Asset: asset, AssetURL: asset.URL, AssetName: asset.Name}
 	if err := m.Install(context.Background(), info, onProgress); err != nil {
-		return c.terminal.Errorf("Self-update failed: %s", err.Error())
+		return err
 	}
 	return nil
 }
@@ -74,7 +74,7 @@ func (c *UpdaterController) CheckSelfUpdate() (*updater.UpdateInfo, error) {
 	}
 	info, err := m.Check(context.Background(), version.Branch)
 	if err != nil {
-		return nil, c.terminal.Errorf("Update check failed: %s", err.Error())
+		return nil, err
 	}
 	if info.ReleaseCount == 0 {
 		c.terminal.Infof("Already on latest version: %s", info.Current)
@@ -92,7 +92,6 @@ func (c *UpdaterController) CheckSelfUpdateForBranch(branch string) (*updater.Up
 	}
 	info, err := m.Check(context.Background(), branch)
 	if err != nil {
-		c.terminal.Errorf("Update check failed for branch %s: %s", branch, err.Error())
 		return nil, err
 	}
 	if info.ReleaseCount == 0 {
@@ -112,10 +111,6 @@ func (c *UpdaterController) FetchReleaseNotes(commit string) (updater.Release, e
 	}
 	release, err := m.ReleaseNotes(context.Background(), commit)
 	if err != nil {
-		if release.Version == "" {
-			return release, nil
-		}
-		c.terminal.Errorf("Failed to fetch release notes: %s", err.Error())
 		return release, err
 	}
 	return release, nil
