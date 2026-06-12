@@ -2,11 +2,10 @@ package updater
 
 import (
 	"context"
-	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 
+	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
 )
 
@@ -25,14 +24,16 @@ type selfUpdatePlatform interface {
 // SelfUpdateApply replaces the running binary and restarts the process.
 type SelfUpdateApply struct {
 	Log      *logger.LogTerminal
+	FS       fs.FileSystem
 	Platform selfUpdatePlatform
 }
 
 // NewSelfUpdateApply creates a SelfUpdateApply with a logger allocated from parent.
-func NewSelfUpdateApply(parent *logger.LogTerminal) *SelfUpdateApply {
+func NewSelfUpdateApply(parent *logger.LogTerminal, fsys fs.FileSystem) *SelfUpdateApply {
 	log := parent.Allocate("apply")
 	return &SelfUpdateApply{
 		Log:      log,
+		FS:       fsys,
 		Platform: newSelfUpdatePlatform(log),
 	}
 }
@@ -44,6 +45,9 @@ func (a *SelfUpdateApply) Name() string { return "self-update" }
 func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateInfo, progress func(downloaded, total int64)) error {
 	if info.Asset.URL == "" {
 		return a.Log.Errorf("no asset URL provided")
+	}
+	if a.FS == nil {
+		return a.Log.Errorf("file system not configured")
 	}
 
 	exe, err := os.Executable()
@@ -73,7 +77,7 @@ func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info Upda
 	}
 
 	if err := platform.replace(exe, tmp); err != nil {
-		_ = os.Remove(tmp)
+		_ = a.FS.Remove(tmp)
 		return a.Log.Errorf("replace binary failed: %v", err)
 	}
 
@@ -92,19 +96,16 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 		return err
 	}
 
-	f, err := os.Open(tmpFile)
-	if err != nil {
-		return a.Log.Errorf("open downloaded archive: %v", err)
-	}
-	extractErr := extractArchive(info.Asset.Format, f, tmpDir)
-	_ = f.Close()
-	if extractErr != nil {
-		return a.Log.Errorf("extract archive failed: %v", extractErr)
+	if err := extractArchive(a.FS, info.Asset.Format, tmpFile, tmpDir); err != nil {
+		return a.Log.Errorf("extract archive failed: %v", err)
 	}
 
-	newExe, err := findBinaryInDir(tmpDir, filepath.Base(exe))
+	newExe, err := findBinaryInDir(a.FS, tmpDir, filepath.Base(exe))
 	if err != nil {
 		return a.Log.Errorf("locate updated binary: %v", err)
+	}
+	if newExe == "" {
+		return a.Log.Errorf("binary %q not found in archive", filepath.Base(exe))
 	}
 
 	if err := platform.replace(exe, newExe); err != nil {
@@ -115,7 +116,7 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 }
 
 func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source, asset Asset, path string, progress func(downloaded, total int64)) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
+	f, err := a.FS.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
 		return a.Log.Errorf("cannot create %q: %v", path, err)
 	}
@@ -125,32 +126,8 @@ func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source
 		downloadErr = closeErr
 	}
 	if downloadErr != nil {
-		_ = os.Remove(path)
+		_ = a.FS.Remove(path)
 		return a.Log.Errorf("download failed: %v", downloadErr)
 	}
 	return nil
-}
-
-func findBinaryInDir(dir, base string) (string, error) {
-	var found string
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if filepath.Base(path) == base {
-			found = path
-			return fs.SkipAll
-		}
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	if found == "" {
-		return "", fmt.Errorf("binary %q not found in archive", base)
-	}
-	return found, nil
 }

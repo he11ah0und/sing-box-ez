@@ -38,12 +38,12 @@ func NewApp(cfg *config.AppConfig) *App {
 				// App self-updater
 				appMgr := updater.NewManager(log.Root, "updater")
 				appMgr.Source = updater.NewGitHubBackend(appMgr.Log, "he11ah0und", "sing-box-ez")
-				appMgr.Apply = updater.NewSelfUpdateApply(appMgr.Log)
+				appMgr.Apply = updater.NewSelfUpdateApply(appMgr.Log, fsys)
 
 				// Core updater (downloads sing-box core binary via FS)
 				coreMgr := updater.NewManager(log.Root, "core-updater")
 				coreMgr.Source = updater.NewGitHubBackend(coreMgr.Log, "SagerNet", "sing-box")
-				coreMgr.Apply = updater.NewFilesUpdateApply(coreMgr.Log)
+				coreMgr.Apply = updater.NewFilesUpdateApply(coreMgr.Log, fsys)
 
 				return []*updater.Manager{appMgr, coreMgr}
 			},
