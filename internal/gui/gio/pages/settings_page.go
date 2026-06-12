@@ -2,18 +2,13 @@ package pages
 
 import (
 	"fmt"
-	"image"
-	"image/color"
 	"strconv"
 
+	"gio.tools/icons"
 	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -98,11 +93,11 @@ func (p *SettingsPage) isDirty() bool {
 func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 	if p.isDirty() && p.saveBtn.Clicked(gtx) {
 		if v, err := strconv.Atoi(p.logLimitEditor.Text()); err == nil && v >= 0 {
-			p.ctrl.SetLogLimitWithLog(v)
+			p.ctrl.SetLogLimit(v)
 			p.origLogLimit = fmt.Sprintf("%d", v)
 		}
 		if h, err := strconv.Atoi(p.intervalEditor.Text()); err == nil && h > 0 {
-			p.ctrl.SetDefaultIntervalWithLog(h)
+			p.ctrl.SetDefaultInterval(h)
 			p.origInterval = fmt.Sprintf("%d", h)
 		}
 		p.ctrl.Config().SetShowLogs(p.showLogs.Value)
@@ -153,7 +148,7 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 			if logLimitDirty {
 				label += " *"
 			}
-			return p.inputWithLabel(gtx, label, &p.logLimitEditor, logLimitDirty)
+			return LabeledInput(gtx, p.th, label, &p.logLimitEditor, logLimitDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			label := localengine.T("settings", "show_logs")
@@ -179,7 +174,7 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 			if intervalDirty {
 				label += " *"
 			}
-			return p.inputWithLabel(gtx, label, &p.intervalEditor, intervalDirty)
+			return LabeledInput(gtx, p.th, label, &p.intervalEditor, intervalDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -230,35 +225,4 @@ func (p *SettingsPage) openLangPicker() {
 		}
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 	})
-}
-
-func (p *SettingsPage) inputWithLabel(gtx layout.Context, label string, ed *widget.Editor, dirty bool) layout.Dimensions {
-	bg := color.NRGBA{R: 40, G: 40, B: 40, A: 255}
-	if dirty {
-		bg = color.NRGBA{R: 80, G: 70, B: 20, A: 255}
-	}
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Body2(p.th, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(4))}}
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			macro := op.Record(gtx.Ops)
-			dims := widget.Border{
-				Color:        color.NRGBA{R: 128, G: 128, B: 128, A: 128},
-				CornerRadius: unit.Dp(4),
-				Width:        unit.Dp(1),
-			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(p.th, ed, "").Layout(gtx)
-				})
-			})
-			call := macro.Stop()
-			paint.FillShape(gtx.Ops, bg, clip.Rect{Max: dims.Size}.Op())
-			call.Add(gtx.Ops)
-			return dims
-		}),
-	)
 }

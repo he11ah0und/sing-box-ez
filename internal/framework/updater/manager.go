@@ -16,11 +16,10 @@ type Manager struct {
 	Log    *logger.LogTerminal
 }
 
-func (m *Manager) log() *logger.LogTerminal {
-	if m.Log != nil {
-		return m.Log
-	}
-	return &logger.LogTerminal{}
+// NewManager creates a new Manager with a scoped logger allocated from the
+// given parent terminal.
+func NewManager(parent *logger.LogTerminal, id string) *Manager {
+	return &Manager{Log: parent.Allocate(id)}
 }
 
 // Check returns update information for the given channel.
@@ -28,21 +27,19 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 	if m.Source == nil {
 		return nil, fmt.Errorf("updater manager has no source backend configured")
 	}
-	m.log().Debugf("checking for updates on channel %q", channel)
+	m.Log.Debugf("checking for updates on channel %q", channel)
 	release, err := m.Source.LatestRelease(ctx, channel)
 	if err != nil {
-		m.log().Errorf("update check failed: %v", err)
-		return nil, err
+		return nil, m.Log.Errorf("update check failed: %v", err)
 	}
 	info, err := updateInfoFrom(release, channel)
 	if err != nil {
-		m.log().Errorf("update info parse failed: %v", err)
-		return nil, err
+		return nil, m.Log.Errorf("update info parse failed: %v", err)
 	}
 	if info.ReleaseCount > 0 {
-		m.log().Infof("update available: %s → %s", info.Current, info.Latest)
+		m.Log.Infof("update available: %s → %s", info.Current, info.Latest)
 	} else {
-		m.log().Debugf("no update available on channel %q", channel)
+		m.Log.Debugf("no update available on channel %q", channel)
 	}
 	return info, nil
 }
@@ -58,12 +55,11 @@ func (m *Manager) Install(ctx context.Context, info *UpdateInfo, progress func(d
 	if info == nil {
 		return fmt.Errorf("no update info provided")
 	}
-	m.log().Infof("installing update %s using %s", info.Latest, m.Apply.Name())
+	m.Log.Infof("installing update %s using %s", info.Latest, m.Apply.Name())
 	if err := m.Apply.Apply(ctx, m.Source, *info, progress); err != nil {
-		m.log().Errorf("install failed: %v", err)
-		return err
+		return m.Log.Errorf("install failed: %v", err)
 	}
-	m.log().Infof("install completed")
+	m.Log.Infof("install completed")
 	return nil
 }
 
@@ -72,13 +68,12 @@ func (m *Manager) Channels(ctx context.Context) ([]Channel, error) {
 	if m.Source == nil {
 		return nil, fmt.Errorf("updater manager has no source backend configured")
 	}
-	m.log().Debugf("listing channels")
+	m.Log.Debugf("listing channels")
 	channels, err := m.Source.ListChannels(ctx)
 	if err != nil {
-		m.log().Errorf("list channels failed: %v", err)
-		return nil, err
+		return nil, m.Log.Errorf("list channels failed: %v", err)
 	}
-	m.log().Debugf("found %d channels", len(channels))
+	m.Log.Debugf("found %d channels", len(channels))
 	return channels, nil
 }
 
@@ -87,11 +82,10 @@ func (m *Manager) ReleaseNotes(ctx context.Context, tag string) (Release, error)
 	if m.Source == nil {
 		return Release{}, fmt.Errorf("updater manager has no source backend configured")
 	}
-	m.log().Debugf("fetching release notes for %q", tag)
+	m.Log.Debugf("fetching release notes for %q", tag)
 	release, err := m.Source.ReleaseByTag(ctx, tag)
 	if err != nil {
-		m.log().Errorf("fetch release notes failed: %v", err)
-		return Release{}, err
+		return Release{}, m.Log.Errorf("fetch release notes failed: %v", err)
 	}
 	return release, nil
 }
@@ -101,17 +95,15 @@ func (m *Manager) DownloadAsset(ctx context.Context, url, dest string, progress 
 	if m.Source == nil {
 		return fmt.Errorf("updater manager has no source backend configured")
 	}
-	m.log().Infof("downloading asset %s → %s", url, dest)
+	m.Log.Infof("downloading asset %s → %s", url, dest)
 	f, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
-		m.log().Errorf("open dest failed: %v", err)
-		return err
+		return m.Log.Errorf("open dest failed: %v", err)
 	}
 	defer f.Close()
 	if err := m.Source.DownloadAsset(ctx, url, f, progress); err != nil {
-		m.log().Errorf("download failed: %v", err)
-		return err
+		return m.Log.Errorf("download failed: %v", err)
 	}
-	m.log().Infof("download completed")
+	m.Log.Infof("download completed")
 	return nil
 }

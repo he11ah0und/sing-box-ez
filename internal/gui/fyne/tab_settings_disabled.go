@@ -19,7 +19,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	g.logLimitEntry.OnSubmitted = func(s string) {
 		var v int
 		if _, err := fmt.Sscanf(s, "%d", &v); err == nil && v >= 0 {
-			g.ctrl.SetLogLimitWithLog(v)
+			g.ctrl.SetLogLimit(v)
 		}
 	}
 	logLimitRow := container.NewBorder(nil, nil, widget.NewLabel(localengine.T("settings", "log_limit", "label")), widget.NewButton(localengine.T("settings", "btn", "save"), func() {
@@ -67,7 +67,7 @@ func (g *GUI) buildSettingsTab() *container.TabItem {
 	g.defaultIntervalEntry.OnSubmitted = func(s string) {
 		var h int
 		if _, err := fmt.Sscanf(s, "%d", &h); err == nil && h > 0 {
-			g.ctrl.SetDefaultIntervalWithLog(h)
+			g.ctrl.SetDefaultInterval(h)
 		}
 	}
 	intervalRow := container.NewBorder(nil, nil, widget.NewLabel(localengine.T("settings", "default_interval", "label")), widget.NewButton(localengine.T("settings", "btn", "save"), func() {

@@ -25,7 +25,7 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 	checkBtn := widget.NewButton(localengine.T("core", "btn", "check"), func() {
 		go func() {
 			modal := g.showInfiniteDialog(localengine.T("progress", "checking_version"))
-			ver, err := g.ctrl.GetLatestCoreVersionWithLog()
+			ver, err := g.ctrl.GetLatestCoreVersion()
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
 				return
@@ -60,7 +60,7 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 		}
 		restartBtn := widget.NewButton(localengine.T("core", "btn", "restart_admin"), func() {
 			go func() {
-				if err := g.ctrl.RestartAsAdminWithLog(); err != nil {
+				if err := g.ctrl.RestartAsAdmin(); err != nil {
 					return
 				}
 				fyne.Do(func() { g.window.Close() })
@@ -82,12 +82,12 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 
 		modeSelect.OnChanged = func(selected string) {
 			if selected == localengine.T("core", "mode", "admin") {
-				_ = g.ctrl.SetRunAsAdminWithLog(true)
+				_ = g.ctrl.SetRunAsAdmin(true)
 				return
 			}
 			// Switching to setcap
 			if state.HasSetcap {
-				_ = g.ctrl.SetRunAsAdminWithLog(false)
+				_ = g.ctrl.SetRunAsAdmin(false)
 				return
 			}
 			dialog.ShowConfirm(localengine.T("core", "btn", "apply_setcap"), localengine.T("core", "mode", "setcap_prompt"), func(apply bool) {
@@ -97,10 +97,10 @@ func (g *GUI) buildCoreTab() *container.TabItem {
 				}
 				go func() {
 					modal := g.showInfiniteDialog(localengine.T("progress", "applying_setcap"))
-					err := g.ctrl.ApplySetcapWithLog()
+					err := g.ctrl.ApplySetcap()
 					fyne.Do(func() { modal.Hide() })
 					if err == nil {
-						_ = g.ctrl.SetRunAsAdminWithLog(false)
+						_ = g.ctrl.SetRunAsAdmin(false)
 					} else {
 						fyne.Do(func() {
 							modeSelect.SetSelected(localengine.T("core", "mode", "admin"))

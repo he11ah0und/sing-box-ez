@@ -38,7 +38,7 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 	}
 
 	openDataBtn := widget.NewButton(localengine.T("about", "btn", "open_data"), func() {
-		_ = g.ctrl.OpenDataFolderWithLog()
+		_ = g.ctrl.OpenDataFolder()
 	})
 
 	switchBranchBtn := widget.NewButton(localengine.T("about", "btn", "switch_branch"), func() {
@@ -84,7 +84,7 @@ func (g *GUI) buildAboutTab() *container.TabItem {
 	selfUpdateBtn := widget.NewButton(localengine.T("about", "btn", "check_updates"), func() {
 		go func() {
 			modal := g.showInfiniteDialog(localengine.T("progress", "checking_updates"))
-			info, err := g.ctrl.CheckSelfUpdateWithLog()
+			info, err := g.ctrl.CheckSelfUpdate()
 			fyne.Do(func() { modal.Hide() })
 			if err != nil || info == nil {
 				return
@@ -134,7 +134,7 @@ func (g *GUI) showReleaseNotesHandler() func() {
 	return func() {
 		go func() {
 			modal := g.showInfiniteDialog(localengine.T("progress", "fetching_notes"))
-			release, err := g.ctrl.FetchReleaseNotesWithLog(version.Commit)
+			release, err := g.ctrl.FetchReleaseNotes(version.Commit)
 			fyne.Do(func() { modal.Hide() })
 			if err != nil {
 				return

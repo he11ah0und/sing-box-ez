@@ -4,7 +4,6 @@
 package localengine
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -19,22 +18,24 @@ import (
 var (
 	bundles     = make(map[string]map[string]any)
 	currentLang = "en"
-	Log         *logger.LogTerminal
+	logTerminal *logger.LogTerminal
 )
 
-func log() *logger.LogTerminal {
-	if Log != nil {
-		return Log
+// SetLogger sets the logger used by the localengine package.
+// It allocates a "localengine" terminal from the given parent terminal.
+// It should be called once during application initialization instead of
+// assigning the package-level Log variable directly.
+func SetLogger(parent *logger.LogTerminal) {
+	if parent != nil {
+		logTerminal = parent.Allocate("localengine")
 	}
-	return &logger.LogTerminal{}
 }
 
 // LoadFromFS reads all *.yaml files from dir inside fsys and parses them as locales.
 func LoadFromFS(fsys fs.FileSystem, dir string) error {
 	files, err := fsys.ReadDir(dir)
 	if err != nil {
-		log().Errorf("read locale dir %q: %v", dir, err)
-		return fmt.Errorf("read locale dir %q: %w", dir, err)
+		return logTerminal.Errorf("read locale dir %q: %w", dir, err)
 	}
 	loaded := 0
 	for _, f := range files {
@@ -46,18 +47,16 @@ func LoadFromFS(fsys fs.FileSystem, dir string) error {
 		}
 		data, err := fsys.ReadFile(filepath.Join(dir, f.Name()))
 		if err != nil {
-			log().Errorf("read locale %s: %v", f.Name(), err)
-			return fmt.Errorf("read locale %s: %w", f.Name(), err)
+			return logTerminal.Errorf("read locale %s: %w", f.Name(), err)
 		}
 		lang := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
-		log().Debugf("loading locale %s", lang)
+		logTerminal.Debugf("loading locale %s", lang)
 		if err := loadLanguage(lang, data); err != nil {
-			log().Errorf("load locale %s: %v", f.Name(), err)
-			return fmt.Errorf("load locale %s: %w", f.Name(), err)
+			return logTerminal.Errorf("load locale %s: %w", f.Name(), err)
 		}
 		loaded++
 	}
-	log().Infof("loaded %d locale(s) from %s", loaded, dir)
+	logTerminal.Infof("loaded %d locale(s) from %s", loaded, dir)
 	return nil
 }
 
@@ -119,10 +118,10 @@ func T(path ...string) string {
 func SetLanguage(code string) {
 	if _, ok := bundles[code]; ok {
 		currentLang = code
-		log().Infof("language set to %s", code)
+		logTerminal.Infof("language set to %s", code)
 	} else {
 		currentLang = "en"
-		log().Warnf("language %s not available, falling back to en", code)
+		logTerminal.Warnf("language %s not available, falling back to en", code)
 	}
 }
 
@@ -144,7 +143,7 @@ func DetectSystemLanguage() string {
 		lang = os.Getenv("LC_ALL")
 	}
 	if lang == "" {
-		log().Debugf("no LANG/LC_ALL set, defaulting to en")
+		logTerminal.Debugf("no LANG/LC_ALL set, defaulting to en")
 		return "en"
 	}
 	if idx := strings.Index(lang, "."); idx != -1 {
@@ -152,10 +151,10 @@ func DetectSystemLanguage() string {
 	}
 	base, _, _ := strings.Cut(lang, "_")
 	if slices.Contains(AvailableLanguages(), base) {
-		log().Debugf("detected system language: %s", base)
+		logTerminal.Debugf("detected system language: %s", base)
 		return base
 	}
-	log().Debugf("system language %s not available, defaulting to en", base)
+	logTerminal.Debugf("system language %s not available, defaulting to en", base)
 	return "en"
 }
 

@@ -13,15 +13,20 @@ type Logger struct {
 	limit int
 	lines []string
 	parts []LogPart
+	// Root is the root logging terminal. All scoped loggers should be
+	// allocated from it so that log output contains the full block path.
+	Root *LogTerminal
 }
 
 // NewLogger creates a new logger with the given line limit (0 = unlimited).
 func NewLogger(limit int) *Logger {
-	return &Logger{
+	l := &Logger{
 		limit: limit,
 		lines: make([]string, 0),
 		parts: make([]LogPart, 0),
 	}
+	l.Root = &LogTerminal{logger: l, id: "root"}
+	return l
 }
 
 // SetLimit updates the stored line limit. Existing lines are not truncated
@@ -32,16 +37,10 @@ func (l *Logger) SetLimit(limit int) {
 	l.limit = limit
 }
 
-// Root returns the root logging terminal. All scoped loggers should be
-// allocated from this root so that log output contains the full block path.
-func (l *Logger) Root() *LogTerminal {
-	return &LogTerminal{logger: l, id: "root"}
-}
-
 // Log appends a user-facing message at info level from the root terminal.
 // Kept for backwards compatibility.
 func (l *Logger) Log(msg string) {
-	l.Root().Infof("%s", msg)
+	l.Root.Infof("%s", msg)
 }
 
 // append adds a structured log part and renders it to a text line.

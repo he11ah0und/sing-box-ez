@@ -93,7 +93,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 		app:    a,
 		window: w,
 		cfg:    cfg,
-		ctrl:   core.NewInteractiveController(cfg, fwApp),
+		ctrl:   core.NewInteractiveController(cfg, fwApp, fwApp.Logger.Root),
 	}
 
 	// Wire UI callbacks from core
@@ -298,7 +298,7 @@ func (g *GUI) refreshPrivilegeStatusUI() {
 
 func (g *GUI) onDownloadCore() {
 	modal := g.showInfiniteDialog(g.t("progress", "checking_version"))
-	path, err := g.ctrl.DownloadCoreWithProgressWithLog(func(downloaded, total int64) {
+	path, err := g.ctrl.DownloadCoreWithProgress(func(downloaded, total int64) {
 		fyne.Do(func() {
 			// progress update handled by dialog if needed
 		})

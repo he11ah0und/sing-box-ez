@@ -41,13 +41,6 @@ func NewGitHubEnterpriseBackend(baseURL, owner, repo string) *GitHubBackend {
 	}
 }
 
-func (b *GitHubBackend) log() *logger.LogTerminal {
-	if b.Log != nil {
-		return b.Log
-	}
-	return &logger.LogTerminal{}
-}
-
 func (b *GitHubBackend) slug() string { return b.Owner + "/" + b.Repo }
 
 func (b *GitHubBackend) apiBase() string {
@@ -98,7 +91,7 @@ func (b *GitHubBackend) newGitHubRequest(ctx context.Context, method, url string
 }
 
 func (b *GitHubBackend) doJSON(req *http.Request, out any) error {
-	b.log().Debugf("%s %s", req.Method, req.URL.String())
+	b.Log.Debugf("%s %s", req.Method, req.URL.String())
 	resp, err := b.client().Do(req)
 	if err != nil {
 		return err
@@ -190,7 +183,7 @@ func (b *GitHubBackend) DownloadAsset(ctx context.Context, url string, w io.Writ
 	if err != nil {
 		return err
 	}
-	b.log().Debugf("GET %s", url)
+	b.Log.Debugf("GET %s", url)
 	resp, err := b.client().Do(req)
 	if err != nil {
 		return err

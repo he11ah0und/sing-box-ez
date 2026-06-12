@@ -67,7 +67,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 	}
 
 	// Initialize core controller (encapsulates manager + logger + i18n)
-	g.ctrl = core.NewInteractiveController(cfg, fwApp)
+	g.ctrl = core.NewInteractiveController(cfg, fwApp, fwApp.Logger.Root)
 
 	dialog := NewDialog()
 	g.dialog = dialog
@@ -86,7 +86,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 			if downloadBtn.Clicked(gtx) {
 				go func() {
 					dialog.ShowLoading(localengine.T("progress", "checking_version"))
-					_, err := g.ctrl.DownloadCoreWithProgressWithLog(nil)
+					_, err := g.ctrl.DownloadCoreWithProgress(nil)
 					dialog.HideLoading()
 					if err != nil {
 						return
@@ -99,7 +99,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 				url := urlEditor.Text()
 				go func() {
 					dialog.ShowLoading(localengine.T("progress", "adding_config"))
-					err := g.ctrl.AddFirstConfigWithLog("default", url)
+					err := g.ctrl.AddFirstConfig("default", url)
 					dialog.HideLoading()
 					if err != nil {
 						return
@@ -190,7 +190,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 		dialog.ShowConfirmMarkdown(localengine.T("dialog", "self_update", "title"), body, func() {
 			dialog.ShowLoading(localengine.T("progress", "downloading_update"))
 			go func() {
-				if err := g.ctrl.ApplySelfUpdateWithLog(info.AssetURL, nil); err != nil {
+				if err := g.ctrl.ApplySelfUpdate(info.AssetURL, nil); err != nil {
 					dialog.HideLoading()
 					dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
 					return

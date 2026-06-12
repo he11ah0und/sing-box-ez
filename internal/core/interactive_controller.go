@@ -38,7 +38,7 @@ type InteractiveController struct {
 
 // NewInteractiveController creates an interactive controller, initializes i18n,
 // starts background maintenance loops, and wires sub-controllers.
-func NewInteractiveController(cfg *config.AppConfig, fwApp *framework.App) *InteractiveController {
+func NewInteractiveController(cfg *config.AppConfig, fwApp *framework.App, terminal *logger.LogTerminal) *InteractiveController {
 	// Initialize i18n
 	if !cfg.GetFirstRunDone() {
 		lang := localengine.DetectSystemLanguage()
@@ -49,16 +49,15 @@ func NewInteractiveController(cfg *config.AppConfig, fwApp *framework.App) *Inte
 		localengine.SetLanguage(lang)
 	}
 
-	ctrl := NewController(cfg, fwApp)
-	root := ctrl.LogRoot()
+	ctrl := NewController(cfg, fwApp, terminal)
 
 	ic := &InteractiveController{Controller: ctrl}
-	ic.Core = NewCoreController(cfg, ctrl.Manager(), ctrl.Logger(), root.Allocate("core"))
-	ic.Configs = NewConfigController(cfg, ctrl.Manager(), root.Allocate("config"))
-	ic.Updater = NewUpdaterController(fwApp, root.Allocate("updater"))
-	ic.Privileges = NewPrivilegeController(cfg, ctrl.Manager(), root.Allocate("privileges"))
-	ic.Plugins = NewPluginController(root.Allocate("plugins"))
-	ic.App = NewAppController(cfg, ctrl.Logger(), root.Allocate("app"), fwApp)
+	ic.Core = NewCoreController(cfg, ctrl.Manager(), fwApp.Logger, terminal)
+	ic.Configs = NewConfigController(cfg, ctrl.Manager(), terminal)
+	ic.Updater = NewUpdaterController(fwApp, terminal)
+	ic.Privileges = NewPrivilegeController(cfg, ctrl.Manager(), terminal)
+	ic.Plugins = NewPluginController(terminal)
+	ic.App = NewAppController(cfg, fwApp.Logger, terminal, fwApp)
 
 	ctrl.LogProcessor().OnAutoRestart = func() {
 		if ic.OnAutoRestart != nil {
@@ -75,15 +74,10 @@ func NewInteractiveController(cfg *config.AppConfig, fwApp *framework.App) *Inte
 
 // Log logs a message from the root terminal and optionally invokes the OnLog callback.
 func (ic *InteractiveController) Log(msg string) {
-	ic.Controller.LogRoot().Infof("%s", msg)
+	ic.Controller.Terminal().Infof("%s", msg)
 	if ic.OnLog != nil {
 		ic.OnLog(msg)
 	}
-}
-
-// LogRoot returns the root logging terminal for allocating scoped log blocks.
-func (ic *InteractiveController) LogRoot() *logger.LogTerminal {
-	return ic.Controller.LogRoot()
 }
 
 // RunStartupSequence performs first-run and update checks, invoking registered
@@ -116,7 +110,7 @@ func (ic *InteractiveController) updateChecker() {
 			ic.Configs.Terminal().Infof("Auto-updating config...")
 			ic.Manager().SetConfigName(active.Name)
 			if err := ic.UpdateConfig(); err != nil {
-				ic.Configs.Terminal().Errorf("Auto-update failed: " + err.Error())
+				ic.Configs.Terminal().Errorf("Auto-update failed: %v", err)
 			} else {
 				ic.Controller.Config().SetLastUpdateFor(active.Name, time.Now())
 				_ = ic.Controller.Config().Save()
@@ -125,7 +119,7 @@ func (ic *InteractiveController) updateChecker() {
 				}
 				ic.Configs.Terminal().Infof("Config auto-updated, restarting core...")
 				if err := ic.Core.RestartCore(); err != nil {
-					ic.Core.Terminal().Errorf("Auto-restart failed: " + err.Error())
+					ic.Core.Terminal().Errorf("Auto-restart failed: %v", err)
 				}
 			}
 		}
@@ -192,7 +186,7 @@ func (ic *InteractiveController) ApplySetcap() error {
 	return ic.Privileges.ApplySetcap()
 }
 
-func (ic *InteractiveController) ApplySelfUpdate(assetURL string, onProgress func(int64, int64)) error {
+func (ic *InteractiveController) ApplySelfUpdate(assetURL string, onProgress func(downloaded, total int64)) error {
 	return ic.Updater.ApplySelfUpdate(assetURL, onProgress)
 }
 
@@ -202,6 +196,10 @@ func (ic *InteractiveController) HasCachedConfig(name string) bool {
 
 func (ic *InteractiveController) DownloadConfigFor(name, url string) error {
 	return ic.Configs.DownloadConfigFor(name, url)
+}
+
+func (ic *InteractiveController) AddFirstConfig(name, url string) error {
+	return ic.Configs.AddFirstConfig(name, url)
 }
 
 func (ic *InteractiveController) StartCore() error {
@@ -216,36 +214,12 @@ func (ic *InteractiveController) RestartCore() error {
 	return ic.Core.RestartCore()
 }
 
-func (ic *InteractiveController) GetLatestCoreVersionWithLog() (string, error) {
-	return ic.Core.GetLatestCoreVersionWithLog()
+func (ic *InteractiveController) RestartAsAdmin() error {
+	return ic.Privileges.RestartAsAdmin(ic.Core.RestartAsAdmin)
 }
 
-func (ic *InteractiveController) RestartAsAdminWithLog() error {
-	return ic.Privileges.RestartAsAdminWithLog(ic.Core.RestartAsAdmin)
-}
-
-func (ic *InteractiveController) SetRunAsAdminWithLog(checked bool) error {
-	return ic.Privileges.SetRunAsAdminWithLog(checked)
-}
-
-func (ic *InteractiveController) ApplySetcapWithLog() error {
-	return ic.Privileges.ApplySetcapWithLog()
-}
-
-func (ic *InteractiveController) DownloadCoreWithProgressWithLog(onProgress func(int64, int64)) (string, error) {
-	return ic.Core.DownloadCoreWithProgressWithLog(onProgress)
-}
-
-func (ic *InteractiveController) ApplySelfUpdateWithLog(assetURL string, onProgress func(int64, int64)) error {
-	return ic.Updater.ApplySelfUpdateWithLog(assetURL, onProgress)
-}
-
-func (ic *InteractiveController) AddFirstConfigWithLog(name, url string) error {
-	return ic.Configs.AddFirstConfigWithLog(name, url)
-}
-
-func (ic *InteractiveController) CheckSelfUpdateWithLog() (*updater.UpdateInfo, error) {
-	return ic.Updater.CheckSelfUpdateWithLog()
+func (ic *InteractiveController) SetRunAsAdmin(checked bool) error {
+	return ic.Privileges.SetRunAsAdmin(checked)
 }
 
 func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
@@ -256,73 +230,73 @@ func (ic *InteractiveController) CheckSelfUpdateForBranch(branch string) (*updat
 	return ic.Updater.CheckSelfUpdateForBranch(branch)
 }
 
-func (ic *InteractiveController) OpenDataFolderWithLog() error {
-	return ic.App.OpenDataFolderWithLog()
+func (ic *InteractiveController) OpenDataFolder() error {
+	return ic.App.OpenDataFolder()
 }
 
-func (ic *InteractiveController) FetchReleaseNotesWithLog(commit string) (updater.Release, error) {
-	return ic.Updater.FetchReleaseNotesWithLog(commit)
+func (ic *InteractiveController) FetchReleaseNotes(commit string) (updater.Release, error) {
+	return ic.Updater.FetchReleaseNotes(commit)
 }
 
-func (ic *InteractiveController) SetLogLimitWithLog(v int) {
-	ic.App.SetLogLimitWithLog(v)
+func (ic *InteractiveController) SetLogLimit(v int) {
+	ic.App.SetLogLimit(v)
 }
 
-func (ic *InteractiveController) SetDefaultIntervalWithLog(h int) {
-	ic.App.SetDefaultIntervalWithLog(h)
+func (ic *InteractiveController) SetDefaultInterval(h int) {
+	ic.App.SetDefaultInterval(h)
 }
 
-func (ic *InteractiveController) UpdateConfigNowWithLog(name, url string) error {
-	return ic.Configs.UpdateConfigNowWithLog(name, url)
+func (ic *InteractiveController) UpdateConfigNow(name, url string) error {
+	return ic.Configs.UpdateConfigNow(name, url)
 }
 
-func (ic *InteractiveController) AddConfigWithLog(rec config.ConfigRecord) error {
-	return ic.Configs.AddConfigWithLog(rec)
+func (ic *InteractiveController) AddConfig(rec config.ConfigRecord) error {
+	return ic.Configs.AddConfig(rec)
 }
 
-func (ic *InteractiveController) EditConfigWithLog(oldName string, rec config.ConfigRecord) error {
-	return ic.Configs.EditConfigWithLog(oldName, rec)
+func (ic *InteractiveController) EditConfig(oldName string, rec config.ConfigRecord) error {
+	return ic.Configs.EditConfig(oldName, rec)
 }
 
-func (ic *InteractiveController) DeleteConfigWithLog(name string) error {
-	return ic.Configs.DeleteConfigWithLog(name)
+func (ic *InteractiveController) DeleteConfig(name string) error {
+	return ic.Configs.DeleteConfig(name)
 }
 
-func (ic *InteractiveController) ActivateConfigWithLog(name string) error {
-	return ic.Configs.ActivateConfigWithLog(name)
+func (ic *InteractiveController) ActivateConfig(name string) error {
+	return ic.Configs.ActivateConfig(name)
 }
 
-func (ic *InteractiveController) UpdateAllConfigsWithLog(progress func(done, total int)) (int, int, error) {
-	return ic.Configs.UpdateAllConfigsWithLog(progress)
+func (ic *InteractiveController) UpdateAllConfigs(progress func(done, total int)) (int, int, error) {
+	return ic.Configs.UpdateAllConfigs(progress)
 }
 
-func (ic *InteractiveController) PluginDiscoverWithLog(pm interface{ Discover() error }) error {
+func (ic *InteractiveController) PluginDiscover(pm interface{ Discover() error }) error {
 	return ic.Plugins.Discover(pm)
 }
 
-func (ic *InteractiveController) PluginToggleWithLog(pm interface{ Toggle(string) error }, name string) error {
+func (ic *InteractiveController) PluginToggle(pm interface{ Toggle(string) error }, name string) error {
 	return ic.Plugins.Toggle(pm, name)
 }
 
-func (ic *InteractiveController) PluginCheckUpdateWithLog(pm interface {
+func (ic *InteractiveController) PluginCheckUpdate(pm interface {
 	CheckUpdate(string) (bool, string, error)
 }, name string) (bool, string, error) {
 	return ic.Plugins.CheckUpdate(pm, name)
 }
 
-func (ic *InteractiveController) PluginInstallFromURLWithLog(pm interface{ InstallFromURL(string) error }, url string) error {
+func (ic *InteractiveController) PluginInstallFromURL(pm interface{ InstallFromURL(string) error }, url string) error {
 	return ic.Plugins.InstallFromURL(pm, url)
 }
 
-func (ic *InteractiveController) PluginGenerateTemplateWithLog(generateFunc func(outDir, name, rel string) error, outDir, name, rel string) error {
+func (ic *InteractiveController) PluginGenerateTemplate(generateFunc func(outDir, name, rel string) error, outDir, name, rel string) error {
 	return ic.Plugins.GenerateTemplate(generateFunc, outDir, name, rel)
 }
 
-func (ic *InteractiveController) PluginGenerateDocsWithLog(generateFunc func(outDir string) error, outDir string) error {
+func (ic *InteractiveController) PluginGenerateDocs(generateFunc func(outDir string) error, outDir string) error {
 	return ic.Plugins.GenerateDocs(generateFunc, outDir)
 }
 
-func (ic *InteractiveController) PluginGenerateDefsWithLog(generateFunc func(outDir string) error, outDir string) error {
+func (ic *InteractiveController) PluginGenerateDefs(generateFunc func(outDir string) error, outDir string) error {
 	return ic.Plugins.GenerateDefs(generateFunc, outDir)
 }
 
@@ -334,22 +308,3 @@ func (ic *InteractiveController) ApplyPrivilegeAction(action *PrivilegeAction) (
 	return ic.Privileges.ApplyPrivilegeAction(action)
 }
 
-// LogTag logs a message with a subsystem tag for simple backwards-compatible usage.
-func (ic *InteractiveController) LogTag(tag, msg string) {
-	switch tag {
-	case "core":
-		ic.Core.Terminal().Infof(msg)
-	case "config":
-		ic.Configs.Terminal().Infof(msg)
-	case "updater":
-		ic.Updater.Terminal().Infof(msg)
-	case "privileges":
-		ic.Privileges.Terminal().Infof(msg)
-	case "plugins":
-		ic.Plugins.Terminal().Infof(msg)
-	case "app":
-		ic.App.Terminal().Infof(msg)
-	default:
-		ic.LogRoot().Infof("%s", msg)
-	}
-}

@@ -4,7 +4,6 @@
 package app
 
 import (
-	"embed"
 	"log"
 	"os"
 	"path/filepath"
@@ -52,7 +51,7 @@ func defaultDataDir() string {
 	}
 }
 
-func Run(args []string, localesFS embed.FS, runGUI func(*config.AppConfig, *framework.App) bool) {
+func Run(args []string, runGUI func(*config.AppConfig, *framework.App) bool) {
 	dataDir, remaining := parseDataDir(args)
 	if dataDir == "" {
 		dataDir = defaultDataDir()
@@ -69,7 +68,7 @@ func Run(args []string, localesFS embed.FS, runGUI func(*config.AppConfig, *fram
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	app := NewApp(cfg, localesFS)
+	app := NewApp(cfg)
 
 	if len(remaining) > 0 {
 		if err := cli.Run(remaining, dataDir); err != nil {

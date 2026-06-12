@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"time"
 
+	"gio.tools/icons"
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -14,7 +15,6 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gio.tools/icons"
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
@@ -57,7 +57,7 @@ func (p *ConfigsPage) refreshConfigs() {
 func (p *ConfigsPage) Tag() string { return "configs" }
 
 // Name returns the page name.
-func (p *ConfigsPage) Name() string { return localengine.T("tab", "configs") }
+func (p *ConfigsPage) Name() string       { return localengine.T("tab", "configs") }
 func (p *ConfigsPage) Icon() *widget.Icon { return icons.ActionList }
 
 // NoInset tells the shell not to wrap this page in padding.
@@ -217,7 +217,7 @@ func (p *ConfigsPage) openAddDialog() {
 				Parent:              "user",
 			}
 			go func() {
-				if err := p.ctrl.AddConfigWithLog(rec); err == nil {
+				if err := p.ctrl.AddConfig(rec); err == nil {
 					p.refreshConfigs()
 				}
 			}()
@@ -225,22 +225,13 @@ func (p *ConfigsPage) openAddDialog() {
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, localengine.T("configs", "dialog", "name")).Layout(gtx)
+				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), &nameEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(p.th, &nameEd, "").Layout(gtx)
+				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, localengine.T("configs", "dialog", "url")).Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(p.th, &urlEd, "").Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, localengine.T("configs", "dialog", "period")).Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(p.th, &periodEd, "").Layout(gtx)
+				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -287,7 +278,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 				LastUpdate:          old.LastUpdate,
 			}
 			go func() {
-				if err := p.ctrl.EditConfigWithLog(old.Name, rec); err == nil {
+				if err := p.ctrl.EditConfig(old.Name, rec); err == nil {
 					p.refreshConfigs()
 				}
 			}()
@@ -300,7 +291,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 			p.dialog.HideCustom()
 			go func() {
 				p.dialog.ShowLoading(localengine.T("progress", "updating_configs"))
-				_ = p.ctrl.UpdateConfigNowWithLog(old.Name, urlEd.Text())
+				_ = p.ctrl.UpdateConfigNow(old.Name, urlEd.Text())
 				p.dialog.HideLoading()
 				p.refreshConfigs()
 			}()
@@ -308,22 +299,13 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, localengine.T("configs", "dialog", "name")).Layout(gtx)
+				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), &nameEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(p.th, &nameEd, "").Layout(gtx)
+				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, localengine.T("configs", "dialog", "url")).Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(p.th, &urlEd, "").Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, localengine.T("configs", "dialog", "period")).Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Editor(p.th, &periodEd, "").Layout(gtx)
+				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -358,7 +340,7 @@ func (p *ConfigsPage) onDelete(name string) {
 		if confirmBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			go func() {
-				_ = p.ctrl.DeleteConfigWithLog(name)
+				_ = p.ctrl.DeleteConfig(name)
 				p.refreshConfigs()
 			}()
 		}
@@ -390,7 +372,7 @@ func (p *ConfigsPage) onDelete(name string) {
 
 func (p *ConfigsPage) onUpdateAll() {
 	p.dialog.ShowLoading(localengine.T("progress", "updating_configs"))
-	_, _, err := p.ctrl.UpdateAllConfigsWithLog(nil)
+	_, _, err := p.ctrl.UpdateAllConfigs(nil)
 	p.dialog.HideLoading()
 	if err == nil {
 		p.refreshConfigs()
