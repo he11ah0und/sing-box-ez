@@ -87,9 +87,6 @@ func (c *UpdaterController) CheckSelfUpdate() (*updater.UpdateInfo, error) {
 // CheckSelfUpdateForBranch checks for updates on the specified branch and logs the result.
 func (c *UpdaterController) CheckSelfUpdateForBranch(branch string) (*updater.UpdateInfo, error) {
 	m := c.manager()
-	if m == nil {
-		return nil, fmt.Errorf("updater manager not configured")
-	}
 	info, err := m.Check(context.Background(), branch)
 	if err != nil {
 		return nil, err
@@ -126,9 +123,13 @@ func (c *UpdaterController) CheckUpdates() (*updater.UpdateInfo, string, string,
 	if err != nil || currentVer == "" {
 		return nil, "", "", err
 	}
-	latestVer, err := GetLatestVersion()
+	m := coreUpdater()
+	if m == nil {
+		return nil, currentVer, "", fmt.Errorf("core updater not configured")
+	}
+	coreInfo, err := m.Check(context.Background(), "")
 	if err != nil {
 		return nil, currentVer, "", err
 	}
-	return nil, currentVer, latestVer, nil
+	return nil, currentVer, coreInfo.Latest, nil
 }

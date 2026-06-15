@@ -30,6 +30,17 @@ func HasCachedConfig(name string) bool {
 	return err == nil
 }
 
+// GetCorePath returns the path to the sing-box core executable.
+func GetCorePath() string {
+	return CoreBinary()
+}
+
+// CoreExists reports whether the core binary is present.
+func CoreExists() bool {
+	_, err := os.Stat(GetCorePath())
+	return err == nil
+}
+
 // ListCachedConfigs returns all profile names that have a cached config.
 func ListCachedConfigs() ([]string, error) {
 	entries, err := os.ReadDir(filepath.Join(BaseDir, "configs"))

@@ -157,6 +157,27 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 	return platform.restart(exe)
 }
 
+// findBinaryInDir recursively searches fsys under dir for a file named name.
+func findBinaryInDir(fsys fs.FileSystem, dir, name string) (string, error) {
+	entries, err := fsys.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+	for _, e := range entries {
+		path := filepath.Join(dir, e.Name())
+		if e.IsDir() {
+			if found, err := findBinaryInDir(fsys, path, name); err != nil || found != "" {
+				return found, err
+			}
+			continue
+		}
+		if e.Name() == name {
+			return path, nil
+		}
+	}
+	return "", nil
+}
+
 func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source, asset Asset, path string, onProgress func(downloaded, total int64)) error {
 	f, err := a.FS.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {

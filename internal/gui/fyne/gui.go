@@ -41,7 +41,6 @@ type GUI struct {
 	configSelect *widget.Select
 	startBtn     *widget.Button
 	restartBtn   *widget.Button
-	adminCheck   *widget.Check
 
 	// Configs tab widgets
 	configTable    *widget.Table

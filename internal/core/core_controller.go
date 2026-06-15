@@ -1,12 +1,14 @@
 package core
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"runtime"
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/updater"
 )
 
 // CoreController manages the sing-box core lifecycle and downloads.
@@ -39,27 +41,43 @@ func (c *CoreController) GetInstalledCoreVersion() (string, error) {
 
 // GetLatestCoreVersion returns the latest available core version and logs errors.
 func (c *CoreController) GetLatestCoreVersion() (string, error) {
-	ver, err := GetLatestVersion()
-	if err != nil {
-		return "", c.terminal.Errorf("Check failed: %v", err)
+	m := coreUpdater()
+	if m == nil {
+		return "", c.terminal.Errorf("core updater not configured")
 	}
-	return ver, nil
+	info, err := m.Check(context.Background(), "")
+	if err != nil {
+		return "", err
+	}
+	return info.Latest, nil
 }
 
 // DownloadCoreWithProgress downloads the latest core, reports progress and logs the result.
 func (c *CoreController) DownloadCoreWithProgress(onProgress func(downloaded, total int64)) (string, error) {
-	ver, err := GetLatestVersion()
+	m := coreUpdater()
+	if m == nil {
+		return "", c.terminal.Errorf("core updater not configured")
+	}
+
+	info, err := m.Check(context.Background(), "")
 	if err != nil {
 		return "", err
 	}
-	c.terminal.Infof("Latest version: v" + ver)
+	if info.ReleaseCount == 0 {
+		c.terminal.Infof("Core is up to date: %s", info.Current)
+		return GetCorePath(), nil
+	}
 
-	path, err := DownloadCore("", onProgress)
-	if err != nil {
+	c.terminal.Infof("Latest core version: %s", info.Latest)
+	info.Files = []updater.UpdateFile{{
+		Asset:    info.Asset,
+		DestPath: ".",
+	}}
+	if err := m.Install(context.Background(), info, onProgress); err != nil {
 		return "", c.terminal.Errorf("Failed to download core: %v", err)
 	}
-	c.terminal.Infof("Core downloaded to: " + path)
-	return path, nil
+	c.terminal.Infof("Core downloaded to: %s", GetCorePath())
+	return GetCorePath(), nil
 }
 
 // CoreExists reports whether the core binary is present.
@@ -119,4 +137,8 @@ func (c *CoreController) RestartAsAdmin() error {
 	cmd := exec.Command("powershell", "-WindowStyle", "hidden", "-Command",
 		"Start-Process", "-FilePath", exe, "-Verb", "runAs", "-WorkingDirectory", cwd)
 	return cmd.Start()
+}
+
+func coreUpdater() *updater.Manager {
+	return CoreUpdater
 }

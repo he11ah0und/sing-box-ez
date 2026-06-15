@@ -3,11 +3,8 @@ package updater
 import (
 	"context"
 	"io"
-	"net/http"
 	"time"
 )
-
-var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 // Release represents a single version/release returned by a Source.
 type Release struct {
