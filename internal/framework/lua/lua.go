@@ -2,6 +2,7 @@
 package lua
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -213,6 +214,11 @@ func (vm *VM) isWriteAllowed(abs string) bool {
 		if isUnderOrEqual(abs, allowed) {
 			return true
 		}
+	}
+	// Install scripts operate inside the application data directory; allow
+	// writes anywhere under BaseDir unless explicitly restricted further.
+	if isUnderOrEqual(abs, vm.BaseDir) {
+		return true
 	}
 	return false
 }
@@ -472,7 +478,7 @@ func (vm *VM) luaCopy(L *lua.LState) int {
 		}
 	}
 
-	if err := frameworkfs.Copy(nil, srcFS, vm.MainFS, srcPath, dstAbs, opts); err != nil {
+	if err := frameworkfs.Copy(context.Background(), srcFS, vm.MainFS, srcPath, dstAbs, opts); err != nil {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}

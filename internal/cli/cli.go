@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -103,6 +104,39 @@ func ensureUpdater() {
 	})
 }
 
+func latestCoreVersion() (string, error) {
+	if core.CoreUpdater == nil {
+		return "", fmt.Errorf("core updater not configured")
+	}
+	info, err := core.CoreUpdater.Check(context.Background(), "")
+	if err != nil {
+		return "", err
+	}
+	return info.Latest, nil
+}
+
+func downloadLatestCore(onProgress func(d, t int64)) (string, error) {
+	if core.CoreUpdater == nil {
+		return "", fmt.Errorf("core updater not configured")
+	}
+	ctx := context.Background()
+	info, err := core.CoreUpdater.Check(ctx, "")
+	if err != nil {
+		return "", err
+	}
+	if info.ReleaseCount == 0 {
+		return core.GetCorePath(), nil
+	}
+	info.Files = []updater.UpdateFile{{
+		Asset:    info.Asset,
+		DestPath: ".",
+	}}
+	if err := core.CoreUpdater.Install(ctx, info, onProgress); err != nil {
+		return "", err
+	}
+	return core.GetCorePath(), nil
+}
+
 func Run(args []string, dataDir string) error {
 	if len(args) < 1 {
 		PrintHelp(os.Stderr)
@@ -133,7 +167,7 @@ func Run(args []string, dataDir string) error {
 func cmdStart(cfg *config.AppConfig, _ []string) error {
 	if !core.CoreExists() {
 		fmt.Println("Core not found, downloading latest...")
-		_, err := core.DownloadCore("", func(d, t int64) {
+		_, err := downloadLatestCore(func(d, t int64) {
 			pct := float64(d) / float64(t) * 100
 			fmt.Printf("\rDownload: %.1f%% (%d / %d bytes)", pct, d, t)
 		})
@@ -235,13 +269,13 @@ func cmdUpdate(cfg *config.AppConfig, _ []string) error {
 }
 
 func cmdDownload(cfg *config.AppConfig, _ []string) error {
-	ver, err := core.GetLatestVersion()
+	ver, err := latestCoreVersion()
 	if err != nil {
 		return fmt.Errorf("failed to check latest version: %w", err)
 	}
 	fmt.Println("Latest version:", ver)
 	fmt.Println("Downloading...")
-	_, err = core.DownloadCore("", func(d, t int64) {
+	_, err = downloadLatestCore(func(d, t int64) {
 		pct := float64(d) / float64(t) * 100
 		fmt.Printf("\rDownload: %.1f%% (%d / %d bytes)", pct, d, t)
 	})
@@ -387,7 +421,7 @@ func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
 		fmt.Println("Core: not installed")
 		return nil
 	}
-	latestCore, err := core.GetLatestVersion()
+	latestCore, err := latestCoreVersion()
 	if err != nil {
 		fmt.Println("Core update check failed:", err)
 		return nil

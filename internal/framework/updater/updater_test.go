@@ -120,7 +120,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			version.BuildGUI = ""
 			version.BuildBackend = ""
 
-			info, err := updateInfoFrom(tt.latest, tt.currentBranch)
+			info, err := updateInfoFrom(tt.latest, tt.currentBranch, currentAssetTags(false), false)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("updateInfoFrom() error = %v, wantErr %v", err, tt.wantErr)
 			}

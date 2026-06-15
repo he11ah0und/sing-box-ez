@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"sing-box-ez/internal/framework/updater"
 )
 
 type Manager struct {
@@ -24,6 +26,9 @@ type Manager struct {
 	elevated   bool
 	logOutput  io.Writer
 }
+
+// ProgressFunc вызывается во время скачивания: скачано, всего.
+type ProgressFunc func(downloaded, total int64)
 
 func NewManager(configURL string) *Manager {
 	return &Manager{
@@ -225,8 +230,22 @@ func (m *Manager) UpdateCore(onProgress ProgressFunc) error {
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	_, err := DownloadCore("", onProgress)
-	return err
+	if CoreUpdater == nil {
+		return fmt.Errorf("core updater not configured")
+	}
+	ctx := context.Background()
+	info, err := CoreUpdater.Check(ctx, "")
+	if err != nil {
+		return err
+	}
+	if info.ReleaseCount == 0 {
+		return nil
+	}
+	info.Files = []updater.UpdateFile{{
+		Asset:    info.Asset,
+		DestPath: ".",
+	}}
+	return CoreUpdater.Install(ctx, info, onProgress)
 }
 
 func (m *Manager) SetConfigURL(url string) {

@@ -4,14 +4,16 @@ import (
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/net"
+	"sing-box-ez/internal/framework/updater"
 )
 
 // Global framework-backed services used by core helpers.
 // These are set once during application startup by Init.
 var (
-	FS  fs.FileSystem
-	Net *net.Client
-	Log *logger.LogTerminal
+	FS          fs.FileSystem
+	Net         *net.Client
+	Log         *logger.LogTerminal
+	CoreUpdater *updater.Manager
 )
 
 // Init wires core package-level helpers to the framework services.

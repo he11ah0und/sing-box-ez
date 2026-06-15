@@ -254,6 +254,7 @@ func (b *GitHubBackend) toRelease(raw ghRelease) Release {
 			URL:    a.DownloadURL,
 			Size:   a.Size,
 			Tags:   b.assetTags(release, a.Name),
+			Format: formatForName(a.Name),
 			Hashes: make(map[string]string),
 		}
 	}
@@ -261,12 +262,10 @@ func (b *GitHubBackend) toRelease(raw ghRelease) Release {
 }
 
 // assetTags extracts platform tags from an asset filename.
-// It strips the project name and version, then splits the remainder by '-'.
+// It strips archive extensions, the project name and version, then splits the
+// remainder by '-'.
 func (b *GitHubBackend) assetTags(release Release, name string) []string {
-	base := name
-	if ext := filepath.Ext(base); ext != "" {
-		base = base[:len(base)-len(ext)]
-	}
+	base := stripArchiveExt(name)
 
 	// Strip project name prefix (e.g. "sing-box-", "sing-box-ez-").
 	if strings.HasPrefix(base, b.Repo+"-") {
@@ -286,4 +285,38 @@ func (b *GitHubBackend) assetTags(release Release, name string) []string {
 		return nil
 	}
 	return strings.Split(base, "-")
+}
+
+// formatForName returns the archive format constant for the given asset name.
+func formatForName(name string) string {
+	lower := strings.ToLower(name)
+	switch {
+	case strings.HasSuffix(lower, ".tar.gz"):
+		return FormatTarGz
+	case strings.HasSuffix(lower, ".tar.bz2"):
+		return FormatTarBz2
+	case strings.HasSuffix(lower, ".zip"):
+		return FormatZIP
+	default:
+		return FormatRaw
+	}
+}
+
+// stripArchiveExt removes known archive extensions from a filename so that
+// platform tags can be parsed from the remainder.
+func stripArchiveExt(name string) string {
+	lower := strings.ToLower(name)
+	switch {
+	case strings.HasSuffix(lower, ".tar.gz"):
+		return name[:len(name)-7]
+	case strings.HasSuffix(lower, ".tar.bz2"):
+		return name[:len(name)-8]
+	case strings.HasSuffix(lower, ".zip"):
+		return name[:len(name)-4]
+	default:
+		if ext := filepath.Ext(name); ext != "" {
+			return name[:len(name)-len(ext)]
+		}
+	}
+	return name
 }

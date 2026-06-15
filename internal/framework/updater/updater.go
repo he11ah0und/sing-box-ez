@@ -96,7 +96,7 @@ func ApplyUpdate(asset Asset, progress func(downloaded, total int64)) error {
 	return defaultManager.Install(context.Background(), info, progress)
 }
 
-func updateInfoFrom(release Release, currentBranch string) (*UpdateInfo, error) {
+func updateInfoFrom(release Release, currentBranch string, tags []string, useFallback bool) (*UpdateInfo, error) {
 	if release.Prerelease {
 		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
 	}
@@ -105,8 +105,8 @@ func updateInfoFrom(release Release, currentBranch string) (*UpdateInfo, error) 
 		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
 	}
 
-	asset, ok := FindAsset(release, AssetCriteria{Tags: currentAssetTags(false)})
-	if !ok && version.BuildBackend != "" && version.BuildOS == "linux" {
+	asset, ok := FindAsset(release, AssetCriteria{Tags: tags})
+	if !ok && useFallback {
 		asset, _ = FindAsset(release, AssetCriteria{Tags: currentAssetTags(true)})
 	}
 

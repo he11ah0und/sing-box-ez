@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/version"
 )
 
 // Manager orchestrates update discovery and installation using configurable
@@ -13,6 +14,9 @@ type Manager struct {
 	Source Source
 	Apply  Apply
 	Log    *logger.LogTerminal
+	// AssetCriteria selects assets for this manager. If zero, defaults to the
+	// current build's platform tags.
+	AssetCriteria AssetCriteria
 }
 
 // NewManager creates a new Manager with a scoped logger allocated from the
@@ -31,7 +35,14 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 	if err != nil {
 		return nil, err
 	}
-	info, err := updateInfoFrom(release, channel)
+
+	tags := m.AssetCriteria.Tags
+	useFallback := false
+	if len(tags) == 0 {
+		tags = currentAssetTags(false)
+		useFallback = version.BuildBackend != "" && version.BuildOS == "linux"
+	}
+	info, err := updateInfoFrom(release, channel, tags, useFallback)
 	if err != nil {
 		return nil, err
 	}
