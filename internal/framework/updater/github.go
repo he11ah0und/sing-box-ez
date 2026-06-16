@@ -3,6 +3,8 @@ package updater
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -13,6 +15,9 @@ import (
 	"sing-box-ez/internal/framework/net"
 	frameworkprogress "sing-box-ez/internal/framework/progress"
 )
+
+// ErrNoRelease is returned when a channel has no matching release.
+var ErrNoRelease = errors.New("no release found for channel")
 
 const defaultGitHubAPI = "https://api.github.com"
 
@@ -153,7 +158,8 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 			return b.toRelease(r), nil
 		}
 	}
-	return Release{}, b.Log.Errorf("no release found for channel %s", channel)
+	b.Log.Infof("no releases found for channel %s", channel)
+	return Release{}, fmt.Errorf("%w %s", ErrNoRelease, channel)
 }
 
 // ListChannels implements Source.

@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"os"
 
 	"sing-box-ez/internal/framework/logger"
@@ -34,6 +35,10 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 	m.Log.Infof("checking for updates on channel %q", channel)
 	release, err := m.Source.LatestRelease(ctx, channel)
 	if err != nil {
+		if errors.Is(err, ErrNoRelease) {
+			m.Log.Infof("no releases found for channel %q", channel)
+			return &UpdateInfo{Current: channel, Latest: channel, ReleaseCount: 0}, nil
+		}
 		return nil, err
 	}
 
