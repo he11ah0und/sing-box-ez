@@ -7,6 +7,7 @@ require (
 	gio.tools/icons v0.0.0-20240708021058-44790e75e701
 	gioui.org v0.10.0
 	gioui.org/x v0.10.0
+	github.com/godbus/dbus/v5 v5.1.0
 	github.com/gogpu/systray v0.1.0
 	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/sys v0.43.0
@@ -29,7 +30,6 @@ require (
 	github.com/go-text/render v0.2.1 // indirect
 	github.com/go-text/typesetting v0.3.4 // indirect
 	github.com/go-webgpu/goffi v0.5.0 // indirect
-	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/hack-pad/go-indexeddb v0.3.2 // indirect
 	github.com/hack-pad/safejs v0.1.0 // indirect
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade // indirect
