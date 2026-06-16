@@ -27,7 +27,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			},
 			currentBranch: "main",
 			commit:        "eb6db22",
-			wantLatest:    "main",
+			wantLatest:    "eb6db22",
 			wantCount:     0,
 		},
 		{
@@ -37,7 +37,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			},
 			currentBranch: "main",
 			commit:        "eb6db22",
-			wantLatest:    "main",
+			wantLatest:    "eb6db22",
 			wantCount:     0,
 		},
 		{
@@ -47,7 +47,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			},
 			currentBranch: "main",
 			commit:        "eb6db22e67e2c4ff043e3e66559eba0ab61d1660",
-			wantLatest:    "main",
+			wantLatest:    "eb6db22e67e2c4ff043e3e66559eba0ab61d1660",
 			wantCount:     0,
 		},
 		{
@@ -57,7 +57,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			},
 			currentBranch: "main",
 			commit:        "eb6db22",
-			wantLatest:    "main",
+			wantLatest:    "eb6db22",
 			wantCount:     0,
 		},
 		{

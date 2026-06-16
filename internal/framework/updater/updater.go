@@ -97,8 +97,9 @@ func ApplyUpdate(asset Asset, progress func(downloaded, total int64)) error {
 }
 
 func updateInfoFrom(release Release, currentBranch string, tags []string, useFallback bool) (*UpdateInfo, error) {
+	current := currentVersionLabel(currentBranch)
 	if commitsMatch(release.Version, version.Commit) {
-		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
+		return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
 	}
 
 	asset, ok := FindAsset(release, AssetCriteria{Tags: tags})
@@ -107,7 +108,7 @@ func updateInfoFrom(release Release, currentBranch string, tags []string, useFal
 	}
 
 	info := &UpdateInfo{
-		Current:      currentBranch,
+		Current:      current,
 		Latest:       release.Version,
 		ReleaseCount: 1,
 		LatestBody:   release.Body,
@@ -117,6 +118,16 @@ func updateInfoFrom(release Release, currentBranch string, tags []string, useFal
 		Asset:        asset,
 	}
 	return info, nil
+}
+
+// currentVersionLabel returns the current build commit if known, otherwise the
+// branch name. This makes update messages show "commit → commit" instead of
+// "branch → commit".
+func currentVersionLabel(branch string) string {
+	if version.Commit != "" && version.Commit != "unknown" {
+		return version.Commit
+	}
+	return branch
 }
 
 // currentAssetTags returns the platform tags for the current build.
