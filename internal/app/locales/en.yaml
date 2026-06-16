@@ -90,6 +90,12 @@ settings:
     title: Logging
   log_limit:
     label: 'Log limit (lines, 0=unlimited):'
+  log_level:
+    label: 'Log level:'
+    debug: Debug
+    info: Info
+    warn: Warn
+    error: Error
   btn:
     save: Save
   show_logs: Show logs
