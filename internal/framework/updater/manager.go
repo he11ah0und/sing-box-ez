@@ -36,7 +36,8 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 	release, err := m.Source.LatestRelease(ctx, channel)
 	if err != nil {
 		if errors.Is(err, ErrNoRelease) {
-			m.Log.Infof("no releases found for channel %q", channel)
+			// The source already logs "no releases found for channel ..."; avoid
+			// duplicating the message here.
 			return &UpdateInfo{Current: channel, Latest: channel, ReleaseCount: 0}, nil
 		}
 		return nil, err
