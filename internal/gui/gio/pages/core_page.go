@@ -49,11 +49,11 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog Di
 		ctrl:   ctrl,
 		dialog: dialog,
 	}
-	p.autoRestart.Value = ctrl.Config().GetCoreAutoRestart()
-	p.watchLogs.Value = ctrl.Config().GetWatchCoreLogs()
+	p.autoRestart.Value = ctrl.Controller.Config().GetCoreAutoRestart()
+	p.watchLogs.Value = ctrl.Controller.Config().GetWatchCoreLogs()
 
 	go p.refreshVersions()
-	p.privilegeState = ctrl.GetPrivilegeTabState()
+	p.privilegeState = ctrl.Controller.GetPrivilegeTabState()
 
 	// Default privilege mode: admin, unless setcap is already detected.
 	p.privilegeMode = "admin"
@@ -65,7 +65,7 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog Di
 }
 
 func (p *CorePage) refreshVersions() {
-	ver, err := p.ctrl.GetInstalledCoreVersion()
+	ver, err := p.ctrl.Controller.GetInstalledCoreVersion()
 	if err != nil || ver == "" {
 		p.versionText = localengine.T("core", "version", "not_installed")
 	} else {
@@ -91,7 +91,7 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 	}
 	if p.restartAdminBtn.Clicked(gtx) {
 		go func() {
-			_ = p.ctrl.RestartAsAdmin()
+			_ = p.ctrl.Controller.RestartAsAdmin()
 		}()
 	}
 	if p.privilegePickerBtn.Clicked(gtx) {
@@ -99,12 +99,12 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	if changed := p.autoRestart.Update(gtx); changed {
-		p.ctrl.Config().SetCoreAutoRestart(p.autoRestart.Value)
-		_ = p.ctrl.Config().Save()
+		p.ctrl.Controller.Config().SetCoreAutoRestart(p.autoRestart.Value)
+		_ = p.ctrl.Controller.Config().Save()
 	}
 	if changed := p.watchLogs.Update(gtx); changed {
-		p.ctrl.Config().SetWatchCoreLogs(p.watchLogs.Value)
-		_ = p.ctrl.Config().Save()
+		p.ctrl.Controller.Config().SetWatchCoreLogs(p.watchLogs.Value)
+		_ = p.ctrl.Controller.Config().Save()
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -242,17 +242,17 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 	}
 
 	if mode == "admin" {
-		_ = p.ctrl.SetRunAsAdmin(true)
+		_ = p.ctrl.Controller.SetRunAsAdmin(true)
 		p.privilegeMode = "admin"
-		p.privilegeState = p.ctrl.GetPrivilegeTabState()
+		p.privilegeState = p.ctrl.Controller.GetPrivilegeTabState()
 		return
 	}
 
 	// Switching to setcap
 	if p.privilegeState.HasSetcap {
-		_ = p.ctrl.SetRunAsAdmin(false)
+		_ = p.ctrl.Controller.SetRunAsAdmin(false)
 		p.privilegeMode = "setcap"
-		p.privilegeState = p.ctrl.GetPrivilegeTabState()
+		p.privilegeState = p.ctrl.Controller.GetPrivilegeTabState()
 		return
 	}
 
@@ -265,12 +265,12 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 			p.dialog.HideCustom()
 			go func() {
 				p.dialog.ShowLoading(localengine.T("progress", "applying_setcap"))
-				err := p.ctrl.ApplySetcap()
+				err := p.ctrl.Controller.ApplySetcap()
 				p.dialog.HideLoading()
 				if err == nil {
-					_ = p.ctrl.SetRunAsAdmin(false)
+					_ = p.ctrl.Controller.SetRunAsAdmin(false)
 					p.privilegeMode = "setcap"
-					p.privilegeState = p.ctrl.GetPrivilegeTabState()
+					p.privilegeState = p.ctrl.Controller.GetPrivilegeTabState()
 				}
 			}()
 		}
@@ -302,19 +302,19 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 
 func (p *CorePage) onDownloadCore() {
 	p.dialog.ShowLoading(localengine.T("progress", "checking_version"))
-	path, err := p.ctrl.DownloadCoreWithProgress(nil)
+	path, err := p.ctrl.Controller.DownloadCoreWithProgress(nil)
 	p.dialog.HideLoading()
 	if err != nil {
 		return
 	}
-	ver, _ := p.ctrl.GetInstalledCoreVersion()
+	ver, _ := p.ctrl.Controller.GetInstalledCoreVersion()
 	p.dialog.Show(localengine.T("core", "btn", "download"), fmt.Sprintf(localengine.T("dialog", "download_complete", "msg"), ver, path))
 	go p.refreshVersions()
 }
 
 func (p *CorePage) onCheckVersion() {
 	p.dialog.ShowLoading(localengine.T("progress", "checking_version"))
-	ver, err := p.ctrl.GetLatestCoreVersion()
+	ver, err := p.ctrl.Controller.GetLatestCoreVersion()
 	p.dialog.HideLoading()
 	if err != nil {
 		return
@@ -324,7 +324,7 @@ func (p *CorePage) onCheckVersion() {
 }
 
 func (p *CorePage) showVersionInfoDialog(latest string) {
-	currentVer, err := p.ctrl.GetInstalledCoreVersion()
+	currentVer, err := p.ctrl.Controller.GetInstalledCoreVersion()
 	var body string
 	if err != nil || currentVer == "" {
 		body = localengine.T("dialog", "version_check", "core_not_installed") + "\n" +

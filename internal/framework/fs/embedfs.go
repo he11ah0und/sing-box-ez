@@ -28,7 +28,7 @@ func (e *EmbedFS) errf(format string, v ...interface{}) error {
 
 // ReadFile reads the named file from the embedded file system.
 func (e *EmbedFS) ReadFile(name string) ([]byte, error) {
-	data, err := e.FS.ReadFile(name)
+	data, err := e.FS.ReadFile(NormalizePath(name))
 	if err != nil {
 		return nil, e.errf("read %q: %w", name, err)
 	}
@@ -52,7 +52,7 @@ func (e *EmbedFS) OpenFile(name string, flag int, perm os.FileMode) (*os.File, e
 
 // ReadDir reads the named directory inside the embedded file system.
 func (e *EmbedFS) ReadDir(name string) ([]os.DirEntry, error) {
-	entries, err := fs.ReadDir(e.FS, name)
+	entries, err := fs.ReadDir(e.FS, NormalizePath(name))
 	if err != nil {
 		return nil, e.errf("read dir %q: %w", name, err)
 	}
@@ -63,7 +63,7 @@ func (e *EmbedFS) ReadDir(name string) ([]os.DirEntry, error) {
 // The content is copied to a temporary file so that the returned value is
 // an *os.File as required by the FileSystem interface.
 func (e *EmbedFS) Open(name string) (*os.File, error) {
-	src, err := e.FS.Open(name)
+	src, err := e.FS.Open(NormalizePath(name))
 	if err != nil {
 		return nil, e.errf("open %q: %w", name, err)
 	}
@@ -105,7 +105,7 @@ func (e *EmbedFS) RemoveAll(path string) error {
 
 // Stat returns file info for the named file.
 func (e *EmbedFS) Stat(name string) (os.FileInfo, error) {
-	fi, err := fs.Stat(e.FS, name)
+	fi, err := fs.Stat(e.FS, NormalizePath(name))
 	if err != nil {
 		return nil, e.errf("stat %q: %w", name, err)
 	}
@@ -114,6 +114,6 @@ func (e *EmbedFS) Stat(name string) (os.FileInfo, error) {
 
 // Exists reports whether the named file exists in the embedded file system.
 func (e *EmbedFS) Exists(name string) bool {
-	_, err := e.Stat(name)
+	_, err := e.Stat(NormalizePath(name))
 	return err == nil
 }

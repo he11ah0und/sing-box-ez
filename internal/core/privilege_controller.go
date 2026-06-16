@@ -57,7 +57,7 @@ func NewPrivilegeController(cfg *config.AppConfig, manager *Manager, parent *log
 func (c *PrivilegeController) HasRequiredPrivileges() bool {
 	switch runtime.GOOS {
 	case "linux":
-		if HasNetAdminCapability(GetCorePath()) {
+		if HasNetAdminCapability(c.manager.coreBinary()) {
 			return true
 		}
 		return c.cfg.RunAsAdmin
@@ -73,14 +73,13 @@ func (c *PrivilegeController) RefreshPrivilegeStatus() string {
 	if runtime.GOOS != "linux" {
 		return ""
 	}
-	if HasNetAdminCapability(GetCorePath()) {
+	if HasNetAdminCapability(c.manager.coreBinary()) {
 		return "active"
 	}
 	return "root_required"
 }
 
-// GetPrivilegeDialog returns the dialog definition for the current platform,
-// or nil if no privilege dialog is needed (e.g. macOS).
+// GetPrivilegeDialog returns the dialog definition for the current platform.
 func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *PrivilegeDialog {
 	switch runtime.GOOS {
 	case "darwin":
@@ -146,7 +145,7 @@ func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
 		}
 		state.ShowRestartAdminBtn = !state.IsAdmin
 	case "linux":
-		state.HasSetcap = HasNetAdminCapability(GetCorePath())
+		state.HasSetcap = HasNetAdminCapability(c.manager.coreBinary())
 		if state.HasSetcap {
 			state.AdminLabel = localengine.T("core", "admin", "label_root_setcap")
 		} else {
@@ -190,7 +189,7 @@ func (c *PrivilegeController) SetRunAsAdmin(checked bool) error {
 
 // ApplySetcap applies setcap and logs the result.
 func (c *PrivilegeController) ApplySetcap() error {
-	if err := SetNetAdminCapabilityGUI(GetCorePath()); err != nil {
+	if err := SetNetAdminCapabilityGUI(c.manager.coreBinary()); err != nil {
 		c.terminal.Errorf("setcap failed: %v", err)
 		return c.terminal.Errorf("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
 	}

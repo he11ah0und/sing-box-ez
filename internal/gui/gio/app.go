@@ -1,21 +1,22 @@
 package giogui
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"image/color"
 	"os"
 	"time"
 
+	"sing-box-ez/internal/app"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/gio/pages"
 
-	"gioui.org/app"
+	gioapp "gioui.org/app"
 	"gioui.org/font"
 	"gioui.org/font/gofont"
 	"gioui.org/font/opentype"
@@ -29,6 +30,7 @@ import (
 
 // GUI holds the new Gio-based adaptive UI.
 type GUI struct {
+	app *app.App
 	cfg *config.AppConfig
 
 	// Theme
@@ -38,9 +40,9 @@ type GUI struct {
 	shell *Shell
 
 	// Window reference
-	win *app.Window
+	win *gioapp.Window
 
-	// Core controller (business logic)
+	// Interactive controller (GUI adapter around the core controller)
 	ctrl *core.InteractiveController
 
 	// Dialog reference for startup sequences
@@ -48,7 +50,8 @@ type GUI struct {
 }
 
 // New creates a new Gio GUI instance.
-func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
+func New(app *app.App) *GUI {
+	cfg := app.Config
 	th := material.NewTheme()
 	// Dark theme by default
 	th.Palette.Bg = color.NRGBA{R: 18, G: 18, B: 18, A: 255}
@@ -62,19 +65,20 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 	th.Shaper = text.NewShaper(text.WithCollection(collection))
 
 	g := &GUI{
+		app: app,
 		cfg: cfg,
 		th:  th,
 	}
 
-	// Initialize core controller (encapsulates manager + logger + i18n)
-	g.ctrl = core.NewInteractiveController(cfg, fwApp, fwApp.Logger.Root)
+	// Initialize interactive controller wrapping the shared core controller.
+	g.ctrl = core.NewInteractiveController(app.Controller)
 
 	dialog := NewDialog()
 	g.dialog = dialog
 
 	// Wire startup callbacks (UI-specific dialogs will be shown by the GUI)
 	g.ctrl.OnFirstRun = func() {
-		coreInstalled := g.ctrl.CoreExists()
+		coreInstalled := g.ctrl.Controller.CoreExists()
 
 		var urlEditor widget.Editor
 		urlEditor.SingleLine = true
@@ -86,7 +90,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 			if downloadBtn.Clicked(gtx) {
 				go func() {
 					dialog.ShowLoading(localengine.T("progress", "checking_version"))
-					_, err := g.ctrl.DownloadCoreWithProgress(nil)
+					_, err := g.ctrl.Controller.DownloadCore(nil)
 					dialog.HideLoading()
 					if err != nil {
 						return
@@ -99,7 +103,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 				url := urlEditor.Text()
 				go func() {
 					dialog.ShowLoading(localengine.T("progress", "adding_config"))
-					err := g.ctrl.AddFirstConfig("default", url)
+					err := g.ctrl.Controller.AddFirstConfig("default", url)
 					dialog.HideLoading()
 					if err != nil {
 						return
@@ -120,7 +124,7 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 			status := localengine.T("first_run", "core", "not_installed")
 			if coreInstalled {
 				status = localengine.T("first_run", "core", "installed")
-				if ver, err := g.ctrl.GetInstalledCoreVersion(); err == nil && ver != "" {
+				if ver, err := g.ctrl.Controller.GetInstalledCoreVersion(); err == nil && ver != "" {
 					status += "\n" + fmt.Sprintf(localengine.T("first_run", "core", "version"), ver)
 				}
 			}
@@ -190,7 +194,13 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 		dialog.ShowConfirmMarkdown(localengine.T("dialog", "self_update", "title"), body, func() {
 			dialog.ShowLoading(localengine.T("progress", "downloading_update"))
 			go func() {
-				if err := g.ctrl.ApplySelfUpdate(info.Asset, nil); err != nil {
+				if app.SelfUpdater == nil {
+					dialog.HideLoading()
+					dialog.Show(localengine.T("dialog", "self_update", "title"), "Self updater not configured")
+					return
+				}
+				installInfo := &updater.UpdateInfo{Asset: info.Asset, AssetURL: info.AssetURL, AssetName: info.AssetName}
+				if err := app.SelfUpdater.Install(context.Background(), installInfo, nil); err != nil {
 					dialog.HideLoading()
 					dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
 					return
@@ -230,23 +240,23 @@ func New(cfg *config.AppConfig, fwApp *framework.App) *GUI {
 // Run starts the Gio event loop.
 func (g *GUI) Run() {
 	go func() {
-		w := new(app.Window)
+		w := new(gioapp.Window)
 		w.Option(
-			app.Title(localengine.T("app", "title")),
-			app.Size(unit.Dp(800), unit.Dp(600)),
+			gioapp.Title(localengine.T("app", "title")),
+			gioapp.Size(unit.Dp(800), unit.Dp(600)),
 		)
 		g.win = w
 
 		var ops op.Ops
 		for {
 			switch e := w.Event().(type) {
-			case app.DestroyEvent:
+			case gioapp.DestroyEvent:
 				if g.ctrl != nil {
 					g.ctrl.Close()
 				}
 				os.Exit(0)
-			case app.FrameEvent:
-				gtx := app.NewContext(&ops, e)
+			case gioapp.FrameEvent:
+				gtx := gioapp.NewContext(&ops, e)
 				g.shell.Layout(gtx)
 				e.Frame(gtx.Ops)
 			}
@@ -262,7 +272,7 @@ func (g *GUI) Run() {
 		g.dialog.HideLoading()
 	}()
 
-	app.Main()
+	gioapp.Main()
 }
 
 //go:embed assets/NotoEmoji.ttf

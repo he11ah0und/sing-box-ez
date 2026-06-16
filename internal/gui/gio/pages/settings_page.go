@@ -50,23 +50,23 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 		dialog: dialog,
 	}
 
-	p.origLogLimit = fmt.Sprintf("%d", ctrl.Config().GetLogLimit())
+	p.origLogLimit = fmt.Sprintf("%d", ctrl.Controller.Config().GetLogLimit())
 	p.logLimitEditor.SingleLine = true
 	p.logLimitEditor.Filter = "0123456789"
 	p.logLimitEditor.SetText(p.origLogLimit)
 
-	p.origInterval = fmt.Sprintf("%d", ctrl.Config().UpdateIntervalHours)
+	p.origInterval = fmt.Sprintf("%d", ctrl.Controller.Config().UpdateIntervalHours)
 	p.intervalEditor.SingleLine = true
 	p.intervalEditor.Filter = "0123456789"
 	p.intervalEditor.SetText(p.origInterval)
 
-	p.origShowLogs = ctrl.Config().GetShowLogs()
+	p.origShowLogs = ctrl.Controller.Config().GetShowLogs()
 	p.showLogs.Value = p.origShowLogs
 
-	p.origDesktopNotif = ctrl.Config().GetDesktopNotifications()
+	p.origDesktopNotif = ctrl.Controller.Config().GetDesktopNotifications()
 	p.desktopNotif.Value = p.origDesktopNotif
 
-	p.origLang = ctrl.Config().GetLanguage()
+	p.origLang = ctrl.Controller.Config().GetLanguage()
 	p.pendingLang = p.origLang
 
 	return p
@@ -93,26 +93,26 @@ func (p *SettingsPage) isDirty() bool {
 func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 	if p.isDirty() && p.saveBtn.Clicked(gtx) {
 		if v, err := strconv.Atoi(p.logLimitEditor.Text()); err == nil && v >= 0 {
-			p.ctrl.SetLogLimit(v)
+			p.ctrl.Controller.SetLogLimit(v)
 			p.origLogLimit = fmt.Sprintf("%d", v)
 		}
 		if h, err := strconv.Atoi(p.intervalEditor.Text()); err == nil && h > 0 {
-			p.ctrl.SetDefaultInterval(h)
+			p.ctrl.Controller.SetDefaultInterval(h)
 			p.origInterval = fmt.Sprintf("%d", h)
 		}
-		p.ctrl.Config().SetShowLogs(p.showLogs.Value)
+		p.ctrl.Controller.Config().SetShowLogs(p.showLogs.Value)
 		p.origShowLogs = p.showLogs.Value
-		p.ctrl.Config().SetDesktopNotifications(p.desktopNotif.Value)
+		p.ctrl.Controller.Config().SetDesktopNotifications(p.desktopNotif.Value)
 		p.origDesktopNotif = p.desktopNotif.Value
 		if p.pendingLang != p.origLang {
-			p.ctrl.Config().SetLanguage(p.pendingLang)
+			p.ctrl.Controller.Config().SetLanguage(p.pendingLang)
 			localengine.SetLanguage(p.pendingLang)
 			p.origLang = p.pendingLang
 			if p.OnLanguageChange != nil {
 				p.OnLanguageChange()
 			}
 		}
-		_ = p.ctrl.Config().Save()
+		_ = p.ctrl.Controller.Config().Save()
 	}
 
 	if p.langBtn.Clicked(gtx) {

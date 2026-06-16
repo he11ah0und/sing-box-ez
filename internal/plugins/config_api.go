@@ -8,6 +8,8 @@ import (
 	lua "github.com/yuin/gopher-lua"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/fs"
+	"sing-box-ez/internal/framework/logger"
 )
 
 // configModuleDef returns the API definition for the config module.
@@ -280,7 +282,8 @@ func luaConfigDownload(cfg *config.AppConfig, parent string) lua.LGFunction {
 			L.Push(lua.LString("config has no URL"))
 			return 1
 		}
-		if err := core.DownloadConfigFor(name, rec.URL); err != nil {
+		manager := core.NewManager(cfg.DataDir, fs.NewOSFileSystem(cfg.DataDir), nil, logger.NewLogger(0))
+		if err := manager.DownloadConfigFor(name, rec.URL); err != nil {
 			L.Push(lua.LString(err.Error()))
 			return 1
 		}
