@@ -140,8 +140,16 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 	if err := b.doJSON(req, &raw); err != nil {
 		return Release{}, err
 	}
+	// Prefer a stable release for this channel.
 	for _, r := range raw {
 		if r.TargetCommitish == channel && !r.Prerelease {
+			return b.toRelease(r), nil
+		}
+	}
+	// Accept a prerelease for this channel (e.g. testing builds) if no stable
+	// release is available.
+	for _, r := range raw {
+		if r.TargetCommitish == channel && r.Prerelease {
 			return b.toRelease(r), nil
 		}
 	}
