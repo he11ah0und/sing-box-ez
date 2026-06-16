@@ -38,7 +38,8 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 		if errors.Is(err, ErrNoRelease) {
 			// The source already logs "no releases found for channel ..."; avoid
 			// duplicating the message here.
-			return &UpdateInfo{Current: channel, Latest: channel, ReleaseCount: 0}, nil
+			current := currentVersionLabel(channel)
+			return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
 		}
 		return nil, err
 	}
