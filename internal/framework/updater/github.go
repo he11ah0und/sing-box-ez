@@ -153,10 +153,7 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 			return b.toRelease(r), nil
 		}
 	}
-	// No release tied to this channel; fall back to the repository's latest
-	// stable release so feature branches still receive updates.
-	b.Log.Infof("no release found for channel %s, falling back to latest stable", channel)
-	return b.latestStable(ctx)
+	return Release{}, b.Log.Errorf("no release found for channel %s", channel)
 }
 
 // ListChannels implements Source.
