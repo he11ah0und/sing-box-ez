@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -96,7 +97,7 @@ func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info Upda
 
 	if err := platform.replace(exe, tmp); err != nil {
 		_ = a.FS.Remove(tmp)
-		return a.Log.Errorf("replace binary failed: %v", err)
+		return fmt.Errorf("replace binary failed: %w", err)
 	}
 
 	return platform.restart(exe)
@@ -151,7 +152,7 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 	}
 
 	if err := platform.replace(exe, replaceWith); err != nil {
-		return a.Log.Errorf("replace binary failed: %v", err)
+		return fmt.Errorf("replace binary failed: %w", err)
 	}
 
 	return platform.restart(exe)
@@ -190,7 +191,7 @@ func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source
 	}
 	if downloadErr != nil {
 		_ = a.FS.Remove(path)
-		return a.Log.Errorf("download failed: %v", downloadErr)
+		return fmt.Errorf("download failed: %w", downloadErr)
 	}
 	return nil
 }

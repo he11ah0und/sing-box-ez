@@ -78,7 +78,7 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 	}
 	if downloadErr != nil {
 		cleanup()
-		return a.Log.Errorf("download %s failed: %v", uf.Asset.Name, downloadErr)
+		return fmt.Errorf("download %s failed: %w", uf.Asset.Name, downloadErr)
 	}
 
 	if len(a.InstallScript) > 0 {
