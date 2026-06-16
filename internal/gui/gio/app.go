@@ -12,14 +12,17 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/gio/pages"
+	"sing-box-ez/internal/gui/tray"
 
 	gioapp "gioui.org/app"
 	"gioui.org/font"
 	"gioui.org/font/gofont"
 	"gioui.org/font/opentype"
+	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
@@ -42,6 +45,12 @@ type GUI struct {
 	// Window reference
 	win *gioapp.Window
 
+	// Logger terminal for the GUI subsystem.
+	log *logger.LogTerminal
+
+	// System tray integration
+	tray *tray.Tray
+
 	// Interactive controller (GUI adapter around the core controller)
 	ctrl *core.InteractiveController
 
@@ -57,18 +66,20 @@ func New(app *app.App) *GUI {
 	th.Palette.Bg = color.NRGBA{R: 18, G: 18, B: 18, A: 255}
 	th.Palette.Fg = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 
-	// Build a font collection with Go font as base + optional emoji support.
-	collection := gofont.Collection()
-	if emoji := tryLoadEmojiFont(); len(emoji) > 0 {
-		collection = append(collection, emoji...)
-	}
-	th.Shaper = text.NewShaper(text.WithCollection(collection))
-
 	g := &GUI{
 		app: app,
 		cfg: cfg,
 		th:  th,
+		log: app.Logger.Root.Allocate("gui"),
 	}
+	g.log.Infof("initialized")
+
+	// Build a font collection with Go font as base + optional emoji support.
+	collection := gofont.Collection()
+	if emoji := g.tryLoadEmojiFont(); len(emoji) > 0 {
+		collection = append(collection, emoji...)
+	}
+	th.Shaper = text.NewShaper(text.WithCollection(collection))
 
 	// Initialize interactive controller wrapping the shared core controller.
 	g.ctrl = core.NewInteractiveController(app.Controller)
@@ -93,6 +104,7 @@ func New(app *app.App) *GUI {
 					_, err := g.ctrl.Controller.DownloadCore(nil)
 					dialog.HideLoading()
 					if err != nil {
+						g.log.Warnf("failed to download core: %v", err)
 						return
 					}
 					// Re-show first-run dialog with updated state.
@@ -106,6 +118,7 @@ func New(app *app.App) *GUI {
 					err := g.ctrl.Controller.AddFirstConfig("default", url)
 					dialog.HideLoading()
 					if err != nil {
+						g.log.Warnf("failed to add first config: %v", err)
 						return
 					}
 					dialog.HideCustom()
@@ -201,6 +214,7 @@ func New(app *app.App) *GUI {
 				}
 				installInfo := &updater.UpdateInfo{Asset: info.Asset, AssetURL: info.AssetURL, AssetName: info.AssetName}
 				if err := app.SelfUpdater.Install(context.Background(), installInfo, nil); err != nil {
+					g.log.Warnf("self update failed: %v", err)
 					dialog.HideLoading()
 					dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
 					return
@@ -239,18 +253,50 @@ func New(app *app.App) *GUI {
 
 // Run starts the Gio event loop.
 func (g *GUI) Run() {
+	g.log.Infof("starting event loop")
 	go func() {
 		w := new(gioapp.Window)
+		windowTitle := localengine.T("app", "title")
 		w.Option(
-			gioapp.Title(localengine.T("app", "title")),
+			gioapp.Title(windowTitle),
 			gioapp.Size(unit.Dp(800), unit.Dp(600)),
 		)
+		mainWindowTitle = windowTitle
 		g.win = w
+
+		g.tray = tray.New(
+			g.log,
+			func() {
+				g.log.Debugf("tray: show requested")
+				if err := showMainWindow(w); err != nil {
+					g.log.Warnf("tray show failed: %v", err)
+				}
+			},
+			func() {
+				g.log.Debugf("tray: minimize requested")
+				if err := hideMainWindow(w); err != nil {
+					g.log.Warnf("tray hide failed: %v", err)
+				}
+			},
+			func() {
+				g.log.Debugf("tray: quit requested")
+				w.Perform(system.ActionClose)
+			},
+		)
+		if err := g.tray.Start(); err != nil {
+			g.log.Warnf("failed to start tray: %v", err)
+		} else {
+			g.log.Infof("tray started")
+		}
 
 		var ops op.Ops
 		for {
 			switch e := w.Event().(type) {
 			case gioapp.DestroyEvent:
+				g.log.Infof("destroy event received, shutting down")
+				if g.tray != nil {
+					g.tray.Stop()
+				}
 				if g.ctrl != nil {
 					g.ctrl.Close()
 				}
@@ -267,20 +313,24 @@ func (g *GUI) Run() {
 	// while the startup sequence runs.
 	g.dialog.ShowLoading(localengine.T("progress", "initializing"))
 
+	g.log.Infof("running startup sequence")
 	go func() {
 		g.ctrl.RunStartupSequence()
 		g.dialog.HideLoading()
+		g.log.Infof("startup sequence completed")
 	}()
 
+	g.log.Infof("entering Gio main loop")
 	gioapp.Main()
 }
 
 //go:embed assets/NotoEmoji.ttf
 var notoEmojiFontData []byte
 
-func tryLoadEmojiFont() []font.FontFace {
+func (g *GUI) tryLoadEmojiFont() []font.FontFace {
 	face, err := opentype.Parse(notoEmojiFontData)
 	if err != nil {
+		g.log.Warnf("failed to parse emoji font: %v", err)
 		return nil
 	}
 	return []font.FontFace{{Font: face.Font(), Face: face}}

@@ -4,16 +4,17 @@ go 1.25.0
 
 require (
 	fyne.io/fyne/v2 v2.7.4
+	gio.tools/icons v0.0.0-20240708021058-44790e75e701
 	gioui.org v0.10.0
 	gioui.org/x v0.10.0
+	github.com/gogpu/systray v0.1.0
 	github.com/yuin/gopher-lua v1.1.2
-	golang.org/x/sys v0.39.0
+	golang.org/x/sys v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	fyne.io/systray v1.12.1 // indirect
-	gio.tools/icons v0.0.0-20240708021058-44790e75e701 // indirect
 	gioui.org/shader v1.0.8 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -27,6 +28,7 @@ require (
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20240506104042-037f3cc74f2a // indirect
 	github.com/go-text/render v0.2.1 // indirect
 	github.com/go-text/typesetting v0.3.4 // indirect
+	github.com/go-webgpu/goffi v0.5.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/hack-pad/go-indexeddb v0.3.2 // indirect
 	github.com/hack-pad/safejs v0.1.0 // indirect
