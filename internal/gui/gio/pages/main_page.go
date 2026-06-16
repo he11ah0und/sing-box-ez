@@ -127,9 +127,8 @@ func (p *MainPage) openConfigPicker() {
 		for i := range configs {
 			if btns[i].Clicked(gtx) {
 				p.dialog.HideCustom()
-				go func(name string) {
-					_ = p.ctrl.Controller.ActivateConfig(name)
-				}(configs[i].Name)
+				name := configs[i].Name
+				go p.activateConfigAndMaybeRestart(name)
 			}
 		}
 
@@ -149,6 +148,26 @@ func (p *MainPage) openConfigPicker() {
 		}
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 	})
+}
+
+func (p *MainPage) activateConfigAndMaybeRestart(name string) {
+	active := p.ctrl.Controller.Config().GetActiveConfig()
+	if active != nil && active.Name == name {
+		return
+	}
+
+	p.processing = true
+	defer func() { p.processing = false }()
+
+	if err := p.ctrl.Controller.ActivateConfig(name); err != nil {
+		p.ctrl.Controller.Terminal().Infof("Failed to activate config: %v", err)
+		return
+	}
+	if p.ctrl.Controller.IsRunning() {
+		if err := p.ctrl.Controller.Restart(); err != nil {
+			p.ctrl.Controller.Terminal().Infof("Failed to restart: %v", err)
+		}
+	}
 }
 
 func (p *MainPage) roundButton(gtx layout.Context, th *material.Theme, btn *widget.Clickable, label string, diameter unit.Dp) layout.Dimensions {
