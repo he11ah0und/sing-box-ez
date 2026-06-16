@@ -221,7 +221,7 @@ func (p *AboutPage) checkUpdates() {
 		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Update check failed")
 		return
 	}
-	if info == nil {
+	if info == nil || info.ReleaseCount == 0 || info.Current == info.Latest {
 		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Already on latest version: "+version.Branch)
 		return
 	}
