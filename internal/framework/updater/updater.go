@@ -97,10 +97,6 @@ func ApplyUpdate(asset Asset, progress func(downloaded, total int64)) error {
 }
 
 func updateInfoFrom(release Release, currentBranch string, tags []string, useFallback bool) (*UpdateInfo, error) {
-	if release.Prerelease {
-		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
-	}
-
 	if commitsMatch(release.Version, version.Commit) {
 		return &UpdateInfo{Current: currentBranch, Latest: currentBranch, ReleaseCount: 0}, nil
 	}
