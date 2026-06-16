@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"sing-box-ez/internal/config"
@@ -412,10 +414,33 @@ func (c *Controller) RestartAsAdmin() error {
 	if err != nil {
 		return err
 	}
-	// #nosec G204 — powershell is a system binary; exe comes from os.Executable() and cwd from os.Getwd().
-	cmd := exec.Command("powershell", "-WindowStyle", "hidden", "-Command",
-		"Start-Process", "-FilePath", exe, "-Verb", "runAs", "-WorkingDirectory", cwd)
-	return cmd.Start()
+
+	// Preserve the current command-line arguments in the elevated restart.
+	var argList string
+	if len(os.Args) > 1 {
+		quoted := make([]string, len(os.Args)-1)
+		for i, a := range os.Args[1:] {
+			quoted[i] = strconv.Quote(a)
+		}
+		argList = "@(" + strings.Join(quoted, ",") + ")"
+	}
+
+	script := fmt.Sprintf("Start-Process -FilePath %q -Verb runAs -WorkingDirectory %q", exe, cwd)
+	if argList != "" {
+		script += fmt.Sprintf(" -ArgumentList %s", argList)
+	}
+
+	// #nosec G204 — powershell is a system binary; exe and cwd come from the
+	// running process, and arguments are preserved from os.Args.
+	cmd := exec.Command("powershell", "-WindowStyle", "hidden", "-Command", script)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	// The elevated copy is being started; terminate the current unprivileged
+	// instance so only one copy of the application remains running.
+	os.Exit(0)
+	return nil
 }
 
 func (c *Controller) SetRunAsAdmin(checked bool) error {
