@@ -112,6 +112,10 @@ func (c *Controller) GetLogLines() []string {
 	return c.fwApp.Logger.GetLines()
 }
 
+func (c *Controller) GetLogLinesAtLeast(minLevel logger.LogLevel) []string {
+	return c.fwApp.Logger.GetLinesAtLeast(minLevel)
+}
+
 func (c *Controller) ClearLogs() {
 	c.fwApp.Logger.Clear()
 }

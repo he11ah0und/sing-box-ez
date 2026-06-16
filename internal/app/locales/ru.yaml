@@ -90,6 +90,12 @@ settings:
     title: Логирование
   log_limit:
     label: 'Лимит строк лога (0=без ограничений):'
+  log_level:
+    label: 'Уровень журнала:'
+    debug: Отладка
+    info: Информация
+    warn: Предупреждение
+    error: Ошибка
   btn:
     save: Сохранить
   show_logs: Показывать логи

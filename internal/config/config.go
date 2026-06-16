@@ -65,6 +65,7 @@ type AppConfig struct {
 	ShowLogs             bool   `json:"show_logs"`
 	WatchCoreLogs        bool   `json:"watch_core_logs"`
 	LogLimit             int    `json:"log_limit"`
+	LogLevel             string `json:"log_level"`
 	Language             string `json:"language"`
 	PluginsEnabled       bool   `json:"plugins_enabled"`
 	PluginsDeveloper     bool   `json:"plugins_developer"`
@@ -85,6 +86,7 @@ func defaultAppConfig() *AppConfig {
 		ShowLogs:             false,
 		WatchCoreLogs:        true,
 		LogLimit:             100,
+		LogLevel:             "info",
 		CoreAutoRestart:      true,
 		DesktopNotifications: true,
 	}
@@ -332,6 +334,21 @@ func (c *AppConfig) GetLogLimit() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.LogLimit
+}
+
+func (c *AppConfig) SetLogLevel(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.LogLevel = v
+}
+
+func (c *AppConfig) GetLogLevel() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.LogLevel == "" {
+		return "info"
+	}
+	return c.LogLevel
 }
 
 func (c *AppConfig) SetPluginsEnabled(v bool) {

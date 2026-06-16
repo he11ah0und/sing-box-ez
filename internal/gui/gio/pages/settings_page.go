@@ -26,19 +26,22 @@ type SettingsPage struct {
 
 	// Dirty tracking – original saved values.
 	origLogLimit     string
+	origLogLevel     string
 	origInterval     string
 	origShowLogs     bool
 	origDesktopNotif bool
 	origLang         string
 
-	// Pending (unsaved) language selection.
-	pendingLang string
+	// Pending (unsaved) selections.
+	pendingLang     string
+	pendingLogLevel string
 
 	logLimitEditor widget.Editor
 	intervalEditor widget.Editor
 	showLogs       widget.Bool
 	desktopNotif   widget.Bool
 	langBtn        widget.Clickable
+	logLevelBtn    widget.Clickable
 	saveBtn        widget.Clickable
 }
 
@@ -69,6 +72,9 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 	p.origLang = ctrl.Controller.Config().GetLanguage()
 	p.pendingLang = p.origLang
 
+	p.origLogLevel = ctrl.Controller.Config().GetLogLevel()
+	p.pendingLogLevel = p.origLogLevel
+
 	return p
 }
 
@@ -83,6 +89,7 @@ func (p *SettingsPage) Icon() *widget.Icon { return icons.ActionSettings }
 
 func (p *SettingsPage) isDirty() bool {
 	return p.logLimitEditor.Text() != p.origLogLimit ||
+		p.pendingLogLevel != p.origLogLevel ||
 		p.intervalEditor.Text() != p.origInterval ||
 		p.showLogs.Value != p.origShowLogs ||
 		p.desktopNotif.Value != p.origDesktopNotif ||
@@ -102,6 +109,8 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 		}
 		p.ctrl.Controller.Config().SetShowLogs(p.showLogs.Value)
 		p.origShowLogs = p.showLogs.Value
+		p.ctrl.Controller.Config().SetLogLevel(p.pendingLogLevel)
+		p.origLogLevel = p.pendingLogLevel
 		p.ctrl.Controller.Config().SetDesktopNotifications(p.desktopNotif.Value)
 		p.origDesktopNotif = p.desktopNotif.Value
 		if p.pendingLang != p.origLang {
@@ -118,8 +127,12 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 	if p.langBtn.Clicked(gtx) {
 		p.openLangPicker()
 	}
+	if p.logLevelBtn.Clicked(gtx) {
+		p.openLogLevelPicker()
+	}
 
 	logLimitDirty := p.logLimitEditor.Text() != p.origLogLimit
+	logLevelDirty := p.pendingLogLevel != p.origLogLevel
 	intervalDirty := p.intervalEditor.Text() != p.origInterval
 	showLogsDirty := p.showLogs.Value != p.origShowLogs
 	desktopNotifDirty := p.desktopNotif.Value != p.origDesktopNotif
@@ -149,6 +162,24 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 				label += " *"
 			}
 			return LabeledInput(gtx, p.th, label, &p.logLimitEditor, logLimitDirty)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			label := localengine.T("settings", "log_level", "label")
+			if logLevelDirty {
+				label += " *"
+			}
+			btnLabel := localengine.T("settings", "log_level", p.pendingLogLevel)
+			if logLevelDirty {
+				btnLabel += " *"
+			}
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.Body2(p.th, label).Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, &p.logLevelBtn, btnLabel).Layout(gtx)
+				}),
+			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			label := localengine.T("settings", "show_logs")
@@ -195,6 +226,36 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 			})
 		}),
 	)
+}
+
+func (p *SettingsPage) openLogLevelPicker() {
+	levels := []string{"debug", "info", "warn", "error"}
+	btns := make([]widget.Clickable, len(levels))
+
+	p.dialog.ShowCustom(localengine.T("settings", "log_level", "label"), func(gtx layout.Context) layout.Dimensions {
+		for i := range levels {
+			if btns[i].Clicked(gtx) {
+				p.dialog.HideCustom()
+				p.pendingLogLevel = levels[i]
+			}
+		}
+
+		children := make([]layout.FlexChild, len(levels))
+		for i, l := range levels {
+			idx := i
+			level := l
+			label := localengine.T("settings", "log_level", level)
+			if level == p.pendingLogLevel {
+				label = "> " + label
+			}
+			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, &btns[idx], label).Layout(gtx)
+				})
+			})
+		}
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	})
 }
 
 func (p *SettingsPage) openLangPicker() {

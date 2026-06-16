@@ -90,6 +90,12 @@ settings:
     title: 日志
   log_limit:
     label: 日志行数限制（0=无限制）：
+  log_level:
+    label: '日志级别：'
+    debug: 调试
+    info: 信息
+    warn: 警告
+    error: 错误
   btn:
     save: 保存
   show_logs: 显示日志

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gio.tools/icons"
 	"gioui.org/font"
 	"gioui.org/io/clipboard"
 	"gioui.org/layout"
@@ -17,10 +18,10 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/styledtext"
-	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/framework/logger"
 )
 
 // LogPage renders the log viewer.
@@ -49,7 +50,7 @@ func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
 func (p *LogPage) Tag() string { return "logs" }
 
 // Name returns the page name.
-func (p *LogPage) Name() string { return localengine.T("tab", "log") }
+func (p *LogPage) Name() string       { return localengine.T("tab", "log") }
 func (p *LogPage) Icon() *widget.Icon { return icons.ActionBugReport }
 
 // NoInset tells the shell not to wrap this page in padding.
@@ -72,7 +73,7 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 		p.ctrl.ClearLogs()
 	}
 
-	lines := p.ctrl.GetLogLines()
+	lines := p.ctrl.GetLogLinesAtLeast(levelFromString(p.ctrl.Config().GetLogLevel()))
 	text := strings.Join(lines, "\n")
 	if text != p.lastText {
 		p.lastText = text
@@ -143,9 +144,9 @@ func parseLogLine(line string) []logPart {
 	var parts []logPart
 
 	// Distinct non-gray accent colors for structural tokens.
-	dateColor   := color.NRGBA{R: 200, G: 140, B: 60, A: 255} // burnt orange
+	dateColor := color.NRGBA{R: 200, G: 140, B: 60, A: 255}   // burnt orange
 	sourceColor := color.NRGBA{R: 140, G: 200, B: 80, A: 255} // lime green
-	arrowColor  := color.NRGBA{R: 255, G: 255, B: 255, A: 255} // white
+	arrowColor := color.NRGBA{R: 255, G: 255, B: 255, A: 255} // white
 
 	arrowIdx := strings.Index(line, " -> ")
 	if arrowIdx < 0 {
@@ -206,6 +207,20 @@ func levelColorFor(level string) color.NRGBA {
 	default:
 		return color.NRGBA{R: 200, G: 200, B: 200, A: 255}
 	}
+}
+
+func levelFromString(s string) logger.LogLevel {
+	switch s {
+	case "debug":
+		return logger.LogLevelDebug
+	case "info":
+		return logger.LogLevelInfo
+	case "warn":
+		return logger.LogLevelWarn
+	case "error":
+		return logger.LogLevelError
+	}
+	return logger.LogLevelDebug
 }
 
 func logLineBg(line string) color.NRGBA {

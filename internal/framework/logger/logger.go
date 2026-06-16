@@ -94,6 +94,20 @@ func (l *Logger) GetLines() []string {
 	return result
 }
 
+// GetLinesAtLeast returns a copy of the current log lines with severity
+// greater than or equal to minLevel.
+func (l *Logger) GetLinesAtLeast(minLevel LogLevel) []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	result := make([]string, 0, len(l.lines))
+	for i, part := range l.parts {
+		if part.Level >= minLevel {
+			result = append(result, l.lines[i])
+		}
+	}
+	return result
+}
+
 // Clear removes all stored log lines.
 func (l *Logger) Clear() {
 	l.mu.Lock()
