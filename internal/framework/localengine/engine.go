@@ -5,6 +5,7 @@ package localengine
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -45,7 +46,7 @@ func LoadFromFS(fsys fs.FileSystem, dir string) error {
 		if !strings.HasSuffix(f.Name(), ".yaml") {
 			continue
 		}
-		data, err := fsys.ReadFile(filepath.Join(dir, f.Name()))
+		data, err := fsys.ReadFile(path.Join(dir, f.Name()))
 		if err != nil {
 			return logTerminal.Errorf("read locale %s: %w", f.Name(), err)
 		}

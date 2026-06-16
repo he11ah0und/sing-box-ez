@@ -1,8 +1,10 @@
 package localengine
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"sing-box-ez/internal/framework/fs"
@@ -23,6 +25,41 @@ func newTestFS(t *testing.T, files map[string]string) fs.FileSystem {
 		}
 	}
 	return fs.NewOSFileSystem(dir)
+}
+
+// slashSensitiveFS fails any ReadFile call that uses a backslash separator.
+// This reproduces the Windows/embed.FS behaviour on any OS.
+type slashSensitiveFS struct {
+	fs.FileSystem
+	t *testing.T
+}
+
+func (s *slashSensitiveFS) ReadFile(name string) ([]byte, error) {
+	if strings.Contains(name, "\\") {
+		return nil, fmt.Errorf("backslash path %q not allowed", name)
+	}
+	return s.FileSystem.ReadFile(name)
+}
+
+func TestLoadFromFSUsesForwardSlashes(t *testing.T) {
+	dir := t.TempDir()
+	localesDir := filepath.Join(dir, "locales")
+	if err := os.MkdirAll(localesDir, 0750); err != nil {
+		t.Fatalf("mkdir locales: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(localesDir, "en.yaml"), []byte("key: value\n"), 0644); err != nil {
+		t.Fatalf("write en.yaml: %v", err)
+	}
+
+	resetBundles()
+	wrapped := &slashSensitiveFS{FileSystem: fs.NewOSFileSystem(dir), t: t}
+	if err := LoadFromFS(wrapped, "locales"); err != nil {
+		t.Fatalf("load locales: %v", err)
+	}
+
+	if got := T("key"); got != "value" {
+		t.Errorf("expected 'value', got %q", got)
+	}
 }
 
 func TestSetLanguage(t *testing.T) {

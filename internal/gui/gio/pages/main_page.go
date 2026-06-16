@@ -66,7 +66,7 @@ func (p *MainPage) handleInteractions(gtx layout.Context) {
 		p.openConfigPicker()
 	}
 	if p.mainBtn.Clicked(gtx) {
-		if p.ctrl.IsRunning() {
+		if p.ctrl.Controller.IsRunning() {
 			go p.onStop()
 		} else {
 			go p.onStart()
@@ -78,14 +78,14 @@ func (p *MainPage) handleInteractions(gtx layout.Context) {
 }
 
 func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
-	running := p.ctrl.IsRunning()
+	running := p.ctrl.Controller.IsRunning()
 	mainLabel := localengine.T("main", "btn", "start")
 	if running {
 		mainLabel = localengine.T("main", "btn", "stop")
 	}
 
 	configText := localengine.T("main", "active", "none")
-	if active := p.ctrl.Config().GetActiveConfig(); active != nil {
+	if active := p.ctrl.Controller.Config().GetActiveConfig(); active != nil {
 		configText = localengine.T("main", "active", "prefix") + active.Name
 	}
 
@@ -120,7 +120,7 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *MainPage) openConfigPicker() {
-	configs := p.ctrl.Config().GetConfigs()
+	configs := p.ctrl.Controller.Config().GetConfigs()
 	btns := make([]widget.Clickable, len(configs))
 
 	p.dialog.ShowCustom(localengine.T("main", "active", "prefix"), func(gtx layout.Context) layout.Dimensions {
@@ -128,7 +128,7 @@ func (p *MainPage) openConfigPicker() {
 			if btns[i].Clicked(gtx) {
 				p.dialog.HideCustom()
 				go func(name string) {
-					_ = p.ctrl.ActivateConfig(name)
+					_ = p.ctrl.Controller.ActivateConfig(name)
 				}(configs[i].Name)
 			}
 		}
@@ -137,7 +137,7 @@ func (p *MainPage) openConfigPicker() {
 		for i, cfg := range configs {
 			idx := i
 			label := cfg.Name
-			active := p.ctrl.Config().GetActiveConfig()
+			active := p.ctrl.Controller.Config().GetActiveConfig()
 			if active != nil && cfg.Name == active.Name {
 				label = "> " + cfg.Name
 			}
@@ -220,12 +220,12 @@ func (p *MainPage) onStart() {
 	p.processing = true
 	go func() {
 		defer func() { p.processing = false }()
-		if _, err := p.ctrl.PrepareConfig(); err != nil {
-			p.ctrl.Core.Terminal().Infof("%s", err.Error())
+		if _, err := p.ctrl.Controller.PrepareConfig(); err != nil {
+			p.ctrl.Controller.Terminal().Infof("%s", err.Error())
 			return
 		}
-		if err := p.ctrl.Start(); err != nil {
-			p.ctrl.Core.Terminal().Infof("Failed to start: %v", err)
+		if err := p.ctrl.Controller.Start(); err != nil {
+			p.ctrl.Controller.Terminal().Infof("Failed to start: %v", err)
 			return
 		}
 	}()
@@ -235,8 +235,8 @@ func (p *MainPage) onStop() {
 	p.processing = true
 	go func() {
 		defer func() { p.processing = false }()
-		if err := p.ctrl.Stop(); err != nil {
-			p.ctrl.Core.Terminal().Infof("Failed to stop: %v", err)
+		if err := p.ctrl.Controller.Stop(); err != nil {
+			p.ctrl.Controller.Terminal().Infof("Failed to stop: %v", err)
 			return
 		}
 	}()
@@ -246,8 +246,8 @@ func (p *MainPage) onRestart() {
 	p.processing = true
 	go func() {
 		defer func() { p.processing = false }()
-		if err := p.ctrl.Restart(); err != nil {
-			p.ctrl.Core.Terminal().Infof("Failed to restart: %v", err)
+		if err := p.ctrl.Controller.Restart(); err != nil {
+			p.ctrl.Controller.Terminal().Infof("Failed to restart: %v", err)
 			return
 		}
 	}()

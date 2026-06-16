@@ -50,7 +50,7 @@ func NewConfigsPage(th *material.Theme, ctrl *core.InteractiveController, dialog
 }
 
 func (p *ConfigsPage) refreshConfigs() {
-	p.configs = p.ctrl.Config().GetConfigs()
+	p.configs = p.ctrl.Controller.Config().GetConfigs()
 }
 
 // Tag returns the page tag.
@@ -116,8 +116,8 @@ func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigRecord) layout.Dimensions {
-	isCached := p.ctrl.HasCachedConfig(rec.Name)
-	isActive := rec.Name == p.ctrl.Config().GetActiveName()
+	isCached := p.ctrl.Controller.HasCachedConfig(rec.Name)
+	isActive := rec.Name == p.ctrl.Controller.Config().GetActiveName()
 	click := p.cardClicks[rec.Name]
 
 	var bg color.NRGBA
@@ -198,17 +198,17 @@ func (p *ConfigsPage) openAddDialog() {
 	nameEd.SingleLine = true
 	urlEd.SingleLine = true
 	periodEd.SingleLine = true
-	periodEd.SetText(fmt.Sprintf("%d", p.ctrl.Config().UpdateIntervalHours))
+	periodEd.SetText(fmt.Sprintf("%d", p.ctrl.Controller.Config().UpdateIntervalHours))
 
 	var saveBtn widget.Clickable
 
 	p.dialog.ShowCustom(localengine.T("configs", "dialog", "title"), func(gtx layout.Context) layout.Dimensions {
 		if saveBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
-			hours := p.ctrl.Config().UpdateIntervalHours
+			hours := p.ctrl.Controller.Config().UpdateIntervalHours
 			fmt.Sscanf(periodEd.Text(), "%d", &hours)
 			if hours <= 0 {
-				hours = p.ctrl.Config().UpdateIntervalHours
+				hours = p.ctrl.Controller.Config().UpdateIntervalHours
 			}
 			rec := config.ConfigRecord{
 				Name:                nameEd.Text(),
@@ -217,7 +217,7 @@ func (p *ConfigsPage) openAddDialog() {
 				Parent:              "user",
 			}
 			go func() {
-				if err := p.ctrl.AddConfig(rec); err == nil {
+				if err := p.ctrl.Controller.AddConfig(rec); err == nil {
 					p.refreshConfigs()
 				}
 			}()
@@ -268,7 +268,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 			hours := old.UpdateIntervalHours
 			fmt.Sscanf(periodEd.Text(), "%d", &hours)
 			if hours <= 0 {
-				hours = p.ctrl.Config().UpdateIntervalHours
+				hours = p.ctrl.Controller.Config().UpdateIntervalHours
 			}
 			rec := config.ConfigRecord{
 				Name:                nameEd.Text(),
@@ -278,7 +278,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 				LastUpdate:          old.LastUpdate,
 			}
 			go func() {
-				if err := p.ctrl.EditConfig(old.Name, rec); err == nil {
+				if err := p.ctrl.Controller.EditConfig(old.Name, rec); err == nil {
 					p.refreshConfigs()
 				}
 			}()
@@ -291,7 +291,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 			p.dialog.HideCustom()
 			go func() {
 				p.dialog.ShowLoading(localengine.T("progress", "updating_configs"))
-				_ = p.ctrl.UpdateConfigNow(old.Name, urlEd.Text())
+				_ = p.ctrl.Controller.UpdateConfigNow(old.Name, urlEd.Text())
 				p.dialog.HideLoading()
 				p.refreshConfigs()
 			}()
@@ -340,7 +340,7 @@ func (p *ConfigsPage) onDelete(name string) {
 		if confirmBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			go func() {
-				_ = p.ctrl.DeleteConfig(name)
+				_ = p.ctrl.Controller.DeleteConfig(name)
 				p.refreshConfigs()
 			}()
 		}
@@ -372,7 +372,7 @@ func (p *ConfigsPage) onDelete(name string) {
 
 func (p *ConfigsPage) onUpdateAll() {
 	p.dialog.ShowLoading(localengine.T("progress", "updating_configs"))
-	_, _, err := p.ctrl.UpdateAllConfigs(nil)
+	_, _, err := p.ctrl.Controller.UpdateAllConfigs(nil)
 	p.dialog.HideLoading()
 	if err == nil {
 		p.refreshConfigs()

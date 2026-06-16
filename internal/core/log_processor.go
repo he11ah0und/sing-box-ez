@@ -21,6 +21,7 @@ type CoreLogProcessor struct {
 	startMu  sync.Mutex
 	ticker   *time.Ticker
 	stopCh   chan struct{}
+	wg       sync.WaitGroup
 
 	lastAutoRestart time.Time
 	autoRestartMu   sync.Mutex
@@ -48,11 +49,13 @@ func (p *CoreLogProcessor) Start() {
 		return
 	}
 	p.started = true
+	p.stopCh = make(chan struct{})
 	p.ticker = time.NewTicker(100 * time.Millisecond)
+	p.wg.Add(1)
 	go p.readLoop()
 }
 
-// Stop signals the reader to finish and closes the underlying writer.
+// Stop signals the reader to finish, drains pending log lines and closes the underlying writer.
 func (p *CoreLogProcessor) Stop() {
 	p.startMu.Lock()
 	started := p.started
@@ -63,6 +66,7 @@ func (p *CoreLogProcessor) Stop() {
 		return
 	}
 	close(p.stopCh)
+	p.wg.Wait()
 	if p.ticker != nil {
 		p.ticker.Stop()
 	}
@@ -72,8 +76,11 @@ func (p *CoreLogProcessor) Stop() {
 }
 
 func (p *CoreLogProcessor) readLoop() {
+	defer p.wg.Done()
+
 	batch := make([]string, 0, 128)
 	defer p.ticker.Stop()
+
 	for {
 		select {
 		case line, ok := <-p.writer.Chan():
@@ -84,16 +91,37 @@ func (p *CoreLogProcessor) readLoop() {
 				return
 			}
 			batch = append(batch, line)
+
 		case <-p.ticker.C:
 			if len(batch) > 0 {
 				p.processCoreLogs(batch)
 				batch = batch[:0]
 			}
+
 		case <-p.stopCh:
 			if len(batch) > 0 {
 				p.processCoreLogs(batch)
+				batch = batch[:0]
 			}
-			return
+			// Drain any lines already buffered in the writer channel without blocking.
+			for {
+				select {
+				case line, ok := <-p.writer.Chan():
+					if !ok {
+						return
+					}
+					batch = append(batch, line)
+					if len(batch) >= cap(batch) {
+						p.processCoreLogs(batch)
+						batch = batch[:0]
+					}
+				default:
+					if len(batch) > 0 {
+						p.processCoreLogs(batch)
+					}
+					return
+				}
+			}
 		}
 	}
 }
@@ -106,7 +134,7 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 	}
 
 	for _, msg := range lines {
-		msg = strings.TrimRight(msg, "\n")
+		msg = strings.TrimSpace(msg)
 		if msg == "" {
 			continue
 		}
@@ -138,8 +166,5 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 func isCoreFatalError(line string) bool {
 	lower := strings.ToLower(line)
 	return strings.Contains(lower, "fatal[") ||
-		strings.Contains(lower, "panic:") ||
-		strings.Contains(lower, "fetch rule-set") ||
-		strings.Contains(lower, "initial rule-set:") ||
-		strings.Contains(lower, "save rule-set")
+		strings.Contains(lower, "panic:")
 }

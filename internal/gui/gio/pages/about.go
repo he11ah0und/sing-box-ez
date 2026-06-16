@@ -73,12 +73,12 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 			urlStr = "https://github.com/he11ah0und/sing-box-ez/releases/latest"
 		}
 		if err := openurl.OpenURL(urlStr); err != nil {
-			p.ctrl.App.Terminal().Infof("Failed to open release notes: %v", err)
+			p.ctrl.Controller.Terminal().Infof("Failed to open release notes: %v", err)
 		}
 	}
 	if p.openDataBtn.Clicked(gtx) {
-		if err := p.ctrl.OpenDataDir(); err != nil {
-			p.ctrl.App.Terminal().Infof("Failed to open data folder: %v", err)
+		if err := p.ctrl.Controller.OpenDataDir(); err != nil {
+			p.ctrl.Controller.Terminal().Infof("Failed to open data folder: %v", err)
 		}
 	}
 	if p.checkUpdatesBtn.Clicked(gtx) {
@@ -89,7 +89,7 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	}
 	if p.openRepoBtn.Clicked(gtx) {
 		if err := openurl.OpenURL("https://github.com/he11ah0und/sing-box-ez"); err != nil {
-			p.ctrl.App.Terminal().Infof("Failed to open repo: %v", err)
+			p.ctrl.Controller.Terminal().Infof("Failed to open repo: %v", err)
 		}
 	}
 }
@@ -187,10 +187,10 @@ func (p *AboutPage) fetchReleaseNotes() {
 	if err != nil {
 		if release.Version == "" {
 			p.dialog.Show(localengine.T("about", "release_notes", "title"), localengine.T("about", "release_notes", "not_found"))
-			p.ctrl.Updater.Terminal().Infof("Release notes not found")
+			p.logUpdater("Release notes not found")
 			return
 		}
-		p.ctrl.Updater.Terminal().Infof("Failed to fetch release notes: %v", err)
+		p.logUpdater("Failed to fetch release notes: %v", err)
 		p.dialog.Show(localengine.T("about", "release_notes", "title"), "Failed to fetch release notes")
 		return
 	}
@@ -199,7 +199,19 @@ func (p *AboutPage) fetchReleaseNotes() {
 	body := fmt.Sprintf("# %s: %s\n\nReleased: %s (%s)\n\n%s",
 		release.Version, release.Name, dateStr, ago, release.Body)
 	p.dialog.ShowMarkdown(localengine.T("about", "release_notes", "title")+": "+release.Version, body)
-	p.ctrl.Updater.Terminal().Infof("Release notes fetched: %s", release.Version)
+	p.logUpdater("Release notes fetched: %s", release.Version)
+}
+
+func (p *AboutPage) logUpdater(format string, args ...interface{}) {
+	msg := format
+	if len(args) > 0 {
+		msg = fmt.Sprintf(format, args...)
+	}
+	if u := p.ctrl.SelfUpdater(); u != nil {
+		u.Log.Infof(msg)
+	} else {
+		p.ctrl.Controller.Terminal().Infof(msg)
+	}
 }
 
 func (p *AboutPage) checkUpdates() {
@@ -238,7 +250,7 @@ func (p *AboutPage) openBranchPicker() {
 	branches, err := p.ctrl.GetBranches()
 	if err != nil {
 		p.dialog.HideLoading()
-		p.ctrl.Updater.Terminal().Infof("Failed to load branches: %v", err)
+		p.logUpdater("Failed to load branches: %v", err)
 		p.dialog.Show(localengine.T("about", "btn", "switch_branch"), "Failed to load branches: "+err.Error())
 		return
 	}
@@ -279,5 +291,5 @@ func (p *AboutPage) openBranchPicker() {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 	})
 
-	p.ctrl.Updater.Terminal().Infof("Loaded %d branches", len(branches))
+	p.logUpdater("Loaded %d branches", len(branches))
 }

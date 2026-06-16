@@ -11,8 +11,6 @@ import (
 
 	"sing-box-ez/internal/cli"
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/framework"
 )
 
 // parseDataDir extracts --data-dir from args and returns the directory + remaining args.
@@ -51,7 +49,7 @@ func defaultDataDir() string {
 	}
 }
 
-func Run(args []string, runGUI func(*config.AppConfig, *framework.App) bool) {
+func Run(args []string, runGUI func(*App) bool) {
 	dataDir, remaining := parseDataDir(args)
 	if dataDir == "" {
 		dataDir = defaultDataDir()
@@ -60,8 +58,6 @@ func Run(args []string, runGUI func(*config.AppConfig, *framework.App) bool) {
 	_ = os.MkdirAll(filepath.Join(dataDir, "configs"), 0750)
 	_ = os.MkdirAll(filepath.Join(dataDir, "plugins"), 0750)
 	_ = os.MkdirAll(filepath.Join(dataDir, "docs"), 0750)
-
-	core.BaseDir = dataDir
 
 	cfg, err := config.Load(dataDir)
 	if err != nil {
@@ -77,7 +73,7 @@ func Run(args []string, runGUI func(*config.AppConfig, *framework.App) bool) {
 		return
 	}
 
-	if !runGUI(cfg, app.App) {
+	if !runGUI(app) {
 		// GUI could not start (no display, no wayland, etc).
 		// Exit gracefully so make/run does not show a scary error.
 		os.Exit(0)

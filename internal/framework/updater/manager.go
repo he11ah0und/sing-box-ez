@@ -11,6 +11,7 @@ import (
 // Manager orchestrates update discovery and installation using configurable
 // source and apply backends.
 type Manager struct {
+	Name string
 	Source Source
 	Apply  Apply
 	Log    *logger.LogTerminal
@@ -21,8 +22,8 @@ type Manager struct {
 
 // NewManager creates a new Manager with a scoped logger allocated from the
 // given parent terminal.
-func NewManager(parent *logger.LogTerminal, id string) *Manager {
-	return &Manager{Log: parent.Allocate(id)}
+func NewManager(parent *logger.LogTerminal, name string) *Manager {
+	return &Manager{Name: name, Log: parent.Allocate(name)}
 }
 
 // Check returns update information for the given channel.
