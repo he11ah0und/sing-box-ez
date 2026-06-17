@@ -163,6 +163,60 @@ func TestCommitsMatch(t *testing.T) {
 	}
 }
 
+func TestGitHubBackendToReleaseVersionFallback(t *testing.T) {
+	b := &GitHubBackend{}
+
+	tests := []struct {
+		name    string
+		raw     ghRelease
+		wantVer string
+		wantName string
+	}{
+		{
+			name:     "tag is real version",
+			raw:      ghRelease{TagName: "v1.2.3", Name: "Release v1.2.3"},
+			wantVer:  "v1.2.3",
+			wantName: "Release v1.2.3",
+		},
+		{
+			name:     "tag is latest falls back to name",
+			raw:      ghRelease{TagName: "latest", Name: "v2.0.0"},
+			wantVer:  "v2.0.0",
+			wantName: "v2.0.0",
+		},
+		{
+			name:     "tag is latest but name empty keeps latest",
+			raw:      ghRelease{TagName: "latest", Name: ""},
+			wantVer:  "latest",
+			wantName: "",
+		},
+		{
+			name:     "tag is latest name trimmed",
+			raw:      ghRelease{TagName: "latest", Name: "  v3.0.0  "},
+			wantVer:  "v3.0.0",
+			wantName: "  v3.0.0  ",
+		},
+		{
+			name:     "tag is latest extracts hash from parentheses",
+			raw:      ghRelease{TagName: "latest", Name: "Latest Build (1a4a0b4)"},
+			wantVer:  "1a4a0b4",
+			wantName: "Latest Build (1a4a0b4)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := b.toRelease(tt.raw)
+			if got.Version != tt.wantVer {
+				t.Errorf("Version = %q, want %q", got.Version, tt.wantVer)
+			}
+			if got.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", got.Name, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestCurrentAssetTags(t *testing.T) {
 	tests := []struct {
 		name          string
