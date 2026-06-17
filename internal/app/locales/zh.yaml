@@ -292,5 +292,10 @@ duration:
   unit_years: '%d 年'
   in: '%s后'
   ago: '%s前'
+tray:
+  menu:
+    show: 显示
+    minimize: 最小化
+    quit: 退出
 locale:
   name: 中文

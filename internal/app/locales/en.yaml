@@ -274,5 +274,10 @@ duration:
   unit_years: '%d years'
   in: in %s
   ago: '%s ago'
+tray:
+  menu:
+    show: Show
+    minimize: Minimize
+    quit: Quit
 locale:
   name: English

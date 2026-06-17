@@ -137,14 +137,14 @@ func (t *Tray) buildMenu() *systray.Menu {
 	}
 
 	menu := systray.NewMenu()
-	menu.Add("Show", t.show).
-		Add("Minimize", t.minimize).
+	menu.Add(localengine.T("tray", "menu", "show"), t.show).
+		Add(localengine.T("tray", "menu", "minimize"), t.minimize).
 		AddSeparator()
 	if t.isRunning != nil {
 		menu.Add(startStopLabel, startStopAction)
 		menu.AddSeparator()
 	}
-	menu.Add("Quit", t.quit)
+	menu.Add(localengine.T("tray", "menu", "quit"), t.quit)
 	return menu
 }
 
