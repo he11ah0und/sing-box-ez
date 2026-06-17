@@ -67,11 +67,11 @@ jobs:
           if [ "${{ github.ref_name }}" = "main" ]; then
             cat << 'EOF' > matrix.json
           [
-            {"name":"linux-gui-wayland","os":"linux","arch":"amd64","gui":1,"backend":"wayland","compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-wayland"},
-            {"name":"linux-gui-x11","os":"linux","arch":"amd64","gui":1,"backend":"x11","compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-x11"},
+            {"name":"linux-gui-wayland","os":"linux","arch":"amd64","gui":1,"backend":"wayland","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-wayland"},
+            {"name":"linux-gui-x11","os":"linux","arch":"amd64","gui":1,"backend":"x11","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-x11"},
             {"name":"linux-cli-gcc","os":"linux","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-cli"},
             {"name":"linux-cli-musl","os":"linux","arch":"amd64","gui":0,"compiler":"musl","artifact":"build/sing-box-ez-amd64-linux-musl-cli"},
-            {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
+            {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
             {"name":"windows-cli","os":"windows","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-cli.exe"}
           ]
           EOF
@@ -129,9 +129,6 @@ jobs:
           if [ "${{ matrix.compiler }}" = "musl" ]; then
             echo "CC=musl-gcc" >> "$GITHUB_ENV"
             sudo ln -sf $(which ccache) /usr/lib/ccache/musl-gcc 2>/dev/null || true
-          elif [ "${{ matrix.os }}" = "windows" ]; then
-            echo "CC=x86_64-w64-mingw32-gcc" >> "$GITHUB_ENV"
-            sudo ln -sf $(which ccache) /usr/lib/ccache/x86_64-w64-mingw32-gcc 2>/dev/null || true
           else
             echo "CC=gcc" >> "$GITHUB_ENV"
           fi
@@ -144,8 +141,7 @@ jobs:
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
             PLUGINS=0 \
-            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" ) \
-            $( [ -n "${{ matrix.engine }}" ] && echo "ENGINE=${{ matrix.engine }}" )
+            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Build ${{ matrix.name }}
         run: |
@@ -155,8 +151,7 @@ jobs:
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
             PLUGINS=0 \
-            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" ) \
-            $( [ -n "${{ matrix.engine }}" ] && echo "ENGINE=${{ matrix.engine }}" )
+            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Write status
         if: always()
