@@ -26,6 +26,7 @@ core:
     checking: 'Checking version...'
     downloading: 'Downloading...'
     available: 'Download %s'
+    current_version: 'Current version: '
   btn:
     download: Download latest sing-box core
     restart_admin: Restart as administrator
@@ -137,17 +138,20 @@ about:
     switch_branch: Switch branch
   branch:
     label: 'Branch: '
+    load_error: 'Failed to load branches: '
   dev_build:
     label: Development build — release notes unavailable
   update:
     checking: 'Checking update'
     updating: 'Updating...'
     available: 'Update to %s'
+    current_version: 'Current version: '
     dev_build: 'Dev build: current %s, remote %s'
     dev_build_confirm_title: 'Dev build update'
     dev_build_confirm_body: 'You are on a dev build (%s) newer than the latest release (%s). Updating will downgrade. Continue?'
   release_notes:
     title: Release notes
+    error: 'Failed to fetch release notes'
     not_found: 'Current build does not match any official release.
 
 

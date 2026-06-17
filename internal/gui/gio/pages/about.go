@@ -110,7 +110,7 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog w
 	p.selfUpdate.SetUpdatingLabel(localengine.T("about", "update", "updating"))
 	p.selfUpdate.SetUpToDateLabel("")
 	p.selfUpdate.SetCurrentVersionFormatter(func(current string) string {
-		return "Current version: " + current
+		return localengine.T("about", "update", "current_version") + current
 	})
 	p.selfUpdate.SetAvailableFormatter(func(latest string) string {
 		return fmt.Sprintf(localengine.T("about", "update", "available"), latest)
@@ -268,7 +268,7 @@ func (p *AboutPage) fetchReleaseNotes() {
 			return
 		}
 		p.logUpdater("Failed to fetch release notes: %v", err)
-		p.dialog.Show(localengine.T("about", "release_notes", "title"), "Failed to fetch release notes")
+		p.dialog.Show(localengine.T("about", "release_notes", "title"), localengine.T("about", "release_notes", "error"))
 		return
 	}
 	dateStr := release.PublishedAt.Local().Format("2006-01-02 15:04:05")
@@ -298,7 +298,7 @@ func (p *AboutPage) openBranchPicker() {
 	if err != nil {
 		p.dialog.HideLoading()
 		p.logUpdater("Failed to load branches: %v", err)
-		p.dialog.Show(localengine.T("about", "btn", "switch_branch"), "Failed to load branches: "+err.Error())
+		p.dialog.Show(localengine.T("about", "btn", "switch_branch"), localengine.T("about", "branch", "load_error")+err.Error())
 		return
 	}
 
