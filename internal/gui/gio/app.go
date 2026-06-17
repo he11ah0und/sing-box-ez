@@ -83,6 +83,11 @@ func New(app *app.App) *GUI {
 
 	// Initialize interactive controller wrapping the shared core controller.
 	g.ctrl = core.NewInteractiveController(app.Controller)
+	g.ctrl.OnStatusChange = func(running bool) {
+		if g.tray != nil {
+			g.tray.Refresh()
+		}
+	}
 
 	dialog := NewDialog()
 	g.dialog = dialog
@@ -144,11 +149,15 @@ func (g *GUI) Run() {
 				g.log.Debugf("tray: quit requested")
 				w.Perform(system.ActionClose)
 			},
+			func() bool { return g.ctrl.Controller.IsRunning() },
+			func() { go g.ctrl.StartService() },
+			func() { go g.ctrl.StopService() },
 		)
 		if err := g.tray.Start(); err != nil {
 			g.log.Warnf("failed to start tray: %v", err)
 		} else {
 			g.log.Infof("tray started")
+			g.tray.Refresh()
 		}
 
 		var ops op.Ops

@@ -94,6 +94,29 @@ func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 	return updater.GetChannels()
 }
 
+// StartService prepares the active config and starts the core. It mirrors the
+// main page start button action so other UI surfaces (e.g. tray) can reuse it.
+func (ic *InteractiveController) StartService() error {
+	if _, err := ic.Controller.PrepareConfig(); err != nil {
+		ic.Controller.Terminal().Infof("%s", err.Error())
+		return err
+	}
+	if err := ic.Controller.Start(); err != nil {
+		ic.Controller.Terminal().Infof("Failed to start: %v", err)
+		return err
+	}
+	return nil
+}
+
+// StopService stops the core. It mirrors the main page stop button action.
+func (ic *InteractiveController) StopService() error {
+	if err := ic.Controller.Stop(); err != nil {
+		ic.Controller.Terminal().Infof("Failed to stop: %v", err)
+		return err
+	}
+	return nil
+}
+
 func (ic *InteractiveController) isStopped() bool {
 	ic.stopMu.Lock()
 	defer ic.stopMu.Unlock()
