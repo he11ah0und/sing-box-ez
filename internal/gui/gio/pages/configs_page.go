@@ -64,6 +64,10 @@ func (p *ConfigsPage) Icon() *widget.Icon { return icons.ActionList }
 // NoInset tells the shell not to wrap this page in padding.
 func (p *ConfigsPage) NoInset() bool { return true }
 
+// NoShellScroll tells the shell not to wrap this page in a scroller because it
+// already scrolls its own config cards list.
+func (p *ConfigsPage) NoShellScroll() bool { return true }
+
 // Layout draws the configs page.
 func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
 	return widgets.SpacedList(gtx, p.Children(gtx)...)

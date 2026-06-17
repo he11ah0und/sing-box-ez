@@ -57,6 +57,9 @@ type Shell struct {
 
 	// Modal dialog (rendered at root level so it covers the whole window).
 	dialog *Dialog
+
+	// Per-page scroll state so scroll position survives page switches.
+	pageLists map[string]*widget.List
 }
 
 // NewShell creates the adaptive shell.
@@ -382,13 +385,51 @@ type noInsetPage interface {
 	NoInset() bool
 }
 
+// noShellScroll is implemented by pages that already manage their own scrolling
+// (e.g. lists with many items). The shell will not wrap them in another scroller.
+type noShellScroll interface {
+	NoShellScroll() bool
+}
+
 // renderPage renders a single page, adding standard vertical spacing when the
-// page implements SpacedPage.
+// page implements SpacedPage. All pages are wrapped in a scrollable list unless
+// they opt out via NoShellScroll because they already scroll their own content.
 func (s *Shell) renderPage(gtx layout.Context, p pages.Page) layout.Dimensions {
-	if sp, ok := p.(pages.SpacedPage); ok {
-		return widgets.SpacedList(gtx, sp.Children(gtx)...)
+	if nss, ok := p.(noShellScroll); ok && nss.NoShellScroll() {
+		if sp, ok := p.(pages.SpacedPage); ok {
+			return widgets.SpacedList(gtx, sp.Children(gtx)...)
+		}
+		return p.Layout(gtx)
 	}
-	return p.Layout(gtx)
+	return s.layoutPageScroll(gtx, p.Tag(), func(gtx layout.Context) layout.Dimensions {
+		if sp, ok := p.(pages.SpacedPage); ok {
+			return widgets.SpacedList(gtx, sp.Children(gtx)...)
+		}
+		return p.Layout(gtx)
+	})
+}
+
+// layoutPageScroll lays out page content inside a vertical scrollable list.
+// The scrollbar thumb is hidden until the user hovers/drags it so it does not
+// permanently cover page content.
+func (s *Shell) layoutPageScroll(gtx layout.Context, tag string, content layout.Widget) layout.Dimensions {
+	if s.pageLists == nil {
+		s.pageLists = make(map[string]*widget.List)
+	}
+	list, ok := s.pageLists[tag]
+	if !ok {
+		list = &widget.List{List: layout.List{Axis: layout.Vertical}}
+		s.pageLists[tag] = list
+	}
+	style := material.List(s.th, list)
+	style.AnchorStrategy = material.Overlay
+	style.Indicator.Color = color.NRGBA{}
+	hoverColor := s.th.Palette.Fg
+	hoverColor.A = 180
+	style.Indicator.HoverColor = hoverColor
+	return style.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+		return content(gtx)
+	})
 }
 
 // layoutContent renders the current page with a background color.
