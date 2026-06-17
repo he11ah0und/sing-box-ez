@@ -17,6 +17,7 @@ import (
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/gui/gio/widgets"
 )
 
 // MainPage renders the main control screen with start/stop/restart.
@@ -33,11 +34,11 @@ type MainPage struct {
 	spinTime   time.Time
 
 	// Dialog provider is supplied by the shell.
-	dialog DialogProvider
+	dialog widgets.DialogProvider
 }
 
 // NewMainPage creates a new main page.
-func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog DialogProvider) *MainPage {
+func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog widgets.DialogProvider) *MainPage {
 	return &MainPage{
 		th:     th,
 		ctrl:   ctrl,
@@ -141,12 +142,10 @@ func (p *MainPage) openConfigPicker() {
 				label = "> " + cfg.Name
 			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &btns[idx], label).Layout(gtx)
-				})
+				return material.Button(p.th, &btns[idx], label).Layout(gtx)
 			}))
 		}
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		return widgets.DialogSpacedList(gtx, children...)
 	})
 }
 

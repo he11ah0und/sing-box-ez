@@ -22,6 +22,7 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/gui/gio/widgets"
 )
 
 // LogPage renders the log viewer.
@@ -58,6 +59,11 @@ func (p *LogPage) NoInset() bool { return true }
 
 // Layout draws the log page.
 func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
+	return widgets.SpacedList(gtx, p.Children(gtx)...)
+}
+
+// Children returns the page widgets; the shell adds standard vertical spacing.
+func (p *LogPage) Children(gtx layout.Context) []layout.FlexChild {
 	// Schedule periodic refresh to poll for new log lines.
 	gtx.Execute(op.InvalidateCmd{At: gtx.Now.Add(100 * time.Millisecond)})
 
@@ -80,7 +86,7 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 		p.lines = lines
 	}
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8), Left: unit.Dp(8), Right: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
@@ -96,9 +102,6 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 				)
 			})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(8))}}
-		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			listStyle := material.List(p.th, &p.list)
 			listStyle.AnchorStrategy = material.Overlay
@@ -106,7 +109,7 @@ func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 				return p.logLine(gtx, p.lines[index])
 			})
 		}),
-	)
+	}
 }
 
 func (p *LogPage) logLine(gtx layout.Context, line string) layout.Dimensions {

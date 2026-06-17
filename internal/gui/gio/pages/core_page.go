@@ -15,13 +15,14 @@ import (
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/gui/gio/widgets"
 )
 
 // CorePage renders the core management screen.
 type CorePage struct {
 	th     *material.Theme
 	ctrl   *core.InteractiveController
-	dialog DialogProvider
+	dialog widgets.DialogProvider
 
 	versionText string
 	latestText  string
@@ -43,7 +44,7 @@ type CorePage struct {
 }
 
 // NewCorePage creates a new core page.
-func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog DialogProvider) *CorePage {
+func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog widgets.DialogProvider) *CorePage {
 	p := &CorePage{
 		th:     th,
 		ctrl:   ctrl,
@@ -83,6 +84,11 @@ func (p *CorePage) Icon() *widget.Icon { return icons.AVPlayArrow }
 
 // Layout draws the core page.
 func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
+	return widgets.SpacedList(gtx, p.Children(gtx)...)
+}
+
+// Children returns the page widgets; the shell adds standard vertical spacing.
+func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 	if p.downloadBtn.Clicked(gtx) {
 		go p.onDownloadCore()
 	}
@@ -107,24 +113,18 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 		_ = p.ctrl.Controller.Config().Save()
 	}
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, localengine.T("tab", "core")).Layout(gtx)
-			})
+			return material.H6(p.th, localengine.T("tab", "core")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Body2(p.th, p.versionText).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.downloadBtn, localengine.T("core", "btn", "download")).Layout(gtx)
-			})
+			return material.Button(p.th, &p.downloadBtn, localengine.T("core", "btn", "download")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.checkBtn, localengine.T("core", "btn", "check")).Layout(gtx)
-			})
+			return material.Button(p.th, &p.checkBtn, localengine.T("core", "btn", "check")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)
@@ -136,25 +136,21 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 			return p.separator(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, localengine.T("core", "privileges", "title")).Layout(gtx)
-			})
+			return material.H6(p.th, localengine.T("core", "privileges", "title")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutPrivileges(gtx)
 		}),
-	)
+	}
 }
 
 func (p *CorePage) separator(gtx layout.Context) layout.Dimensions {
-	return layout.Inset{Top: unit.Dp(16), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		h := gtx.Dp(unit.Dp(1))
-		bounds := image.Rect(0, 0, gtx.Constraints.Max.X, h)
-		defer clip.Rect(bounds).Push(gtx.Ops).Pop()
-		paint.ColorOp{Color: color.NRGBA{R: 80, G: 80, B: 80, A: 255}}.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-		return layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: h}}
-	})
+	h := gtx.Dp(unit.Dp(1))
+	bounds := image.Rect(0, 0, gtx.Constraints.Max.X, h)
+	defer clip.Rect(bounds).Push(gtx.Ops).Pop()
+	paint.ColorOp{Color: color.NRGBA{R: 80, G: 80, B: 80, A: 255}}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+	return layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: h}}
 }
 
 func (p *CorePage) layoutPrivileges(gtx layout.Context) layout.Dimensions {
@@ -177,12 +173,10 @@ func (p *CorePage) layoutWindowsPrivileges(gtx layout.Context) layout.Dimensions
 	}
 	if p.privilegeState.ShowRestartAdminBtn {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.restartAdminBtn, localengine.T("core", "btn", "restart_admin")).Layout(gtx)
-			})
+			return material.Button(p.th, &p.restartAdminBtn, localengine.T("core", "btn", "restart_admin")).Layout(gtx)
 		}))
 	}
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	return widgets.SpacedList(gtx, children...)
 }
 
 func (p *CorePage) layoutLinuxPrivileges(gtx layout.Context) layout.Dimensions {
@@ -191,11 +185,9 @@ func (p *CorePage) layoutLinuxPrivileges(gtx layout.Context) layout.Dimensions {
 		label = localengine.T("core", "mode", "setcap")
 	}
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+	return widgets.SpacedList(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.privilegePickerBtn, label).Layout(gtx)
-			})
+			return material.Button(p.th, &p.privilegePickerBtn, label).Layout(gtx)
 		}),
 	)
 }
@@ -227,12 +219,10 @@ func (p *CorePage) openPrivilegePicker() {
 				label = "> " + label
 			}
 			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &btns[idx], label).Layout(gtx)
-				})
+				return material.Button(p.th, &btns[idx], label).Layout(gtx)
 			})
 		}
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		return widgets.DialogSpacedList(gtx, children...)
 	})
 }
 
@@ -278,23 +268,21 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 			p.dialog.HideCustom()
 		}
 
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		return widgets.DialogSpacedList(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Body2(p.th, localengine.T("core", "mode", "setcap_prompt")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &applyBtn, localengine.T("core", "btn", "apply")).Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return material.Button(p.th, &cancelBtn, localengine.T("dialog", "btn", "cancel")).Layout(gtx)
-							})
-						}),
-					)
-				})
+				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &applyBtn, localengine.T("core", "btn", "apply")).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.Button(p.th, &cancelBtn, localengine.T("dialog", "btn", "cancel")).Layout(gtx)
+						})
+					}),
+				)
 			}),
 		)
 	})

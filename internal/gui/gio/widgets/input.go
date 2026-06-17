@@ -1,4 +1,4 @@
-package pages
+package widgets
 
 import (
 	"image"
@@ -27,6 +27,9 @@ func LabeledInput(gtx layout.Context, th *material.Theme, label string, ed *widg
 			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(4))}}
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			// Force the input to fill the available width even when the parent
+			// layout does not set a non-zero minimum width (e.g. inside a dialog).
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			macro := op.Record(gtx.Ops)
 			dims := widget.Border{
 				Color:        color.NRGBA{R: 128, G: 128, B: 128, A: 128},

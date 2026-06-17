@@ -20,13 +20,14 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/version"
+	"sing-box-ez/internal/gui/gio/widgets"
 )
 
 // ConfigsPage renders the configs management screen as vertical cards.
 type ConfigsPage struct {
 	th     *material.Theme
 	ctrl   *core.InteractiveController
-	dialog DialogProvider
+	dialog widgets.DialogProvider
 
 	configs    []config.ConfigRecord
 	cardClicks map[string]*widget.Clickable
@@ -38,7 +39,7 @@ type ConfigsPage struct {
 }
 
 // NewConfigsPage creates a new configs page.
-func NewConfigsPage(th *material.Theme, ctrl *core.InteractiveController, dialog DialogProvider) *ConfigsPage {
+func NewConfigsPage(th *material.Theme, ctrl *core.InteractiveController, dialog widgets.DialogProvider) *ConfigsPage {
 	p := &ConfigsPage{
 		th:         th,
 		ctrl:       ctrl,
@@ -65,6 +66,11 @@ func (p *ConfigsPage) NoInset() bool { return true }
 
 // Layout draws the configs page.
 func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
+	return widgets.SpacedList(gtx, p.Children(gtx)...)
+}
+
+// Children returns the page widgets; the shell adds standard vertical spacing.
+func (p *ConfigsPage) Children(gtx layout.Context) []layout.FlexChild {
 	if p.addBtn.Clicked(gtx) {
 		p.openAddDialog()
 	}
@@ -87,7 +93,7 @@ func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart}.Layout(gtx,
@@ -112,7 +118,7 @@ func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
 				return p.layoutConfigCard(gtx, p.configs[index])
 			})
 		}),
-	)
+	}
 }
 
 func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigRecord) layout.Dimensions {
@@ -223,20 +229,18 @@ func (p *ConfigsPage) openAddDialog() {
 			}()
 		}
 
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		return widgets.DialogSpacedList(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), &nameEd, false)
+				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), &nameEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
+				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
+				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
-				})
+				return material.Button(p.th, &saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
 			}),
 		)
 	})
@@ -297,36 +301,34 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 			}()
 		}
 
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		return widgets.DialogSpacedList(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), &nameEd, false)
+				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), &nameEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
+				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
+				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &updateNowBtn, localengine.T("configs", "dialog", "btn", "update_now")).Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &deleteBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)
-						}),
-					)
-				})
+				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &updateNowBtn, localengine.T("configs", "dialog", "btn", "update_now")).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &deleteBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)
+					}),
+				)
 			}),
 		)
 	})
@@ -348,23 +350,21 @@ func (p *ConfigsPage) onDelete(name string) {
 			p.dialog.HideCustom()
 		}
 
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		return widgets.DialogSpacedList(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Body2(p.th, localengine.T("configs", "dialog", "delete_msg")+" \""+name+"\"?").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &confirmBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return material.Button(p.th, &cancelBtn, localengine.T("configs", "dialog", "btn", "cancel")).Layout(gtx)
-							})
-						}),
-					)
-				})
+				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &confirmBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.Button(p.th, &cancelBtn, localengine.T("configs", "dialog", "btn", "cancel")).Layout(gtx)
+						})
+					}),
+				)
 			}),
 		)
 	})
