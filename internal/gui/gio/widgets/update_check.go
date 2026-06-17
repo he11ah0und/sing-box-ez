@@ -165,6 +165,17 @@ func (u *UpdateCheck) SetCheckIcon(icon *widget.Icon) {
 	u.checkIcon = icon
 }
 
+// SetCheckFn replaces the update-check function. Used when the active channel
+// changes while the widget is already created.
+func (u *UpdateCheck) SetCheckFn(fn func(ctx context.Context) (UpdateCheckInfo, error)) {
+	u.checkFn = fn
+}
+
+// RunCheck starts an update check using the current check function.
+func (u *UpdateCheck) RunCheck() {
+	u.runCheck()
+}
+
 // Layout draws the update-check row.
 func (u *UpdateCheck) Layout(gtx layout.Context) layout.Dimensions {
 	mainDisabled := u.checking || u.updating || (u.checked && !u.hasUpdate && !u.isDevBuild) || !u.checked

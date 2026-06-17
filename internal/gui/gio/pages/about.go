@@ -39,6 +39,9 @@ type AboutPage struct {
 	pickerBtns     []widget.Clickable
 	pickerMu       sync.Mutex
 
+	// currentBranch is the channel used by the self-update widget.
+	currentBranch string
+
 	// Dialog provider is supplied by the shell.
 	dialog widgets.DialogProvider
 }
@@ -46,9 +49,10 @@ type AboutPage struct {
 // NewAboutPage creates a new about page.
 func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog widgets.DialogProvider) *AboutPage {
 	p := &AboutPage{
-		th:     th,
-		ctrl:   ctrl,
-		dialog: dialog,
+		th:            th,
+		ctrl:          ctrl,
+		dialog:        dialog,
+		currentBranch: version.Branch,
 	}
 
 	current := version.Branch
@@ -61,7 +65,7 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog w
 		current,
 		localengine.T("dialog", "btn", "update"),
 		func(ctx context.Context) (widgets.UpdateCheckInfo, error) {
-			info, err := ctrl.CheckSelfUpdate()
+			info, err := ctrl.CheckSelfUpdateForBranch(p.currentBranch)
 			if err != nil {
 				return widgets.UpdateCheckInfo{}, err
 			}
@@ -220,6 +224,9 @@ func (p *AboutPage) Children(gtx layout.Context) []layout.FlexChild {
 	}
 	children = append(children,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Body2(p.th, localengine.T("about", "branch", "label")+p.currentBranch).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.selfUpdate.Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -284,21 +291,6 @@ func (p *AboutPage) logUpdater(format string, args ...interface{}) {
 	}
 }
 
-func (p *AboutPage) checkUpdatesForBranch(branch string) {
-	p.dialog.ShowLoading(localengine.T("about", "btn", "check_updates"))
-	info, err := p.ctrl.CheckSelfUpdateForBranch(branch)
-	if err != nil {
-		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Update check failed")
-		return
-	}
-	if info.ReleaseCount == 0 {
-		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Already on latest version on "+branch)
-		return
-	}
-	msg := fmt.Sprintf("Update available on %s: %s → %s (%d releases behind)", branch, info.Current, info.Latest, info.ReleaseCount)
-	p.dialog.Show(localengine.T("about", "btn", "check_updates"), msg)
-}
-
 func (p *AboutPage) openBranchPicker() {
 	p.dialog.ShowLoading(localengine.T("progress", "checking_updates"))
 
@@ -326,7 +318,8 @@ func (p *AboutPage) openBranchPicker() {
 		for i := range branches {
 			if btns[i].Clicked(gtx) {
 				p.dialog.HideCustom()
-				go p.checkUpdatesForBranch(branches[i].Name)
+				p.currentBranch = branches[i].Name
+				go p.selfUpdate.RunCheck()
 			}
 		}
 
@@ -334,7 +327,7 @@ func (p *AboutPage) openBranchPicker() {
 		for i, b := range branches {
 			idx := i
 			label := b.Name
-			if b.Name == version.Branch {
+			if b.Name == p.currentBranch {
 				label = "> " + b.Name
 			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
