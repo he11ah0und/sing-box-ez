@@ -195,19 +195,6 @@ dialog:
     btn_setcap: Apply setcap (recommended)
     btn_run_as_admin: Enable run as admin
     btn_restart_admin: Restart as administrator
-first_run:
-  title: First Run
-  welcome: Welcome
-  description: To get started, download sing-box core and add your first config.
-  core:
-    installed: ✓ sing-box core is already installed.
-    not_installed: sing-box core is not installed.
-    version: 'Version: v%s'
-  btn:
-    download_core: Download sing-box core
-    add_config: Add config
-  config_url: Config URL
-  welcome_title: Welcome to Sing-box EZ!
 progress:
   initializing: Initializing...
   checking_updates: Checking for updates...

@@ -71,7 +71,6 @@ type AppConfig struct {
 	PluginsDeveloper     bool   `json:"plugins_developer"`
 	CoreAutoRestart                 bool      `json:"core_auto_restart"`
 	DesktopNotifications            bool      `json:"desktop_notifications"`
-	FirstRunDone                    bool      `json:"first_run_done"`
 	AutoCheckSelfUpdates            bool      `json:"auto_check_self_updates"`
 	AutoCheckCoreUpdates            bool      `json:"auto_check_core_updates"`
 	StartupUpdateCheckIntervalHours int       `json:"startup_update_check_interval_hours"`
@@ -405,18 +404,6 @@ func (c *AppConfig) GetDesktopNotifications() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.DesktopNotifications
-}
-
-func (c *AppConfig) SetFirstRunDone(v bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.FirstRunDone = v
-}
-
-func (c *AppConfig) GetFirstRunDone() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.FirstRunDone
 }
 
 func (c *AppConfig) SetLanguage(v string) {

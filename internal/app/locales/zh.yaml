@@ -200,19 +200,6 @@ dialog:
     btn_setcap: 应用 setcap（推荐）
     btn_run_as_admin: 启用以管理员身份运行
     btn_restart_admin: 以管理员身份重启
-first_run:
-  title: 首次运行
-  welcome: 欢迎
-  description: 开始使用前，请下载 sing-box 核心并添加您的第一个配置。
-  core:
-    installed: ✓ sing-box 核心已安装。
-    not_installed: sing-box 核心未安装。
-    version: 版本：v%s
-  btn:
-    download_core: 下载 sing-box 核心
-    add_config: 添加配置
-  config_url: 配置 URL
-  welcome_title: 欢迎使用 Sing-box EZ！
 progress:
   initializing: 初始化中...
   checking_updates: 检查更新中...

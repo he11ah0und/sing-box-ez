@@ -200,19 +200,6 @@ dialog:
     btn_setcap: Применить setcap (рекомендуется)
     btn_run_as_admin: Включить запуск от администратора
     btn_restart_admin: Перезапустить от администратора
-first_run:
-  title: Первый запуск
-  welcome: Добро пожаловать
-  description: Чтобы начать, скачайте ядро sing-box и добавьте первый конфиг.
-  core:
-    installed: ✓ Ядро sing-box уже установлено.
-    not_installed: Ядро sing-box не установлено.
-    version: 'Версия: v%s'
-  btn:
-    download_core: Скачать ядро sing-box
-    add_config: Добавить конфиг
-  config_url: URL конфига
-  welcome_title: Добро пожаловать в Sing-box EZ!
 progress:
   initializing: Инициализация...
   checking_updates: Проверка обновлений...

@@ -15,16 +15,14 @@ type InteractiveController struct {
 	Controller *Controller
 
 	// UI callbacks (optional, invoked when state changes)
-	OnStatusChange        func(running bool)
-	OnLog                 func(msg string)
-	OnConfigUpdate        func()
-	OnVersionChange       func(ver string)
-	OnPrivilegeChange     func(active bool)
-	OnLatestVersion       func(ver string)
-	OnNotification        func(title, body string)
-	OnAutoRestart         func()
-	OnFirstRun            func()
-	OnSelfUpdateAvailable func(info *updater.UpdateInfo)
+	OnStatusChange    func(running bool)
+	OnLog             func(msg string)
+	OnConfigUpdate    func()
+	OnVersionChange   func(ver string)
+	OnPrivilegeChange func(active bool)
+	OnLatestVersion   func(ver string)
+	OnNotification    func(title, body string)
+	OnAutoRestart     func()
 
 	stopped bool
 	stopMu  sync.Mutex
@@ -33,12 +31,12 @@ type InteractiveController struct {
 // NewInteractiveController creates an interactive controller wrapping an existing core controller.
 func NewInteractiveController(c *Controller) *InteractiveController {
 	cfg := c.Config()
-	if !cfg.GetFirstRunDone() {
-		lang := localengine.DetectSystemLanguage()
+	if lang := cfg.GetLanguage(); lang == "" {
+		lang = localengine.DetectSystemLanguage()
 		cfg.SetLanguage(lang)
 		_ = cfg.Save()
 		localengine.SetLanguage(lang)
-	} else if lang := cfg.GetLanguage(); lang != "" {
+	} else {
 		localengine.SetLanguage(lang)
 	}
 
@@ -94,15 +92,6 @@ func (ic *InteractiveController) CheckSelfUpdateForBranch(branch string) (*updat
 // GetBranches returns the list of available release channels.
 func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 	return updater.GetChannels()
-}
-
-// RunStartupSequence performs first-run and update checks.
-func (ic *InteractiveController) RunStartupSequence() {
-	if !ic.Controller.Config().GetFirstRunDone() {
-		if ic.OnFirstRun != nil {
-			ic.OnFirstRun()
-		}
-	}
 }
 
 func (ic *InteractiveController) isStopped() bool {
