@@ -65,6 +65,11 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 		return a.Log.Errorf("cannot prepare temp dir for %q: %v", uf.DestPath, err)
 	}
 	tmpPath := filepath.Join(tmpDir, tmpName)
+	if a.BaseDir != "" {
+		// NewArchiveFS opens the path directly with os.Open, so it must be
+		// absolute to be found regardless of the process working directory.
+		tmpPath = filepath.Join(a.BaseDir, tmpPath)
+	}
 
 	f, err := a.FS.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {

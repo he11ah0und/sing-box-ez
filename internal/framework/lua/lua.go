@@ -127,6 +127,10 @@ func (vm *VM) registerFS(ctx InstallContext) error {
 		fsObj.Value = vm.AssetFS
 		assetFSTbl := L.NewTable()
 		L.SetField(assetFSTbl, "_fs", fsObj)
+		L.SetField(assetFSTbl, "list_dir", L.NewFunction(vm.luaAssetListDir))
+		L.SetField(assetFSTbl, "read_file", L.NewFunction(vm.luaAssetReadFile))
+		L.SetField(assetFSTbl, "exists", L.NewFunction(vm.luaAssetExists))
+		L.SetField(assetFSTbl, "stat", L.NewFunction(vm.luaAssetStat))
 		L.SetField(assetTbl, "fs", assetFSTbl)
 	}
 	L.SetGlobal("asset", assetTbl)
@@ -171,6 +175,10 @@ func (vm *VM) parseResult() (*InstallResult, error) {
 		return &InstallResult{}, nil
 	}
 	tbl := result.(*lua.LTable)
+
+	if v := L.GetField(tbl, "error"); v.Type() == lua.LTString {
+		return nil, fmt.Errorf("install script returned error: %s", string(v.(lua.LString)))
+	}
 
 	res := &InstallResult{}
 	if v := L.GetField(tbl, "replace_binary"); v.Type() == lua.LTString {
@@ -403,6 +411,69 @@ func (vm *VM) luaStat(L *lua.LState) int {
 		return 2
 	}
 	info, err := vm.MainFS.Stat(abs)
+	if err != nil {
+		L.Push(lua.LNil)
+		L.Push(lua.LString(err.Error()))
+		return 2
+	}
+	tbl := L.NewTable()
+	L.SetField(tbl, "name", lua.LString(info.Name()))
+	L.SetField(tbl, "size", lua.LNumber(info.Size()))
+	L.SetField(tbl, "mode", lua.LNumber(info.Mode().Perm()))
+	L.SetField(tbl, "is_dir", lua.LBool(info.IsDir()))
+	L.SetField(tbl, "mod_time", lua.LString(info.ModTime().Format(time.RFC3339)))
+	L.Push(tbl)
+	L.Push(lua.LNil)
+	return 2
+}
+
+func (vm *VM) luaAssetListDir(L *lua.LState) int {
+	path := L.CheckString(1)
+	entries, err := vm.AssetFS.ReadDir(path)
+	if err != nil {
+		L.Push(lua.LNil)
+		L.Push(lua.LString(err.Error()))
+		return 2
+	}
+	tbl := L.NewTable()
+	for _, e := range entries {
+		info, _ := e.Info()
+		item := L.NewTable()
+		L.SetField(item, "name", lua.LString(e.Name()))
+		L.SetField(item, "is_dir", lua.LBool(e.IsDir()))
+		if info != nil {
+			L.SetField(item, "size", lua.LNumber(info.Size()))
+			L.SetField(item, "mode", lua.LNumber(info.Mode().Perm()))
+		}
+		L.RawSetInt(tbl, tbl.Len()+1, item)
+	}
+	L.Push(tbl)
+	L.Push(lua.LNil)
+	return 2
+}
+
+func (vm *VM) luaAssetReadFile(L *lua.LState) int {
+	path := L.CheckString(1)
+	data, err := vm.AssetFS.ReadFile(path)
+	if err != nil {
+		L.Push(lua.LNil)
+		L.Push(lua.LString(err.Error()))
+		return 2
+	}
+	L.Push(lua.LString(data))
+	L.Push(lua.LNil)
+	return 2
+}
+
+func (vm *VM) luaAssetExists(L *lua.LState) int {
+	path := L.CheckString(1)
+	L.Push(lua.LBool(vm.AssetFS.Exists(path)))
+	return 1
+}
+
+func (vm *VM) luaAssetStat(L *lua.LState) int {
+	path := L.CheckString(1)
+	info, err := vm.AssetFS.Stat(path)
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))

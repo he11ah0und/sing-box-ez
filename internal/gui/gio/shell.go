@@ -125,11 +125,13 @@ func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 		s.staticAnim.Disappear(gtx.Now)
 	}
 
-	// Handle static nav item selections (desktop only).
+	// Handle programmatic nav destination changes (desktop only).
 	if s.showStaticNav && s.staticNav.NavDestinationChanged() {
-		if tag, ok := s.staticNav.CurrentNavDestination().(string); ok {
+		if tag, ok := s.staticNav.CurrentNavDestination().(string); ok && tag != "" {
 			s.handleNavDestination(tag)
 		}
+		// Consume the change so it doesn't fire again next frame.
+		s.staticNav.UnselectNavDestination()
 	}
 
 	dims := layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
@@ -174,6 +176,18 @@ func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 	s.dialog.Layout(gtx, s.th)
 
 	return dims
+}
+
+// NavigateTo switches the visible page to the one with the given tag.
+// It updates both the primary/secondary page state and the navigation
+// destination so the UI stays in sync.
+func (s *Shell) NavigateTo(tag string) {
+	s.handleNavDestination(tag)
+	if s.staticNav != nil {
+		if cur, ok := s.staticNav.CurrentNavDestination().(string); !ok || cur != tag {
+			s.staticNav.SetNavDestination(tag)
+		}
+	}
 }
 
 // handleNavDestination routes a nav drawer tag to the correct page.
