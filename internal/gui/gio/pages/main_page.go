@@ -242,14 +242,7 @@ func (p *MainPage) onStart() {
 	p.processing = true
 	go func() {
 		defer func() { p.processing = false }()
-		if _, err := p.ctrl.Controller.PrepareConfig(); err != nil {
-			p.ctrl.Controller.Terminal().Infof("%s", err.Error())
-			return
-		}
-		if err := p.ctrl.Controller.Start(); err != nil {
-			p.ctrl.Controller.Terminal().Infof("Failed to start: %v", err)
-			return
-		}
+		_ = p.ctrl.StartService()
 	}()
 }
 
@@ -257,10 +250,7 @@ func (p *MainPage) onStop() {
 	p.processing = true
 	go func() {
 		defer func() { p.processing = false }()
-		if err := p.ctrl.Controller.Stop(); err != nil {
-			p.ctrl.Controller.Terminal().Infof("Failed to stop: %v", err)
-			return
-		}
+		_ = p.ctrl.StopService()
 	}()
 }
 

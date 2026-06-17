@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"sync"
 
+	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
 
 	systray "github.com/gogpu/systray"
@@ -29,17 +30,23 @@ type Tray struct {
 	show     func()
 	minimize func()
 	quit     func()
+	isRunning func() bool
+	onStart  func()
+	onStop   func()
 }
 
 // New creates a tray icon controller. The supplied callbacks are invoked from
 // the tray's internal goroutine and must be safe to call concurrently.
 // The parent logger is used to allocate a "tray" sub-terminal.
-func New(parent *logger.LogTerminal, show, minimize, quit func()) *Tray {
+func New(parent *logger.LogTerminal, show, minimize, quit func(), isRunning func() bool, onStart, onStop func()) *Tray {
 	return &Tray{
-		log:      parent.Allocate("tray"),
-		show:     show,
-		minimize: minimize,
-		quit:     quit,
+		log:       parent.Allocate("tray"),
+		show:      show,
+		minimize:  minimize,
+		quit:      quit,
+		isRunning: isRunning,
+		onStart:   onStart,
+		onStop:    onStop,
 	}
 }
 
@@ -75,6 +82,18 @@ func (t *Tray) Stop() {
 	waitForDone(t)
 }
 
+// Refresh rebuilds the tray menu so the start/stop label matches the current
+// running state. It is safe to call from any goroutine.
+func (t *Tray) Refresh() {
+	t.mu.Lock()
+	tray := t.tray
+	t.mu.Unlock()
+	if tray == nil {
+		return
+	}
+	tray.SetMenu(t.buildMenu())
+}
+
 func (t *Tray) run() {
 	defer close(t.done)
 
@@ -90,17 +109,11 @@ func (t *Tray) run() {
 	t.tray = tray
 	t.mu.Unlock()
 
-	menu := systray.NewMenu()
-	menu.Add("Show", t.show).
-		Add("Minimize", t.minimize).
-		AddSeparator().
-		Add("Quit", t.quit)
-
 	tray.SetIcon(iconPNG).
 		SetTooltip("sing-box-ez").
 		OnClick(t.show).
 		OnDoubleClick(t.toggle).
-		SetMenu(menu).
+		SetMenu(t.buildMenu()).
 		Show()
 
 	t.log.Infof("icon shown")
@@ -108,6 +121,31 @@ func (t *Tray) run() {
 
 	_ = tray.Run()
 	t.log.Infof("message loop exited")
+}
+
+func (t *Tray) buildMenu() *systray.Menu {
+	running := false
+	if t.isRunning != nil {
+		running = t.isRunning()
+	}
+
+	startStopLabel := localengine.T("main", "btn", "start")
+	startStopAction := t.onStart
+	if running {
+		startStopLabel = localengine.T("main", "btn", "stop")
+		startStopAction = t.onStop
+	}
+
+	menu := systray.NewMenu()
+	menu.Add("Show", t.show).
+		Add("Minimize", t.minimize).
+		AddSeparator()
+	if t.isRunning != nil {
+		menu.Add(startStopLabel, startStopAction)
+		menu.AddSeparator()
+	}
+	menu.Add("Quit", t.quit)
+	return menu
 }
 
 func (t *Tray) toggle() {
