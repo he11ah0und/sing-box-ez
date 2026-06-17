@@ -23,6 +23,8 @@ type SettingsPage struct {
 	dialog widgets.DialogProvider
 
 	OnLanguageChange func()
+	// OnResetRequested is called when the user presses the reset button.
+	OnResetRequested func()
 
 	// Dirty tracking – original saved values.
 	origLogLimit                   string
@@ -54,7 +56,8 @@ type SettingsPage struct {
 	autoRestartOnConfigUpdate      widget.Bool
 	logLevelDropdown               *widgets.Dropdown
 	langDropdown                   *widgets.Dropdown
-	saveBtn                        widget.Clickable
+	saveBtn   widget.Clickable
+	resetBtn  widget.Clickable
 }
 
 // NewSettingsPage creates a new settings page.
@@ -222,6 +225,10 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 	p.logLevelDropdown.SetValue(p.pendingLogLevel)
 	p.langDropdown.SetValue(p.pendingLang)
 
+	if p.resetBtn.Clicked(gtx) && p.OnResetRequested != nil {
+		p.OnResetRequested()
+	}
+
 	return []layout.FlexChild{
 		// Header row with Save button on the right.
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -324,6 +331,12 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 				label += " *"
 			}
 			return widgets.LabeledInput(gtx, p.th, label, &p.intervalEditor, intervalDirty)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(p.th, localengine.T("settings", "reset", "title")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Button(p.th, &p.resetBtn, localengine.T("settings", "reset", "btn")).Layout(gtx)
 		}),
 	}
 }

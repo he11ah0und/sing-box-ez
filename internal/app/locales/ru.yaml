@@ -125,6 +125,15 @@ settings:
   reload_ui:
     title: Интерфейс
     btn: Перезагрузить интерфейс
+  reset:
+    title: Опасная зона
+    btn: Сбросить все данные
+    confirm_title: Сбросить все данные?
+    confirm_msg: |
+      Это безвозвратно удалит config.json, profiles.json и папку configs/.
+      После этого приложение перезапустится.
+    success_title: Данные сброшены
+    success_msg: Все данные сброшены. Приложение будет перезапущено.
   desktop_notifications: Уведомления на рабочий стол
 log:
   title: Лог
