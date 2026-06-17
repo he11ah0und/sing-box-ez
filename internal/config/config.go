@@ -71,12 +71,9 @@ type AppConfig struct {
 	PluginsDeveloper     bool   `json:"plugins_developer"`
 	CoreAutoRestart                 bool      `json:"core_auto_restart"`
 	DesktopNotifications            bool      `json:"desktop_notifications"`
-	AutoCheckSelfUpdates            bool      `json:"auto_check_self_updates"`
-	AutoCheckCoreUpdates            bool      `json:"auto_check_core_updates"`
-	StartupUpdateCheckIntervalHours int       `json:"startup_update_check_interval_hours"`
-	LastSelfUpdateCheck             Timestamp `json:"last_self_update_check"`
-	LastCoreUpdateCheck             Timestamp `json:"last_core_update_check"`
-	AutoUpdateConfigs               bool      `json:"auto_update_configs"`
+	AutoCheckSelfUpdates bool `json:"auto_check_self_updates"`
+	AutoCheckCoreUpdates bool `json:"auto_check_core_updates"`
+	AutoUpdateConfigs    bool `json:"auto_update_configs"`
 	AutoUpdateConfigsIntervalHours  int       `json:"auto_update_configs_interval_hours"`
 	AutoRestartOnConfigUpdate       bool      `json:"auto_restart_on_config_update"`
 	BackgroundUpdateCheckIntervalHours int    `json:"background_update_check_interval_hours"`
@@ -97,10 +94,9 @@ func defaultAppConfig() *AppConfig {
 		LogLevel:                        "info",
 		CoreAutoRestart:                 true,
 		DesktopNotifications:            true,
-		AutoCheckSelfUpdates:            true,
-		AutoCheckCoreUpdates:            true,
-		StartupUpdateCheckIntervalHours: 2,
-		AutoUpdateConfigs:                  true,
+		AutoCheckSelfUpdates: true,
+		AutoCheckCoreUpdates: true,
+		AutoUpdateConfigs:    true,
 		AutoUpdateConfigsIntervalHours:     1,
 		AutoRestartOnConfigUpdate:          true,
 		BackgroundUpdateCheckIntervalHours: 24,
@@ -449,45 +445,6 @@ func (c *AppConfig) GetAutoCheckCoreUpdates() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.AutoCheckCoreUpdates
-}
-
-func (c *AppConfig) SetStartupUpdateCheckIntervalHours(v int) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.StartupUpdateCheckIntervalHours = v
-}
-
-func (c *AppConfig) GetStartupUpdateCheckIntervalHours() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.StartupUpdateCheckIntervalHours <= 0 {
-		return 2
-	}
-	return c.StartupUpdateCheckIntervalHours
-}
-
-func (c *AppConfig) SetLastSelfUpdateCheck(t time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.LastSelfUpdateCheck = Timestamp{Time: t}
-}
-
-func (c *AppConfig) GetLastSelfUpdateCheck() Timestamp {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.LastSelfUpdateCheck
-}
-
-func (c *AppConfig) SetLastCoreUpdateCheck(t time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.LastCoreUpdateCheck = Timestamp{Time: t}
-}
-
-func (c *AppConfig) GetLastCoreUpdateCheck() Timestamp {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.LastCoreUpdateCheck
 }
 
 func (c *AppConfig) SetAutoUpdateConfigs(v bool) {
