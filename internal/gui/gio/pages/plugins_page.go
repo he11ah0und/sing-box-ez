@@ -1,10 +1,10 @@
 package pages
 
 import (
+	"gio.tools/icons"
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gio.tools/icons"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -25,7 +25,7 @@ func NewPluginsPage(th *material.Theme, ctrl *core.Controller) *PluginsPage {
 func (p *PluginsPage) Tag() string { return "plugins" }
 
 // Name returns the page name.
-func (p *PluginsPage) Name() string { return localengine.T("tab", "plugins") }
+func (p *PluginsPage) Name() string       { return localengine.T("tab", "plugins") }
 func (p *PluginsPage) Icon() *widget.Icon { return icons.ActionExtension }
 
 // Layout draws the plugins page.

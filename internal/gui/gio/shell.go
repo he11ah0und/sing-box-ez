@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 
+	"gio.tools/icons"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -11,10 +12,10 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"gio.tools/icons"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/gui/gio/pages"
+	"sing-box-ez/internal/gui/gio/widgets"
 )
 
 // Shell provides an adaptive layout:
@@ -61,12 +62,12 @@ type Shell struct {
 // NewShell creates the adaptive shell.
 func NewShell(th *material.Theme, cfg *config.AppConfig, ctrl *core.Controller, primary, secondary []pages.Page) *Shell {
 	s := &Shell{
-		th:        th,
-		cfg:       cfg,
-		ctrl:      ctrl,
-		primary:   primary,
-		secondary: secondary,
-		dialog:    NewDialog(),
+		th:              th,
+		cfg:             cfg,
+		ctrl:            ctrl,
+		primary:         primary,
+		secondary:       secondary,
+		dialog:          NewDialog(),
 		collapsedClicks: make([]widget.Clickable, len(primary)+len(secondary)),
 		secClicks:       make([]widget.Clickable, len(secondary)),
 		navBtns:         make([]widget.Clickable, len(primary)+1),
@@ -381,6 +382,15 @@ type noInsetPage interface {
 	NoInset() bool
 }
 
+// renderPage renders a single page, adding standard vertical spacing when the
+// page implements SpacedPage.
+func (s *Shell) renderPage(gtx layout.Context, p pages.Page) layout.Dimensions {
+	if sp, ok := p.(pages.SpacedPage); ok {
+		return widgets.SpacedList(gtx, sp.Children(gtx)...)
+	}
+	return p.Layout(gtx)
+}
+
 // layoutContent renders the current page with a background color.
 func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 	// Fill background.
@@ -393,16 +403,20 @@ func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 	for i, p := range s.primary {
 		if s.currentPage == i {
 			if nip, ok := p.(noInsetPage); ok && nip.NoInset() {
-				return p.Layout(gtx)
+				return s.renderPage(gtx, p)
 			}
-			return layout.UniformInset(unit.Dp(16)).Layout(gtx, p.Layout)
+			return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return s.renderPage(gtx, p)
+			})
 		}
 	}
 	if s.currentPage == len(s.primary) {
 		return s.layoutSecondaryPage(gtx)
 	}
 	if len(s.primary) > 0 {
-		return layout.UniformInset(unit.Dp(16)).Layout(gtx, s.primary[0].Layout)
+		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return s.renderPage(gtx, s.primary[0])
+		})
 	}
 	return material.Body1(s.th, "No pages").Layout(gtx)
 }
@@ -426,9 +440,11 @@ func (s *Shell) layoutSubPage(gtx layout.Context) layout.Dimensions {
 	for _, p := range s.secondary {
 		if p.Tag() == s.secondaryTag {
 			if nip, ok := p.(noInsetPage); ok && nip.NoInset() {
-				return p.Layout(gtx)
+				return s.renderPage(gtx, p)
 			}
-			return layout.UniformInset(unit.Dp(16)).Layout(gtx, p.Layout)
+			return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return s.renderPage(gtx, p)
+			})
 		}
 	}
 	return material.Body1(s.th, "Select an item from the menu").Layout(gtx)
@@ -462,8 +478,6 @@ func (s *Shell) layoutSecondaryList(gtx layout.Context) layout.Dimensions {
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
-
-
 
 // layoutBottomNav renders the bottom navigation bar.
 func (s *Shell) layoutBottomNav(gtx layout.Context) layout.Dimensions {
@@ -519,5 +533,3 @@ func (s *Shell) layoutBottomNav(gtx layout.Context) layout.Dimensions {
 
 	return dims
 }
-
-

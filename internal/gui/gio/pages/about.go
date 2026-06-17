@@ -16,6 +16,7 @@ import (
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/util/openurl"
 	"sing-box-ez/internal/framework/version"
+	"sing-box-ez/internal/gui/gio/widgets"
 )
 
 // AboutPage renders the about / system info screen.
@@ -36,11 +37,11 @@ type AboutPage struct {
 	pickerMu       sync.Mutex
 
 	// Dialog provider is supplied by the shell.
-	dialog DialogProvider
+	dialog widgets.DialogProvider
 }
 
 // NewAboutPage creates a new about page.
-func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog DialogProvider) *AboutPage {
+func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog widgets.DialogProvider) *AboutPage {
 	return &AboutPage{
 		th:     th,
 		ctrl:   ctrl,
@@ -54,12 +55,6 @@ func (p *AboutPage) Tag() string { return "about" }
 // Name returns the page name.
 func (p *AboutPage) Name() string       { return localengine.T("tab", "about") }
 func (p *AboutPage) Icon() *widget.Icon { return icons.ActionInfo }
-
-// Layout draws the about page.
-func (p *AboutPage) Layout(gtx layout.Context) layout.Dimensions {
-	p.handleInteractions(gtx)
-	return p.layoutMainContent(gtx)
-}
 
 func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	if p.releaseNotesBtn.Clicked(gtx) {
@@ -94,16 +89,22 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	}
 }
 
-func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
+// Layout draws the about page.
+func (p *AboutPage) Layout(gtx layout.Context) layout.Dimensions {
+	p.handleInteractions(gtx)
+	return widgets.SpacedList(gtx, p.Children(gtx)...)
+}
+
+// Children returns the page widgets; the shell adds standard vertical spacing.
+func (p *AboutPage) Children(gtx layout.Context) []layout.FlexChild {
+	p.handleInteractions(gtx)
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			lbl := material.H6(p.th, localengine.T("about", "system", "title"))
 			return lbl.Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, version.BuildFlags()).Layout(gtx)
-			})
+			return material.Body2(p.th, version.BuildFlags()).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Body2(p.th, p.commitInfoText()).Layout(gtx)
@@ -112,54 +113,42 @@ func (p *AboutPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 			return material.Body2(p.th, p.buildInfoText()).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.openRepoBtn, localengine.T("about", "btn", "open_repo")).Layout(gtx)
-			})
+			return material.Button(p.th, &p.openRepoBtn, localengine.T("about", "btn", "open_repo")).Layout(gtx)
 		}),
 	}
 	if version.IsDev() {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Body2(p.th, localengine.T("about", "dev_build", "label"))
-				lbl.Color = p.th.Palette.ContrastBg
-				return lbl.Layout(gtx)
-			})
+			lbl := material.Body2(p.th, localengine.T("about", "dev_build", "label"))
+			lbl.Color = p.th.Palette.ContrastBg
+			return lbl.Layout(gtx)
 		}))
 	} else {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.releaseNotesBtn, localengine.T("about", "btn", "release_notes")).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &p.openReleaseNotesBtn, localengine.T("about", "btn", "open_release_notes")).Layout(gtx)
-					}),
-				)
-			})
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, &p.releaseNotesBtn, localengine.T("about", "btn", "release_notes")).Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, &p.openReleaseNotesBtn, localengine.T("about", "btn", "open_release_notes")).Layout(gtx)
+				}),
+			)
 		}))
 	}
 	children = append(children,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.checkUpdatesBtn, localengine.T("about", "btn", "check_updates")).Layout(gtx)
-			})
+			return material.Button(p.th, &p.checkUpdatesBtn, localengine.T("about", "btn", "check_updates")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.switchBranchBtn, localengine.T("about", "btn", "switch_branch")).Layout(gtx)
-			})
+			return material.Button(p.th, &p.switchBranchBtn, localengine.T("about", "btn", "switch_branch")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.openDataBtn, localengine.T("about", "btn", "open_data")).Layout(gtx)
-			})
+			return material.Button(p.th, &p.openDataBtn, localengine.T("about", "btn", "open_data")).Layout(gtx)
 		}),
 	)
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	return children
 }
 
 func (p *AboutPage) commitInfoText() string {
@@ -283,12 +272,10 @@ func (p *AboutPage) openBranchPicker() {
 				label = "> " + b.Name
 			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &btns[idx], label).Layout(gtx)
-				})
+				return material.Button(p.th, &btns[idx], label).Layout(gtx)
 			}))
 		}
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		return widgets.DialogSpacedList(gtx, children...)
 	})
 
 	p.logUpdater("Loaded %d branches", len(branches))

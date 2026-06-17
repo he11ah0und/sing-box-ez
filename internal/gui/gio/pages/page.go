@@ -12,3 +12,10 @@ type Page interface {
 	Icon() *widget.Icon
 	Layout(gtx layout.Context) layout.Dimensions
 }
+
+// SpacedPage is implemented by pages whose children should be rendered by the
+// shell with standard vertical spacing between them.
+type SpacedPage interface {
+	Page
+	Children(gtx layout.Context) []layout.FlexChild
+}

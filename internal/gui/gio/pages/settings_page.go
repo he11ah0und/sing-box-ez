@@ -6,12 +6,12 @@ import (
 
 	"gio.tools/icons"
 	"gioui.org/layout"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/gui/gio/widgets"
 )
 
 // SettingsPage renders the application settings screen.
@@ -19,8 +19,8 @@ type SettingsPage struct {
 	th   *material.Theme
 	ctrl *core.InteractiveController
 
-	// Dialog provider for language picker dropdown.
-	dialog DialogProvider
+	// Dialog provider for dropdown pickers.
+	dialog widgets.DialogProvider
 
 	OnLanguageChange func()
 
@@ -36,17 +36,17 @@ type SettingsPage struct {
 	pendingLang     string
 	pendingLogLevel string
 
-	logLimitEditor widget.Editor
-	intervalEditor widget.Editor
-	showLogs       widget.Bool
-	desktopNotif   widget.Bool
-	langBtn        widget.Clickable
-	logLevelBtn    widget.Clickable
-	saveBtn        widget.Clickable
+	logLimitEditor   widget.Editor
+	intervalEditor   widget.Editor
+	showLogs         widget.Bool
+	desktopNotif     widget.Bool
+	logLevelDropdown *widgets.Dropdown
+	langDropdown     *widgets.Dropdown
+	saveBtn          widget.Clickable
 }
 
 // NewSettingsPage creates a new settings page.
-func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialog DialogProvider) *SettingsPage {
+func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialog widgets.DialogProvider) *SettingsPage {
 	p := &SettingsPage{
 		th:     th,
 		ctrl:   ctrl,
@@ -75,6 +75,26 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 	p.origLogLevel = ctrl.Controller.Config().GetLogLevel()
 	p.pendingLogLevel = p.origLogLevel
 
+	levels := []string{"debug", "info", "warn", "error"}
+	p.logLevelDropdown = widgets.NewDropdown(
+		th, dialog,
+		localengine.T("settings", "log_level", "label"),
+		p.pendingLogLevel,
+		levels,
+		func(level string) string { return localengine.T("settings", "log_level", level) },
+		func(level string) { p.pendingLogLevel = level },
+	)
+
+	langs := localengine.AvailableLanguages()
+	p.langDropdown = widgets.NewDropdown(
+		th, dialog,
+		localengine.T("settings", "language", "title"),
+		p.pendingLang,
+		langs,
+		func(lang string) string { return localengine.LanguageName(lang) },
+		func(lang string) { p.pendingLang = lang },
+	)
+
 	return p
 }
 
@@ -98,6 +118,11 @@ func (p *SettingsPage) isDirty() bool {
 
 // Layout draws the settings page.
 func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
+	return widgets.SpacedList(gtx, p.Children(gtx)...)
+}
+
+// Children returns the page widgets; the shell adds standard vertical spacing.
+func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 	if p.isDirty() && p.saveBtn.Clicked(gtx) {
 		if v, err := strconv.Atoi(p.logLimitEditor.Text()); err == nil && v >= 0 {
 			p.ctrl.Controller.SetLogLimit(v)
@@ -124,13 +149,6 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 		_ = p.ctrl.Controller.Config().Save()
 	}
 
-	if p.langBtn.Clicked(gtx) {
-		p.openLangPicker()
-	}
-	if p.logLevelBtn.Clicked(gtx) {
-		p.openLogLevelPicker()
-	}
-
 	logLimitDirty := p.logLimitEditor.Text() != p.origLogLimit
 	logLevelDirty := p.pendingLogLevel != p.origLogLevel
 	intervalDirty := p.intervalEditor.Text() != p.origInterval
@@ -139,14 +157,15 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 	langDirty := p.pendingLang != p.origLang
 	dirty := p.isDirty()
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+	p.logLevelDropdown.SetValue(p.pendingLogLevel)
+	p.langDropdown.SetValue(p.pendingLang)
+
+	return []layout.FlexChild{
 		// Header row with Save button on the right.
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.H6(p.th, localengine.T("settings", "logging", "title")).Layout(gtx)
-					})
+					return material.H6(p.th, localengine.T("settings", "logging", "title")).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if !dirty {
@@ -161,25 +180,10 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 			if logLimitDirty {
 				label += " *"
 			}
-			return LabeledInput(gtx, p.th, label, &p.logLimitEditor, logLimitDirty)
+			return widgets.LabeledInput(gtx, p.th, label, &p.logLimitEditor, logLimitDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "log_level", "label")
-			if logLevelDirty {
-				label += " *"
-			}
-			btnLabel := localengine.T("settings", "log_level", p.pendingLogLevel)
-			if logLevelDirty {
-				btnLabel += " *"
-			}
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Body2(p.th, label).Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &p.logLevelBtn, btnLabel).Layout(gtx)
-				}),
-			)
+			return p.logLevelDropdown.Layout(gtx, logLevelDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			label := localengine.T("settings", "show_logs")
@@ -196,94 +200,20 @@ func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
 			return material.CheckBox(p.th, &p.desktopNotif, label).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, localengine.T("settings", "config", "title")).Layout(gtx)
-			})
+			return material.H6(p.th, localengine.T("settings", "config", "title")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			label := localengine.T("settings", "default_interval", "label")
 			if intervalDirty {
 				label += " *"
 			}
-			return LabeledInput(gtx, p.th, label, &p.intervalEditor, intervalDirty)
+			return widgets.LabeledInput(gtx, p.th, label, &p.intervalEditor, intervalDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.H6(p.th, localengine.T("settings", "language", "title")).Layout(gtx)
-			})
+			return material.H6(p.th, localengine.T("settings", "language", "title")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lang := p.pendingLang
-			if lang == "" {
-				lang = "en"
-			}
-			btnLabel := localengine.LanguageName(lang)
-			if langDirty {
-				btnLabel += " *"
-			}
-			return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &p.langBtn, btnLabel).Layout(gtx)
-			})
+			return p.langDropdown.Layout(gtx, langDirty)
 		}),
-	)
-}
-
-func (p *SettingsPage) openLogLevelPicker() {
-	levels := []string{"debug", "info", "warn", "error"}
-	btns := make([]widget.Clickable, len(levels))
-
-	p.dialog.ShowCustom(localengine.T("settings", "log_level", "label"), func(gtx layout.Context) layout.Dimensions {
-		for i := range levels {
-			if btns[i].Clicked(gtx) {
-				p.dialog.HideCustom()
-				p.pendingLogLevel = levels[i]
-			}
-		}
-
-		children := make([]layout.FlexChild, len(levels))
-		for i, l := range levels {
-			idx := i
-			level := l
-			label := localengine.T("settings", "log_level", level)
-			if level == p.pendingLogLevel {
-				label = "> " + label
-			}
-			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &btns[idx], label).Layout(gtx)
-				})
-			})
-		}
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-	})
-}
-
-func (p *SettingsPage) openLangPicker() {
-	langs := localengine.AvailableLanguages()
-	btns := make([]widget.Clickable, len(langs))
-
-	p.dialog.ShowCustom(localengine.T("settings", "language", "title"), func(gtx layout.Context) layout.Dimensions {
-		for i := range langs {
-			if btns[i].Clicked(gtx) {
-				p.dialog.HideCustom()
-				p.pendingLang = langs[i]
-			}
-		}
-
-		children := make([]layout.FlexChild, len(langs))
-		for i, l := range langs {
-			idx := i
-			lang := l
-			label := localengine.LanguageName(lang)
-			if lang == p.pendingLang {
-				label = "> " + label
-			}
-			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &btns[idx], label).Layout(gtx)
-				})
-			})
-		}
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-	})
+	}
 }
