@@ -57,9 +57,10 @@ type Dialog struct {
 	progress          func() float32
 
 	// Custom content state
-	isCustom    bool
-	customTitle string
-	customBody  layout.Widget
+	isCustom       bool
+	customNoCancel bool
+	customTitle    string
+	customBody     layout.Widget
 }
 
 // NewDialog creates a new dialog.
@@ -168,19 +169,23 @@ func (d *Dialog) ShowLoadingWithProgress(title string, progress func() float32) 
 }
 
 // ShowConfirm displays a dialog with Cancel and Confirm buttons.
-func (d *Dialog) ShowConfirm(title, body string, onConfirm func()) {
+// onDismiss is called when the dialog is dismissed without confirming.
+func (d *Dialog) ShowConfirm(title, body string, onConfirm func(), onDismiss func()) {
 	d.Show(title, body)
 	d.confirmLabel = localengine.T("dialog", "btn", "confirm")
 	d.cancelLabel = localengine.T("dialog", "btn", "cancel")
 	d.onConfirm = onConfirm
+	d.onDismiss = onDismiss
 }
 
 // ShowConfirmMarkdown displays a Markdown dialog with Cancel and Confirm buttons.
-func (d *Dialog) ShowConfirmMarkdown(title, body string, onConfirm func()) {
+// onDismiss is called when the dialog is dismissed without confirming.
+func (d *Dialog) ShowConfirmMarkdown(title, body string, onConfirm func(), onDismiss func()) {
 	d.ShowMarkdown(title, body)
 	d.confirmLabel = localengine.T("dialog", "btn", "update")
 	d.cancelLabel = localengine.T("dialog", "btn", "ignore")
 	d.onConfirm = onConfirm
+	d.onDismiss = onDismiss
 }
 
 // ShowCustom displays a dialog with arbitrary widget content and a Cancel button.
@@ -188,6 +193,7 @@ func (d *Dialog) ShowCustom(title string, content layout.Widget) {
 	d.customTitle = title
 	d.customBody = content
 	d.isCustom = true
+	d.customNoCancel = false
 	d.isLoading = false
 	d.isProgressLoading = false
 	d.progress = nil
@@ -200,9 +206,29 @@ func (d *Dialog) ShowCustom(title string, content layout.Widget) {
 	d.active = true
 }
 
+// ShowCustomNoCancel displays a dialog with arbitrary widget content and no buttons.
+// The caller is responsible for closing the dialog programmatically.
+func (d *Dialog) ShowCustomNoCancel(title string, content layout.Widget) {
+	d.customTitle = title
+	d.customBody = content
+	d.isCustom = true
+	d.customNoCancel = true
+	d.isLoading = false
+	d.isProgressLoading = false
+	d.progress = nil
+	d.isMarkdown = false
+	d.closeLabel = ""
+	d.confirmLabel = ""
+	d.cancelLabel = ""
+	d.onConfirm = nil
+	d.onDismiss = nil
+	d.active = true
+}
+
 // HideCustom closes the custom dialog.
 func (d *Dialog) HideCustom() {
 	d.isCustom = false
+	d.customNoCancel = false
 	d.active = false
 }
 
@@ -210,6 +236,7 @@ func (d *Dialog) HideCustom() {
 func (d *Dialog) Dismiss() {
 	d.active = false
 	d.isCustom = false
+	d.customNoCancel = false
 	d.isMarkdown = false
 	d.isLoading = false
 	d.isProgressLoading = false
@@ -367,7 +394,7 @@ func (d *Dialog) layoutCustom(gtx layout.Context, th *material.Theme) layout.Dim
 
 	return component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			children := []layout.FlexChild{
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return material.H6(th, d.customTitle).Layout(gtx)
 				}),
@@ -379,10 +406,13 @@ func (d *Dialog) layoutCustom(gtx layout.Context, th *material.Theme) layout.Dim
 						return layout.Dimensions{}
 					})
 				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			}
+			if !d.customNoCancel {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return d.layoutButtons(gtx, th)
-				}),
-			)
+				}))
+			}
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 		})
 	})
 }

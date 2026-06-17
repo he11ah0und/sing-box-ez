@@ -252,7 +252,7 @@ func (u *UpdateCheck) runUpdate() {
 		title, body := u.devBuildConfirmFormatter(u.lastInfo.Current, u.lastInfo.Latest)
 		u.dialog.ShowConfirm(title, body, func() {
 			go u.doUpdate()
-		})
+		}, nil)
 		return
 	}
 	u.doUpdate()
