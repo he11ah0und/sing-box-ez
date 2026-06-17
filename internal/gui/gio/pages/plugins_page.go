@@ -1,10 +1,13 @@
 package pages
 
 import (
+	"gio.tools/icons"
 	"gioui.org/layout"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/localengine"
 )
 
 // PluginsPage is a placeholder for the plugins screen.
@@ -22,9 +25,10 @@ func NewPluginsPage(th *material.Theme, ctrl *core.Controller) *PluginsPage {
 func (p *PluginsPage) Tag() string { return "plugins" }
 
 // Name returns the page name.
-func (p *PluginsPage) Name() string { return "Plugins" }
+func (p *PluginsPage) Name() string       { return localengine.T("tab", "plugins") }
+func (p *PluginsPage) Icon() *widget.Icon { return icons.ActionExtension }
 
 // Layout draws the plugins page.
 func (p *PluginsPage) Layout(gtx layout.Context) layout.Dimensions {
-	return material.Body1(p.th, "Plugins Page").Layout(gtx)
+	return material.Body1(p.th, localengine.T("tab", "plugins")).Layout(gtx)
 }

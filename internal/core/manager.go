@@ -10,31 +10,75 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"sing-box-ez/internal/framework/fs"
+	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/net"
+	"sing-box-ez/internal/framework/updater"
 )
 
+// Manager manages the sing-box core process and its artifacts.
 type Manager struct {
 	mu         sync.Mutex
 	cmd        *exec.Cmd
 	cancel     context.CancelFunc
 	running    bool
+	waitDone   chan struct{}
 	configURL  string
 	configName string
 	elevated   bool
 	logOutput  io.Writer
+
+	baseDir string
+	fsys    fs.FileSystem
+	net     *net.Client
+	updater *updater.Manager
+	log     *logger.Logger
 }
 
-func NewManager(configURL string) *Manager {
+// ProgressFunc is called during downloads: downloaded, total.
+type ProgressFunc func(downloaded, total int64)
+
+// NewManager creates a new core manager for the given base directory and framework services.
+func NewManager(baseDir string, fsys fs.FileSystem, updater *updater.Manager, log *logger.Logger) *Manager {
 	return &Manager{
-		configURL: configURL,
+		baseDir: baseDir,
+		fsys:    fsys,
+		net:     net.NewClient(log.Root),
+		updater: updater,
+		log:     log,
 	}
+}
+
+func (m *Manager) coreBinary() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(m.baseDir, "sing-box.exe")
+	}
+	return filepath.Join(m.baseDir, "sing-box")
+}
+
+func (m *Manager) cachedConfig(name string) string {
+	return filepath.Join(m.baseDir, "configs", name+".json")
+}
+
+func (m *Manager) configsDir() string {
+	return filepath.Join(m.baseDir, "configs")
 }
 
 func (m *Manager) IsRunning() bool {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.running
+	pid := 0
+	if m.cmd != nil && m.cmd.Process != nil {
+		pid = m.cmd.Process.Pid
+	}
+	m.mu.Unlock()
+	if pid <= 0 {
+		return false
+	}
+	return ProcessExists(pid)
 }
 
 func (m *Manager) GetPID() int {
@@ -52,7 +96,7 @@ func (m *Manager) SetLogOutput(w io.Writer) {
 	m.logOutput = w
 }
 
-func absPath(p string) (string, error) {
+func (m *Manager) absPath(p string) (string, error) {
 	if filepath.IsAbs(p) {
 		return p, nil
 	}
@@ -61,34 +105,32 @@ func absPath(p string) (string, error) {
 
 func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string) (*exec.Cmd, error) {
 	if !m.elevated {
-		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
-		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+		// #nosec G204 — corePath and configPath are internal managed paths.
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	}
 
 	switch runtime.GOOS {
 	case "linux":
-		// если setcap уже применён — запускаем напрямую без pkexec
 		if HasNetAdminCapability(corePath) {
-			// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+			// #nosec G204 — corePath and configPath are internal managed paths.
 			return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 		}
-		absCore, err := absPath(corePath)
+		absCore, err := m.absPath(corePath)
 		if err != nil {
 			return nil, fmt.Errorf("resolve core path: %w", err)
 		}
-		absConfig, err := absPath(configPath)
+		absConfig, err := m.absPath(configPath)
 		if err != nil {
 			return nil, fmt.Errorf("resolve config path: %w", err)
 		}
 		// #nosec G204 — pkexec is a system binary; absCore/absConfig are resolved internal paths.
 		return exec.CommandContext(ctx, "pkexec", absCore, "run", "-c", absConfig), nil
 	case "darwin":
-		absCore, err := absPath(corePath)
+		absCore, err := m.absPath(corePath)
 		if err != nil {
 			return nil, fmt.Errorf("resolve core path: %w", err)
 		}
-		absConfig, err := absPath(configPath)
+		absConfig, err := m.absPath(configPath)
 		if err != nil {
 			return nil, fmt.Errorf("resolve config path: %w", err)
 		}
@@ -99,10 +141,10 @@ func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string)
 		if m.elevated && !IsAdmin() {
 			return nil, fmt.Errorf("administrator privileges required: please run sing-box-ez as administrator")
 		}
-		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+		// #nosec G204 — corePath and configPath are internal managed paths.
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	default:
-		// #nosec G204 — corePath and configPath are internal managed paths (paths.CoreBinary / paths.CachedConfig).
+		// #nosec G204 — corePath and configPath are internal managed paths.
 		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
 	}
 }
@@ -113,17 +155,20 @@ func (m *Manager) Start() error {
 	if m.running {
 		return fmt.Errorf("already running")
 	}
+	if m.cmd != nil && m.cmd.Process != nil && ProcessExists(m.cmd.Process.Pid) {
+		return fmt.Errorf("core process already running (PID %d)", m.cmd.Process.Pid)
+	}
 
-	corePath := GetCorePath()
-	if !CoreExists() {
+	corePath := m.coreBinary()
+	if _, err := m.fsys.Stat(corePath); err != nil {
 		return fmt.Errorf("sing-box core not found at %s", corePath)
 	}
 
 	if m.configName == "" {
 		return fmt.Errorf("no config name set")
 	}
-	configPath := GetConfigPath(m.configName)
-	if _, err := os.Stat(configPath); err != nil {
+	configPath := m.cachedConfig(m.configName)
+	if _, err := m.fsys.Stat(configPath); err != nil {
 		return fmt.Errorf("config not found at %s", configPath)
 	}
 
@@ -150,12 +195,17 @@ func (m *Manager) Start() error {
 
 	m.cancel = cancel
 	m.running = true
+	m.waitDone = make(chan struct{})
 
+	startedCmd := m.cmd
 	go func() {
-		_ = m.cmd.Wait()
+		_ = startedCmd.Wait()
 		m.mu.Lock()
-		m.running = false
+		if m.cmd == startedCmd {
+			m.running = false
+		}
 		m.mu.Unlock()
+		close(m.waitDone)
 	}()
 
 	return nil
@@ -163,34 +213,45 @@ func (m *Manager) Start() error {
 
 func (m *Manager) Stop() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if !m.running {
+		m.mu.Unlock()
 		return nil
+	}
+	m.running = false
+
+	var killErr error
+	var done chan struct{}
+	if m.cmd != nil && m.cmd.Process != nil {
+		elevated := m.elevated
+		if runtime.GOOS == "linux" && HasNetAdminCapability(m.coreBinary()) {
+			elevated = false
+		}
+		done = m.waitDone
+		if ProcessExists(m.cmd.Process.Pid) {
+			if err := KillProcess(m.cmd.Process.Pid, elevated); err != nil {
+				killErr = fmt.Errorf("kill process: %w", err)
+			}
+		}
 	}
 	if m.cancel != nil {
 		m.cancel()
 	}
-	if m.cmd != nil && m.cmd.Process != nil {
-		// If setcap CAP_NET_ADMIN is applied, the process runs without
-		// pkexec/sudo, so we don't need elevated kill either.
-		elevated := m.elevated
-		if runtime.GOOS == "linux" && HasNetAdminCapability(GetCorePath()) {
-			elevated = false
-		}
-		if err := KillProcess(m.cmd.Process.Pid, elevated); err != nil {
-			return fmt.Errorf("kill process: %w", err)
+	m.mu.Unlock()
+
+	if done != nil {
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
 		}
 	}
-	m.running = false
-	return nil
+	return killErr
 }
 
 func (m *Manager) Restart() error {
 	if err := m.Stop(); err != nil {
 		return err
 	}
-	// Wait up to 5 seconds for the process to actually stop.
-	for range 50 {
+	for range 100 {
 		if !m.IsRunning() {
 			break
 		}
@@ -207,14 +268,44 @@ func (m *Manager) UpdateConfig() error {
 		return fmt.Errorf("no config name set")
 	}
 
-	err := DownloadConfigFor(m.configName, m.configURL)
-	if err != nil {
-		if HasCachedConfig(m.configName) {
+	if err := m.DownloadConfigFor(m.configName, m.configURL); err != nil {
+		if m.hasCachedConfig(m.configName) {
 			return fmt.Errorf("download failed, using cached config: %w", err)
 		}
 		return err
 	}
 	return nil
+}
+
+func (m *Manager) hasCachedConfig(name string) bool {
+	_, err := m.fsys.Stat(m.cachedConfig(name))
+	return err == nil
+}
+
+func (m *Manager) DownloadConfigFor(name, url string) error {
+	path := m.cachedConfig(name)
+	if err := m.fsys.MkdirAll(m.configsDir(), 0750); err != nil {
+		return err
+	}
+	return m.net.DownloadToFile(context.Background(), m.fsys, url, path)
+}
+
+func (m *Manager) CheckCoreUpdate(ctx context.Context) (*updater.UpdateInfo, error) {
+	if m.updater == nil {
+		return nil, fmt.Errorf("core updater not configured")
+	}
+	current, _ := GetCoreVersion(m.coreBinary())
+	if current != "" && !strings.HasPrefix(current, "v") {
+		current = "v" + current
+	}
+	return m.updater.CheckWithCurrent(ctx, "", current)
+}
+
+func (m *Manager) DownloadCore(onProgress ProgressFunc) (string, error) {
+	if err := m.UpdateCore(onProgress); err != nil {
+		return "", err
+	}
+	return m.coreBinary(), nil
 }
 
 func (m *Manager) UpdateCore(onProgress ProgressFunc) error {
@@ -225,8 +316,18 @@ func (m *Manager) UpdateCore(onProgress ProgressFunc) error {
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	_, err := DownloadCore("", onProgress)
-	return err
+	info, err := m.CheckCoreUpdate(context.Background())
+	if err != nil {
+		return err
+	}
+	if info.ReleaseCount == 0 {
+		return nil
+	}
+	info.Files = []updater.UpdateFile{{
+		Asset:    info.Asset,
+		DestPath: ".",
+	}}
+	return m.updater.Install(context.Background(), info, onProgress)
 }
 
 func (m *Manager) SetConfigURL(url string) {
@@ -247,8 +348,7 @@ func (m *Manager) SetElevated(v bool) {
 	m.elevated = v
 }
 
-// CoreLogWriter перенаправляет stdout/stderr sing-box в GUI.
-// Использует канал с буфером, чтобы не блокировать pipe процесса.
+// CoreLogWriter redirects sing-box stdout/stderr into a channel for the GUI.
 type CoreLogWriter struct {
 	Ch     chan string
 	mu     sync.Mutex
@@ -258,8 +358,12 @@ type CoreLogWriter struct {
 
 func NewCoreLogWriter() *CoreLogWriter {
 	return &CoreLogWriter{
-		Ch: make(chan string, 100),
+		Ch: make(chan string, 1024),
 	}
+}
+
+func (w *CoreLogWriter) Chan() <-chan string {
+	return w.Ch
 }
 
 func (w *CoreLogWriter) Write(p []byte) (int, error) {
@@ -279,7 +383,6 @@ func (w *CoreLogWriter) Write(p []byte) (int, error) {
 		select {
 		case w.Ch <- line:
 		default:
-			// канал переполнен — дропаем строку
 		}
 	}
 	return len(p), nil

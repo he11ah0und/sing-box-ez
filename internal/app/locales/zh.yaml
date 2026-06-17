@@ -1,0 +1,316 @@
+app:
+  title: Sing-box EZ
+tab:
+  main: 主页
+  configs: 配置
+  core: 核心
+  settings: 设置
+  log: 日志
+  plugins: 插件
+  about: 关于
+main:
+  status:
+    stopped: 状态：已停止
+    running: 状态：运行中
+  active:
+    none: 活动配置：（无）
+    prefix: 活动配置：
+  'no':
+    config: 未选择配置 — 请在配置标签页中选择一个
+  btn:
+    start: 启动
+    stop: 停止
+    restart: 重启
+core:
+  update:
+    current_version: 当前版本：
+  version:
+    installed: 核心：v
+    not_installed: 核心：未安装
+  latest:
+    checking: 最新版本：检查中...
+    error: 最新版本：错误
+    prefix: 最新版本：v
+  btn:
+    download: 下载最新 sing-box 核心
+    check: 检查最新版本
+    restart_admin: 以管理员身份重启
+    apply_setcap: 应用 setcap（无需 root 使用 TUN）
+    apply: 应用
+  auto_restart: 核心崩溃时自动重启
+  privileges:
+    title: 权限
+    admin: 权限：以管理员身份运行
+    user: 权限：以普通用户身份运行
+    setcap_active: 权限：setcap 已启用（无需 root 使用 TUN）
+    root_required: 权限：TUN 需要 root 权限
+  setcap:
+    unavailable: 此操作系统不支持 setcap
+  admin:
+    label: 以管理员身份运行
+    label_root_setcap: 以 root 身份运行（setcap 已启用，无需 root 使用 TUN）
+    label_root_pkexec: 以 root 身份运行（pkexec，用于 TUN）
+  mode:
+    admin: 管理员
+    setcap: Setcap
+    setcap_prompt: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
+  watch_core_logs: 监视核心日志
+configs:
+  title: 配置
+  btn:
+    add: 添加
+    edit: 编辑
+    delete: 删除
+    activate: 激活
+    update_all: 全部更新
+  table:
+    name: 名称
+    source: 来源
+    last_update: 上次更新
+    next_update: 下次更新
+    period: 周期
+    cached: 已缓存
+    user: 用户
+    never: 从未
+    now: 现在
+    'yes': 是
+    'no': 否
+  dialog:
+    title: 配置
+    name: 名称
+    url: URL
+    period: 周期（小时）
+    btn:
+      save: 保存
+      update_now: 立即更新
+      delete: 删除
+      cancel: 取消
+    delete_title: 删除
+    delete_msg: 删除配置
+settings:
+  logging:
+    title: 日志
+  log_limit:
+    label: 日志行数限制（0=无限制）：
+  log_level:
+    label: '日志级别：'
+    debug: 调试
+    info: 信息
+    warn: 警告
+    error: 错误
+  btn:
+    save: 保存
+  update_check:
+    title: 更新检查
+    self: 启动时检查应用更新
+    core: 启动时检查核心更新
+    interval: 启动检查间隔（小时）
+    background_interval: 后台检查间隔（小时）
+  show_logs: 显示日志
+  config:
+    title: 配置
+  config_update:
+    title: 配置更新
+    auto: 后台自动更新配置
+    auto_restart: 活动配置更新时自动重启核心
+    interval: 自动更新检查间隔（小时）
+  default_interval:
+    label: 默认更新间隔（小时）：
+  language:
+    title: 语言
+  plugins:
+    title: 插件
+    enabled: 插件功能
+    developer: 插件开发者模式
+  reload_ui:
+    title: 界面
+    btn: 重新加载界面
+  reset:
+    title: 危险区域
+    btn: 重置所有数据
+    confirm_title: 重置所有数据？
+    confirm_msg: |
+      这将永久删除 config.json、profiles.json 和 configs/ 文件夹。
+      之后应用将重新启动。
+    success_title: 数据已重置
+    success_msg: 所有数据已重置。应用现在将重新启动。
+  desktop_notifications: 桌面通知
+log:
+  title: 日志
+  btn:
+    copy: 复制全部
+    clear: 清空
+about:
+  system:
+    title: 系统
+  commit_info:
+    prefix: 提交：
+  build_info:
+    prefix: 构建：
+  btn:
+    release_notes: 查看发布说明
+    open_release_notes: 打开发布说明
+    open_repo: 打开仓库
+    open_data: 打开数据文件夹
+    check_updates: 检查更新
+    load_branches: 加载分支
+    check_branch: 检查分支更新
+    switch_branch: 切换分支
+  branch:
+    label: 分支：
+    load_error: 加载分支失败：
+  dev_build:
+    label: 开发构建 — 发布说明不可用
+  update:
+    checking: 检查更新
+    updating: 更新中...
+    available: 更新到 %s
+    current_version: 当前版本：
+    dev_build: 开发版本：当前 %s，远程 %s
+    dev_build_confirm_title: 开发版本更新
+    dev_build_confirm_body: 您正在使用比最新发布版本 (%s) 更新的开发版本 (%s)。更新将降级版本。继续？
+  release_notes:
+    title: 发布说明
+    error: 获取发布说明失败
+    not_found: '当前构建与任何官方版本不匹配。
+
+
+      此构建未在 GitHub 发布列表中。
+
+      可能是开发版本？'
+    released: 发布时间：
+  dialog:
+    close: 关闭
+dialog:
+  btn:
+    cancel: 取消
+    confirm: 确认
+    update: 更新
+    ignore: 忽略
+  core_update:
+    title: 核心更新可用
+    msg: '有新版本的 sing-box 核心可用。
+
+
+      当前：v%s
+
+      最新：v%s
+
+
+      立即更新？'
+  version_check:
+    title: 版本检查
+    core_not_installed: 核心未安装。
+    latest: 最新版本：v
+    current: 当前：v
+    latest_installed: ✓ 已安装最新版本
+    update_available: ✗ 有可用更新
+  download_complete:
+    title: 下载完成
+    msg: 'sing-box 核心 v%s 下载成功。
+
+      位置：%s'
+  self_update:
+    title: 有可用更新
+    current: 当前：
+    latest: 最新：
+    behind: 落后：%s
+    changelog: 变更日志：
+  unknown: 未知
+  error:
+    no_matching_asset: 未找到匹配的文件
+  privileges:
+    title: 需要权限
+    msg_linux: 'sing-box 需要提升的权限来创建 TUN 设备。
+
+
+      请选择以下选项：'
+    msg_windows: 'sing-box 需要管理员权限来创建 TUN 设备。
+
+
+      请以管理员身份重新启动应用程序。'
+    btn_setcap: 应用 setcap（推荐）
+    btn_run_as_admin: 启用以管理员身份运行
+    btn_restart_admin: 以管理员身份重启
+progress:
+  initializing: 初始化中...
+  checking_updates: 检查更新中...
+  checking_version: 检查最新版本中...
+  adding_config: 添加配置中...
+  downloading_core: 下载 sing-box 核心 v%s...
+  downloading_update: 下载更新中...
+  fetching_notes: 获取发布说明中...
+  updating_configs: 更新所有配置中...
+  applying_setcap: 应用 setcap 中...
+plugins:
+  btn:
+    refresh: 刷新
+    check_all_updates: 检查所有更新
+    install_from_url: 从 URL 安装
+    generate_api_docs: 生成 API 文档
+    generate_vscode_defs: 生成 VS Code 定义
+    generate_template: 生成模板
+    check_update: 检查更新
+    enable: 启用
+    disable: 禁用
+    unload: 卸载
+    install: 安装
+    generate: 生成
+  info:
+    name: 名称
+    version: 版本
+    latest_remote: 最新（远程）
+    author: 作者
+    description: 描述
+    entrypoint: 入口点
+    source: 来源
+    package_url: 包 URL
+    relation: 关联
+    update_url: 更新 URL
+    status: 状态
+  status:
+    enabled: 已启用
+    disabled: 已禁用
+  note:
+    folder_no_update: 注意：文件夹插件无法自动更新。
+  dialog:
+    title: 插件：%s
+  install:
+    url_label: 插件包 URL（zip 或 tar.gz）
+    title: 安装插件
+  template:
+    name: 插件名称
+    relation: 关联
+    title: 生成插件模板
+notify:
+  core_started:
+    title: Sing-box EZ
+    body: 核心启动成功
+  core_stopped:
+    title: Sing-box EZ
+    body: 核心已停止
+  core_crashed:
+    title: Sing-box EZ — 核心崩溃
+    body: 检测到致命错误。正在自动重启...
+duration:
+  seconds: '%d秒'
+  minutes: '%d分'
+  hours: '%d时'
+  days: '%d天'
+  months: '%d月'
+  years: '%d年'
+  just_now: 刚刚
+  unit_minutes: '%d 分钟'
+  unit_hours: '%d 小时'
+  unit_days: '%d 天'
+  unit_months: '%d 个月'
+  unit_years: '%d 年'
+  in: '%s后'
+  ago: '%s前'
+tray:
+  menu:
+    show: 显示
+    minimize: 最小化
+    quit: 退出
+locale:
+  name: 中文

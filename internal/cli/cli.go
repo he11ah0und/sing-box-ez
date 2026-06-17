@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,11 +16,11 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework/fs"
+	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/plugins"
-	"sing-box-ez/internal/updater"
-	"sing-box-ez/internal/util/githuburl"
-	"sing-box-ez/internal/util/paths"
-	"sing-box-ez/internal/version"
 )
 
 // cmdDef describes a CLI command.
@@ -64,7 +66,87 @@ func PrintHelp(w io.Writer) {
 	}
 }
 
-func Run(args []string) error {
+const (
+	defaultGitHubOwner = "he11ah0und"
+	defaultGitHubRepo  = "sing-box-ez"
+)
+
+func defaultDataDir() string {
+	switch runtime.GOOS {
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = os.Getenv("LOCALAPPDATA")
+		}
+		if appData == "" {
+			appData = os.TempDir()
+		}
+		return filepath.Join(appData, "sing-box-ez")
+	default:
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
+		return filepath.Join(home, ".sing-box-ez")
+	}
+}
+
+func coreBinaryPath(dataDir string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(dataDir, "sing-box.exe")
+	}
+	return filepath.Join(dataDir, "sing-box")
+}
+
+func coreExists(dataDir string) bool {
+	_, err := os.Stat(coreBinaryPath(dataDir))
+	return err == nil
+}
+
+func hasCachedConfig(dataDir, name string) bool {
+	_, err := os.Stat(filepath.Join(dataDir, "configs", name+".json"))
+	return err == nil
+}
+
+func newCoreManager(dataDir string) *core.Manager {
+	log := logger.NewLogger(0)
+	return core.NewManager(dataDir, fs.NewOSFileSystem(dataDir), nil, log)
+}
+
+// ensureUpdater installs default updater managers when none are configured.
+func ensureUpdater() {
+	if updater.CurrentManager() != nil {
+		return
+	}
+	gh := updater.NewGitHubBackend(logger.NewLogger(0).Root, defaultGitHubOwner, defaultGitHubRepo)
+	updater.SetManager(&updater.Manager{
+		Name:   "updater",
+		Source: gh,
+		Apply:  &updater.SelfUpdateApply{},
+	})
+}
+
+func latestCoreVersion(dataDir string) (string, error) {
+	m := newCoreManager(dataDir)
+	if m == nil {
+		return "", fmt.Errorf("core updater not configured")
+	}
+	info, err := m.CheckCoreUpdate(context.Background())
+	if err != nil {
+		return "", err
+	}
+	return info.Latest, nil
+}
+
+func downloadLatestCore(dataDir string, onProgress func(d, t int64)) (string, error) {
+	m := newCoreManager(dataDir)
+	if m == nil {
+		return "", fmt.Errorf("core updater not configured")
+	}
+	return m.DownloadCore(onProgress)
+}
+
+func Run(args []string, dataDir string) error {
 	if len(args) < 1 {
 		PrintHelp(os.Stderr)
 		return fmt.Errorf("")
@@ -76,18 +158,25 @@ func Run(args []string) error {
 		return fmt.Errorf("unknown command: %s", args[0])
 	}
 
-	cfg, err := config.Load()
+	if dataDir == "" {
+		dataDir = defaultDataDir()
+	}
+
+	cfg, err := config.Load(dataDir)
 	if err != nil {
 		return err
 	}
+
+	ensureUpdater()
 
 	return cmd.fn(cfg, args[1:])
 }
 
 func cmdStart(cfg *config.AppConfig, _ []string) error {
-	if !core.CoreExists() {
+	dataDir := cfg.DataDir
+	if !coreExists(dataDir) {
 		fmt.Println("Core not found, downloading latest...")
-		_, err := core.DownloadCore("", func(d, t int64) {
+		_, err := downloadLatestCore(dataDir, func(d, t int64) {
 			pct := float64(d) / float64(t) * 100
 			fmt.Printf("\rDownload: %.1f%% (%d / %d bytes)", pct, d, t)
 		})
@@ -97,7 +186,7 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 		fmt.Println()
 	}
 
-	ver, _ := core.GetCoreVersion(core.GetCorePath())
+	ver, _ := core.GetCoreVersion(coreBinaryPath(dataDir))
 	if ver != "" {
 		fmt.Println("Core version:", ver)
 	}
@@ -107,10 +196,13 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 		return fmt.Errorf("no active config URL set, use GUI or edit config.json")
 	}
 
-	if active.ShouldUpdate() || !core.HasCachedConfig(active.Name) {
+	if active.ShouldUpdate() || !hasCachedConfig(dataDir, active.Name) {
 		fmt.Println("Updating config...")
-		if err := core.DownloadConfigFor(active.Name, active.URL); err != nil {
-			if !core.HasCachedConfig(active.Name) {
+		m := newCoreManager(dataDir)
+		m.SetConfigName(active.Name)
+		m.SetConfigURL(active.URL)
+		if err := m.UpdateConfig(); err != nil {
+			if !hasCachedConfig(dataDir, active.Name) {
 				return fmt.Errorf("config download failed: %w", err)
 			}
 			fmt.Println("Using existing local config")
@@ -121,36 +213,37 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 		}
 	}
 
-	manager := core.NewManager(active.URL)
-	manager.SetConfigName(active.Name)
-	manager.SetElevated(cfg.RunAsAdmin)
+	m := newCoreManager(dataDir)
+	m.SetConfigURL(active.URL)
+	m.SetConfigName(active.Name)
+	m.SetElevated(cfg.RunAsAdmin)
 
-	if err := manager.Start(); err != nil {
+	if err := m.Start(); err != nil {
 		return fmt.Errorf("start failed: %w", err)
 	}
 
-	pid := manager.GetPID()
+	pid := m.GetPID()
 	if pid > 0 {
-		_ = os.WriteFile(paths.PIDFile(), []byte(strconv.Itoa(pid)), 0600)
+		_ = os.WriteFile(filepath.Join(cfg.DataDir, ".pid"), []byte(strconv.Itoa(pid)), 0600)
 	}
 
 	fmt.Printf("sing-box started (PID %d)\n", pid)
 
-	// Block until interrupt
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	<-sigCh
 
 	fmt.Println("Stopping sing-box...")
-	if err := manager.Stop(); err != nil {
+	if err := m.Stop(); err != nil {
 		fmt.Printf("stop warning: %v\n", err)
 	}
-	_ = os.Remove(paths.PIDFile())
+	_ = os.Remove(filepath.Join(cfg.DataDir, ".pid"))
 	return nil
 }
 
 func cmdStop(cfg *config.AppConfig, _ []string) error {
-	data, err := os.ReadFile(paths.PIDFile())
+	dataDir := cfg.DataDir
+	data, err := os.ReadFile(filepath.Join(dataDir, ".pid"))
 	if err != nil {
 		return fmt.Errorf("pid file not found, is sing-box running?")
 	}
@@ -160,7 +253,7 @@ func cmdStop(cfg *config.AppConfig, _ []string) error {
 	}
 
 	elevated := cfg.RunAsAdmin
-	if core.HasNetAdminCapability(core.GetCorePath()) {
+	if core.HasNetAdminCapability(coreBinaryPath(dataDir)) {
 		elevated = false
 	}
 
@@ -168,18 +261,22 @@ func cmdStop(cfg *config.AppConfig, _ []string) error {
 	if err := core.KillProcess(pid, elevated); err != nil {
 		fmt.Printf("kill warning: %v\n", err)
 	}
-	_ = os.Remove(paths.PIDFile())
+	_ = os.Remove(filepath.Join(dataDir, ".pid"))
 	fmt.Println("Stopped")
 	return nil
 }
 
 func cmdUpdate(cfg *config.AppConfig, _ []string) error {
+	dataDir := cfg.DataDir
 	active := cfg.GetActiveConfig()
 	if active == nil || active.URL == "" {
 		return fmt.Errorf("no active config URL set")
 	}
 	fmt.Println("Downloading config...")
-	if err := core.DownloadConfigFor(active.Name, active.URL); err != nil {
+	m := newCoreManager(dataDir)
+	m.SetConfigName(active.Name)
+	m.SetConfigURL(active.URL)
+	if err := m.UpdateConfig(); err != nil {
 		return err
 	}
 	cfg.SetLastUpdateFor(active.Name, time.Now())
@@ -189,13 +286,13 @@ func cmdUpdate(cfg *config.AppConfig, _ []string) error {
 }
 
 func cmdDownload(cfg *config.AppConfig, _ []string) error {
-	ver, err := core.GetLatestVersion()
+	ver, err := latestCoreVersion(cfg.DataDir)
 	if err != nil {
 		return fmt.Errorf("failed to check latest version: %w", err)
 	}
 	fmt.Println("Latest version:", ver)
 	fmt.Println("Downloading...")
-	_, err = core.DownloadCore("", func(d, t int64) {
+	_, err = downloadLatestCore(cfg.DataDir, func(d, t int64) {
 		pct := float64(d) / float64(t) * 100
 		fmt.Printf("\rDownload: %.1f%% (%d / %d bytes)", pct, d, t)
 	})
@@ -208,7 +305,8 @@ func cmdDownload(cfg *config.AppConfig, _ []string) error {
 }
 
 func cmdStatus(cfg *config.AppConfig, _ []string) error {
-	data, err := os.ReadFile(paths.PIDFile())
+	dataDir := cfg.DataDir
+	data, err := os.ReadFile(filepath.Join(dataDir, ".pid"))
 	if err != nil {
 		fmt.Println("Status: not running (no pid file)")
 		return nil
@@ -219,13 +317,13 @@ func cmdStatus(cfg *config.AppConfig, _ []string) error {
 		return nil
 	}
 	fmt.Println("Status: not running (stale pid file)")
-	_ = os.Remove(paths.PIDFile())
+	_ = os.Remove(filepath.Join(dataDir, ".pid"))
 	return nil
 }
 
 func cmdSetcap(cfg *config.AppConfig, _ []string) error {
-	corePath := core.GetCorePath()
-	if !core.CoreExists() {
+	corePath := coreBinaryPath(cfg.DataDir)
+	if _, err := os.Stat(corePath); err != nil {
 		return fmt.Errorf("core not found at %s", corePath)
 	}
 	fmt.Printf("Applying CAP_NET_ADMIN to %s (CLI mode uses sudo)...\n", corePath)
@@ -238,7 +336,7 @@ func cmdSetcap(cfg *config.AppConfig, _ []string) error {
 }
 
 func cmdDocs(cfg *config.AppConfig, _ []string) error {
-	outDir := paths.PluginDocsDir()
+	outDir := filepath.Join(cfg.DataDir, plugins.DocsDir())
 	fmt.Println("Generating plugin API docs to:", outDir)
 	if err := plugins.GenerateDocs(outDir); err != nil {
 		return fmt.Errorf("docs generation failed: %w", err)
@@ -254,7 +352,7 @@ func cmdDocs(cfg *config.AppConfig, _ []string) error {
 }
 
 func cmdDefs(cfg *config.AppConfig, _ []string) error {
-	outDir := paths.PluginDefsDir()
+	outDir := filepath.Join(cfg.DataDir, plugins.DefsDir())
 	fmt.Println("Generating VS Code Lua definitions to:", outDir)
 	if err := plugins.GenerateLuaDefs(outDir); err != nil {
 		return fmt.Errorf("defs generation failed: %w", err)
@@ -270,7 +368,7 @@ func cmdDefs(cfg *config.AppConfig, _ []string) error {
 	fmt.Println("To use in VS Code:")
 	fmt.Println("  1. Install the 'Lua' extension by Sumneko")
 	fmt.Println("  2. In your plugin project, copy .luarc.json to the project root")
-	fmt.Println("     OR add this to VS Code settings.json:")
+	fmt.Printf("     OR add this to VS Code settings.json:\n")
 	fmt.Printf("       \"Lua.workspace.library\": [\"%s\"]\n", filepath.ToSlash(outDir))
 	return nil
 }
@@ -284,7 +382,7 @@ func cmdTemplate(cfg *config.AppConfig, args []string) error {
 	if len(args) > 1 {
 		rel = args[1]
 	}
-	outDir := paths.Data(filepath.Join("plugins", name))
+	outDir := filepath.Join(cfg.DataDir, "plugins", name)
 	if err := plugins.GeneratePluginTemplate(outDir, name, rel); err != nil {
 		return err
 	}
@@ -308,12 +406,7 @@ func cmdInstall(cfg *config.AppConfig, args []string) error {
 
 func cmdVersion(_ *config.AppConfig, _ []string) error {
 	fmt.Println("sing-box-ez", version.Info())
-	fmt.Println("Repository:", githuburl.DefaultProject().RepoURL())
-	if ver, err := core.GetCoreVersion(core.GetCorePath()); err == nil && ver != "" {
-		fmt.Println("sing-box core: v" + ver)
-	} else {
-		fmt.Println("sing-box core: not installed")
-	}
+	fmt.Println("Repository:", "https://github.com/he11ah0und/sing-box-ez")
 	return nil
 }
 
@@ -321,7 +414,6 @@ func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
 	fmt.Println("Checking for updates...")
 	fmt.Println()
 
-	// App update check
 	info, err := updater.CheckUpdate(version.Branch)
 	if err != nil {
 		fmt.Println("App update check failed:", err)
@@ -334,23 +426,7 @@ func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
 		fmt.Println("App: up to date (" + info.Current + ")")
 	}
 	fmt.Println()
-
-	// Core update check
-	coreVer, err := core.GetCoreVersion(core.GetCorePath())
-	if err != nil || coreVer == "" {
-		fmt.Println("Core: not installed")
-		return nil
-	}
-	latestCore, err := core.GetLatestVersion()
-	if err != nil {
-		fmt.Println("Core update check failed:", err)
-		return nil
-	}
-	if coreVer != latestCore {
-		fmt.Printf("Core: v%s → v%s\n", coreVer, latestCore)
-	} else {
-		fmt.Println("Core: up to date (v" + coreVer + ")")
-	}
+	fmt.Println("Core: use GUI to check core updates")
 	return nil
 }
 
@@ -364,14 +440,14 @@ func cmdSelfUpdate(_ *config.AppConfig, _ []string) error {
 		fmt.Println("Already up to date.")
 		return nil
 	}
-	if info.AssetURL == "" {
+	if info.Asset.URL == "" {
 		return fmt.Errorf("no matching asset found for this system (%s)", info.AssetName)
 	}
 
 	fmt.Printf("Updating %s → %s\n", info.Current, info.Latest)
 	fmt.Printf("Downloading %s...\n", info.AssetName)
 
-	if err := updater.ApplyUpdate(info.AssetURL, nil); err != nil {
+	if err := updater.ApplyUpdate(info.Asset, nil); err != nil {
 		return fmt.Errorf("update failed: %w", err)
 	}
 	return nil

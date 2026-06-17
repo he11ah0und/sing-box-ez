@@ -3,7 +3,7 @@ package config
 import (
 	"encoding/json"
 	"os"
-	"sing-box-ez/internal/util/paths"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -15,10 +15,10 @@ type Profiles struct {
 	mu         sync.RWMutex
 }
 
-// LoadProfiles loads profiles from profiles.json.
+// LoadProfiles loads profiles from profiles.json inside dataDir.
 // If the file does not exist it returns an empty Profiles struct.
-func LoadProfiles() (*Profiles, error) {
-	data, err := os.ReadFile(paths.Profiles())
+func LoadProfiles(dataDir string) (*Profiles, error) {
+	data, err := os.ReadFile(filepath.Join(dataDir, "profiles.json"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Profiles{Configs: []ConfigRecord{}}, nil
@@ -38,14 +38,14 @@ func LoadProfiles() (*Profiles, error) {
 	return &p, nil
 }
 
-func (p *Profiles) Save() error {
+func (p *Profiles) Save(dataDir string) error {
 	p.mu.RLock()
 	data, err := json.MarshalIndent(p, "", "  ")
 	p.mu.RUnlock()
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(paths.Profiles(), data, 0600)
+	return os.WriteFile(filepath.Join(dataDir, "profiles.json"), data, 0600)
 }
 
 func (p *Profiles) GetConfigs() []ConfigRecord {

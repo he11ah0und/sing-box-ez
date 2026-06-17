@@ -28,7 +28,14 @@ jobs:
         run: |
           echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ "${{ github.ref_name }}" = "testing" ]; then
+            # For testing, base the changelog on the previous testing hash tag.
+            # Exclude the main 'latest' tag so testing release notes only
+            # include commits since the last testing build.
+            last_tag=$(git tag --list --sort=-creatordate --merged HEAD | grep -v -E '^(latest|latest-testing)$' | head -n 1)
+          else
+            last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          fi
           if [ -n "$last_tag" ]; then
             range="${last_tag}..HEAD"
           else
@@ -39,8 +46,19 @@ jobs:
             echo 'message<<EOF'
             echo "## Changes since last release"
             echo ""
-            git log "$range" --pretty=format:'- `%h` %s (%an, %ad)' --date=format:'%Y-%m-%d %H:%M'
-            echo ""
+            git log "$range" --pretty=format:'%H' | while read hash; do
+              subject=$(git log -1 --pretty=%s "$hash")
+              body=$(git log -1 --pretty=%b "$hash")
+              author=$(git log -1 --pretty=%an "$hash")
+              date=$(git log -1 --pretty=%ad --date=format:'%Y-%m-%d %H:%M' "$hash")
+              short=$(git rev-parse --short "$hash")
+              echo "- \`$short\` $subject ($author, $date)"
+              if [ -n "$body" ]; then
+                echo ""
+                echo "$body" | sed 's/^/  /'
+                echo ""
+              fi
+            done
             echo ""
             echo "## Commit Info"
             echo ""
@@ -56,11 +74,11 @@ jobs:
           if [ "${{ github.ref_name }}" = "main" ]; then
             cat << 'EOF' > matrix.json
           [
-            {"name":"linux-gui-wayland","os":"linux","arch":"amd64","gui":1,"backend":"wayland","compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-wayland"},
-            {"name":"linux-gui-x11","os":"linux","arch":"amd64","gui":1,"backend":"x11","compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-x11"},
+            {"name":"linux-gui-wayland","os":"linux","arch":"amd64","gui":1,"backend":"wayland","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-wayland"},
+            {"name":"linux-gui-x11","os":"linux","arch":"amd64","gui":1,"backend":"x11","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-x11"},
             {"name":"linux-cli-gcc","os":"linux","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-cli"},
             {"name":"linux-cli-musl","os":"linux","arch":"amd64","gui":0,"compiler":"musl","artifact":"build/sing-box-ez-amd64-linux-musl-cli"},
-            {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","engine":"fyne","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
+            {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
             {"name":"windows-cli","os":"windows","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-cli.exe"}
           ]
           EOF
@@ -118,9 +136,6 @@ jobs:
           if [ "${{ matrix.compiler }}" = "musl" ]; then
             echo "CC=musl-gcc" >> "$GITHUB_ENV"
             sudo ln -sf $(which ccache) /usr/lib/ccache/musl-gcc 2>/dev/null || true
-          elif [ "${{ matrix.os }}" = "windows" ]; then
-            echo "CC=x86_64-w64-mingw32-gcc" >> "$GITHUB_ENV"
-            sudo ln -sf $(which ccache) /usr/lib/ccache/x86_64-w64-mingw32-gcc 2>/dev/null || true
           else
             echo "CC=gcc" >> "$GITHUB_ENV"
           fi
@@ -133,8 +148,7 @@ jobs:
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
             PLUGINS=0 \
-            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" ) \
-            $( [ -n "${{ matrix.engine }}" ] && echo "ENGINE=${{ matrix.engine }}" )
+            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Build ${{ matrix.name }}
         run: |
@@ -144,8 +158,7 @@ jobs:
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
             PLUGINS=0 \
-            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" ) \
-            $( [ -n "${{ matrix.engine }}" ] && echo "ENGINE=${{ matrix.engine }}" )
+            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
 
       - name: Write status
         if: always()
@@ -224,11 +237,12 @@ jobs:
       - name: Create or update release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name == 'main' && 'latest' || 'latest-testing' }}
+          tag_name: ${{ github.ref_name == 'main' && 'latest' || needs.prepare-release.outputs.tag }}
+          target_commitish: ${{ github.ref_name }}
           name: "${{ github.ref_name == 'main' && 'Latest Build' || 'Latest Testing Build' }} (${{ needs.prepare-release.outputs.tag }})"
           body_path: release_notes.md
           files: binaries/*
           draft: false
-          prerelease: true
+          prerelease: ${{ github.ref_name != 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
