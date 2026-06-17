@@ -66,12 +66,30 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog w
 				return widgets.UpdateCheckInfo{}, err
 			}
 			p.lastSelfUpdate = info
+
+			hasUpdate := false
+			isDevBuild := false
+			if info.ReleaseCount > 0 && info.Current != info.Latest {
+				currentDate, dateErr := version.CommitDateTime()
+				if dateErr != nil {
+					hasUpdate = true
+				} else {
+					switch {
+					case currentDate.Before(info.LatestDate):
+						hasUpdate = true
+					case currentDate.After(info.LatestDate):
+						isDevBuild = true
+					}
+				}
+			}
+
 			return widgets.UpdateCheckInfo{
-				Current:   info.Current,
-				Latest:    info.Latest,
-				HasUpdate: info.ReleaseCount > 0 && info.Current != info.Latest,
-				Body:      info.LatestBody,
-				Date:      info.LatestDate,
+				Current:    info.Current,
+				Latest:     info.Latest,
+				HasUpdate:  hasUpdate,
+				IsDevBuild: isDevBuild,
+				Body:       info.LatestBody,
+				Date:       info.LatestDate,
 			}, nil
 		},
 		func(ctx context.Context) error {
@@ -92,6 +110,9 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog w
 	})
 	p.selfUpdate.SetAvailableFormatter(func(latest string) string {
 		return fmt.Sprintf(localengine.T("about", "update", "available"), latest)
+	})
+	p.selfUpdate.SetDevBuildFormatter(func(current, latest string) string {
+		return fmt.Sprintf(localengine.T("about", "update", "dev_build"), current, latest)
 	})
 	p.selfUpdate.SetDetailsTitle(localengine.T("dialog", "self_update", "title"))
 	p.selfUpdate.SetDetailsFormatter(func(info widgets.UpdateCheckInfo) string {
