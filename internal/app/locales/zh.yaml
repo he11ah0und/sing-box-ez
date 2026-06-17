@@ -104,7 +104,8 @@ settings:
     title: 更新检查
     self: 启动时检查应用更新
     core: 启动时检查核心更新
-    interval: 检查间隔（小时）
+    interval: 启动检查间隔（小时）
+    background_interval: 后台检查间隔（小时）
   show_logs: 显示日志
   config:
     title: 配置
