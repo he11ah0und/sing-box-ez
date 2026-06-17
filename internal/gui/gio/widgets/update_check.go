@@ -16,11 +16,12 @@ import (
 
 // UpdateCheckInfo holds the result of an update check.
 type UpdateCheckInfo struct {
-	Current   string
-	Latest    string
-	HasUpdate bool
-	Body      string    // release notes / commit description
-	Date      time.Time // release date
+	Current    string
+	Latest     string
+	HasUpdate  bool
+	IsDevBuild bool      // current build is newer than the latest release
+	Body       string    // release notes / commit description
+	Date       time.Time // release date
 }
 
 // UpdateCheck is a reusable widget that checks for updates and installs them.
@@ -45,6 +46,7 @@ type UpdateCheck struct {
 	updatingLabel           string
 	upToDateLabel           string
 	availableFormatter      func(latest string) string
+	devBuildFormatter       func(current, latest string) string
 	detailsTitle            string
 	detailsFormatter        func(info UpdateCheckInfo) string
 	checkIcon               *widget.Icon
@@ -52,11 +54,12 @@ type UpdateCheck struct {
 	mainBtn  widget.Clickable
 	checkBtn widget.Clickable
 
-	checked   bool
-	checking  bool
-	updating  bool
-	hasUpdate bool
-	lastInfo  UpdateCheckInfo
+	checked    bool
+	checking   bool
+	updating   bool
+	hasUpdate  bool
+	isDevBuild bool
+	lastInfo   UpdateCheckInfo
 }
 
 // NewUpdateCheck creates an update-check widget.
@@ -79,6 +82,9 @@ func NewUpdateCheck(
 		checkingLabel:           "Checking update",
 		updatingLabel:           "Updating...",
 		upToDateLabel:           "Already latest version",
+		devBuildFormatter: func(current, latest string) string {
+			return fmt.Sprintf("Dev build: current %s, remote %s", current, latest)
+		},
 		availableFormatter: func(latest string) string {
 			if latest == "" {
 				return "Update"
@@ -121,6 +127,12 @@ func (u *UpdateCheck) SetAvailableFormatter(fn func(latest string) string) {
 	u.availableFormatter = fn
 }
 
+// SetDevBuildFormatter overrides the label shown when the current build is
+// newer than the latest release.
+func (u *UpdateCheck) SetDevBuildFormatter(fn func(current, latest string) string) {
+	u.devBuildFormatter = fn
+}
+
 // SetDetailsTitle sets the title of the dialog shown when an update is found.
 func (u *UpdateCheck) SetDetailsTitle(title string) {
 	u.detailsTitle = title
@@ -140,7 +152,7 @@ func (u *UpdateCheck) SetCheckIcon(icon *widget.Icon) {
 
 // Layout draws the update-check row.
 func (u *UpdateCheck) Layout(gtx layout.Context) layout.Dimensions {
-	mainDisabled := u.checking || u.updating || (u.checked && !u.hasUpdate) || !u.checked
+	mainDisabled := u.checking || u.updating || (u.checked && !u.hasUpdate && !u.isDevBuild) || !u.checked
 	checkDisabled := u.checking
 
 	if u.mainBtn.Clicked(gtx) && !mainDisabled {
@@ -161,6 +173,8 @@ func (u *UpdateCheck) Layout(gtx layout.Context) layout.Dimensions {
 		mainLabel = u.checkingLabel
 	case u.checked && u.hasUpdate:
 		mainLabel = u.availableFormatter(u.lastInfo.Latest)
+	case u.checked && u.isDevBuild:
+		mainLabel = u.devBuildFormatter(u.lastInfo.Current, u.lastInfo.Latest)
 	case u.checked && !u.hasUpdate:
 		if u.upToDateLabel != "" {
 			mainLabel = u.upToDateLabel
@@ -212,6 +226,7 @@ func (u *UpdateCheck) runCheck() {
 	}
 
 	u.hasUpdate = info.HasUpdate
+	u.isDevBuild = info.IsDevBuild
 	if info.HasUpdate {
 		u.showDetails(info)
 	}
