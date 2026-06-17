@@ -53,6 +53,10 @@ func (p *MainPage) Tag() string { return "main" }
 func (p *MainPage) Name() string       { return localengine.T("tab", "main") }
 func (p *MainPage) Icon() *widget.Icon { return icons.ActionHome }
 
+// NoShellScroll tells the shell not to wrap this page in a scroller. The main
+// page uses a centered layout that breaks inside an unbounded scroll list.
+func (p *MainPage) NoShellScroll() bool { return true }
+
 // Layout draws the main page.
 func (p *MainPage) Layout(gtx layout.Context) layout.Dimensions {
 	p.handleInteractions(gtx)

@@ -57,6 +57,10 @@ func (p *LogPage) Icon() *widget.Icon { return icons.ActionBugReport }
 // NoInset tells the shell not to wrap this page in padding.
 func (p *LogPage) NoInset() bool { return true }
 
+// NoShellScroll tells the shell not to wrap this page in a scroller because it
+// already scrolls its own log list.
+func (p *LogPage) NoShellScroll() bool { return true }
+
 // Layout draws the log page.
 func (p *LogPage) Layout(gtx layout.Context) layout.Dimensions {
 	return widgets.SpacedList(gtx, p.Children(gtx)...)
