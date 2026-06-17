@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"image/color"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"sing-box-ez/internal/app"
@@ -97,7 +99,7 @@ func New(app *app.App) *GUI {
 		var downloadBtn widget.Clickable
 		var addBtn widget.Clickable
 
-		dialog.ShowCustom(localengine.T("first_run", "title"), func(gtx layout.Context) layout.Dimensions {
+		dialog.ShowCustomNoCancel(localengine.T("first_run", "title"), func(gtx layout.Context) layout.Dimensions {
 			if downloadBtn.Clicked(gtx) {
 				go func() {
 					dialog.ShowLoading(localengine.T("progress", "checking_version"))
@@ -167,61 +169,6 @@ func New(app *app.App) *GUI {
 			}))
 
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-		})
-	}
-
-	g.ctrl.OnSelfUpdateAvailable = func(info *updater.UpdateInfo) {
-		currentText := version.Commit
-		if currentText == "unknown" || currentText == "" {
-			currentText = info.Current
-		}
-
-		var currentDateStr, latestDateStr, diffStr string
-		if dt, err := version.BuildDateTime(); err == nil {
-			currentDateStr = dt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(dt) + ")"
-		} else {
-			currentDateStr = localengine.T("dialog", "unknown")
-		}
-		if !info.LatestDate.IsZero() {
-			lt := info.LatestDate.Local()
-			latestDateStr = lt.Format("2006-01-02 15:04:05") + " (" + version.HumanDuration(info.LatestDate) + ")"
-			if dt, err := version.BuildDateTime(); err == nil {
-				diff := info.LatestDate.Sub(dt)
-				if diff < 0 {
-					diff = -diff
-				}
-				diffStr = fmt.Sprintf(localengine.T("dialog", "self_update", "behind"), humanDuration(diff))
-			}
-		} else {
-			latestDateStr = localengine.T("dialog", "unknown")
-		}
-
-		body := fmt.Sprintf("**%s** %s\n  %s\n\n**%s** %s\n  %s\n\n",
-			localengine.T("dialog", "self_update", "current"), currentText, currentDateStr,
-			localengine.T("dialog", "self_update", "latest"), info.Latest, latestDateStr)
-		if diffStr != "" {
-			body += diffStr + "\n\n"
-		}
-		body += "## " + localengine.T("dialog", "self_update", "changelog") + "\n\n" + info.LatestBody
-
-		dialog.ShowConfirmMarkdown(localengine.T("dialog", "self_update", "title"), body, func() {
-			dialog.ShowLoading(localengine.T("progress", "downloading_update"))
-			go func() {
-				if app.SelfUpdater == nil {
-					dialog.HideLoading()
-					dialog.Show(localengine.T("dialog", "self_update", "title"), "Self updater not configured")
-					return
-				}
-				installInfo := &updater.UpdateInfo{Asset: info.Asset, AssetURL: info.AssetURL, AssetName: info.AssetName}
-				if err := app.SelfUpdater.Install(context.Background(), installInfo, nil); err != nil {
-					g.log.Warnf("self update failed: %v", err)
-					dialog.HideLoading()
-					dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
-					return
-				}
-				dialog.HideLoading()
-				dialog.Show(localengine.T("dialog", "self_update", "title"), "Update complete. Please restart.")
-			}()
 		})
 	}
 
@@ -318,6 +265,9 @@ func (g *GUI) Run() {
 		g.ctrl.RunStartupSequence()
 		g.dialog.HideLoading()
 		g.log.Infof("startup sequence completed")
+		if g.cfg.GetFirstRunDone() {
+			g.runStartupUpdateChecks()
+		}
 	}()
 
 	g.log.Infof("entering Gio main loop")
@@ -336,23 +286,235 @@ func (g *GUI) tryLoadEmojiFont() []font.FontFace {
 	return []font.FontFace{{Font: face.Font(), Face: face}}
 }
 
-func humanDuration(d time.Duration) string {
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
+
+func (g *GUI) runStartupUpdateChecks() {
+	g.checkSelfUpdateAtStartup(func() {
+		g.checkCoreUpdateAtStartup(nil)
+	})
+}
+
+func (g *GUI) shouldCheckUpdate(last config.Timestamp) bool {
+	if last.IsZero() {
+		return true
 	}
-	if d < time.Hour {
-		return fmt.Sprintf("%dm", int(d.Minutes()))
+	interval := time.Duration(g.cfg.GetStartupUpdateCheckIntervalHours()) * time.Hour
+	return time.Since(last.Time) >= interval
+}
+
+func (g *GUI) checkSelfUpdateAtStartup(done func()) {
+	if !g.cfg.GetAutoCheckSelfUpdates() {
+		if done != nil {
+			done()
+		}
+		return
 	}
-	if d < 24*time.Hour {
-		return fmt.Sprintf("%dh", int(d.Hours()))
+	if !g.shouldCheckUpdate(g.cfg.GetLastSelfUpdateCheck()) {
+		if done != nil {
+			done()
+		}
+		return
 	}
-	days := int(d.Hours() / 24)
-	if days < 30 {
-		return fmt.Sprintf("%dd", days)
+
+	g.dialog.ShowLoading(localengine.T("about", "update", "checking"))
+	go func() {
+		info, err := g.ctrl.CheckSelfUpdate()
+		g.dialog.HideLoading()
+		g.cfg.SetLastSelfUpdateCheck(time.Now())
+		_ = g.cfg.Save()
+		if err != nil {
+			g.log.Warnf("startup self-update check failed: %v", err)
+			if done != nil {
+				done()
+			}
+			return
+		}
+
+		hasUpdate := false
+		isDevBuild := false
+		if info.ReleaseCount > 0 && info.Current != info.Latest {
+			currentDate, dateErr := version.CommitDateTime()
+			if dateErr != nil {
+				hasUpdate = true
+			} else {
+				switch {
+				case currentDate.Before(info.LatestDate):
+					hasUpdate = true
+				case currentDate.After(info.LatestDate):
+					isDevBuild = true
+				}
+			}
+		}
+
+		if !hasUpdate && !isDevBuild {
+			if done != nil {
+				done()
+			}
+			return
+		}
+
+		currentText := info.Current
+		if version.Commit != "unknown" && version.Commit != "" {
+			currentText = version.Commit
+		}
+
+		date := ""
+		if !info.LatestDate.IsZero() {
+			date = fmt.Sprintf("\n\nReleased: %s", info.LatestDate.Local().Format("2006-01-02 15:04:05"))
+		}
+		body := fmt.Sprintf("%s\n\n%s%s\n\n%s\n\n%s",
+			localengine.T("dialog", "self_update", "current")+currentText,
+			localengine.T("dialog", "self_update", "latest")+info.Latest,
+			date,
+			localengine.T("dialog", "self_update", "changelog"),
+			info.LatestBody)
+
+		onUpdate := func() {
+			g.runSelfUpdateAtStartup(info, done)
+		}
+
+		onDismiss := func() {
+			if done != nil {
+				done()
+			}
+		}
+		if isDevBuild {
+			title := localengine.T("about", "update", "dev_build_confirm_title")
+			confirmBody := fmt.Sprintf(localengine.T("about", "update", "dev_build_confirm_body"), currentText, info.Latest)
+			g.dialog.ShowConfirm(title, confirmBody, onUpdate, onDismiss)
+		} else {
+			g.dialog.ShowConfirmMarkdown(localengine.T("dialog", "self_update", "title"), body, onUpdate, onDismiss)
+		}
+	}()
+}
+
+func (g *GUI) runSelfUpdateAtStartup(info *updater.UpdateInfo, done func()) {
+	u := g.ctrl.SelfUpdater()
+	if u == nil {
+		g.dialog.Show(localengine.T("dialog", "self_update", "title"), "Self updater not configured")
+		if done != nil {
+			done()
+		}
+		return
 	}
-	months := days / 30
-	if months < 12 {
-		return fmt.Sprintf("%dmo", months)
+
+	var progress float32
+	var mu sync.Mutex
+	g.dialog.ShowLoadingWithProgress(localengine.T("about", "update", "updating"), func() float32 {
+		mu.Lock()
+		defer mu.Unlock()
+		return progress
+	})
+	go func() {
+		err := u.Install(context.Background(), info, func(downloaded, total int64) {
+			mu.Lock()
+			defer mu.Unlock()
+			if total > 0 {
+				progress = float32(downloaded) / float32(total)
+			} else {
+				progress = 0
+			}
+		})
+		g.dialog.HideLoading()
+		if err != nil {
+			g.log.Warnf("startup self-update failed: %v", err)
+			g.dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
+		} else {
+			g.dialog.Show(localengine.T("dialog", "self_update", "title"), "Update complete. Please restart.")
+		}
+		if done != nil {
+			done()
+		}
+	}()
+}
+
+func (g *GUI) checkCoreUpdateAtStartup(done func()) {
+	if !g.cfg.GetAutoCheckCoreUpdates() {
+		if done != nil {
+			done()
+		}
+		return
 	}
-	return fmt.Sprintf("%dy", months/12)
+	if !g.shouldCheckUpdate(g.cfg.GetLastCoreUpdateCheck()) {
+		if done != nil {
+			done()
+		}
+		return
+	}
+
+	g.dialog.ShowLoading(localengine.T("core", "update", "checking"))
+	go func() {
+		current, _ := g.ctrl.Controller.GetInstalledCoreVersion()
+		latest, err := g.ctrl.Controller.GetLatestCoreVersion()
+		g.dialog.HideLoading()
+		g.cfg.SetLastCoreUpdateCheck(time.Now())
+		_ = g.cfg.Save()
+		if err != nil {
+			g.log.Warnf("startup core-update check failed: %v", err)
+			if done != nil {
+				done()
+			}
+			return
+		}
+
+		current = normalizeCoreVersion(current)
+		latest = normalizeCoreVersion(latest)
+		if current == latest || latest == "" {
+			if done != nil {
+				done()
+			}
+			return
+		}
+
+		body := localengine.T("dialog", "version_check", "current") + current + "\n\n" +
+			localengine.T("dialog", "version_check", "latest") + latest
+		onDismiss := func() {
+			if done != nil {
+				done()
+			}
+		}
+		g.dialog.ShowConfirm(localengine.T("dialog", "core_update", "title"), body, func() {
+			g.runCoreUpdateAtStartup(done)
+		}, onDismiss)
+	}()
+}
+
+func (g *GUI) runCoreUpdateAtStartup(done func()) {
+	var progress float32
+	var mu sync.Mutex
+	g.dialog.ShowLoadingWithProgress(localengine.T("core", "update", "downloading"), func() float32 {
+		mu.Lock()
+		defer mu.Unlock()
+		return progress
+	})
+	go func() {
+		_, err := g.ctrl.Controller.DownloadCoreWithProgress(func(downloaded, total int64) {
+			mu.Lock()
+			defer mu.Unlock()
+			if total > 0 {
+				progress = float32(downloaded) / float32(total)
+			} else {
+				progress = 0
+			}
+		})
+		g.dialog.HideLoading()
+		if err != nil {
+			g.log.Warnf("startup core download failed: %v", err)
+			g.dialog.Show(localengine.T("dialog", "core_update", "title"), "Download failed: "+err.Error())
+		} else {
+			g.dialog.Show(localengine.T("dialog", "core_update", "title"), "Core downloaded successfully.")
+		}
+		if done != nil {
+			done()
+		}
+	}()
+}
+
+func normalizeCoreVersion(v string) string {
+	if v == "" {
+		return v
+	}
+	if !strings.HasPrefix(v, "v") {
+		return "v" + v
+	}
+	return v
 }
