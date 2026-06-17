@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -145,6 +146,11 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 	if err := b.doJSON(req, &raw); err != nil {
 		return Release{}, err
 	}
+	// GitHub does not always return releases in chronological order (e.g. when
+	// tags are commit hashes), so sort by publication date newest first.
+	sort.Slice(raw, func(i, j int) bool {
+		return raw[i].PublishedAt.After(raw[j].PublishedAt)
+	})
 	// Prefer a stable release for this channel.
 	for _, r := range raw {
 		if r.TargetCommitish == channel && !r.Prerelease {
