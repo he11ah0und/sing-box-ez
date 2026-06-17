@@ -1,10 +1,12 @@
 package giogui
 
 import (
+	"fmt"
 	"image/color"
 
 	"gioui.org/io/event"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
@@ -50,6 +52,10 @@ type Dialog struct {
 	isLoading    bool
 	loadingTitle string
 
+	// Progress-loading state
+	isProgressLoading bool
+	progress          func() float32
+
 	// Custom content state
 	isCustom    bool
 	customTitle string
@@ -72,6 +78,8 @@ func (d *Dialog) Show(title, body string) {
 	d.body = body
 	d.isMarkdown = false
 	d.isLoading = false
+	d.isProgressLoading = false
+	d.progress = nil
 	d.isCustom = false
 	d.closeLabel = localengine.T("about", "dialog", "close")
 	d.confirmLabel = ""
@@ -88,6 +96,8 @@ func (d *Dialog) ShowMarkdown(title, body string) {
 	d.body = body
 	d.isMarkdown = true
 	d.isLoading = false
+	d.isProgressLoading = false
+	d.progress = nil
 	d.isCustom = false
 	d.closeLabel = localengine.T("about", "dialog", "close")
 	d.confirmLabel = ""
@@ -130,16 +140,31 @@ func (d *Dialog) SetThemeColors(fg, link color.NRGBA) {
 func (d *Dialog) ShowLoading(title string) {
 	d.loadingTitle = title
 	d.isLoading = true
+	d.isProgressLoading = false
+	d.progress = nil
 	d.isCustom = false
 	d.active = true
 }
 
 // HideLoading closes the loading dialog only if it is currently active.
 func (d *Dialog) HideLoading() {
-	if d.isLoading {
+	if d.isLoading || d.isProgressLoading {
 		d.isLoading = false
+		d.isProgressLoading = false
+		d.progress = nil
 		d.active = false
 	}
+}
+
+// ShowLoadingWithProgress displays a loading dialog with a determinate progress bar.
+// The progress callback is invoked on every frame and should return a value in [0,1].
+func (d *Dialog) ShowLoadingWithProgress(title string, progress func() float32) {
+	d.loadingTitle = title
+	d.progress = progress
+	d.isProgressLoading = true
+	d.isLoading = false
+	d.isCustom = false
+	d.active = true
 }
 
 // ShowConfirm displays a dialog with Cancel and Confirm buttons.
@@ -164,6 +189,8 @@ func (d *Dialog) ShowCustom(title string, content layout.Widget) {
 	d.customBody = content
 	d.isCustom = true
 	d.isLoading = false
+	d.isProgressLoading = false
+	d.progress = nil
 	d.isMarkdown = false
 	d.closeLabel = localengine.T("dialog", "btn", "cancel")
 	d.confirmLabel = ""
@@ -185,6 +212,8 @@ func (d *Dialog) Dismiss() {
 	d.isCustom = false
 	d.isMarkdown = false
 	d.isLoading = false
+	d.isProgressLoading = false
+	d.progress = nil
 }
 
 // Visible reports whether the dialog is currently shown.
@@ -219,7 +248,7 @@ func (d *Dialog) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 }
 
 func (d *Dialog) layoutContent(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	if d.isLoading {
+	if d.isLoading || d.isProgressLoading {
 		return d.layoutLoading(gtx, th)
 	}
 	if d.isCustom {
@@ -281,18 +310,44 @@ func (d *Dialog) layoutLoading(gtx layout.Context, th *material.Theme) layout.Di
 
 	return component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+			children := []layout.FlexChild{
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return material.H6(th, d.loadingTitle).Layout(gtx)
 				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: unit.Dp(24), Bottom: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Min.X = gtx.Dp(48)
-						gtx.Constraints.Min.Y = gtx.Dp(48)
-						return material.Loader(th).Layout(gtx)
-					})
-				}),
-			)
+			}
+
+			if d.isProgressLoading && d.progress != nil {
+				gtx.Execute(op.InvalidateCmd{})
+				progress := d.progress()
+				if progress < 0 {
+					progress = 0
+				}
+				if progress > 1 {
+					progress = 1
+				}
+				children = append(children,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: unit.Dp(24), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return material.ProgressBar(th, progress).Layout(gtx)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Body2(th, fmt.Sprintf("%d%%", int(progress*100))).Layout(gtx)
+					}),
+				)
+			} else {
+				children = append(children,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: unit.Dp(24), Bottom: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = gtx.Dp(48)
+							gtx.Constraints.Min.Y = gtx.Dp(48)
+							return material.Loader(th).Layout(gtx)
+						})
+					}),
+				)
+			}
+
+			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx, children...)
 		})
 	})
 }

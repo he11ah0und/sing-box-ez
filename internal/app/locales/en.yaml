@@ -139,6 +139,8 @@ about:
     updating: 'Updating...'
     available: 'Update to %s'
     dev_build: 'Dev build: current %s, remote %s'
+    dev_build_confirm_title: 'Dev build update'
+    dev_build_confirm_body: 'You are on a dev build (%s) newer than the latest release (%s). Updating will downgrade. Continue?'
   release_notes:
     title: Release notes
     not_found: 'Current build does not match any official release.

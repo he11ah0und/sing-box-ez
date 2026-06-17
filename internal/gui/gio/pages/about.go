@@ -92,14 +92,14 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog w
 				Date:       info.LatestDate,
 			}, nil
 		},
-		func(ctx context.Context) error {
+		func(ctx context.Context, onProgress func(downloaded, total int64)) error {
 			if p.lastSelfUpdate == nil {
 				return fmt.Errorf("no update information")
 			}
 			if p.ctrl.SelfUpdater() == nil {
 				return fmt.Errorf("self updater not configured")
 			}
-			return p.ctrl.SelfUpdater().Install(ctx, p.lastSelfUpdate, nil)
+			return p.ctrl.SelfUpdater().Install(ctx, p.lastSelfUpdate, onProgress)
 		},
 	)
 	p.selfUpdate.SetCheckingLabel(localengine.T("about", "update", "checking"))
@@ -113,6 +113,10 @@ func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog w
 	})
 	p.selfUpdate.SetDevBuildFormatter(func(current, latest string) string {
 		return fmt.Sprintf(localengine.T("about", "update", "dev_build"), current, latest)
+	})
+	p.selfUpdate.SetDevBuildConfirmFormatter(func(current, latest string) (string, string) {
+		return localengine.T("about", "update", "dev_build_confirm_title"),
+			fmt.Sprintf(localengine.T("about", "update", "dev_build_confirm_body"), current, latest)
 	})
 	p.selfUpdate.SetDetailsTitle(localengine.T("dialog", "self_update", "title"))
 	p.selfUpdate.SetDetailsFormatter(func(info widgets.UpdateCheckInfo) string {

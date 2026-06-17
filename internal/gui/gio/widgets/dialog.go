@@ -9,6 +9,8 @@ type DialogProvider interface {
 	ShowMarkdown(title, body string)
 	ShowLoading(title string)
 	HideLoading()
+	ShowLoadingWithProgress(title string, progress func() float32)
+	ShowConfirm(title, body string, onConfirm func())
 	ShowCustom(title string, content layout.Widget)
 	HideCustom()
 }
