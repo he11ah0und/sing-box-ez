@@ -22,6 +22,8 @@ main:
     stop: 停止
     restart: 重启
 core:
+  update:
+    current_version: 当前版本：
   version:
     installed: 核心：v
     not_installed: 核心：未安装
@@ -98,6 +100,11 @@ settings:
     error: 错误
   btn:
     save: 保存
+  update_check:
+    title: 更新检查
+    self: 启动时检查应用更新
+    core: 启动时检查核心更新
+    interval: 检查间隔（小时）
   show_logs: 显示日志
   config:
     title: 配置
@@ -136,10 +143,20 @@ about:
     switch_branch: 切换分支
   branch:
     label: 分支：
+    load_error: 加载分支失败：
   dev_build:
     label: 开发构建 — 发布说明不可用
+  update:
+    checking: 检查更新
+    updating: 更新中...
+    available: 更新到 %s
+    current_version: 当前版本：
+    dev_build: 开发版本：当前 %s，远程 %s
+    dev_build_confirm_title: 开发版本更新
+    dev_build_confirm_body: 您正在使用比最新发布版本 (%s) 更新的开发版本 (%s)。更新将降级版本。继续？
   release_notes:
     title: 发布说明
+    error: 获取发布说明失败
     not_found: '当前构建与任何官方版本不匹配。
 
 

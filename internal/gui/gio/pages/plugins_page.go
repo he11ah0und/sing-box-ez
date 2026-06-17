@@ -30,5 +30,5 @@ func (p *PluginsPage) Icon() *widget.Icon { return icons.ActionExtension }
 
 // Layout draws the plugins page.
 func (p *PluginsPage) Layout(gtx layout.Context) layout.Dimensions {
-	return material.Body1(p.th, "Plugins Page").Layout(gtx)
+	return material.Body1(p.th, localengine.T("tab", "plugins")).Layout(gtx)
 }

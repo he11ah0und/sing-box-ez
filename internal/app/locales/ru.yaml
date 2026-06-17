@@ -22,6 +22,8 @@ main:
     stop: Стоп
     restart: Перезапуск
 core:
+  update:
+    current_version: 'Текущая версия: '
   version:
     installed: 'Ядро: v'
     not_installed: 'Ядро: не установлено'
@@ -98,6 +100,11 @@ settings:
     error: Ошибка
   btn:
     save: Сохранить
+  update_check:
+    title: Проверка обновлений
+    self: Проверять обновления приложения при запуске
+    core: Проверять обновления ядра при запуске
+    interval: Интервал проверки (часов)
   show_logs: Показывать логи
   config:
     title: Конфиг
@@ -136,10 +143,20 @@ about:
     switch_branch: Сменить ветку
   branch:
     label: 'Ветка: '
+    load_error: 'Не удалось загрузить ветки: '
   dev_build:
     label: Сборка разработки — заметки к релизу недоступны
+  update:
+    checking: 'Проверка обновления'
+    updating: 'Обновление...'
+    available: 'Обновить до %s'
+    current_version: 'Текущая версия: '
+    dev_build: 'Dev-сборка: текущая %s, удалённая %s'
+    dev_build_confirm_title: 'Обновление dev-сборки'
+    dev_build_confirm_body: 'Вы используете dev-сборку (%s), новее последнего релиза (%s). Обновление откатит версию. Продолжить?'
   release_notes:
     title: Примечания к релизу
+    error: 'Не удалось загрузить примечания к релизу'
     not_found: 'Текущая сборка не соответствует ни одному официальному релизу.
 
 

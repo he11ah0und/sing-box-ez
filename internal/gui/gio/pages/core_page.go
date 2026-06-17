@@ -94,7 +94,7 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	p.coreUpdate.SetUpdatingLabel(localengine.T("core", "update", "downloading"))
 	p.coreUpdate.SetUpToDateLabel("")
 	p.coreUpdate.SetCurrentVersionFormatter(func(current string) string {
-		return "Current version: " + current
+		return localengine.T("core", "update", "current_version") + current
 	})
 	p.coreUpdate.SetAvailableFormatter(func(latest string) string {
 		return fmt.Sprintf(localengine.T("core", "update", "available"), latest)

@@ -39,16 +39,16 @@ type SettingsPage struct {
 	pendingLang     string
 	pendingLogLevel string
 
-	logLimitEditor          widget.Editor
-	intervalEditor          widget.Editor
+	logLimitEditor            widget.Editor
+	intervalEditor            widget.Editor
 	updateCheckIntervalEditor widget.Editor
-	showLogs                widget.Bool
-	desktopNotif            widget.Bool
-	autoCheckSelf           widget.Bool
-	autoCheckCore           widget.Bool
-	logLevelDropdown *widgets.Dropdown
-	langDropdown     *widgets.Dropdown
-	saveBtn          widget.Clickable
+	showLogs                  widget.Bool
+	desktopNotif              widget.Bool
+	autoCheckSelf             widget.Bool
+	autoCheckCore             widget.Bool
+	logLevelDropdown          *widgets.Dropdown
+	langDropdown              *widgets.Dropdown
+	saveBtn                   widget.Clickable
 }
 
 // NewSettingsPage creates a new settings page.
@@ -196,7 +196,7 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return material.H6(p.th, localengine.T("settings", "logging", "title")).Layout(gtx)
+					return material.H6(p.th, localengine.T("settings", "language", "title")).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if !dirty {
@@ -205,6 +205,12 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 					return material.Button(p.th, &p.saveBtn, localengine.T("settings", "btn", "save")).Layout(gtx)
 				}),
 			)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.langDropdown.Layout(gtx, langDirty)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(p.th, localengine.T("settings", "logging", "title")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			label := localengine.T("settings", "log_limit", "label")
@@ -263,12 +269,6 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 				label += " *"
 			}
 			return widgets.LabeledInput(gtx, p.th, label, &p.intervalEditor, intervalDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(p.th, localengine.T("settings", "language", "title")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.langDropdown.Layout(gtx, langDirty)
 		}),
 	}
 }
