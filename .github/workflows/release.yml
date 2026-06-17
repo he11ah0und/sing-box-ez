@@ -28,7 +28,14 @@ jobs:
         run: |
           echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ "${{ github.ref_name }}" = "testing" ]; then
+            # For testing, base the changelog on the previous testing hash tag.
+            # Exclude the main 'latest' tag so testing release notes only
+            # include commits since the last testing build.
+            last_tag=$(git tag --list --sort=-creatordate --merged HEAD | grep -v -E '^(latest|latest-testing)$' | head -n 1)
+          else
+            last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          fi
           if [ -n "$last_tag" ]; then
             range="${last_tag}..HEAD"
           else
