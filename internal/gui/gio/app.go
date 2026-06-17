@@ -61,6 +61,12 @@ type GUI struct {
 	corePage    *pages.CorePage
 	configsPage *pages.ConfigsPage
 
+	// Secondary page references so the list can be rebuilt at runtime.
+	settingsPage *pages.SettingsPage
+	logPage      pages.Page
+	pluginsPage  pages.Page
+	aboutPage    pages.Page
+
 	// restart is set to true when the app should be restarted after the GUI loop exits.
 	restart bool
 }
@@ -110,36 +116,54 @@ func New(app *app.App) *GUI {
 	dialog := NewDialog()
 	g.dialog = dialog
 
-	aboutPage := pages.NewAboutPage(th, g.ctrl, dialog)
+	g.aboutPage = pages.NewAboutPage(th, g.ctrl, dialog)
 	mainPage := pages.NewMainPage(th, g.ctrl, dialog)
-	logPage := pages.NewLogPage(th, g.ctrl.Controller)
+	g.logPage = pages.NewLogPage(th, g.ctrl.Controller)
 
-	settingsPage := pages.NewSettingsPage(th, g.ctrl, dialog)
-	settingsPage.OnLanguageChange = func() {
+	g.settingsPage = pages.NewSettingsPage(th, g.ctrl, dialog)
+	g.settingsPage.OnLanguageChange = func() {
 		g.shell.RebuildNav()
 	}
-	settingsPage.OnResetRequested = func() {
+	g.settingsPage.OnResetRequested = func() {
 		g.showResetConfirm()
+	}
+	g.settingsPage.OnShowLogsChange = func(show bool) {
+		g.rebuildSecondaryPages(show)
 	}
 
 	g.configsPage = pages.NewConfigsPage(th, g.ctrl, dialog)
 	g.corePage = pages.NewCorePage(th, g.ctrl, dialog)
+	g.pluginsPage = pages.NewPluginsPage(th, g.ctrl.Controller)
 
 	primary := []pages.Page{mainPage, g.configsPage}
-	secondary := []pages.Page{
-		g.corePage,
-		settingsPage,
-		logPage,
-	}
-	if cfg.GetPluginsEnabled() {
-		secondary = append(secondary, pages.NewPluginsPage(th, g.ctrl.Controller))
-	}
-	secondary = append(secondary, aboutPage)
+	secondary := g.buildSecondaryPages(cfg.GetShowLogs())
 
 	g.shell = NewShell(th, cfg, g.ctrl.Controller, primary, secondary)
 	g.shell.dialog = dialog
 
 	return g
+}
+
+// buildSecondaryPages assembles the secondary navigation list based on the
+// current settings (log visibility and plugin support).
+func (g *GUI) buildSecondaryPages(showLogs bool) []pages.Page {
+	secondary := []pages.Page{
+		g.corePage,
+		g.settingsPage,
+	}
+	if showLogs {
+		secondary = append(secondary, g.logPage)
+	}
+	if g.cfg.GetPluginsEnabled() {
+		secondary = append(secondary, g.pluginsPage)
+	}
+	secondary = append(secondary, g.aboutPage)
+	return secondary
+}
+
+// rebuildSecondaryPages updates the secondary navigation in real time.
+func (g *GUI) rebuildSecondaryPages(showLogs bool) {
+	g.shell.SetSecondaryPages(g.buildSecondaryPages(showLogs))
 }
 
 // Run starts the Gio event loop.

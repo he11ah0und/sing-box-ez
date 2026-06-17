@@ -25,6 +25,8 @@ type SettingsPage struct {
 	OnLanguageChange func()
 	// OnResetRequested is called when the user presses the reset button.
 	OnResetRequested func()
+	// OnShowLogsChange is called whenever the "Show logs" toggle changes.
+	OnShowLogsChange func(show bool)
 
 	// Dirty tracking – original saved values.
 	origLogLimit                   string
@@ -184,6 +186,9 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 			p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", h)
 		}
 		p.ctrl.Controller.Config().SetShowLogs(p.showLogs.Value)
+		if p.OnShowLogsChange != nil {
+			p.OnShowLogsChange(p.showLogs.Value)
+		}
 		p.origShowLogs = p.showLogs.Value
 		p.ctrl.Controller.Config().SetLogLevel(p.pendingLogLevel)
 		p.origLogLevel = p.pendingLogLevel
