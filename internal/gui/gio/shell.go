@@ -106,6 +106,32 @@ func (s *Shell) RebuildNav() {
 	}
 }
 
+// SetSecondaryPages replaces the secondary page list and rebuilds navigation.
+// If the currently visible page is no longer present, it switches to the first
+// primary page.
+func (s *Shell) SetSecondaryPages(pages []pages.Page) {
+	// If we are currently showing a secondary page that is being removed,
+	// switch to the first primary page.
+	if s.currentPage >= len(s.primary) {
+		found := false
+		for _, p := range pages {
+			if p.Tag() == s.secondaryTag {
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.currentPage = 0
+			s.secondaryTag = ""
+		}
+	}
+
+	s.secondary = pages
+	s.collapsedClicks = make([]widget.Clickable, len(s.primary)+len(s.secondary))
+	s.secClicks = make([]widget.Clickable, len(s.secondary))
+	s.RebuildNav()
+}
+
 // Layout draws the adaptive shell.
 func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 	// Determine available width in dp.

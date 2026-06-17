@@ -61,21 +61,21 @@ type AppConfig struct {
 	SingBoxURL          string `json:"singbox_url,omitempty"`
 	UpdateIntervalHours int    `json:"update_interval_hours"`
 
-	RunAsAdmin           bool   `json:"run_as_admin"`
-	ShowLogs             bool   `json:"show_logs"`
-	WatchCoreLogs        bool   `json:"watch_core_logs"`
-	LogLimit             int    `json:"log_limit"`
-	LogLevel             string `json:"log_level"`
-	Language             string `json:"language"`
-	PluginsEnabled       bool   `json:"plugins_enabled"`
-	PluginsDeveloper     bool   `json:"plugins_developer"`
-	CoreAutoRestart                 bool      `json:"core_auto_restart"`
-	DesktopNotifications            bool      `json:"desktop_notifications"`
-	AutoCheckSelfUpdates bool `json:"auto_check_self_updates"`
-	AutoCheckCoreUpdates bool `json:"auto_check_core_updates"`
-	AutoUpdateConfigs    bool `json:"auto_update_configs"`
-	AutoUpdateConfigsIntervalHours  int       `json:"auto_update_configs_interval_hours"`
-	AutoRestartOnConfigUpdate       bool      `json:"auto_restart_on_config_update"`
+	RunAsAdmin                         bool   `json:"run_as_admin"`
+	ShowLogs                           bool   `json:"show_logs"`
+	WatchCoreLogs                      bool   `json:"watch_core_logs"`
+	LogLimit                           int    `json:"log_limit"`
+	LogLevel                           string `json:"log_level"`
+	Language                           string `json:"language"`
+	PluginsEnabled                     bool   `json:"plugins_enabled"`
+	PluginsDeveloper                   bool   `json:"plugins_developer"`
+	CoreAutoRestart                    bool   `json:"core_auto_restart"`
+	DesktopNotifications               bool   `json:"desktop_notifications"`
+	AutoCheckSelfUpdates               bool   `json:"auto_check_self_updates"`
+	AutoCheckCoreUpdates               bool   `json:"auto_check_core_updates"`
+	AutoUpdateConfigs                  bool   `json:"auto_update_configs"`
+	AutoUpdateConfigsIntervalHours     int    `json:"auto_update_configs_interval_hours"`
+	AutoRestartOnConfigUpdate          bool   `json:"auto_restart_on_config_update"`
 	BackgroundUpdateCheckIntervalHours int    `json:"background_update_check_interval_hours"`
 
 	DataDir string `json:"-"`
@@ -86,20 +86,20 @@ type AppConfig struct {
 
 func defaultAppConfig() *AppConfig {
 	return &AppConfig{
-		UpdateIntervalHours:             2,
-		RunAsAdmin:                      false,
-		ShowLogs:                        false,
-		WatchCoreLogs:                   true,
-		LogLimit:                        100,
-		LogLevel:                        "info",
-		CoreAutoRestart:                 true,
-		DesktopNotifications:            true,
-		AutoCheckSelfUpdates: true,
-		AutoCheckCoreUpdates: true,
-		AutoUpdateConfigs:    true,
+		UpdateIntervalHours:                2,
+		RunAsAdmin:                         false,
+		ShowLogs:                           false,
+		WatchCoreLogs:                      true,
+		LogLimit:                           100,
+		LogLevel:                           "info",
+		CoreAutoRestart:                    true,
+		DesktopNotifications:               true,
+		AutoCheckSelfUpdates:               true,
+		AutoCheckCoreUpdates:               true,
+		AutoUpdateConfigs:                  true,
 		AutoUpdateConfigsIntervalHours:     1,
 		AutoRestartOnConfigUpdate:          true,
-		BackgroundUpdateCheckIntervalHours: 24,
+		BackgroundUpdateCheckIntervalHours: 2,
 	}
 }
 
@@ -421,7 +421,6 @@ func (c *AppConfig) GetLanguage() string {
 	defer c.mu.RUnlock()
 	return c.Language
 }
-
 
 func (c *AppConfig) SetAutoCheckSelfUpdates(v bool) {
 	c.mu.Lock()
