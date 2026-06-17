@@ -255,18 +255,40 @@ func (u *UpdateCheck) runCheck() {
 	u.isDevBuild = info.IsDevBuild
 	if info.HasUpdate {
 		u.showDetails(info)
+	} else if info.IsDevBuild {
+		u.runUpdate()
 	}
 }
 
 func (u *UpdateCheck) runUpdate() {
 	if u.isDevBuild {
-		title, body := u.devBuildConfirmFormatter(u.lastInfo.Current, u.lastInfo.Latest)
-		u.dialog.ShowConfirm(title, body, func() {
+		title, _ := u.devBuildConfirmFormatter(u.lastInfo.Current, u.lastInfo.Latest)
+		body := u.formatDetailsBody(u.lastInfo)
+		u.dialog.ShowConfirmMarkdown(title, body, func() {
 			go u.doUpdate()
 		}, nil)
 		return
 	}
 	u.doUpdate()
+}
+
+// formatDetailsBody builds the markdown body used for update details and dev-build confirmation.
+func (u *UpdateCheck) formatDetailsBody(info UpdateCheckInfo) string {
+	var body string
+	if u.detailsFormatter != nil {
+		body = u.detailsFormatter(info)
+	} else {
+		if info.Date.IsZero() {
+			body = fmt.Sprintf("# %s\n\n%s", info.Latest, info.Body)
+		} else {
+			body = fmt.Sprintf("# %s\n\nReleased: %s\n\n%s",
+				info.Latest, info.Date.Local().Format("2006-01-02 15:04:05"), info.Body)
+		}
+	}
+	if body == "" {
+		body = "No release notes available."
+	}
+	return body
 }
 
 func (u *UpdateCheck) doUpdate() {
@@ -301,19 +323,6 @@ func (u *UpdateCheck) doUpdate() {
 }
 
 func (u *UpdateCheck) showDetails(info UpdateCheckInfo) {
-	var body string
-	if u.detailsFormatter != nil {
-		body = u.detailsFormatter(info)
-	} else {
-		if info.Date.IsZero() {
-			body = fmt.Sprintf("# %s\n\n%s", info.Latest, info.Body)
-		} else {
-			body = fmt.Sprintf("# %s\n\nReleased: %s\n\n%s",
-				info.Latest, info.Date.Local().Format("2006-01-02 15:04:05"), info.Body)
-		}
-	}
-	if body == "" {
-		body = "No release notes available."
-	}
+	body := u.formatDetailsBody(info)
 	u.dialog.ShowMarkdown(u.detailsTitle, body)
 }

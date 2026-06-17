@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"sing-box-ez/internal/app"
 	"sing-box-ez/internal/config"
@@ -184,6 +183,7 @@ func (g *GUI) Run() {
 	}()
 
 	g.log.Infof("entering Gio main loop")
+	fmt.Printf("[STARTUP] scheduling startup update checks\n")
 	go g.runStartupUpdateChecks()
 	gioapp.Main()
 }
@@ -207,22 +207,8 @@ func (g *GUI) runStartupUpdateChecks() {
 	})
 }
 
-func (g *GUI) shouldCheckUpdate(last config.Timestamp) bool {
-	if last.IsZero() {
-		return true
-	}
-	interval := time.Duration(g.cfg.GetStartupUpdateCheckIntervalHours()) * time.Hour
-	return time.Since(last.Time) >= interval
-}
-
 func (g *GUI) checkSelfUpdateAtStartup(done func()) {
 	if !g.cfg.GetAutoCheckSelfUpdates() {
-		if done != nil {
-			done()
-		}
-		return
-	}
-	if !g.shouldCheckUpdate(g.cfg.GetLastSelfUpdateCheck()) {
 		if done != nil {
 			done()
 		}
@@ -233,8 +219,6 @@ func (g *GUI) checkSelfUpdateAtStartup(done func()) {
 	go func() {
 		info, err := g.ctrl.CheckSelfUpdate()
 		g.dialog.HideLoading()
-		g.cfg.SetLastSelfUpdateCheck(time.Now())
-		_ = g.cfg.Save()
 		if err != nil {
 			g.log.Warnf("startup self-update check failed: %v", err)
 			if done != nil {
@@ -291,13 +275,11 @@ func (g *GUI) checkSelfUpdateAtStartup(done func()) {
 				done()
 			}
 		}
+		title := localengine.T("dialog", "self_update", "title")
 		if isDevBuild {
-			title := localengine.T("about", "update", "dev_build_confirm_title")
-			confirmBody := fmt.Sprintf(localengine.T("about", "update", "dev_build_confirm_body"), currentText, info.Latest)
-			g.dialog.ShowConfirm(title, confirmBody, onUpdate, onDismiss)
-		} else {
-			g.dialog.ShowConfirmMarkdown(localengine.T("dialog", "self_update", "title"), body, onUpdate, onDismiss)
+			title = localengine.T("about", "update", "dev_build_confirm_title")
 		}
+		g.dialog.ShowConfirmMarkdown(title, body, onUpdate, onDismiss)
 	}()
 }
 
@@ -348,20 +330,12 @@ func (g *GUI) checkCoreUpdateAtStartup(done func()) {
 		}
 		return
 	}
-	if !g.shouldCheckUpdate(g.cfg.GetLastCoreUpdateCheck()) {
-		if done != nil {
-			done()
-		}
-		return
-	}
 
 	g.dialog.ShowLoading(localengine.T("core", "update", "checking"))
 	go func() {
 		current, _ := g.ctrl.Controller.GetInstalledCoreVersion()
 		latest, err := g.ctrl.Controller.GetLatestCoreVersion()
 		g.dialog.HideLoading()
-		g.cfg.SetLastCoreUpdateCheck(time.Now())
-		_ = g.cfg.Save()
 		if err != nil {
 			g.log.Warnf("startup core-update check failed: %v", err)
 			if done != nil {

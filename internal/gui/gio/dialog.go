@@ -255,6 +255,10 @@ func (d *Dialog) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 		return layout.Dimensions{}
 	}
 
+	// Keep redrawing while the dialog is shown so state changes from other
+	// goroutines become visible without waiting for the next input event.
+	gtx.Execute(op.InvalidateCmd{})
+
 	// Draw semi-transparent black backdrop over the entire area.
 	backdrop := color.NRGBA{R: 0, G: 0, B: 0, A: 160}
 	paint.FillShape(gtx.Ops, backdrop, clip.Rect{Max: gtx.Constraints.Max}.Op())

@@ -27,10 +27,9 @@ type SettingsPage struct {
 	// Dirty tracking – original saved values.
 	origLogLimit                   string
 	origLogLevel                   string
-	origInterval                   string
-	origUpdateCheckInterval           string
-	origAutoUpdateConfigsInterval     string
-	origBackgroundUpdateCheckInterval string
+	origInterval                        string
+	origAutoUpdateConfigsInterval       string
+	origBackgroundUpdateCheckInterval   string
 	origShowLogs                   bool
 	origDesktopNotif               bool
 	origAutoCheckSelf              bool
@@ -43,10 +42,9 @@ type SettingsPage struct {
 	pendingLang     string
 	pendingLogLevel string
 
-	logLimitEditor                 widget.Editor
-	intervalEditor                 widget.Editor
-	updateCheckIntervalEditor       widget.Editor
-	autoUpdateConfigsIntervalEditor  widget.Editor
+	logLimitEditor                      widget.Editor
+	intervalEditor                      widget.Editor
+	autoUpdateConfigsIntervalEditor     widget.Editor
 	backgroundUpdateCheckIntervalEditor widget.Editor
 	showLogs                       widget.Bool
 	desktopNotif                   widget.Bool
@@ -76,11 +74,6 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 	p.intervalEditor.SingleLine = true
 	p.intervalEditor.Filter = "0123456789"
 	p.intervalEditor.SetText(p.origInterval)
-
-	p.origUpdateCheckInterval = fmt.Sprintf("%d", ctrl.Controller.Config().GetStartupUpdateCheckIntervalHours())
-	p.updateCheckIntervalEditor.SingleLine = true
-	p.updateCheckIntervalEditor.Filter = "0123456789"
-	p.updateCheckIntervalEditor.SetText(p.origUpdateCheckInterval)
 
 	p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", ctrl.Controller.Config().GetAutoUpdateConfigsIntervalHours())
 	p.autoUpdateConfigsIntervalEditor.SingleLine = true
@@ -152,7 +145,6 @@ func (p *SettingsPage) isDirty() bool {
 	return p.logLimitEditor.Text() != p.origLogLimit ||
 		p.pendingLogLevel != p.origLogLevel ||
 		p.intervalEditor.Text() != p.origInterval ||
-		p.updateCheckIntervalEditor.Text() != p.origUpdateCheckInterval ||
 		p.autoUpdateConfigsIntervalEditor.Text() != p.origAutoUpdateConfigsInterval ||
 		p.backgroundUpdateCheckIntervalEditor.Text() != p.origBackgroundUpdateCheckInterval ||
 		p.showLogs.Value != p.origShowLogs ||
@@ -179,10 +171,6 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 		if h, err := strconv.Atoi(p.intervalEditor.Text()); err == nil && h > 0 {
 			p.ctrl.Controller.SetDefaultInterval(h)
 			p.origInterval = fmt.Sprintf("%d", h)
-		}
-		if h, err := strconv.Atoi(p.updateCheckIntervalEditor.Text()); err == nil && h > 0 {
-			p.ctrl.Controller.Config().SetStartupUpdateCheckIntervalHours(h)
-			p.origUpdateCheckInterval = fmt.Sprintf("%d", h)
 		}
 		if h, err := strconv.Atoi(p.backgroundUpdateCheckIntervalEditor.Text()); err == nil && h > 0 {
 			p.ctrl.Controller.Config().SetBackgroundUpdateCheckIntervalHours(h)
@@ -220,7 +208,6 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 	logLimitDirty := p.logLimitEditor.Text() != p.origLogLimit
 	logLevelDirty := p.pendingLogLevel != p.origLogLevel
 	intervalDirty := p.intervalEditor.Text() != p.origInterval
-	updateCheckIntervalDirty := p.updateCheckIntervalEditor.Text() != p.origUpdateCheckInterval
 	autoUpdateConfigsIntervalDirty := p.autoUpdateConfigsIntervalEditor.Text() != p.origAutoUpdateConfigsInterval
 	backgroundUpdateCheckIntervalDirty := p.backgroundUpdateCheckIntervalEditor.Text() != p.origBackgroundUpdateCheckInterval
 	showLogsDirty := p.showLogs.Value != p.origShowLogs
@@ -296,13 +283,6 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 				label += " *"
 			}
 			return material.CheckBox(p.th, &p.autoCheckCore, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "update_check", "interval")
-			if updateCheckIntervalDirty {
-				label += " *"
-			}
-			return widgets.LabeledInput(gtx, p.th, label, &p.updateCheckIntervalEditor, updateCheckIntervalDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			label := localengine.T("settings", "update_check", "background_interval")

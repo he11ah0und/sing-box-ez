@@ -11,6 +11,7 @@ type DialogProvider interface {
 	HideLoading()
 	ShowLoadingWithProgress(title string, progress func() float32)
 	ShowConfirm(title, body string, onConfirm func(), onDismiss func())
+	ShowConfirmMarkdown(title, body string, onConfirm func(), onDismiss func())
 	ShowCustom(title string, content layout.Widget)
 	ShowCustomNoCancel(title string, content layout.Widget)
 	HideCustom()
