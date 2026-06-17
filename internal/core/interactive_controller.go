@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -25,7 +26,13 @@ type InteractiveController struct {
 	OnAutoRestart     func()
 	// OnUpdateCheckDue is invoked periodically when a background update check
 	// should be performed. The GUI layer is responsible for showing dialogs.
-	OnUpdateCheckDue  func()
+	OnUpdateCheckDue func()
+	// OnCoreMissing is invoked when StartService fails because the sing-box
+	// core binary is missing. The GUI layer can navigate to the Core page.
+	OnCoreMissing func()
+	// OnConfigMissing is invoked when StartService fails because no active
+	// config is selected. The GUI layer can navigate to the Configs page.
+	OnConfigMissing func()
 
 	stopped bool
 	stopMu  sync.Mutex
@@ -103,6 +110,16 @@ func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 func (ic *InteractiveController) StartService() error {
 	if _, err := ic.Controller.PrepareConfig(); err != nil {
 		ic.Controller.Terminal().Infof("%s", err.Error())
+		switch {
+		case errors.Is(err, ErrCoreMissing):
+			if ic.OnCoreMissing != nil {
+				ic.OnCoreMissing()
+			}
+		case errors.Is(err, ErrNoActiveConfig):
+			if ic.OnConfigMissing != nil {
+				ic.OnConfigMissing()
+			}
+		}
 		return err
 	}
 	if err := ic.Controller.Start(); err != nil {

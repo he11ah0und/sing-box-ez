@@ -6,9 +6,11 @@ import (
 	"image"
 	"image/color"
 	"strings"
+	"time"
 
 	"gio.tools/icons"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -30,6 +32,8 @@ type CorePage struct {
 
 	autoRestart widget.Bool
 	watchLogs   widget.Bool
+
+	highlightEnd time.Time
 
 	restartAdminBtn widget.Clickable
 
@@ -109,6 +113,18 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	return p
 }
 
+func (p *CorePage) layoutHighlightedUpdate(gtx layout.Context) layout.Dimensions {
+	dims := p.coreUpdate.Layout(gtx)
+	if time.Now().Before(p.highlightEnd) {
+		elapsed := time.Since(p.highlightEnd.Add(-3 * time.Second))
+		if int(elapsed.Milliseconds()/500)%2 == 0 {
+			paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 60}, clip.Rect{Max: dims.Size}.Op())
+		}
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	return dims
+}
+
 func normalizeCoreVersion(v string) string {
 	if v == "" {
 		return v
@@ -125,6 +141,12 @@ func (p *CorePage) Tag() string { return "core" }
 // Name returns the page name.
 func (p *CorePage) Name() string       { return localengine.T("tab", "core") }
 func (p *CorePage) Icon() *widget.Icon { return icons.AVPlayArrow }
+
+// HighlightUpdateBlock flashes the core update row background 3 times to draw
+// attention when the core binary is missing.
+func (p *CorePage) HighlightUpdateBlock() {
+	p.highlightEnd = time.Now().Add(3 * time.Second)
+}
 
 // Layout draws the core page.
 func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
@@ -156,7 +178,7 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 			return material.H6(p.th, localengine.T("tab", "core")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.coreUpdate.Layout(gtx)
+			return p.layoutHighlightedUpdate(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)

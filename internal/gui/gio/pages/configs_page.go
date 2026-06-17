@@ -68,6 +68,12 @@ func (p *ConfigsPage) NoInset() bool { return true }
 // already scrolls its own config cards list.
 func (p *ConfigsPage) NoShellScroll() bool { return true }
 
+// ShowAddDialog opens the "add config" dialog. Used when the app detects that
+// no active config exists and the user needs to create one.
+func (p *ConfigsPage) ShowAddDialog() {
+	p.openAddDialog()
+}
+
 // Layout draws the configs page.
 func (p *ConfigsPage) Layout(gtx layout.Context) layout.Dimensions {
 	return widgets.SpacedList(gtx, p.Children(gtx)...)

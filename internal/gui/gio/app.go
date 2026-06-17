@@ -55,6 +55,10 @@ type GUI struct {
 
 	// Dialog reference for startup sequences
 	dialog *Dialog
+
+	// Page references used for programmatic navigation/highlighting.
+	corePage    *pages.CorePage
+	configsPage *pages.ConfigsPage
 }
 
 // New creates a new Gio GUI instance.
@@ -90,6 +94,14 @@ func New(app *app.App) *GUI {
 	g.ctrl.OnUpdateCheckDue = func() {
 		g.runStartupUpdateChecks()
 	}
+	g.ctrl.OnCoreMissing = func() {
+		g.shell.NavigateTo("core")
+		g.corePage.HighlightUpdateBlock()
+	}
+	g.ctrl.OnConfigMissing = func() {
+		g.shell.NavigateTo("configs")
+		g.configsPage.ShowAddDialog()
+	}
 
 	dialog := NewDialog()
 	g.dialog = dialog
@@ -103,9 +115,12 @@ func New(app *app.App) *GUI {
 		g.shell.RebuildNav()
 	}
 
-	primary := []pages.Page{mainPage, pages.NewConfigsPage(th, g.ctrl, dialog)}
+	g.configsPage = pages.NewConfigsPage(th, g.ctrl, dialog)
+	g.corePage = pages.NewCorePage(th, g.ctrl, dialog)
+
+	primary := []pages.Page{mainPage, g.configsPage}
 	secondary := []pages.Page{
-		pages.NewCorePage(th, g.ctrl, dialog),
+		g.corePage,
 		settingsPage,
 		logPage,
 	}

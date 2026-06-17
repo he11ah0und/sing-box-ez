@@ -273,7 +273,8 @@ func (fs *ArchiveFS) openTarEntry(targetOffset, size int64) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close() // we return a reader that must outlive f; handled below
+	// The returned offsetFileReader owns f and closes it when the entry is
+	// fully read or explicitly closed; do not close f here.
 
 	var r io.Reader = f
 	if fs.format == "tar.gz" {
@@ -333,8 +334,8 @@ func (r *offsetFileReader) Close() error {
 // ReadDir reads the named directory inside the archive.
 func (fs *ArchiveFS) ReadDir(name string) ([]os.DirEntry, error) {
 	name = filepath.ToSlash(name)
-	if name == "." {
-		name = ""
+	if name == "" {
+		name = "."
 	}
 	entries, ok := fs.dirs[name]
 	if !ok {

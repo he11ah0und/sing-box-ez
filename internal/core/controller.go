@@ -17,6 +17,12 @@ import (
 	"sing-box-ez/internal/framework/updater"
 )
 
+// Sentinel errors returned by PrepareConfig so callers can react specifically.
+var (
+	ErrCoreMissing    = errors.New("core not found. Please download it first")
+	ErrNoActiveConfig = errors.New("no active config. Please add and activate a config in the Configs tab")
+)
+
 // Controller is the core application API used by both CLI and GUI.
 // It owns the sing-box process manager, config lifecycle, and privilege helpers.
 type Controller struct {
@@ -123,13 +129,13 @@ func (c *Controller) ClearLogs() {
 // ---------- Core lifecycle ----------
 
 func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
-	if !c.CoreExists() {
-		return nil, errors.New("core not found. Please download it first")
-	}
-
 	active := c.cfg.GetActiveConfig()
 	if active == nil {
-		return nil, errors.New("no active config. Please add and activate a config in the Configs tab")
+		return nil, ErrNoActiveConfig
+	}
+
+	if !c.CoreExists() {
+		return nil, ErrCoreMissing
 	}
 	c.manager.SetConfigURL(active.URL)
 	c.manager.SetConfigName(active.Name)

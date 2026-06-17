@@ -15,7 +15,7 @@ end
 local root = nil
 for _, e in ipairs(entries) do
 	if e.is_dir and e.name:match("^sing%-box%-") then
-		root = e.name
+		root = e.name:gsub("/$", "")
 		break
 	end
 end
@@ -32,6 +32,11 @@ log.info("installing core " .. src .. " -> " .. dst)
 local copy_err = fs.copy(asset.fs, src, dst)
 if copy_err then
 	return { error = "copy failed: " .. tostring(copy_err) }
+end
+
+-- Verify the binary was actually written.
+if not fs.exists(dst) then
+	return { error = "destination binary missing after copy: " .. dst }
 end
 
 return {}
