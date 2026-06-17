@@ -292,5 +292,10 @@ duration:
   unit_years: '%d лет'
   in: через %s
   ago: '%s назад'
+tray:
+  menu:
+    show: Показать
+    minimize: Свернуть
+    quit: Выход
 locale:
   name: Русский
