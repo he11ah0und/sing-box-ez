@@ -120,6 +120,15 @@ settings:
   reload_ui:
     title: Interface
     btn: Reload UI
+  reset:
+    title: Danger Zone
+    btn: Reset all data
+    confirm_title: Reset all data?
+    confirm_msg: |
+      This will permanently delete config.json, profiles.json and the configs/ folder.
+      The application will restart afterwards.
+    success_title: Data reset
+    success_msg: All data has been reset. The application will restart now.
   desktop_notifications: Desktop notifications
 log:
   title: Log

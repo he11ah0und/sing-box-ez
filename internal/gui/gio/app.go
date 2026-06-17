@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image/color"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -59,6 +60,9 @@ type GUI struct {
 	// Page references used for programmatic navigation/highlighting.
 	corePage    *pages.CorePage
 	configsPage *pages.ConfigsPage
+
+	// restart is set to true when the app should be restarted after the GUI loop exits.
+	restart bool
 }
 
 // New creates a new Gio GUI instance.
@@ -113,6 +117,9 @@ func New(app *app.App) *GUI {
 	settingsPage := pages.NewSettingsPage(th, g.ctrl, dialog)
 	settingsPage.OnLanguageChange = func() {
 		g.shell.RebuildNav()
+	}
+	settingsPage.OnResetRequested = func() {
+		g.showResetConfirm()
 	}
 
 	g.configsPage = pages.NewConfigsPage(th, g.ctrl, dialog)
@@ -188,6 +195,9 @@ func (g *GUI) Run() {
 				if g.ctrl != nil {
 					g.ctrl.Close()
 				}
+				if g.restart {
+					return
+				}
 				os.Exit(0)
 			case gioapp.FrameEvent:
 				gtx := gioapp.NewContext(&ops, e)
@@ -198,9 +208,76 @@ func (g *GUI) Run() {
 	}()
 
 	g.log.Infof("entering Gio main loop")
-	fmt.Printf("[STARTUP] scheduling startup update checks\n")
 	go g.runStartupUpdateChecks()
 	gioapp.Main()
+
+	if g.restart {
+		g.doRestart()
+	}
+}
+
+// RequestRestart stops the current app services and replaces the process with
+// a fresh instance. It does not return on success.
+func (g *GUI) RequestRestart() {
+	g.restart = true
+	if g.tray != nil {
+		g.tray.Stop()
+	}
+	if g.ctrl != nil {
+		g.ctrl.Close()
+	}
+	g.doRestart()
+}
+
+// doRestart replaces the current process with a fresh instance of the app.
+func (g *GUI) doRestart() {
+	exe, err := os.Executable()
+	if err != nil {
+		g.log.Errorf("failed to locate executable for restart: %v", err)
+		return
+	}
+	g.log.Infof("restarting application")
+	if err := restartProcess(exe, os.Args, restartEnv()); err != nil {
+		g.log.Errorf("failed to restart application: %v", err)
+	}
+}
+
+// showResetConfirm asks the user to confirm deleting all local data.
+func (g *GUI) showResetConfirm() {
+	title := localengine.T("settings", "reset", "confirm_title")
+	body := localengine.T("settings", "reset", "confirm_msg")
+	g.dialog.ShowConfirm(title, body, func() {
+		g.resetDataAndRestart()
+	}, nil)
+}
+
+// resetDataAndRestart removes config.json, profiles.json and the configs folder,
+// shows a confirmation dialog, and then requests a restart.
+func (g *GUI) resetDataAndRestart() {
+	dataDir := g.cfg.DataDir
+	paths := []string{
+		filepath.Join(dataDir, "config.json"),
+		filepath.Join(dataDir, "profiles.json"),
+		filepath.Join(dataDir, "configs"),
+	}
+	var errs []string
+	for _, p := range paths {
+		if err := os.RemoveAll(p); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", p, err))
+		}
+	}
+	if len(errs) > 0 {
+		g.dialog.Show(localengine.T("settings", "reset", "title"), strings.Join(errs, "\n"))
+		return
+	}
+
+	successTitle := localengine.T("settings", "reset", "success_title")
+	successBody := localengine.T("settings", "reset", "success_msg")
+	g.dialog.ShowConfirm(successTitle, successBody, func() {
+		g.RequestRestart()
+	}, func() {
+		g.RequestRestart()
+	})
 }
 
 //go:embed assets/NotoEmoji.ttf
