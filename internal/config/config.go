@@ -3,7 +3,7 @@ package config
 import (
 	"encoding/json"
 	"os"
-	"sing-box-ez/internal/util/paths"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -61,16 +61,24 @@ type AppConfig struct {
 	SingBoxURL          string `json:"singbox_url,omitempty"`
 	UpdateIntervalHours int    `json:"update_interval_hours"`
 
-	RunAsAdmin           bool   `json:"run_as_admin"`
-	ShowLogs             bool   `json:"show_logs"`
-	WatchCoreLogs        bool   `json:"watch_core_logs"`
-	LogLimit             int    `json:"log_limit"`
-	Language             string `json:"language"`
-	PluginsEnabled       bool   `json:"plugins_enabled"`
-	PluginsDeveloper     bool   `json:"plugins_developer"`
-	CoreAutoRestart      bool   `json:"core_auto_restart"`
-	DesktopNotifications bool   `json:"desktop_notifications"`
-	FirstRunDone         bool   `json:"first_run_done"`
+	RunAsAdmin                         bool   `json:"run_as_admin"`
+	ShowLogs                           bool   `json:"show_logs"`
+	WatchCoreLogs                      bool   `json:"watch_core_logs"`
+	LogLimit                           int    `json:"log_limit"`
+	LogLevel                           string `json:"log_level"`
+	Language                           string `json:"language"`
+	PluginsEnabled                     bool   `json:"plugins_enabled"`
+	PluginsDeveloper                   bool   `json:"plugins_developer"`
+	CoreAutoRestart                    bool   `json:"core_auto_restart"`
+	DesktopNotifications               bool   `json:"desktop_notifications"`
+	AutoCheckSelfUpdates               bool   `json:"auto_check_self_updates"`
+	AutoCheckCoreUpdates               bool   `json:"auto_check_core_updates"`
+	AutoUpdateConfigs                  bool   `json:"auto_update_configs"`
+	AutoUpdateConfigsIntervalHours     int    `json:"auto_update_configs_interval_hours"`
+	AutoRestartOnConfigUpdate          bool   `json:"auto_restart_on_config_update"`
+	BackgroundUpdateCheckIntervalHours int    `json:"background_update_check_interval_hours"`
+
+	DataDir string `json:"-"`
 
 	mu       sync.RWMutex
 	profiles *Profiles
@@ -78,13 +86,20 @@ type AppConfig struct {
 
 func defaultAppConfig() *AppConfig {
 	return &AppConfig{
-		UpdateIntervalHours:  2,
-		RunAsAdmin:           false,
-		ShowLogs:             false,
-		WatchCoreLogs:        true,
-		LogLimit:             100,
-		CoreAutoRestart:      true,
-		DesktopNotifications: true,
+		UpdateIntervalHours:                2,
+		RunAsAdmin:                         false,
+		ShowLogs:                           false,
+		WatchCoreLogs:                      true,
+		LogLimit:                           100,
+		LogLevel:                           "info",
+		CoreAutoRestart:                    true,
+		DesktopNotifications:               true,
+		AutoCheckSelfUpdates:               true,
+		AutoCheckCoreUpdates:               true,
+		AutoUpdateConfigs:                  true,
+		AutoUpdateConfigsIntervalHours:     1,
+		AutoRestartOnConfigUpdate:          true,
+		BackgroundUpdateCheckIntervalHours: 2,
 	}
 }
 
@@ -95,13 +110,14 @@ type rawConfig struct {
 	ActiveName string         `json:"active_name"`
 }
 
-func Load() (*AppConfig, error) {
-	cfg, err := loadSettings()
+func Load(dataDir string) (*AppConfig, error) {
+	cfg, err := loadSettings(dataDir)
 	if err != nil {
 		return nil, err
 	}
+	cfg.DataDir = dataDir
 
-	profiles, err := LoadProfiles()
+	profiles, err := LoadProfiles(dataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -109,14 +125,14 @@ func Load() (*AppConfig, error) {
 
 	// Migrate legacy configs stored in config.json if profiles.json is empty.
 	if len(profiles.Configs) == 0 {
-		legacy, err := loadRawSettings()
+		legacy, err := loadRawSettings(dataDir)
 		if err == nil && (len(legacy.Configs) > 0 || legacy.ActiveName != "") {
 			profiles.Configs = legacy.Configs
 			profiles.ActiveName = legacy.ActiveName
 			if profiles.Configs == nil {
 				profiles.Configs = []ConfigRecord{}
 			}
-			_ = profiles.Save()
+			_ = profiles.Save(dataDir)
 		}
 		// Also migrate legacy single URL into the new list if needed.
 		if cfg.SingBoxURL != "" && len(profiles.Configs) == 0 {
@@ -128,7 +144,7 @@ func Load() (*AppConfig, error) {
 			})
 			profiles.ActiveName = "default"
 			cfg.SingBoxURL = ""
-			_ = profiles.Save()
+			_ = profiles.Save(dataDir)
 			_ = cfg.Save()
 		}
 	}
@@ -136,8 +152,8 @@ func Load() (*AppConfig, error) {
 	return cfg, nil
 }
 
-func loadSettings() (*AppConfig, error) {
-	data, err := os.ReadFile(paths.AppConfig())
+func loadSettings(dataDir string) (*AppConfig, error) {
+	data, err := os.ReadFile(filepath.Join(dataDir, "config.json"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return defaultAppConfig(), nil
@@ -154,8 +170,8 @@ func loadSettings() (*AppConfig, error) {
 	return &cfg, nil
 }
 
-func loadRawSettings() (*rawConfig, error) {
-	data, err := os.ReadFile(paths.AppConfig())
+func loadRawSettings(dataDir string) (*rawConfig, error) {
+	data, err := os.ReadFile(filepath.Join(dataDir, "config.json"))
 	if err != nil {
 		return nil, err
 	}
@@ -176,11 +192,14 @@ func (c *AppConfig) Save() error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(paths.AppConfig(), data, 0600); err != nil {
+	if c.DataDir == "" {
+		return os.ErrInvalid
+	}
+	if err := os.WriteFile(filepath.Join(c.DataDir, "config.json"), data, 0600); err != nil {
 		return err
 	}
 	if c.profiles != nil {
-		return c.profiles.Save()
+		return c.profiles.Save(c.DataDir)
 	}
 	return nil
 }
@@ -328,6 +347,21 @@ func (c *AppConfig) GetLogLimit() int {
 	return c.LogLimit
 }
 
+func (c *AppConfig) SetLogLevel(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.LogLevel = v
+}
+
+func (c *AppConfig) GetLogLevel() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.LogLevel == "" {
+		return "info"
+	}
+	return c.LogLevel
+}
+
 func (c *AppConfig) SetPluginsEnabled(v bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -376,18 +410,6 @@ func (c *AppConfig) GetDesktopNotifications() bool {
 	return c.DesktopNotifications
 }
 
-func (c *AppConfig) SetFirstRunDone(v bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.FirstRunDone = v
-}
-
-func (c *AppConfig) GetFirstRunDone() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.FirstRunDone
-}
-
 func (c *AppConfig) SetLanguage(v string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -398,4 +420,82 @@ func (c *AppConfig) GetLanguage() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.Language
+}
+
+func (c *AppConfig) SetAutoCheckSelfUpdates(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoCheckSelfUpdates = v
+}
+
+func (c *AppConfig) GetAutoCheckSelfUpdates() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoCheckSelfUpdates
+}
+
+func (c *AppConfig) SetAutoCheckCoreUpdates(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoCheckCoreUpdates = v
+}
+
+func (c *AppConfig) GetAutoCheckCoreUpdates() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoCheckCoreUpdates
+}
+
+func (c *AppConfig) SetAutoUpdateConfigs(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoUpdateConfigs = v
+}
+
+func (c *AppConfig) GetAutoUpdateConfigs() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoUpdateConfigs
+}
+
+func (c *AppConfig) SetAutoUpdateConfigsIntervalHours(v int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoUpdateConfigsIntervalHours = v
+}
+
+func (c *AppConfig) GetAutoUpdateConfigsIntervalHours() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AutoUpdateConfigsIntervalHours <= 0 {
+		return 1
+	}
+	return c.AutoUpdateConfigsIntervalHours
+}
+
+func (c *AppConfig) SetAutoRestartOnConfigUpdate(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoRestartOnConfigUpdate = v
+}
+
+func (c *AppConfig) GetAutoRestartOnConfigUpdate() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoRestartOnConfigUpdate
+}
+
+func (c *AppConfig) SetBackgroundUpdateCheckIntervalHours(v int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.BackgroundUpdateCheckIntervalHours = v
+}
+
+func (c *AppConfig) GetBackgroundUpdateCheckIntervalHours() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.BackgroundUpdateCheckIntervalHours <= 0 {
+		return 24
+	}
+	return c.BackgroundUpdateCheckIntervalHours
 }

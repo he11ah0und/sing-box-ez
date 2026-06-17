@@ -10,3 +10,6 @@ site/
 # Build artifacts and runtime data
 build/
 sing-box-ez-data/
+
+# Agent-specific instructions (local to the session)
+AGENTS.md

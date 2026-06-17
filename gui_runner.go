@@ -1,14 +1,14 @@
-//go:build !nogui && !fyne
+//go:build !nogui
 
 package main
 
 import (
-	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/app"
 	giogui "sing-box-ez/internal/gui/gio"
 )
 
-func runGUI(cfg *config.AppConfig) bool {
-	g := giogui.New(cfg)
+func runGUI(app *app.App) bool {
+	g := giogui.New(app)
 	g.Run()
 	return true
 }

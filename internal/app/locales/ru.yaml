@@ -1,0 +1,316 @@
+app:
+  title: Sing-box EZ
+tab:
+  main: Главная
+  configs: Конфиги
+  core: Ядро
+  settings: Настройки
+  log: Лог
+  plugins: Плагины
+  about: О программе
+main:
+  status:
+    stopped: 'Статус: остановлен'
+    running: 'Статус: запущен'
+  active:
+    none: 'Активный конфиг: (нет)'
+    prefix: 'Активный конфиг: '
+  'no':
+    config: Конфиг не выбран — выберите во вкладке Конфиги
+  btn:
+    start: Старт
+    stop: Стоп
+    restart: Перезапуск
+core:
+  update:
+    current_version: 'Текущая версия: '
+  version:
+    installed: 'Ядро: v'
+    not_installed: 'Ядро: не установлено'
+  latest:
+    checking: 'Последняя: проверка...'
+    error: 'Последняя: ошибка'
+    prefix: 'Последняя: v'
+  btn:
+    download: Скачать последнее ядро sing-box
+    check: Проверить последнюю версию
+    restart_admin: Перезапустить от администратора
+    apply_setcap: Применить setcap (TUN без root)
+    apply: Применить
+  auto_restart: Авто-перезапуск ядра при фатальных ошибках
+  privileges:
+    title: Привилегии
+    admin: 'Привилегии: запущено от администратора'
+    user: 'Привилегии: запущено от пользователя'
+    setcap_active: 'Привилегии: setcap активен (TUN без root)'
+    root_required: 'Привилегии: требуется root для TUN'
+  setcap:
+    unavailable: setcap недоступен в этой ОС
+  admin:
+    label: Запускать от администратора
+    label_root_setcap: Запускать от root (setcap активен, TUN без root)
+    label_root_pkexec: Запускать от root (pkexec, для TUN)
+  mode:
+    admin: Админ
+    setcap: Setcap
+    setcap_prompt: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
+  watch_core_logs: Следить за логами ядра
+configs:
+  title: Конфиги
+  btn:
+    add: Добавить
+    edit: Изменить
+    delete: Удалить
+    activate: Активировать
+    update_all: Обновить все
+  table:
+    name: Название
+    source: Источник
+    last_update: Последнее обновление
+    next_update: Следующее обновление
+    period: Период
+    cached: Кэш
+    user: пользователь
+    never: никогда
+    now: сейчас
+    'yes': да
+    'no': нет
+  dialog:
+    title: Конфиг
+    name: Название
+    url: URL
+    period: Период (часов)
+    btn:
+      save: Сохранить
+      update_now: Обновить сейчас
+      delete: Удалить
+      cancel: Отмена
+    delete_title: Удаление
+    delete_msg: Удалить конфиг
+settings:
+  logging:
+    title: Логирование
+  log_limit:
+    label: 'Лимит строк лога (0=без ограничений):'
+  log_level:
+    label: 'Уровень журнала:'
+    debug: Отладка
+    info: Информация
+    warn: Предупреждение
+    error: Ошибка
+  btn:
+    save: Сохранить
+  update_check:
+    title: Проверка обновлений
+    self: Проверять обновления приложения при запуске
+    core: Проверять обновления ядра при запуске
+    interval: Интервал проверки при запуске (часов)
+    background_interval: Интервал фоновой проверки (часов)
+  show_logs: Показывать логи
+  config:
+    title: Конфиг
+  config_update:
+    title: Обновление конфигов
+    auto: Автообновление конфигов в фоне
+    auto_restart: Авто-перезапуск ядра при обновлении активного конфига
+    interval: Интервал проверки обновлений конфигов (часов)
+  default_interval:
+    label: 'Интервал обновления по умолчанию (часов):'
+  language:
+    title: Язык
+  plugins:
+    title: Плагины
+    enabled: Функция плагинов
+    developer: Режим разработчика плагинов
+  reload_ui:
+    title: Интерфейс
+    btn: Перезагрузить интерфейс
+  reset:
+    title: Опасная зона
+    btn: Сбросить все данные
+    confirm_title: Сбросить все данные?
+    confirm_msg: |
+      Это безвозвратно удалит config.json, profiles.json и папку configs/.
+      После этого приложение перезапустится.
+    success_title: Данные сброшены
+    success_msg: Все данные сброшены. Приложение будет перезапущено.
+  desktop_notifications: Уведомления на рабочий стол
+log:
+  title: Лог
+  btn:
+    copy: Копировать всё
+    clear: Очистить
+about:
+  system:
+    title: Система
+  commit_info:
+    prefix: 'Коммит: '
+  build_info:
+    prefix: 'Сборка: '
+  btn:
+    release_notes: Показать примечания к релизу
+    open_release_notes: Открыть примечания к релизу
+    open_repo: Открыть репозиторий
+    open_data: Открыть папку данных
+    check_updates: Проверить обновления
+    load_branches: Загрузить ветки
+    check_branch: Проверить обновление для ветки
+    switch_branch: Сменить ветку
+  branch:
+    label: 'Ветка: '
+    load_error: 'Не удалось загрузить ветки: '
+  dev_build:
+    label: Сборка разработки — заметки к релизу недоступны
+  update:
+    checking: 'Проверка обновления'
+    updating: 'Обновление...'
+    available: 'Обновить до %s'
+    current_version: 'Текущая версия: '
+    dev_build: 'Dev-сборка: текущая %s, удалённая %s'
+    dev_build_confirm_title: 'Обновление dev-сборки'
+    dev_build_confirm_body: 'Вы используете dev-сборку (%s), новее последнего релиза (%s). Обновление откатит версию. Продолжить?'
+  release_notes:
+    title: Примечания к релизу
+    error: 'Не удалось загрузить примечания к релизу'
+    not_found: 'Текущая сборка не соответствует ни одному официальному релизу.
+
+
+      Эта сборка не указана среди релизов GitHub.
+
+      Возможно, это dev-сборка?'
+    released: 'Выпущено: '
+  dialog:
+    close: Закрыть
+dialog:
+  btn:
+    cancel: Отмена
+    confirm: Подтвердить
+    update: Обновить
+    ignore: Пропустить
+  core_update:
+    title: Доступно обновление ядра
+    msg: 'Доступна новая версия ядра sing-box.
+
+
+      Текущая: v%s
+
+      Последняя: v%s
+
+
+      Обновить сейчас?'
+  version_check:
+    title: Проверка версии
+    core_not_installed: Ядро не установлено.
+    latest: 'Последняя версия: v'
+    current: 'Текущая: v'
+    latest_installed: ✓ Установлена последняя версия
+    update_available: ✗ Доступно обновление
+  download_complete:
+    title: Загрузка завершена
+    msg: 'Ядро sing-box v%s успешно загружено.
+
+      Расположение: %s'
+  self_update:
+    title: Доступно обновление
+    current: 'Текущая: '
+    latest: 'Последняя: '
+    behind: 'Отставание: %s'
+    changelog: 'Список изменений:'
+  unknown: неизвестно
+  error:
+    no_matching_asset: Подходящий файл не найден
+  privileges:
+    title: Требуются привилегии
+    msg_linux: 'sing-box нуждается в повышенных привилегиях для создания TUN-устройства.
+
+
+      Выберите вариант ниже:'
+    msg_windows: 'sing-box нуждается в правах администратора для создания TUN-устройства.
+
+
+      Пожалуйста, перезапустите приложение от администратора.'
+    btn_setcap: Применить setcap (рекомендуется)
+    btn_run_as_admin: Включить запуск от администратора
+    btn_restart_admin: Перезапустить от администратора
+progress:
+  initializing: Инициализация...
+  checking_updates: Проверка обновлений...
+  checking_version: Проверка последней версии...
+  adding_config: Добавление конфигурации...
+  downloading_core: Загрузка ядра sing-box v%s...
+  downloading_update: Загрузка обновления...
+  fetching_notes: Загрузка примечаний к релизу...
+  updating_configs: Обновление всех конфигов...
+  applying_setcap: Применение setcap...
+plugins:
+  btn:
+    refresh: Обновить
+    check_all_updates: Проверить все обновления
+    install_from_url: Установить по URL
+    generate_api_docs: Сгенерировать документацию API
+    generate_vscode_defs: Сгенерировать определения VS Code
+    generate_template: Сгенерировать шаблон
+    check_update: Проверить обновление
+    enable: Включить
+    disable: Отключить
+    unload: Выгрузить
+    install: Установить
+    generate: Сгенерировать
+  info:
+    name: Название
+    version: Версия
+    latest_remote: Последняя (удалённая)
+    author: Автор
+    description: Описание
+    entrypoint: Точка входа
+    source: Источник
+    package_url: URL пакета
+    relation: Связь
+    update_url: URL обновления
+    status: Статус
+  status:
+    enabled: включён
+    disabled: отключён
+  note:
+    folder_no_update: 'Примечание: плагины из папок нельзя обновлять автоматически.'
+  dialog:
+    title: 'Плагин: %s'
+  install:
+    url_label: URL пакета плагина (zip или tar.gz)
+    title: Установить плагин
+  template:
+    name: Название плагина
+    relation: Связь
+    title: Сгенерировать шаблон плагина
+notify:
+  core_started:
+    title: Sing-box EZ
+    body: Ядро успешно запущено
+  core_stopped:
+    title: Sing-box EZ
+    body: Ядро остановлено
+  core_crashed:
+    title: Sing-box EZ — авария ядра
+    body: Обнаружена фатальная ошибка. Авто-перезапуск...
+duration:
+  seconds: '%dс'
+  minutes: '%dм'
+  hours: '%dч'
+  days: '%dд'
+  months: '%dмес'
+  years: '%dг'
+  just_now: только что
+  unit_minutes: '%d мин'
+  unit_hours: '%d ч'
+  unit_days: '%d дн'
+  unit_months: '%d мес'
+  unit_years: '%d лет'
+  in: через %s
+  ago: '%s назад'
+tray:
+  menu:
+    show: Показать
+    minimize: Свернуть
+    quit: Выход
+locale:
+  name: Русский

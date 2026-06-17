@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 
+	"gio.tools/icons"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -14,6 +15,7 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/gui/gio/pages"
+	"sing-box-ez/internal/gui/gio/widgets"
 )
 
 // Shell provides an adaptive layout:
@@ -36,6 +38,13 @@ type Shell struct {
 	staticAnim    component.VisibilityAnimation
 	showStaticNav bool
 
+	// Collapsible sidebar state (desktop only).
+	collapsed bool
+	toggleBtn widget.Clickable
+
+	// Collapsed nav clickables (desktop icon-only rail)
+	collapsedClicks []widget.Clickable
+
 	// Secondary page clickables (mobile Menu page)
 	secClicks []widget.Clickable
 
@@ -48,33 +57,79 @@ type Shell struct {
 
 	// Modal dialog (rendered at root level so it covers the whole window).
 	dialog *Dialog
+
+	// Per-page scroll state so scroll position survives page switches.
+	pageLists map[string]*widget.List
 }
 
 // NewShell creates the adaptive shell.
 func NewShell(th *material.Theme, cfg *config.AppConfig, ctrl *core.Controller, primary, secondary []pages.Page) *Shell {
 	s := &Shell{
-		th:        th,
-		cfg:       cfg,
-		ctrl:      ctrl,
-		primary:   primary,
-		secondary: secondary,
-		dialog:    NewDialog(),
-		secClicks: make([]widget.Clickable, len(secondary)),
-		navBtns:   make([]widget.Clickable, len(primary)+1),
+		th:              th,
+		cfg:             cfg,
+		ctrl:            ctrl,
+		primary:         primary,
+		secondary:       secondary,
+		dialog:          NewDialog(),
+		collapsedClicks: make([]widget.Clickable, len(primary)+len(secondary)),
+		secClicks:       make([]widget.Clickable, len(secondary)),
+		navBtns:         make([]widget.Clickable, len(primary)+1),
 	}
 
 	// Static navigation rail/drawer (used on wide screens)
-	staticNav := component.NewNav("sing-box-ez", "")
+	staticNav := component.NewNav("", "")
 	s.staticNav = &staticNav
 
 	for _, p := range primary {
-		s.staticNav.AddNavItem(component.NavItem{Tag: p.Tag(), Name: p.Name()})
+		s.staticNav.AddNavItem(component.NavItem{Tag: p.Tag(), Name: p.Name(), Icon: p.Icon()})
 	}
 	for _, p := range secondary {
-		s.staticNav.AddNavItem(component.NavItem{Tag: p.Tag(), Name: p.Name()})
+		s.staticNav.AddNavItem(component.NavItem{Tag: p.Tag(), Name: p.Name(), Icon: p.Icon()})
 	}
 
 	return s
+}
+
+// RebuildNav recreates the static navigation drawer with updated labels.
+func (s *Shell) RebuildNav() {
+	selectedTag := s.staticNav.CurrentNavDestination()
+	staticNav := component.NewNav("", "")
+	s.staticNav = &staticNav
+	for _, p := range s.primary {
+		s.staticNav.AddNavItem(component.NavItem{Tag: p.Tag(), Name: p.Name(), Icon: p.Icon()})
+	}
+	for _, p := range s.secondary {
+		s.staticNav.AddNavItem(component.NavItem{Tag: p.Tag(), Name: p.Name(), Icon: p.Icon()})
+	}
+	if tag, ok := selectedTag.(string); ok && tag != "" {
+		s.staticNav.SetNavDestination(tag)
+	}
+}
+
+// SetSecondaryPages replaces the secondary page list and rebuilds navigation.
+// If the currently visible page is no longer present, it switches to the first
+// primary page.
+func (s *Shell) SetSecondaryPages(pages []pages.Page) {
+	// If we are currently showing a secondary page that is being removed,
+	// switch to the first primary page.
+	if s.currentPage >= len(s.primary) {
+		found := false
+		for _, p := range pages {
+			if p.Tag() == s.secondaryTag {
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.currentPage = 0
+			s.secondaryTag = ""
+		}
+	}
+
+	s.secondary = pages
+	s.collapsedClicks = make([]widget.Clickable, len(s.primary)+len(s.secondary))
+	s.secClicks = make([]widget.Clickable, len(s.secondary))
+	s.RebuildNav()
 }
 
 // Layout draws the adaptive shell.
@@ -96,11 +151,13 @@ func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 		s.staticAnim.Disappear(gtx.Now)
 	}
 
-	// Handle static nav item selections (desktop only).
-	if s.staticNav.NavDestinationChanged() {
-		if tag, ok := s.staticNav.CurrentNavDestination().(string); ok {
+	// Handle programmatic nav destination changes (desktop only).
+	if s.showStaticNav && s.staticNav.NavDestinationChanged() {
+		if tag, ok := s.staticNav.CurrentNavDestination().(string); ok && tag != "" {
 			s.handleNavDestination(tag)
 		}
+		// Consume the change so it doesn't fire again next frame.
+		s.staticNav.UnselectNavDestination()
 	}
 
 	dims := layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
@@ -109,10 +166,19 @@ func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 			if !s.showStaticNav {
 				return layout.Dimensions{}
 			}
-			// Persistent rail: 240dp wide on desktop.
-			gtx.Constraints.Max.X = gtx.Dp(unit.Dp(240))
+			// Toggle sidebar collapsed state.
+			if s.toggleBtn.Clicked(gtx) {
+				s.collapsed = !s.collapsed
+			}
+			if s.collapsed {
+				gtx.Constraints.Max.X = gtx.Dp(unit.Dp(56))
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				return s.layoutCollapsedNav(gtx)
+			}
+			// Persistent rail: 200dp wide on desktop.
+			gtx.Constraints.Max.X = gtx.Dp(unit.Dp(200))
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return s.staticNav.Layout(gtx, s.th, &s.staticAnim)
+			return s.layoutExpandedNav(gtx)
 		}),
 		// Main content area + optional bottom nav.
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -138,6 +204,18 @@ func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 	return dims
 }
 
+// NavigateTo switches the visible page to the one with the given tag.
+// It updates both the primary/secondary page state and the navigation
+// destination so the UI stays in sync.
+func (s *Shell) NavigateTo(tag string) {
+	s.handleNavDestination(tag)
+	if s.staticNav != nil {
+		if cur, ok := s.staticNav.CurrentNavDestination().(string); !ok || cur != tag {
+			s.staticNav.SetNavDestination(tag)
+		}
+	}
+}
+
 // handleNavDestination routes a nav drawer tag to the correct page.
 func (s *Shell) handleNavDestination(tag string) {
 	for i, p := range s.primary {
@@ -155,6 +233,245 @@ func (s *Shell) handleNavDestination(tag string) {
 	}
 }
 
+// layoutCollapsedNav renders the icon-only rail for collapsed desktop sidebar.
+func (s *Shell) layoutExpandedNav(gtx layout.Context) layout.Dimensions {
+	// Handle clicks before layout.
+	allPages := append(s.primary, s.secondary...)
+	for i := range s.collapsedClicks {
+		if i < len(allPages) && s.collapsedClicks[i].Clicked(gtx) {
+			s.handleNavDestination(allPages[i].Tag())
+		}
+	}
+
+	// Fill sidebar background.
+	paint.FillShape(gtx.Ops, s.th.Palette.Bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			// Toggle button at the top, aligned like other nav items.
+			gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
+			gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+			return material.Clickable(gtx, &s.toggleBtn, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Inset{Left: unit.Dp(16), Top: unit.Dp(12), Right: unit.Dp(12), Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									gtx.Constraints.Min = image.Pt(0, 0) // reset so icon uses default 24dp size
+									return icons.NavigationMenu.Layout(gtx, s.th.Palette.Fg)
+								})
+							}),
+						)
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}),
+				)
+			})
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			children := make([]layout.FlexChild, len(allPages))
+			for i, p := range allPages {
+				idx := i
+				page := p
+				active := false
+				if idx < len(s.primary) {
+					active = s.currentPage == idx
+				} else {
+					active = s.secondaryTag == page.Tag() && s.currentPage == len(s.primary)
+				}
+				children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return s.navItem(gtx, page.Name(), page.Icon(), &s.collapsedClicks[idx], active)
+				})
+			}
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		}),
+	)
+}
+
+// navItem renders a single navigation row (icon + optional label) used in
+// expanded sidebar, mobile bottom nav and mobile secondary list.
+func (s *Shell) navItem(gtx layout.Context, label string, icon *widget.Icon, btn *widget.Clickable, active bool) layout.Dimensions {
+	gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
+	gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+	col := s.th.Palette.Fg
+	bg := color.NRGBA{}
+	if active {
+		col = s.th.Palette.ContrastFg
+		bg = s.th.Palette.ContrastBg
+	}
+	return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
+		if bg.A > 0 {
+			paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
+		}
+		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if label == "" {
+					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Min = image.Pt(0, 0)
+						if icon == nil {
+							return layout.Dimensions{}
+						}
+						return icon.Layout(gtx, col)
+					})
+				}
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(16), Top: unit.Dp(12), Right: unit.Dp(12), Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min = image.Pt(0, 0) // reset so icon uses default 24dp size
+							if icon == nil {
+								return layout.Dimensions{}
+							}
+							return icon.Layout(gtx, col)
+						})
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(12)), Y: 0}}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Body1(s.th, label)
+						lbl.Color = col
+						return lbl.Layout(gtx)
+					}),
+				)
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+		)
+	})
+}
+
+func (s *Shell) layoutCollapsedNav(gtx layout.Context) layout.Dimensions {
+	// Handle clicks before layout.
+	allPages := append(s.primary, s.secondary...)
+	for i := range s.collapsedClicks {
+		if i < len(allPages) && s.collapsedClicks[i].Clicked(gtx) {
+			s.handleNavDestination(allPages[i].Tag())
+		}
+	}
+
+	// Fill sidebar background.
+	paint.FillShape(gtx.Ops, s.th.Palette.Bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			// Toggle button at the top.
+			gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
+			gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+			return material.Clickable(gtx, &s.toggleBtn, func(gtx layout.Context) layout.Dimensions {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min = image.Pt(0, 0)
+					return icons.NavigationMenu.Layout(gtx, s.th.Palette.Fg)
+				})
+			})
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			children := make([]layout.FlexChild, len(allPages))
+			for i, p := range allPages {
+				idx := i
+				page := p
+				active := false
+				if idx < len(s.primary) {
+					active = s.currentPage == idx
+				} else {
+					active = s.secondaryTag == page.Tag() && s.currentPage == len(s.primary)
+				}
+				children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(56))
+					gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+					return s.collapsedNavItem(gtx, page, &s.collapsedClicks[idx], active)
+				})
+			}
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+		}),
+	)
+}
+
+// collapsedNavItem renders a single icon in the collapsed rail.
+func (s *Shell) collapsedNavItem(gtx layout.Context, page pages.Page, btn *widget.Clickable, active bool) layout.Dimensions {
+	col := s.th.Palette.Fg
+	if active {
+		col = s.th.Palette.ContrastFg
+	}
+	bg := color.NRGBA{}
+	if active {
+		bg = s.th.Palette.ContrastBg
+	}
+	return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
+		if bg.A > 0 {
+			paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
+		}
+		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Pt(0, 0)
+			icon := page.Icon()
+			if icon == nil {
+				return layout.Dimensions{}
+			}
+			return icon.Layout(gtx, col)
+		})
+	})
+}
+
+// noInsetPage is implemented by pages that don't want the default 16dp padding.
+type noInsetPage interface {
+	NoInset() bool
+}
+
+// noShellScroll is implemented by pages that already manage their own scrolling
+// (e.g. lists with many items). The shell will not wrap them in another scroller.
+type noShellScroll interface {
+	NoShellScroll() bool
+}
+
+// renderPage renders a single page, adding standard vertical spacing when the
+// page implements SpacedPage. All pages are wrapped in a scrollable list unless
+// they opt out via NoShellScroll because they already scroll their own content.
+func (s *Shell) renderPage(gtx layout.Context, p pages.Page) layout.Dimensions {
+	if nss, ok := p.(noShellScroll); ok && nss.NoShellScroll() {
+		if sp, ok := p.(pages.SpacedPage); ok {
+			return widgets.SpacedList(gtx, sp.Children(gtx)...)
+		}
+		return p.Layout(gtx)
+	}
+	return s.layoutPageScroll(gtx, p.Tag(), func(gtx layout.Context) layout.Dimensions {
+		if sp, ok := p.(pages.SpacedPage); ok {
+			return widgets.SpacedList(gtx, sp.Children(gtx)...)
+		}
+		return p.Layout(gtx)
+	})
+}
+
+// layoutPageScroll lays out page content inside a vertical scrollable list.
+// The scrollbar thumb is hidden until the user hovers/drags it so it does not
+// permanently cover page content.
+func (s *Shell) layoutPageScroll(gtx layout.Context, tag string, content layout.Widget) layout.Dimensions {
+	if s.pageLists == nil {
+		s.pageLists = make(map[string]*widget.List)
+	}
+	list, ok := s.pageLists[tag]
+	if !ok {
+		list = &widget.List{List: layout.List{Axis: layout.Vertical}}
+		s.pageLists[tag] = list
+	}
+	style := material.List(s.th, list)
+	style.AnchorStrategy = material.Overlay
+	style.Indicator.Color = color.NRGBA{}
+	hoverColor := s.th.Palette.Fg
+	hoverColor.A = 180
+	style.Indicator.HoverColor = hoverColor
+	return style.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+		return content(gtx)
+	})
+}
+
 // layoutContent renders the current page with a background color.
 func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 	// Fill background.
@@ -164,20 +481,25 @@ func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 	}
 	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
-	return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		for i, p := range s.primary {
-			if s.currentPage == i {
-				return p.Layout(gtx)
+	for i, p := range s.primary {
+		if s.currentPage == i {
+			if nip, ok := p.(noInsetPage); ok && nip.NoInset() {
+				return s.renderPage(gtx, p)
 			}
+			return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return s.renderPage(gtx, p)
+			})
 		}
-		if s.currentPage == len(s.primary) {
-			return s.layoutSecondaryPage(gtx)
-		}
-		if len(s.primary) > 0 {
-			return s.primary[0].Layout(gtx)
-		}
-		return material.Body1(s.th, "No pages").Layout(gtx)
-	})
+	}
+	if s.currentPage == len(s.primary) {
+		return s.layoutSecondaryPage(gtx)
+	}
+	if len(s.primary) > 0 {
+		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return s.renderPage(gtx, s.primary[0])
+		})
+	}
+	return material.Body1(s.th, "No pages").Layout(gtx)
 }
 
 // layoutSecondaryPage shows either the selected sub-page (on desktop via side rail)
@@ -198,7 +520,12 @@ func (s *Shell) layoutSecondaryPage(gtx layout.Context) layout.Dimensions {
 func (s *Shell) layoutSubPage(gtx layout.Context) layout.Dimensions {
 	for _, p := range s.secondary {
 		if p.Tag() == s.secondaryTag {
-			return p.Layout(gtx)
+			if nip, ok := p.(noInsetPage); ok && nip.NoInset() {
+				return s.renderPage(gtx, p)
+			}
+			return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return s.renderPage(gtx, p)
+			})
 		}
 	}
 	return material.Body1(s.th, "Select an item from the menu").Layout(gtx)
@@ -213,23 +540,24 @@ func (s *Shell) layoutSecondaryList(gtx layout.Context) layout.Dimensions {
 		}
 	}
 
-	children := make([]layout.FlexChild, len(s.secondary))
+	children := make([]layout.FlexChild, 0, len(s.secondary)*2)
 	for i, p := range s.secondary {
 		idx := i
 		tag := p.Tag()
 		name := p.Name()
+		icon := p.Icon()
 		active := s.secondaryTag == tag
-		children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.secondaryButton(gtx, name, &s.secClicks[idx], active)
-		})
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return s.navItem(gtx, name, icon, &s.secClicks[idx], active)
+		}))
+		if i < len(s.secondary)-1 {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(4))}}
+			}))
+		}
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-}
-
-// secondaryButton renders a button for the secondary list on mobile.
-func (s *Shell) secondaryButton(gtx layout.Context, label string, btn *widget.Clickable, active bool) layout.Dimensions {
-	return material.Button(s.th, btn, label).Layout(gtx)
 }
 
 // layoutBottomNav renders the bottom navigation bar.
@@ -253,15 +581,15 @@ func (s *Shell) layoutBottomNav(gtx layout.Context) layout.Dimensions {
 	children := make([]layout.FlexChild, len(s.navBtns))
 	for i := range s.navBtns {
 		idx := i
-		label := ""
+		var icon *widget.Icon
 		if idx < len(s.primary) {
-			label = s.primary[idx].Name()
+			icon = s.primary[idx].Icon()
 		} else {
-			label = "Menu"
+			icon = icons.NavigationMenu
 		}
 		active := s.currentPage == idx
 		children[i] = layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return s.navButton(gtx, label, &s.navBtns[idx], active)
+			return s.navItem(gtx, "", icon, &s.navBtns[idx], active)
 		})
 	}
 
@@ -285,28 +613,4 @@ func (s *Shell) layoutBottomNav(gtx layout.Context) layout.Dimensions {
 	}
 
 	return dims
-}
-
-// navButton renders a single bottom navigation button.
-func (s *Shell) navButton(gtx layout.Context, label string, btn *widget.Clickable, active bool) layout.Dimensions {
-	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{
-					Top:    unit.Dp(8),
-					Bottom: unit.Dp(8),
-					Left:   unit.Dp(16),
-					Right:  unit.Dp(16),
-				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					col := s.th.Palette.Fg
-					if active {
-						col = s.th.Palette.ContrastFg
-					}
-					lbl := material.Body2(s.th, label)
-					lbl.Color = col
-					return lbl.Layout(gtx)
-				})
-			})
-		}),
-	)
 }
