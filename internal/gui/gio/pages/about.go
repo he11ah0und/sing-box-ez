@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"sync"
@@ -27,9 +28,11 @@ type AboutPage struct {
 	releaseNotesBtn     widget.Clickable
 	openReleaseNotesBtn widget.Clickable
 	openDataBtn         widget.Clickable
-	checkUpdatesBtn     widget.Clickable
 	switchBranchBtn     widget.Clickable
 	openRepoBtn         widget.Clickable
+
+	selfUpdate     *widgets.UpdateCheck
+	lastSelfUpdate *updater.UpdateInfo
 
 	// Branch picker state (rendered via Dialog).
 	pickerBranches []updater.Channel
@@ -42,11 +45,67 @@ type AboutPage struct {
 
 // NewAboutPage creates a new about page.
 func NewAboutPage(th *material.Theme, ctrl *core.InteractiveController, dialog widgets.DialogProvider) *AboutPage {
-	return &AboutPage{
+	p := &AboutPage{
 		th:     th,
 		ctrl:   ctrl,
 		dialog: dialog,
 	}
+
+	current := version.Branch
+	if version.Commit != "unknown" && version.Commit != "" {
+		current = version.Commit
+	}
+
+	p.selfUpdate = widgets.NewUpdateCheck(
+		th, dialog,
+		current,
+		localengine.T("dialog", "btn", "update"),
+		func(ctx context.Context) (widgets.UpdateCheckInfo, error) {
+			info, err := ctrl.CheckSelfUpdate()
+			if err != nil {
+				return widgets.UpdateCheckInfo{}, err
+			}
+			p.lastSelfUpdate = info
+			return widgets.UpdateCheckInfo{
+				Current:   info.Current,
+				Latest:    info.Latest,
+				HasUpdate: info.ReleaseCount > 0 && info.Current != info.Latest,
+				Body:      info.LatestBody,
+				Date:      info.LatestDate,
+			}, nil
+		},
+		func(ctx context.Context) error {
+			if p.lastSelfUpdate == nil {
+				return fmt.Errorf("no update information")
+			}
+			if p.ctrl.SelfUpdater() == nil {
+				return fmt.Errorf("self updater not configured")
+			}
+			return p.ctrl.SelfUpdater().Install(ctx, p.lastSelfUpdate, nil)
+		},
+	)
+	p.selfUpdate.SetCheckingLabel(localengine.T("about", "update", "checking"))
+	p.selfUpdate.SetUpdatingLabel(localengine.T("about", "update", "updating"))
+	p.selfUpdate.SetUpToDateLabel("")
+	p.selfUpdate.SetCurrentVersionFormatter(func(current string) string {
+		return "Current version: " + current
+	})
+	p.selfUpdate.SetAvailableFormatter(func(latest string) string {
+		return fmt.Sprintf(localengine.T("about", "update", "available"), latest)
+	})
+	p.selfUpdate.SetDetailsTitle(localengine.T("dialog", "self_update", "title"))
+	p.selfUpdate.SetDetailsFormatter(func(info widgets.UpdateCheckInfo) string {
+		current := localengine.T("dialog", "self_update", "current") + info.Current
+		latest := localengine.T("dialog", "self_update", "latest") + info.Latest
+		changelog := localengine.T("dialog", "self_update", "changelog")
+		date := ""
+		if !info.Date.IsZero() {
+			date = fmt.Sprintf("\n\nReleased: %s", info.Date.Local().Format("2006-01-02 15:04:05"))
+		}
+		return fmt.Sprintf("%s\n\n%s%s\n\n%s\n\n%s", current, latest, date, changelog, info.Body)
+	})
+
+	return p
 }
 
 // Tag returns the page tag.
@@ -75,9 +134,6 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 		if err := p.ctrl.Controller.OpenDataDir(); err != nil {
 			p.ctrl.Controller.Terminal().Infof("Failed to open data folder: %v", err)
 		}
-	}
-	if p.checkUpdatesBtn.Clicked(gtx) {
-		go p.checkUpdates()
 	}
 	if p.switchBranchBtn.Clicked(gtx) {
 		go p.openBranchPicker()
@@ -139,7 +195,7 @@ func (p *AboutPage) Children(gtx layout.Context) []layout.FlexChild {
 	}
 	children = append(children,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Button(p.th, &p.checkUpdatesBtn, localengine.T("about", "btn", "check_updates")).Layout(gtx)
+			return p.selfUpdate.Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Button(p.th, &p.switchBranchBtn, localengine.T("about", "btn", "switch_branch")).Layout(gtx)
@@ -201,21 +257,6 @@ func (p *AboutPage) logUpdater(format string, args ...interface{}) {
 	} else {
 		p.ctrl.Controller.Terminal().Infof(msg)
 	}
-}
-
-func (p *AboutPage) checkUpdates() {
-	p.dialog.ShowLoading(localengine.T("about", "btn", "check_updates"))
-	info, err := p.ctrl.CheckSelfUpdate()
-	if err != nil {
-		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Update check failed")
-		return
-	}
-	if info == nil || info.ReleaseCount == 0 || info.Current == info.Latest {
-		p.dialog.Show(localengine.T("about", "btn", "check_updates"), "Already on latest version: "+version.Branch)
-		return
-	}
-	msg := fmt.Sprintf("Update available: %s → %s (%d releases behind)", info.Current, info.Latest, info.ReleaseCount)
-	p.dialog.Show(localengine.T("about", "btn", "check_updates"), msg)
 }
 
 func (p *AboutPage) checkUpdatesForBranch(branch string) {

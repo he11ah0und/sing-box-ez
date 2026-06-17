@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -293,7 +294,11 @@ func (m *Manager) CheckCoreUpdate(ctx context.Context) (*updater.UpdateInfo, err
 	if m.updater == nil {
 		return nil, fmt.Errorf("core updater not configured")
 	}
-	return m.updater.Check(ctx, "")
+	current, _ := GetCoreVersion(m.coreBinary())
+	if current != "" && !strings.HasPrefix(current, "v") {
+		current = "v" + current
+	}
+	return m.updater.CheckWithCurrent(ctx, "", current)
 }
 
 func (m *Manager) DownloadCore(onProgress ProgressFunc) (string, error) {
