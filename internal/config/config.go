@@ -76,6 +76,9 @@ type AppConfig struct {
 	StartupUpdateCheckIntervalHours int       `json:"startup_update_check_interval_hours"`
 	LastSelfUpdateCheck             Timestamp `json:"last_self_update_check"`
 	LastCoreUpdateCheck             Timestamp `json:"last_core_update_check"`
+	AutoUpdateConfigs               bool      `json:"auto_update_configs"`
+	AutoUpdateConfigsIntervalHours  int       `json:"auto_update_configs_interval_hours"`
+	AutoRestartOnConfigUpdate       bool      `json:"auto_restart_on_config_update"`
 
 	DataDir string `json:"-"`
 
@@ -96,6 +99,9 @@ func defaultAppConfig() *AppConfig {
 		AutoCheckSelfUpdates:            true,
 		AutoCheckCoreUpdates:            true,
 		StartupUpdateCheckIntervalHours: 2,
+		AutoUpdateConfigs:               true,
+		AutoUpdateConfigsIntervalHours:  1,
+		AutoRestartOnConfigUpdate:       true,
 	}
 }
 
@@ -480,4 +486,43 @@ func (c *AppConfig) GetLastCoreUpdateCheck() Timestamp {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.LastCoreUpdateCheck
+}
+
+func (c *AppConfig) SetAutoUpdateConfigs(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoUpdateConfigs = v
+}
+
+func (c *AppConfig) GetAutoUpdateConfigs() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoUpdateConfigs
+}
+
+func (c *AppConfig) SetAutoUpdateConfigsIntervalHours(v int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoUpdateConfigsIntervalHours = v
+}
+
+func (c *AppConfig) GetAutoUpdateConfigsIntervalHours() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AutoUpdateConfigsIntervalHours <= 0 {
+		return 1
+	}
+	return c.AutoUpdateConfigsIntervalHours
+}
+
+func (c *AppConfig) SetAutoRestartOnConfigUpdate(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoRestartOnConfigUpdate = v
+}
+
+func (c *AppConfig) GetAutoRestartOnConfigUpdate() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoRestartOnConfigUpdate
 }
