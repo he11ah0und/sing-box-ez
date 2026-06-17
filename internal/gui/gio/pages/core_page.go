@@ -1,9 +1,11 @@
 package pages
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/color"
+	"strings"
 
 	"gio.tools/icons"
 	"gioui.org/layout"
@@ -24,11 +26,7 @@ type CorePage struct {
 	ctrl   *core.InteractiveController
 	dialog widgets.DialogProvider
 
-	versionText string
-	latestText  string
-
-	downloadBtn widget.Clickable
-	checkBtn    widget.Clickable
+	coreUpdate *widgets.UpdateCheck
 
 	autoRestart widget.Bool
 	watchLogs   widget.Bool
@@ -53,7 +51,6 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	p.autoRestart.Value = ctrl.Controller.Config().GetCoreAutoRestart()
 	p.watchLogs.Value = ctrl.Controller.Config().GetWatchCoreLogs()
 
-	go p.refreshVersions()
 	p.privilegeState = ctrl.Controller.GetPrivilegeTabState()
 
 	// Default privilege mode: admin, unless setcap is already detected.
@@ -62,17 +59,64 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 		p.privilegeMode = "setcap"
 	}
 
+	current := ""
+	if ver, err := ctrl.Controller.GetInstalledCoreVersion(); err == nil {
+		current = normalizeCoreVersion(ver)
+	}
+
+	p.coreUpdate = widgets.NewUpdateCheck(
+		th, dialog,
+		current,
+		localengine.T("core", "btn", "download"),
+		func(ctx context.Context) (widgets.UpdateCheckInfo, error) {
+			current, err := ctrl.Controller.GetInstalledCoreVersion()
+			if err != nil {
+				current = ""
+			}
+			latest, err := ctrl.Controller.GetLatestCoreVersion()
+			if err != nil {
+				return widgets.UpdateCheckInfo{}, err
+			}
+			current = normalizeCoreVersion(current)
+			latest = normalizeCoreVersion(latest)
+			return widgets.UpdateCheckInfo{
+				Current:   current,
+				Latest:    latest,
+				HasUpdate: current != latest && latest != "",
+			}, nil
+		},
+		func(ctx context.Context) error {
+			_, err := ctrl.Controller.DownloadCoreWithProgress(nil)
+			return err
+		},
+	)
+	p.coreUpdate.SetCheckingLabel(localengine.T("core", "update", "checking"))
+	p.coreUpdate.SetUpdatingLabel(localengine.T("core", "update", "downloading"))
+	p.coreUpdate.SetUpToDateLabel("")
+	p.coreUpdate.SetCurrentVersionFormatter(func(current string) string {
+		return "Current version: " + current
+	})
+	p.coreUpdate.SetAvailableFormatter(func(latest string) string {
+		return fmt.Sprintf(localengine.T("core", "update", "available"), latest)
+	})
+	p.coreUpdate.SetDetailsTitle(localengine.T("dialog", "core_update", "title"))
+	p.coreUpdate.SetDetailsFormatter(func(info widgets.UpdateCheckInfo) string {
+		current := localengine.T("dialog", "version_check", "current") + info.Current
+		latest := localengine.T("dialog", "version_check", "latest") + info.Latest
+		return current + "\n\n" + latest
+	})
+
 	return p
 }
 
-func (p *CorePage) refreshVersions() {
-	ver, err := p.ctrl.Controller.GetInstalledCoreVersion()
-	if err != nil || ver == "" {
-		p.versionText = localengine.T("core", "version", "not_installed")
-	} else {
-		p.versionText = localengine.T("core", "version", "installed") + ver
+func normalizeCoreVersion(v string) string {
+	if v == "" {
+		return v
 	}
-	p.latestText = localengine.T("core", "latest", "checking")
+	if !strings.HasPrefix(v, "v") {
+		return "v" + v
+	}
+	return v
 }
 
 // Tag returns the page tag.
@@ -89,12 +133,6 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 
 // Children returns the page widgets; the shell adds standard vertical spacing.
 func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
-	if p.downloadBtn.Clicked(gtx) {
-		go p.onDownloadCore()
-	}
-	if p.checkBtn.Clicked(gtx) {
-		go p.onCheckVersion()
-	}
 	if p.restartAdminBtn.Clicked(gtx) {
 		go func() {
 			_ = p.ctrl.Controller.RestartAsAdmin()
@@ -118,13 +156,7 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 			return material.H6(p.th, localengine.T("tab", "core")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Body2(p.th, p.versionText).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Button(p.th, &p.downloadBtn, localengine.T("core", "btn", "download")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Button(p.th, &p.checkBtn, localengine.T("core", "btn", "check")).Layout(gtx)
+			return p.coreUpdate.Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)
@@ -286,45 +318,4 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 			}),
 		)
 	})
-}
-
-func (p *CorePage) onDownloadCore() {
-	p.dialog.ShowLoading(localengine.T("progress", "checking_version"))
-	path, err := p.ctrl.Controller.DownloadCoreWithProgress(nil)
-	p.dialog.HideLoading()
-	if err != nil {
-		return
-	}
-	ver, _ := p.ctrl.Controller.GetInstalledCoreVersion()
-	p.dialog.Show(localengine.T("core", "btn", "download"), fmt.Sprintf(localengine.T("dialog", "download_complete", "msg"), ver, path))
-	go p.refreshVersions()
-}
-
-func (p *CorePage) onCheckVersion() {
-	p.dialog.ShowLoading(localengine.T("progress", "checking_version"))
-	ver, err := p.ctrl.Controller.GetLatestCoreVersion()
-	p.dialog.HideLoading()
-	if err != nil {
-		return
-	}
-	p.latestText = localengine.T("core", "latest", "prefix") + ver
-	p.showVersionInfoDialog(ver)
-}
-
-func (p *CorePage) showVersionInfoDialog(latest string) {
-	currentVer, err := p.ctrl.Controller.GetInstalledCoreVersion()
-	var body string
-	if err != nil || currentVer == "" {
-		body = localengine.T("dialog", "version_check", "core_not_installed") + "\n" +
-			localengine.T("dialog", "version_check", "latest") + latest
-	} else {
-		body = localengine.T("dialog", "version_check", "current") + currentVer + "\n" +
-			localengine.T("dialog", "version_check", "latest") + latest + "\n"
-		if currentVer == latest {
-			body += localengine.T("dialog", "version_check", "latest_installed")
-		} else {
-			body += localengine.T("dialog", "version_check", "update_available")
-		}
-	}
-	p.dialog.Show(localengine.T("dialog", "version_check", "title"), body)
 }

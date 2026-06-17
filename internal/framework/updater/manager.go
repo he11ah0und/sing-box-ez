@@ -12,7 +12,7 @@ import (
 // Manager orchestrates update discovery and installation using configurable
 // source and apply backends.
 type Manager struct {
-	Name string
+	Name   string
 	Source Source
 	Apply  Apply
 	Log    *logger.LogTerminal
@@ -27,8 +27,15 @@ func NewManager(parent *logger.LogTerminal, name string) *Manager {
 	return &Manager{Name: name, Log: parent.Allocate(name)}
 }
 
-// Check returns update information for the given channel.
+// Check returns update information for the given channel using the default
+// current version label.
 func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error) {
+	return m.CheckWithCurrent(ctx, channel, currentVersionLabel(channel))
+}
+
+// CheckWithCurrent returns update information for the given channel, comparing
+// against the provided current version string.
+func (m *Manager) CheckWithCurrent(ctx context.Context, channel, current string) (*UpdateInfo, error) {
 	if m.Source == nil {
 		return nil, m.Log.Errorf("updater manager has no source backend configured")
 	}
@@ -38,7 +45,9 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 		if errors.Is(err, ErrNoRelease) {
 			// The source already logs "no releases found for channel ..."; avoid
 			// duplicating the message here.
-			current := currentVersionLabel(channel)
+			if current == "" {
+				current = currentVersionLabel(channel)
+			}
 			return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
 		}
 		return nil, err
@@ -50,7 +59,7 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 		tags = currentAssetTags(false)
 		useFallback = version.BuildBackend != "" && version.BuildOS == "linux"
 	}
-	info, err := updateInfoFrom(release, channel, tags, useFallback)
+	info, err := updateInfoFrom(release, current, tags, useFallback)
 	if err != nil {
 		return nil, err
 	}

@@ -22,16 +22,12 @@ main:
     stop: Stop
     restart: Restart
 core:
-  version:
-    installed: 'Core: v'
-    not_installed: 'Core: not installed'
-  latest:
-    checking: 'Latest: checking...'
-    error: 'Latest: error'
-    prefix: 'Latest: v'
+  update:
+    checking: 'Checking version...'
+    downloading: 'Downloading...'
+    available: 'Download %s'
   btn:
     download: Download latest sing-box core
-    check: Check latest version
     restart_admin: Restart as administrator
     apply_setcap: Apply setcap (TUN without root)
     apply: Apply
@@ -138,6 +134,10 @@ about:
     label: 'Branch: '
   dev_build:
     label: Development build — release notes unavailable
+  update:
+    checking: 'Checking update'
+    updating: 'Updating...'
+    available: 'Update to %s'
   release_notes:
     title: Release notes
     not_found: 'Current build does not match any official release.
@@ -157,22 +157,9 @@ dialog:
     ignore: Ignore
   core_update:
     title: Core Update Available
-    msg: 'A new version of sing-box core is available.
-
-
-      Current: v%s
-
-      Latest: v%s
-
-
-      Update now?'
   version_check:
-    title: Version Check
-    core_not_installed: Core is not installed.
-    latest: 'Latest version: v'
-    current: 'Current: v'
-    latest_installed: ✓ Latest version installed
-    update_available: ✗ Update available
+    latest: 'Latest version: '
+    current: 'Current: '
   download_complete:
     title: Download Complete
     msg: 'Sing-box core v%s downloaded successfully.

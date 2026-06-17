@@ -120,7 +120,7 @@ func TestCheckUpdateWithLatest(t *testing.T) {
 			version.BuildGUI = ""
 			version.BuildBackend = ""
 
-			info, err := updateInfoFrom(tt.latest, tt.currentBranch, currentAssetTags(false), false)
+			info, err := updateInfoFrom(tt.latest, currentVersionLabel(tt.currentBranch), currentAssetTags(false), false)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("updateInfoFrom() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -175,9 +175,9 @@ func TestCurrentAssetTags(t *testing.T) {
 		want          []string
 	}{
 		{
-			name:      "linux gui wayland gcc",
-			buildOS:   "linux",
-			buildArch: "amd64",
+			name:          "linux gui wayland gcc",
+			buildOS:       "linux",
+			buildArch:     "amd64",
 			buildCompiler: "gcc",
 			buildGUI:      "1",
 			buildBackend:  "wayland",

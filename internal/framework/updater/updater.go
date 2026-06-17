@@ -96,9 +96,11 @@ func ApplyUpdate(asset Asset, progress func(downloaded, total int64)) error {
 	return defaultManager.Install(context.Background(), info, progress)
 }
 
-func updateInfoFrom(release Release, currentBranch string, tags []string, useFallback bool) (*UpdateInfo, error) {
-	current := currentVersionLabel(currentBranch)
-	if commitsMatch(release.Version, version.Commit) {
+func updateInfoFrom(release Release, current string, tags []string, useFallback bool) (*UpdateInfo, error) {
+	if current == "" {
+		current = currentVersionLabel("")
+	}
+	if commitsMatch(release.Version, current) {
 		return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
 	}
 
@@ -169,5 +171,3 @@ func commitsMatch(a, b string) bool {
 	}
 	return strings.HasPrefix(b, a)
 }
-
-
