@@ -25,30 +25,36 @@ type SettingsPage struct {
 	OnLanguageChange func()
 
 	// Dirty tracking – original saved values.
-	origLogLimit            string
-	origLogLevel            string
-	origInterval            string
-	origUpdateCheckInterval string
-	origShowLogs            bool
-	origDesktopNotif        bool
-	origAutoCheckSelf       bool
-	origAutoCheckCore       bool
-	origLang                string
+	origLogLimit                   string
+	origLogLevel                   string
+	origInterval                   string
+	origUpdateCheckInterval        string
+	origAutoUpdateConfigsInterval  string
+	origShowLogs                   bool
+	origDesktopNotif               bool
+	origAutoCheckSelf              bool
+	origAutoCheckCore              bool
+	origAutoUpdateConfigs          bool
+	origAutoRestartOnConfigUpdate  bool
+	origLang                       string
 
 	// Pending (unsaved) selections.
 	pendingLang     string
 	pendingLogLevel string
 
-	logLimitEditor            widget.Editor
-	intervalEditor            widget.Editor
-	updateCheckIntervalEditor widget.Editor
-	showLogs                  widget.Bool
-	desktopNotif              widget.Bool
-	autoCheckSelf             widget.Bool
-	autoCheckCore             widget.Bool
-	logLevelDropdown          *widgets.Dropdown
-	langDropdown              *widgets.Dropdown
-	saveBtn                   widget.Clickable
+	logLimitEditor                 widget.Editor
+	intervalEditor                 widget.Editor
+	updateCheckIntervalEditor      widget.Editor
+	autoUpdateConfigsIntervalEditor widget.Editor
+	showLogs                       widget.Bool
+	desktopNotif                   widget.Bool
+	autoCheckSelf                  widget.Bool
+	autoCheckCore                  widget.Bool
+	autoUpdateConfigs              widget.Bool
+	autoRestartOnConfigUpdate      widget.Bool
+	logLevelDropdown               *widgets.Dropdown
+	langDropdown                   *widgets.Dropdown
+	saveBtn                        widget.Clickable
 }
 
 // NewSettingsPage creates a new settings page.
@@ -74,6 +80,11 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 	p.updateCheckIntervalEditor.Filter = "0123456789"
 	p.updateCheckIntervalEditor.SetText(p.origUpdateCheckInterval)
 
+	p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", ctrl.Controller.Config().GetAutoUpdateConfigsIntervalHours())
+	p.autoUpdateConfigsIntervalEditor.SingleLine = true
+	p.autoUpdateConfigsIntervalEditor.Filter = "0123456789"
+	p.autoUpdateConfigsIntervalEditor.SetText(p.origAutoUpdateConfigsInterval)
+
 	p.origShowLogs = ctrl.Controller.Config().GetShowLogs()
 	p.showLogs.Value = p.origShowLogs
 
@@ -85,6 +96,12 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 
 	p.origAutoCheckCore = ctrl.Controller.Config().GetAutoCheckCoreUpdates()
 	p.autoCheckCore.Value = p.origAutoCheckCore
+
+	p.origAutoUpdateConfigs = ctrl.Controller.Config().GetAutoUpdateConfigs()
+	p.autoUpdateConfigs.Value = p.origAutoUpdateConfigs
+
+	p.origAutoRestartOnConfigUpdate = ctrl.Controller.Config().GetAutoRestartOnConfigUpdate()
+	p.autoRestartOnConfigUpdate.Value = p.origAutoRestartOnConfigUpdate
 
 	p.origLang = ctrl.Controller.Config().GetLanguage()
 	p.pendingLang = p.origLang
@@ -129,10 +146,13 @@ func (p *SettingsPage) isDirty() bool {
 		p.pendingLogLevel != p.origLogLevel ||
 		p.intervalEditor.Text() != p.origInterval ||
 		p.updateCheckIntervalEditor.Text() != p.origUpdateCheckInterval ||
+		p.autoUpdateConfigsIntervalEditor.Text() != p.origAutoUpdateConfigsInterval ||
 		p.showLogs.Value != p.origShowLogs ||
 		p.desktopNotif.Value != p.origDesktopNotif ||
 		p.autoCheckSelf.Value != p.origAutoCheckSelf ||
 		p.autoCheckCore.Value != p.origAutoCheckCore ||
+		p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs ||
+		p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate ||
 		p.pendingLang != p.origLang
 }
 
@@ -156,6 +176,10 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 			p.ctrl.Controller.Config().SetStartupUpdateCheckIntervalHours(h)
 			p.origUpdateCheckInterval = fmt.Sprintf("%d", h)
 		}
+		if h, err := strconv.Atoi(p.autoUpdateConfigsIntervalEditor.Text()); err == nil && h > 0 {
+			p.ctrl.Controller.Config().SetAutoUpdateConfigsIntervalHours(h)
+			p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", h)
+		}
 		p.ctrl.Controller.Config().SetShowLogs(p.showLogs.Value)
 		p.origShowLogs = p.showLogs.Value
 		p.ctrl.Controller.Config().SetLogLevel(p.pendingLogLevel)
@@ -166,6 +190,10 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 		p.origAutoCheckSelf = p.autoCheckSelf.Value
 		p.ctrl.Controller.Config().SetAutoCheckCoreUpdates(p.autoCheckCore.Value)
 		p.origAutoCheckCore = p.autoCheckCore.Value
+		p.ctrl.Controller.Config().SetAutoUpdateConfigs(p.autoUpdateConfigs.Value)
+		p.origAutoUpdateConfigs = p.autoUpdateConfigs.Value
+		p.ctrl.Controller.Config().SetAutoRestartOnConfigUpdate(p.autoRestartOnConfigUpdate.Value)
+		p.origAutoRestartOnConfigUpdate = p.autoRestartOnConfigUpdate.Value
 		if p.pendingLang != p.origLang {
 			p.ctrl.Controller.Config().SetLanguage(p.pendingLang)
 			localengine.SetLanguage(p.pendingLang)
@@ -181,10 +209,13 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 	logLevelDirty := p.pendingLogLevel != p.origLogLevel
 	intervalDirty := p.intervalEditor.Text() != p.origInterval
 	updateCheckIntervalDirty := p.updateCheckIntervalEditor.Text() != p.origUpdateCheckInterval
+	autoUpdateConfigsIntervalDirty := p.autoUpdateConfigsIntervalEditor.Text() != p.origAutoUpdateConfigsInterval
 	showLogsDirty := p.showLogs.Value != p.origShowLogs
 	desktopNotifDirty := p.desktopNotif.Value != p.origDesktopNotif
 	autoCheckSelfDirty := p.autoCheckSelf.Value != p.origAutoCheckSelf
 	autoCheckCoreDirty := p.autoCheckCore.Value != p.origAutoCheckCore
+	autoUpdateConfigsDirty := p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs
+	autoRestartDirty := p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate
 	langDirty := p.pendingLang != p.origLang
 	dirty := p.isDirty()
 
@@ -259,6 +290,30 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 				label += " *"
 			}
 			return widgets.LabeledInput(gtx, p.th, label, &p.updateCheckIntervalEditor, updateCheckIntervalDirty)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(p.th, localengine.T("settings", "config_update", "title")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			label := localengine.T("settings", "config_update", "auto")
+			if autoUpdateConfigsDirty {
+				label += " *"
+			}
+			return material.CheckBox(p.th, &p.autoUpdateConfigs, label).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			label := localengine.T("settings", "config_update", "auto_restart")
+			if autoRestartDirty {
+				label += " *"
+			}
+			return material.CheckBox(p.th, &p.autoRestartOnConfigUpdate, label).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			label := localengine.T("settings", "config_update", "interval")
+			if autoUpdateConfigsIntervalDirty {
+				label += " *"
+			}
+			return widgets.LabeledInput(gtx, p.th, label, &p.autoUpdateConfigsIntervalEditor, autoUpdateConfigsIntervalDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.H6(p.th, localengine.T("settings", "config", "title")).Layout(gtx)

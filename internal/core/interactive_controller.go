@@ -50,7 +50,7 @@ func NewInteractiveController(c *Controller) *InteractiveController {
 		}
 	}
 
-	go ic.updateChecker()
+	go ic.configUpdateChecker()
 	go ic.statusChecker()
 
 	return ic
@@ -131,29 +131,66 @@ func (ic *InteractiveController) Close() {
 	ic.Controller.Close()
 }
 
-func (ic *InteractiveController) updateChecker() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-	for range ticker.C {
+func (ic *InteractiveController) configUpdateChecker() {
+	// Run an initial check right after startup so overdue configs are refreshed
+	// before the first interval elapses.
+	if ic.Controller.Config().GetAutoUpdateConfigs() {
+		ic.checkAllConfigs()
+	}
+
+	for {
+		interval := time.Duration(ic.Controller.Config().GetAutoUpdateConfigsIntervalHours()) * time.Hour
+		if interval <= 0 {
+			interval = time.Hour
+		}
+
+		select {
+		case <-time.After(interval):
+		}
+
 		if ic.isStopped() {
 			return
 		}
-		active := ic.Controller.Config().GetActiveConfig()
-		if active != nil && active.ShouldUpdate() && ic.Controller.IsRunning() {
-			ic.Controller.Terminal().Infof("Auto-updating config...")
-			ic.Controller.Manager().SetConfigName(active.Name)
-			if err := ic.Controller.UpdateConfig(); err != nil {
-				ic.Controller.Terminal().Errorf("Auto-update failed: %v", err)
-			} else {
-				ic.Controller.Config().SetLastUpdateFor(active.Name, time.Now())
-				_ = ic.Controller.Config().Save()
-				if ic.OnConfigUpdate != nil {
-					ic.OnConfigUpdate()
-				}
-				ic.Controller.Terminal().Infof("Config auto-updated, restarting core...")
-				if err := ic.Controller.Restart(); err != nil {
-					ic.Controller.Terminal().Errorf("Auto-restart failed: %v", err)
-				}
+		if !ic.Controller.Config().GetAutoUpdateConfigs() {
+			continue
+		}
+		ic.checkAllConfigs()
+	}
+}
+
+func (ic *InteractiveController) checkAllConfigs() {
+	configs := ic.Controller.Config().GetConfigs()
+	if len(configs) == 0 {
+		return
+	}
+
+	active := ic.Controller.Config().GetActiveConfig()
+	activeUpdated := false
+
+	for i := range configs {
+		cfg := &configs[i]
+		if !cfg.ShouldUpdate() {
+			continue
+		}
+
+		ic.Controller.Terminal().Infof("Auto-updating config: %s", cfg.Name)
+		if err := ic.Controller.UpdateConfigNow(cfg.Name, cfg.URL); err != nil {
+			ic.Controller.Terminal().Errorf("Auto-update failed for %s: %v", cfg.Name, err)
+			continue
+		}
+		if active != nil && cfg.Name == active.Name {
+			activeUpdated = true
+		}
+	}
+
+	if activeUpdated {
+		if ic.OnConfigUpdate != nil {
+			ic.OnConfigUpdate()
+		}
+		if ic.Controller.Config().GetAutoRestartOnConfigUpdate() && ic.Controller.IsRunning() {
+			ic.Controller.Terminal().Infof("Active config updated, restarting core...")
+			if err := ic.Controller.Restart(); err != nil {
+				ic.Controller.Terminal().Errorf("Auto-restart failed: %v", err)
 			}
 		}
 	}

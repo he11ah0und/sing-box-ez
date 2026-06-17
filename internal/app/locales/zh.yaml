@@ -108,6 +108,11 @@ settings:
   show_logs: 显示日志
   config:
     title: 配置
+  config_update:
+    title: 配置更新
+    auto: 后台自动更新配置
+    auto_restart: 活动配置更新时自动重启核心
+    interval: 自动更新检查间隔（小时）
   default_interval:
     label: 默认更新间隔（小时）：
   language:

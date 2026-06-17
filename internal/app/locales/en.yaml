@@ -103,6 +103,11 @@ settings:
   show_logs: Show logs
   config:
     title: Config
+  config_update:
+    title: Config Updates
+    auto: Auto-update configs in background
+    auto_restart: Auto-restart core when active config updates
+    interval: Auto-update check interval (hours)
   default_interval:
     label: 'Default update interval (hours):'
   language:
