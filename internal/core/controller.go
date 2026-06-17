@@ -259,8 +259,6 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 	return c.manager.coreBinary(), nil
 }
 
-// ---------- Config management ----------
-
 func (c *Controller) HasCachedConfig(name string) bool {
 	_, err := c.fwApp.FS.Stat(c.manager.cachedConfig(name))
 	return err == nil
@@ -268,26 +266,6 @@ func (c *Controller) HasCachedConfig(name string) bool {
 
 func (c *Controller) DownloadConfigFor(name, url string) error {
 	return c.manager.DownloadConfigFor(name, url)
-}
-
-func (c *Controller) AddFirstConfig(name, url string) error {
-	if url == "" {
-		return c.terminal.Errorf("First run: empty config URL")
-	}
-	rec := config.ConfigRecord{
-		Name:                name,
-		URL:                 url,
-		UpdateIntervalHours: c.cfg.UpdateIntervalHours,
-		Parent:              "user",
-	}
-	c.cfg.AddConfig(rec)
-	c.cfg.SetActiveName(name)
-	c.cfg.SetFirstRunDone(true)
-	_ = c.cfg.Save()
-	c.manager.SetConfigURL(url)
-	c.manager.SetConfigName(name)
-	c.terminal.Infof("First config added: " + name)
-	return nil
 }
 
 func (c *Controller) AddConfig(rec config.ConfigRecord) error {

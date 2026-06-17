@@ -25,11 +25,9 @@ import (
 	"gioui.org/font/gofont"
 	"gioui.org/font/opentype"
 	"gioui.org/io/system"
-	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/unit"
-	"gioui.org/widget"
 	"gioui.org/widget/material"
 )
 
@@ -88,89 +86,6 @@ func New(app *app.App) *GUI {
 
 	dialog := NewDialog()
 	g.dialog = dialog
-
-	// Wire startup callbacks (UI-specific dialogs will be shown by the GUI)
-	g.ctrl.OnFirstRun = func() {
-		coreInstalled := g.ctrl.Controller.CoreExists()
-
-		var urlEditor widget.Editor
-		urlEditor.SingleLine = true
-
-		var downloadBtn widget.Clickable
-		var addBtn widget.Clickable
-
-		dialog.ShowCustomNoCancel(localengine.T("first_run", "title"), func(gtx layout.Context) layout.Dimensions {
-			if downloadBtn.Clicked(gtx) {
-				go func() {
-					dialog.ShowLoading(localengine.T("progress", "checking_version"))
-					_, err := g.ctrl.Controller.DownloadCore(nil)
-					dialog.HideLoading()
-					if err != nil {
-						g.log.Warnf("failed to download core: %v", err)
-						return
-					}
-					// Re-show first-run dialog with updated state.
-					g.ctrl.OnFirstRun()
-				}()
-			}
-			if addBtn.Clicked(gtx) {
-				url := urlEditor.Text()
-				go func() {
-					dialog.ShowLoading(localengine.T("progress", "adding_config"))
-					err := g.ctrl.Controller.AddFirstConfig("default", url)
-					dialog.HideLoading()
-					if err != nil {
-						g.log.Warnf("failed to add first config: %v", err)
-						return
-					}
-					dialog.HideCustom()
-				}()
-			}
-
-			children := []layout.FlexChild{
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Body1(th, localengine.T("first_run", "welcome")).Layout(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Body2(th, localengine.T("first_run", "description")).Layout(gtx)
-				}),
-			}
-
-			status := localengine.T("first_run", "core", "not_installed")
-			if coreInstalled {
-				status = localengine.T("first_run", "core", "installed")
-				if ver, err := g.ctrl.Controller.GetInstalledCoreVersion(); err == nil && ver != "" {
-					status += "\n" + fmt.Sprintf(localengine.T("first_run", "core", "version"), ver)
-				}
-			}
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(th, status).Layout(gtx)
-			}))
-
-			if !coreInstalled {
-				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return material.Button(th, &downloadBtn, localengine.T("first_run", "btn", "download_core")).Layout(gtx)
-					})
-				}))
-			}
-
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					ed := material.Editor(th, &urlEditor, "https://example.com/config.json")
-					return ed.Layout(gtx)
-				})
-			}))
-
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Button(th, &addBtn, localengine.T("first_run", "btn", "add_config")).Layout(gtx)
-				})
-			}))
-
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-		})
-	}
 
 	aboutPage := pages.NewAboutPage(th, g.ctrl, dialog)
 	mainPage := pages.NewMainPage(th, g.ctrl, dialog)
@@ -256,21 +171,8 @@ func (g *GUI) Run() {
 		}
 	}()
 
-	// Show global initialization loading dialog immediately so it renders
-	// while the startup sequence runs.
-	g.dialog.ShowLoading(localengine.T("progress", "initializing"))
-
-	g.log.Infof("running startup sequence")
-	go func() {
-		g.ctrl.RunStartupSequence()
-		g.dialog.HideLoading()
-		g.log.Infof("startup sequence completed")
-		if g.cfg.GetFirstRunDone() {
-			g.runStartupUpdateChecks()
-		}
-	}()
-
 	g.log.Infof("entering Gio main loop")
+	go g.runStartupUpdateChecks()
 	gioapp.Main()
 }
 
