@@ -88,6 +88,9 @@ func New(app *app.App) *GUI {
 			g.tray.Refresh()
 		}
 	}
+	g.ctrl.OnUpdateCheckDue = func() {
+		g.runStartupUpdateChecks()
+	}
 
 	dialog := NewDialog()
 	g.dialog = dialog

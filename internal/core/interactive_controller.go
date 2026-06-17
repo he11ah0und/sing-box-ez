@@ -23,6 +23,9 @@ type InteractiveController struct {
 	OnLatestVersion   func(ver string)
 	OnNotification    func(title, body string)
 	OnAutoRestart     func()
+	// OnUpdateCheckDue is invoked periodically when a background update check
+	// should be performed. The GUI layer is responsible for showing dialogs.
+	OnUpdateCheckDue  func()
 
 	stopped bool
 	stopMu  sync.Mutex
@@ -52,6 +55,7 @@ func NewInteractiveController(c *Controller) *InteractiveController {
 
 	go ic.configUpdateChecker()
 	go ic.statusChecker()
+	go ic.updateCheckLoop()
 
 	return ic
 }
@@ -192,6 +196,26 @@ func (ic *InteractiveController) checkAllConfigs() {
 			if err := ic.Controller.Restart(); err != nil {
 				ic.Controller.Terminal().Errorf("Auto-restart failed: %v", err)
 			}
+		}
+	}
+}
+
+func (ic *InteractiveController) updateCheckLoop() {
+	for {
+		interval := time.Duration(ic.Controller.Config().GetBackgroundUpdateCheckIntervalHours()) * time.Hour
+		if interval <= 0 {
+			interval = 24 * time.Hour
+		}
+
+		select {
+		case <-time.After(interval):
+		}
+
+		if ic.isStopped() {
+			return
+		}
+		if ic.OnUpdateCheckDue != nil {
+			ic.OnUpdateCheckDue()
 		}
 	}
 }

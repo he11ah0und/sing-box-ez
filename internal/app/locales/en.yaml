@@ -89,7 +89,8 @@ settings:
     title: Update Checks
     self: Check for app updates on startup
     core: Check for core updates on startup
-    interval: Check interval (hours)
+    interval: Startup check interval (hours)
+    background_interval: Background check interval (hours)
   log_limit:
     label: 'Log limit (lines, 0=unlimited):'
   log_level:

@@ -79,6 +79,7 @@ type AppConfig struct {
 	AutoUpdateConfigs               bool      `json:"auto_update_configs"`
 	AutoUpdateConfigsIntervalHours  int       `json:"auto_update_configs_interval_hours"`
 	AutoRestartOnConfigUpdate       bool      `json:"auto_restart_on_config_update"`
+	BackgroundUpdateCheckIntervalHours int    `json:"background_update_check_interval_hours"`
 
 	DataDir string `json:"-"`
 
@@ -99,9 +100,10 @@ func defaultAppConfig() *AppConfig {
 		AutoCheckSelfUpdates:            true,
 		AutoCheckCoreUpdates:            true,
 		StartupUpdateCheckIntervalHours: 2,
-		AutoUpdateConfigs:               true,
-		AutoUpdateConfigsIntervalHours:  1,
-		AutoRestartOnConfigUpdate:       true,
+		AutoUpdateConfigs:                  true,
+		AutoUpdateConfigsIntervalHours:     1,
+		AutoRestartOnConfigUpdate:          true,
+		BackgroundUpdateCheckIntervalHours: 24,
 	}
 }
 
@@ -525,4 +527,19 @@ func (c *AppConfig) GetAutoRestartOnConfigUpdate() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.AutoRestartOnConfigUpdate
+}
+
+func (c *AppConfig) SetBackgroundUpdateCheckIntervalHours(v int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.BackgroundUpdateCheckIntervalHours = v
+}
+
+func (c *AppConfig) GetBackgroundUpdateCheckIntervalHours() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.BackgroundUpdateCheckIntervalHours <= 0 {
+		return 24
+	}
+	return c.BackgroundUpdateCheckIntervalHours
 }
