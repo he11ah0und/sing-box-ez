@@ -85,8 +85,8 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 				HasUpdate: current != latest && latest != "",
 			}, nil
 		},
-		func(ctx context.Context) error {
-			_, err := ctrl.Controller.DownloadCoreWithProgress(nil)
+		func(ctx context.Context, onProgress func(downloaded, total int64)) error {
+			_, err := ctrl.Controller.DownloadCoreWithProgress(onProgress)
 			return err
 		},
 	)
