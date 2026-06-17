@@ -95,29 +95,31 @@ func findMainWindowHandle() (windows.HWND, error) {
 	return 0, fmt.Errorf("could not find main window for PID %d", currentEnumPID)
 }
 
-// hideMainWindow hides the native window and removes it from the taskbar.
-func hideMainWindow(w *gioapp.Window) error {
+func windowStateSwitch(w *gioapp.Window, show bool) error {
 	if w == nil {
 		return errors.New("no window")
 	}
 	hwnd, err := findMainWindowHandle()
 	if err != nil {
-		return fmt.Errorf("hide window: %w", err)
+		return fmt.Errorf("switch state window: %w", err)
 	}
-	procShowWindow.Call(uintptr(hwnd), uintptr(winSWHide))
+	wstate := uintptr(winSWHide)
+	if show {
+		wstate = uintptr(winSWRestore)
+	}
+	procShowWindow.Call(uintptr(hwnd), wstate)
+	if show {
+		procSetForegroundWindow.Call(uintptr(hwnd))
+	}
 	return nil
+}
+
+// hideMainWindow hides the native window and removes it from the taskbar.
+func hideMainWindow(w *gioapp.Window) error {
+	return windowStateSwitch(w, false)
 }
 
 // showMainWindow restores and foregrounds the native window.
 func showMainWindow(w *gioapp.Window) error {
-	if w == nil {
-		return errors.New("no window")
-	}
-	hwnd, err := findMainWindowHandle()
-	if err != nil {
-		return fmt.Errorf("show window: %w", err)
-	}
-	procShowWindow.Call(uintptr(hwnd), uintptr(winSWRestore))
-	procSetForegroundWindow.Call(uintptr(hwnd))
-	return nil
+	return windowStateSwitch(w, true)
 }

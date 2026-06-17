@@ -16,7 +16,6 @@ COMMIT_DATE  := $(shell git log -1 --format=%cI 2>/dev/null || echo "unknown")
 # Build options — override on the command line:
 #   make build OS=windows ARCH=arm64 GUI=0
 #   make build OS=linux   ARCH=amd64 GUI=1 GUI_BACKEND=wayland
-#   make build ENGINE=fyne           # use fyne GUI instead of gio
 # ---------------------------------------------------------------------------
 OS           ?= $(shell go env GOOS)
 ARCH         ?= $(shell go env GOARCH)
@@ -24,7 +23,6 @@ GUI          ?= 1
 GUI_BACKEND  ?= wayland
 COMPILER     ?= gcc
 PLUGINS      ?= 1
-ENGINE       ?= gio
 
 GOOS    := $(OS)
 GOARCH  := $(ARCH)
@@ -34,9 +32,7 @@ COMPILER_SUFFIX := $(if $(filter musl,$(COMPILER)),-musl,)
 
 # On Windows with GUI, hide the console window.
 WIN_GUI_FLAG := $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(GUI))),-H windowsgui,)
-# Static link MinGW runtime on Windows so no extra DLLs are needed.
-WIN_STATIC = $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(CGO_ENABLED))),-linkmode external -extldflags "-static",)
-LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
+LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) \
 	-X 'sing-box-ez/internal/framework/version.Branch=$(BRANCH)' \
 	-X 'sing-box-ez/internal/framework/version.BuildDate=$(BUILD_DATE)' \
 	-X 'sing-box-ez/internal/framework/version.Commit=$(BUILD_COMMIT)' \
@@ -49,18 +45,18 @@ LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) $(WIN_STATIC) \
 	-X 'sing-box-ez/internal/framework/version.CommitDate=$(COMMIT_DATE)'"
 
 # Lazy-evaluated variables so target-specific overrides are respected.
-# GUI_BACKEND only affects Linux (Wayland vs X11); Windows/macOS use native GLFW.
-CGO_ENABLED = $(if $(filter 1,$(GUI)),1,0)
+# GUI_BACKEND only affects Linux (Wayland vs X11). Linux GUI needs CGO for
+# Wayland/X11; Windows GUI uses Gio's pure-Go backend and does not need CGO.
+CGO_ENABLED = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),1,0)
 
 # Build tags: combine into a single comma-separated list for Go's -tags flag
 comma := ,
 empty :=
 space := $(empty) $(empty)
-# Build tag for Linux GUI backend (wayland/x11). Applies to both Gio and Fyne (GLFW).
-LINUX_GUI_TAG = $(if $(and $(filter linux,$(GOOS)),$(filter 1,$(GUI)),$(filter-out windows,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),wayland,$(if $(filter x11,$(GUI_BACKEND)),x11,)),)
+# Build tag for Linux GUI backend (wayland/x11).
+LINUX_GUI_TAG = $(if $(and $(filter linux,$(GOOS)),$(filter 1,$(GUI))),$(if $(filter wayland,$(GUI_BACKEND)),wayland,$(if $(filter x11,$(GUI_BACKEND)),x11,)),)
 TAG_LIST  = $(if $(filter 1,$(GUI)),$(LINUX_GUI_TAG),nogui)
 TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
-TAG_LIST += $(if $(filter fyne,$(ENGINE)),fyne,)
 BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 TYPE_SUFFIX     = $(if $(filter 1,$(GUI)),-gui,-cli)
 GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
@@ -79,11 +75,6 @@ ifeq ($(COMPILER),musl)
   endif
 else
   ifeq ($(shell [ "$(CGO_ENABLED)" = "1" ] && [ "$(GOOS)-$(GOARCH)" != "$(HOST_OS)-$(HOST_ARCH)" ] && echo 1 || echo 0),1)
-    ifeq ($(GOOS),windows)
-      ifeq ($(GOARCH),amd64)
-        CROSS_CC := x86_64-w64-mingw32-gcc
-      endif
-    endif
     ifeq ($(GOOS),linux)
       ifeq ($(GOARCH),arm64)
         CROSS_CC := aarch64-linux-gnu-gcc
@@ -121,7 +112,6 @@ help:
 	@echo ""
 	@echo "Build options (examples):"
 	@echo "  make build                       # native OS/arch, Wayland GUI (gio)"
-	@echo "  make build ENGINE=fyne           # native OS/arch, fyne GUI"
 	@echo "  make build GUI=0                 # native OS/arch, CLI only"
 	@echo "  make build GUI_BACKEND=x11       # native, X11 GUI"
 	@echo "  make build OS=linux ARCH=arm64 GUI=1"
@@ -131,9 +121,8 @@ help:
 	@echo "Variables:"
 	@echo "  OS           Target operating system  (default: current)"
 	@echo "  ARCH         Target architecture      (default: current)"
-	@echo "  GUI          1 = with GUI (needs CGO), 0 = CLI only"
+	@echo "  GUI          1 = with GUI (CGO needed only on Linux), 0 = CLI only"
 	@echo "  GUI_BACKEND  wayland | x11  (default: wayland)"
-	@echo "  ENGINE       gio | fyne     (default: gio)"
 	@echo "  COMPILER     gcc | musl     (default: gcc)"
 	@echo "  CC           Cross-compiler to use    (auto-detected)"
 
@@ -163,10 +152,6 @@ else
 	sudo apt-get update -qq
 	sudo apt-get install --no-install-recommends -y gcc
 endif
-else ifeq ($(GOOS),windows)
-	@echo "Installing Windows cross-compile dependencies..."
-	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y mingw-w64
 endif
 endif
 
@@ -192,9 +177,6 @@ else
 	@echo "Installing base build dependencies..."
 	sudo pacman -S --needed gcc
 endif
-else ifeq ($(GOOS),windows)
-	@echo "Installing Windows cross-compile dependencies..."
-	sudo pacman -S --needed mingw-w64-gcc
 endif
 endif
 	@echo "Installing Go analysis tools..."

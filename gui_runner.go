@@ -1,4 +1,4 @@
-//go:build !nogui && !fyne
+//go:build !nogui
 
 package main
 
