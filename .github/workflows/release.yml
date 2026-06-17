@@ -231,6 +231,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name == 'main' && 'latest' || needs.prepare-release.outputs.tag }}
+          target_commitish: ${{ github.ref_name }}
           name: "${{ github.ref_name == 'main' && 'Latest Build' || 'Latest Testing Build' }} (${{ needs.prepare-release.outputs.tag }})"
           body_path: release_notes.md
           files: binaries/*
