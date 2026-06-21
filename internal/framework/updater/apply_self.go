@@ -212,5 +212,3 @@ func (a *SelfUpdateApply) installContext(info UpdateInfo, assetPath string) luav
 		},
 	}
 }
-
-

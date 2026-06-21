@@ -118,6 +118,13 @@ settings:
     label: 'Интервал обновления по умолчанию (часов):'
   language:
     title: Язык
+  theme:
+    title: Тема
+  theme_mode:
+    title: Режим темы
+    system: Системная
+    dark: Тёмная
+    light: Светлая
   plugins:
     title: Плагины
     enabled: Функция плагинов
@@ -130,7 +137,7 @@ settings:
     btn: Сбросить все данные
     confirm_title: Сбросить все данные?
     confirm_msg: |
-      Это безвозвратно удалит config.json, profiles.json и папку configs/.
+      Это безвозвратно удалит config.yaml, profiles.yaml и папку configs/.
       После этого приложение перезапустится.
     success_title: Данные сброшены
     success_msg: Все данные сброшены. Приложение будет перезапущено.

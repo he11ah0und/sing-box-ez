@@ -13,7 +13,7 @@ import (
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
 
-	"gopkg.in/yaml.v3"
+	yamlutil "sing-box-ez/internal/framework/util/yaml"
 )
 
 var (
@@ -67,8 +67,8 @@ func LoadFromDir(dir string) error {
 }
 
 func loadLanguage(lang string, data []byte) error {
-	var raw map[string]any
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+	raw, err := yamlutil.LoadTree(data)
+	if err != nil {
 		return err
 	}
 	bundles[lang] = raw

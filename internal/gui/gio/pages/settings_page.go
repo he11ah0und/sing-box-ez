@@ -11,6 +11,7 @@ import (
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
 )
 
@@ -29,37 +30,43 @@ type SettingsPage struct {
 	OnShowLogsChange func(show bool)
 
 	// Dirty tracking – original saved values.
-	origLogLimit                   string
-	origLogLevel                   string
-	origInterval                        string
-	origAutoUpdateConfigsInterval       string
-	origBackgroundUpdateCheckInterval   string
-	origShowLogs                   bool
-	origDesktopNotif               bool
-	origAutoCheckSelf              bool
-	origAutoCheckCore              bool
-	origAutoUpdateConfigs          bool
-	origAutoRestartOnConfigUpdate  bool
-	origLang                       string
+	origLogLimit                      string
+	origLogLevel                      string
+	origInterval                      string
+	origAutoUpdateConfigsInterval     string
+	origBackgroundUpdateCheckInterval string
+	origShowLogs                      bool
+	origDesktopNotif                  bool
+	origAutoCheckSelf                 bool
+	origAutoCheckCore                 bool
+	origAutoUpdateConfigs             bool
+	origAutoRestartOnConfigUpdate     bool
+	origLang                          string
+	origTheme                         string
+	origThemeMode                     string
 
 	// Pending (unsaved) selections.
-	pendingLang     string
-	pendingLogLevel string
+	pendingLang      string
+	pendingLogLevel  string
+	pendingTheme     string
+	pendingThemeMode string
 
 	logLimitEditor                      widget.Editor
 	intervalEditor                      widget.Editor
 	autoUpdateConfigsIntervalEditor     widget.Editor
 	backgroundUpdateCheckIntervalEditor widget.Editor
-	showLogs                       widget.Bool
-	desktopNotif                   widget.Bool
-	autoCheckSelf                  widget.Bool
-	autoCheckCore                  widget.Bool
-	autoUpdateConfigs              widget.Bool
-	autoRestartOnConfigUpdate      widget.Bool
-	logLevelDropdown               *widgets.Dropdown
-	langDropdown                   *widgets.Dropdown
-	saveBtn   widget.Clickable
-	resetBtn  widget.Clickable
+	showLogs                            widget.Bool
+	desktopNotif                        widget.Bool
+	autoCheckSelf                       widget.Bool
+	autoCheckCore                       widget.Bool
+	autoUpdateConfigs                   widget.Bool
+	autoRestartOnConfigUpdate           widget.Bool
+	logLevelDropdown                    *widgets.Dropdown
+	langDropdown                        *widgets.Dropdown
+	themeDropdown                       *widgets.Dropdown
+	themeModeDropdown                   *widgets.Dropdown
+	saveBtn                             widget.Clickable
+	resetBtn                            widget.Clickable
 }
 
 // NewSettingsPage creates a new settings page.
@@ -70,49 +77,61 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 		dialog: dialog,
 	}
 
-	p.origLogLimit = fmt.Sprintf("%d", ctrl.Controller.Config().GetLogLimit())
+	p.origLogLimit = fmt.Sprintf("%d", ctrl.Controller.Config().MustGet("log", "limit").Int())
 	p.logLimitEditor.SingleLine = true
 	p.logLimitEditor.Filter = "0123456789"
 	p.logLimitEditor.SetText(p.origLogLimit)
 
-	p.origInterval = fmt.Sprintf("%d", ctrl.Controller.Config().UpdateIntervalHours)
+	p.origInterval = fmt.Sprintf("%d", ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int())
 	p.intervalEditor.SingleLine = true
 	p.intervalEditor.Filter = "0123456789"
 	p.intervalEditor.SetText(p.origInterval)
 
-	p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", ctrl.Controller.Config().GetAutoUpdateConfigsIntervalHours())
+	p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", ctrl.Controller.Config().MustGet("updates", "auto_update_configs_interval_hours").Int())
 	p.autoUpdateConfigsIntervalEditor.SingleLine = true
 	p.autoUpdateConfigsIntervalEditor.Filter = "0123456789"
 	p.autoUpdateConfigsIntervalEditor.SetText(p.origAutoUpdateConfigsInterval)
 
-	p.origBackgroundUpdateCheckInterval = fmt.Sprintf("%d", ctrl.Controller.Config().GetBackgroundUpdateCheckIntervalHours())
+	p.origBackgroundUpdateCheckInterval = fmt.Sprintf("%d", ctrl.Controller.Config().MustGet("updates", "background_update_check_interval_hours").Int())
 	p.backgroundUpdateCheckIntervalEditor.SingleLine = true
 	p.backgroundUpdateCheckIntervalEditor.Filter = "0123456789"
 	p.backgroundUpdateCheckIntervalEditor.SetText(p.origBackgroundUpdateCheckInterval)
 
-	p.origShowLogs = ctrl.Controller.Config().GetShowLogs()
+	p.origShowLogs = ctrl.Controller.Config().MustGet("ui", "show_logs").Bool()
 	p.showLogs.Value = p.origShowLogs
 
-	p.origDesktopNotif = ctrl.Controller.Config().GetDesktopNotifications()
+	p.origDesktopNotif = ctrl.Controller.Config().MustGet("ui", "desktop_notifications").Bool()
 	p.desktopNotif.Value = p.origDesktopNotif
 
-	p.origAutoCheckSelf = ctrl.Controller.Config().GetAutoCheckSelfUpdates()
+	p.origAutoCheckSelf = ctrl.Controller.Config().MustGet("updates", "auto_check_self").Bool()
 	p.autoCheckSelf.Value = p.origAutoCheckSelf
 
-	p.origAutoCheckCore = ctrl.Controller.Config().GetAutoCheckCoreUpdates()
+	p.origAutoCheckCore = ctrl.Controller.Config().MustGet("updates", "auto_check_core").Bool()
 	p.autoCheckCore.Value = p.origAutoCheckCore
 
-	p.origAutoUpdateConfigs = ctrl.Controller.Config().GetAutoUpdateConfigs()
+	p.origAutoUpdateConfigs = ctrl.Controller.Config().MustGet("updates", "auto_update_configs").Bool()
 	p.autoUpdateConfigs.Value = p.origAutoUpdateConfigs
 
-	p.origAutoRestartOnConfigUpdate = ctrl.Controller.Config().GetAutoRestartOnConfigUpdate()
+	p.origAutoRestartOnConfigUpdate = ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Bool()
 	p.autoRestartOnConfigUpdate.Value = p.origAutoRestartOnConfigUpdate
 
-	p.origLang = ctrl.Controller.Config().GetLanguage()
+	p.origLang = ctrl.Controller.Config().MustGet("ui", "language").String()
 	p.pendingLang = p.origLang
 
-	p.origLogLevel = ctrl.Controller.Config().GetLogLevel()
+	p.origLogLevel = ctrl.Controller.Config().MustGet("log", "level").String()
 	p.pendingLogLevel = p.origLogLevel
+
+	p.origTheme = ctrl.Controller.Config().MustGet("ui", "theme").String()
+	if p.origTheme == "" {
+		p.origTheme = "default"
+	}
+	p.pendingTheme = p.origTheme
+
+	p.origThemeMode = ctrl.Controller.Config().MustGet("ui", "theme_mode").String()
+	if p.origThemeMode == "" {
+		p.origThemeMode = "system"
+	}
+	p.pendingThemeMode = p.origThemeMode
 
 	levels := []string{"debug", "info", "warn", "error"}
 	p.logLevelDropdown = widgets.NewDropdown(
@@ -133,6 +152,28 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 		func(lang string) string { return localengine.LanguageName(lang) },
 		func(lang string) { p.pendingLang = lang },
 	)
+
+	if theme.M != nil {
+		themeNames := theme.M.Names()
+		p.themeDropdown = widgets.NewDropdown(
+			th, dialog,
+			localengine.T("settings", "theme", "title"),
+			p.pendingTheme,
+			themeNames,
+			func(name string) string { return name },
+			func(name string) { p.pendingTheme = name },
+		)
+
+		modes := []string{"system", "dark", "light"}
+		p.themeModeDropdown = widgets.NewDropdown(
+			th, dialog,
+			localengine.T("settings", "theme_mode", "title"),
+			p.pendingThemeMode,
+			modes,
+			func(mode string) string { return localengine.T("settings", "theme_mode", mode) },
+			func(mode string) { p.pendingThemeMode = mode },
+		)
+	}
 
 	return p
 }
@@ -158,7 +199,9 @@ func (p *SettingsPage) isDirty() bool {
 		p.autoCheckCore.Value != p.origAutoCheckCore ||
 		p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs ||
 		p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate ||
-		p.pendingLang != p.origLang
+		p.pendingLang != p.origLang ||
+		p.pendingTheme != p.origTheme ||
+		p.pendingThemeMode != p.origThemeMode
 }
 
 // Layout draws the settings page.
@@ -178,36 +221,50 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 			p.origInterval = fmt.Sprintf("%d", h)
 		}
 		if h, err := strconv.Atoi(p.backgroundUpdateCheckIntervalEditor.Text()); err == nil && h > 0 {
-			p.ctrl.Controller.Config().SetBackgroundUpdateCheckIntervalHours(h)
+			p.ctrl.Controller.Config().MustGet("updates", "background_update_check_interval_hours").Update(h)
 			p.origBackgroundUpdateCheckInterval = fmt.Sprintf("%d", h)
 		}
 		if h, err := strconv.Atoi(p.autoUpdateConfigsIntervalEditor.Text()); err == nil && h > 0 {
-			p.ctrl.Controller.Config().SetAutoUpdateConfigsIntervalHours(h)
+			p.ctrl.Controller.Config().MustGet("updates", "auto_update_configs_interval_hours").Update(h)
 			p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", h)
 		}
-		p.ctrl.Controller.Config().SetShowLogs(p.showLogs.Value)
+		p.ctrl.Controller.Config().MustGet("ui", "show_logs").Update(p.showLogs.Value)
 		if p.OnShowLogsChange != nil {
 			p.OnShowLogsChange(p.showLogs.Value)
 		}
 		p.origShowLogs = p.showLogs.Value
-		p.ctrl.Controller.Config().SetLogLevel(p.pendingLogLevel)
+		p.ctrl.Controller.Config().MustGet("log", "level").Update(p.pendingLogLevel)
 		p.origLogLevel = p.pendingLogLevel
-		p.ctrl.Controller.Config().SetDesktopNotifications(p.desktopNotif.Value)
+		p.ctrl.Controller.Config().MustGet("ui", "desktop_notifications").Update(p.desktopNotif.Value)
 		p.origDesktopNotif = p.desktopNotif.Value
-		p.ctrl.Controller.Config().SetAutoCheckSelfUpdates(p.autoCheckSelf.Value)
+		p.ctrl.Controller.Config().MustGet("updates", "auto_check_self").Update(p.autoCheckSelf.Value)
 		p.origAutoCheckSelf = p.autoCheckSelf.Value
-		p.ctrl.Controller.Config().SetAutoCheckCoreUpdates(p.autoCheckCore.Value)
+		p.ctrl.Controller.Config().MustGet("updates", "auto_check_core").Update(p.autoCheckCore.Value)
 		p.origAutoCheckCore = p.autoCheckCore.Value
-		p.ctrl.Controller.Config().SetAutoUpdateConfigs(p.autoUpdateConfigs.Value)
+		p.ctrl.Controller.Config().MustGet("updates", "auto_update_configs").Update(p.autoUpdateConfigs.Value)
 		p.origAutoUpdateConfigs = p.autoUpdateConfigs.Value
-		p.ctrl.Controller.Config().SetAutoRestartOnConfigUpdate(p.autoRestartOnConfigUpdate.Value)
+		p.ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Update(p.autoRestartOnConfigUpdate.Value)
 		p.origAutoRestartOnConfigUpdate = p.autoRestartOnConfigUpdate.Value
 		if p.pendingLang != p.origLang {
-			p.ctrl.Controller.Config().SetLanguage(p.pendingLang)
+			p.ctrl.Controller.Config().MustGet("ui", "language").Update(p.pendingLang)
 			localengine.SetLanguage(p.pendingLang)
 			p.origLang = p.pendingLang
 			if p.OnLanguageChange != nil {
 				p.OnLanguageChange()
+			}
+		}
+		if p.pendingTheme != p.origTheme || p.pendingThemeMode != p.origThemeMode {
+			if theme.M != nil {
+				mode := theme.Mode(p.pendingThemeMode)
+				if mode == "" {
+					mode = theme.ModeSystem
+				}
+				if err := theme.M.Apply(p.pendingTheme, mode); err == nil {
+					_ = p.ctrl.Controller.Config().MustGet("ui", "theme").Update(p.pendingTheme)
+					_ = p.ctrl.Controller.Config().MustGet("ui", "theme_mode").Update(string(mode))
+					p.origTheme = p.pendingTheme
+					p.origThemeMode = p.pendingThemeMode
+				}
 			}
 		}
 		_ = p.ctrl.Controller.Config().Save()
@@ -225,10 +282,22 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 	autoUpdateConfigsDirty := p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs
 	autoRestartDirty := p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate
 	langDirty := p.pendingLang != p.origLang
+	themeDirty := p.pendingTheme != p.origTheme
+	themeModeDirty := p.pendingThemeMode != p.origThemeMode
 	dirty := p.isDirty()
 
 	p.logLevelDropdown.SetValue(p.pendingLogLevel)
+	p.logLevelDropdown.SetLabel(localengine.T("settings", "log_level", "label"))
 	p.langDropdown.SetValue(p.pendingLang)
+	p.langDropdown.SetLabel(localengine.T("settings", "language", "title"))
+	if p.themeDropdown != nil {
+		p.themeDropdown.SetValue(p.pendingTheme)
+		p.themeDropdown.SetLabel(localengine.T("settings", "theme", "title"))
+	}
+	if p.themeModeDropdown != nil {
+		p.themeModeDropdown.SetValue(p.pendingThemeMode)
+		p.themeModeDropdown.SetLabel(localengine.T("settings", "theme_mode", "title"))
+	}
 
 	if p.resetBtn.Clicked(gtx) && p.OnResetRequested != nil {
 		p.OnResetRequested()
@@ -251,6 +320,24 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.langDropdown.Layout(gtx, langDirty)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.themeDropdown == nil {
+				return layout.Dimensions{}
+			}
+			return material.H6(p.th, localengine.T("settings", "theme", "title")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.themeDropdown == nil {
+				return layout.Dimensions{}
+			}
+			return p.themeDropdown.Layout(gtx, themeDirty)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.themeModeDropdown == nil {
+				return layout.Dimensions{}
+			}
+			return p.themeModeDropdown.Layout(gtx, themeModeDirty)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.H6(p.th, localengine.T("settings", "logging", "title")).Layout(gtx)

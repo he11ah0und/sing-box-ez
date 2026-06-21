@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	fwconfig "sing-box-ez/internal/framework/config"
 	"sing-box-ez/internal/framework/logger"
 )
 
@@ -81,9 +82,12 @@ func TestCoreLogWriterClose(t *testing.T) {
 }
 
 func TestCoreLogProcessorDrainsOnStop(t *testing.T) {
+	sheet := fwconfig.NewSheet(fwconfig.SheetOptions{})
+	sheet.Register([]string{"core", "watch_logs"}, fwconfig.TypeBool, true)
+	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, false)
 	cfg := &config.AppConfig{
-		WatchCoreLogs:   true,
-		CoreAutoRestart: false,
+		Sheet:   sheet,
+		DataDir: t.TempDir(),
 	}
 
 	log := logger.NewLogger(100)

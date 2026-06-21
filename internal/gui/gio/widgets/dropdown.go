@@ -47,6 +47,9 @@ func NewDropdown(
 // SetValue updates the displayed value.
 func (d *Dropdown) SetValue(v string) { d.value = v }
 
+// SetLabel updates the label shown above the dropdown.
+func (d *Dropdown) SetLabel(label string) { d.label = label }
+
 // Value returns the current value.
 func (d *Dropdown) Value() string { return d.value }
 

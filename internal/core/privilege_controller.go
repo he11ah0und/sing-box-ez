@@ -60,7 +60,7 @@ func (c *PrivilegeController) HasRequiredPrivileges() bool {
 		if HasNetAdminCapability(c.manager.coreBinary()) {
 			return true
 		}
-		return c.cfg.RunAsAdmin
+		return c.cfg.MustGet("privileges", "run_as_admin").Bool()
 	case "windows":
 		return IsAdmin()
 	default:
@@ -114,7 +114,7 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 					ID:    "run_as_admin",
 					Label: localengine.T("dialog", "privileges", "btn_run_as_admin"),
 					Handler: func() error {
-						c.cfg.SetRunAsAdmin(true)
+						c.cfg.MustGet("privileges", "run_as_admin").Update(true)
 						c.manager.SetElevated(true)
 						return c.cfg.Save()
 					},
@@ -130,7 +130,7 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
 	state := PrivilegeTabState{
 		Mode:       runtime.GOOS,
-		RunAsAdmin: c.cfg.RunAsAdmin,
+		RunAsAdmin: c.cfg.MustGet("privileges", "run_as_admin").Bool(),
 	}
 
 	switch runtime.GOOS {
@@ -178,7 +178,7 @@ func (c *PrivilegeController) RestartAsAdmin(restartFn func() error) error {
 
 // SetRunAsAdmin updates the run-as-admin setting and logs the result.
 func (c *PrivilegeController) SetRunAsAdmin(checked bool) error {
-	c.cfg.SetRunAsAdmin(checked)
+	c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
 	c.manager.SetElevated(checked)
 	if err := c.cfg.Save(); err != nil {
 		return c.terminal.Errorf("Failed to save admin setting: %v", err)

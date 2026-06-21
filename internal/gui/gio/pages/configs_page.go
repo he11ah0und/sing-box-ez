@@ -20,6 +20,7 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/version"
+	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
 )
 
@@ -136,11 +137,12 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 	isActive := rec.Name == p.ctrl.Controller.Config().GetActiveName()
 	click := p.cardClicks[rec.Name]
 
+	colors := theme.Current().Colors()
 	var bg color.NRGBA
 	if isCached {
-		bg = color.NRGBA{R: 40, G: 100, B: 60, A: 255} // dark green
+		bg = colors.CardCached
 	} else {
-		bg = color.NRGBA{R: 120, G: 60, B: 40, A: 255} // dark orange
+		bg = colors.CardUncached
 	}
 
 	return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -164,7 +166,7 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 
 				nameColor := p.th.Palette.Fg
 				if isActive {
-					nameColor = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+					nameColor = colors.Fg
 				}
 
 				return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween}.Layout(gtx,
@@ -214,17 +216,17 @@ func (p *ConfigsPage) openAddDialog() {
 	nameEd.SingleLine = true
 	urlEd.SingleLine = true
 	periodEd.SingleLine = true
-	periodEd.SetText(fmt.Sprintf("%d", p.ctrl.Controller.Config().UpdateIntervalHours))
+	periodEd.SetText(fmt.Sprintf("%d", p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()))
 
 	var saveBtn widget.Clickable
 
 	p.dialog.ShowCustom(localengine.T("configs", "dialog", "title"), func(gtx layout.Context) layout.Dimensions {
 		if saveBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
-			hours := p.ctrl.Controller.Config().UpdateIntervalHours
+			hours := p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()
 			fmt.Sscanf(periodEd.Text(), "%d", &hours)
 			if hours <= 0 {
-				hours = p.ctrl.Controller.Config().UpdateIntervalHours
+				hours = p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()
 			}
 			rec := config.ConfigRecord{
 				Name:                nameEd.Text(),
@@ -282,7 +284,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 			hours := old.UpdateIntervalHours
 			fmt.Sscanf(periodEd.Text(), "%d", &hours)
 			if hours <= 0 {
-				hours = p.ctrl.Controller.Config().UpdateIntervalHours
+				hours = p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()
 			}
 			rec := config.ConfigRecord{
 				Name:                nameEd.Text(),

@@ -4,9 +4,13 @@ package framework
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 
+	"sing-box-ez/internal/framework/cli"
+	"sing-box-ez/internal/framework/config"
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
@@ -14,22 +18,35 @@ import (
 )
 
 // App is the framework-level application container. It owns cross-cutting
-// services such as logging, file-system access, and update management.
-// Core code can embed *framework.App and extend Start()/Stop() to add
-// domain-specific lifecycle.
+// services such as logging, file-system access, CLI routing and update
+// management.
 type App struct {
 	Logger   *logger.Logger
 	FS       fs.FileSystem
 	Updaters []*updater.Manager
 	BaseDir  string
+	Config   config.Config
+	CLI      *cli.Engine[*App]
+
+	RemainingArgs []string
+	runGUI        func(*App) bool
 }
 
 // Config is used to construct a framework App.
 type Config struct {
-	LoggerLimit int
-	// BaseDir is the root directory for the file system. If empty the current
-	// working directory is used.
-	BaseDir string
+	// Args are the command-line arguments (without the program name).
+	Args []string
+	// DefaultDataDir returns the default data directory when --data-dir is not
+	// provided. Required.
+	DefaultDataDir func() string
+	// RegisterConfig registers the configuration schema on a fresh Sheet.
+	RegisterConfig func(*config.Sheet)
+	// LoadConfig loads persisted settings into the Sheet and returns the
+	// application-specific config object. Required.
+	LoadConfig func(dataDir string, sheet *config.Sheet) (config.Config, error)
+	// GetLoggerLimit extracts the log buffer limit from the loaded config.
+	// If nil, a default limit is used.
+	GetLoggerLimit func(config.Config) int
 	// LoadLocales is called during app construction to load localization
 	// bundles. The framework passes the localengine.LoadFromFS loader so the
 	// implementation can load locale files from any backend (e.g. embed.FS,
@@ -38,48 +55,111 @@ type Config struct {
 	// If nil, localengine is only initialised with a logger.
 	LoadLocales func(load func(fsys fs.FileSystem, dir string) error) error
 	// BuildUpdaters returns the list of updater managers that should be
-	// registered in the app. The framework passes the root logger and the
-	// file system so each manager can allocate its own scoped terminal and
-	// perform file operations safely. If nil, no updaters are registered.
-	BuildUpdaters func(log *logger.Logger, fsys fs.FileSystem) []*updater.Manager
+	// registered in the app. The framework passes the constructed App so the
+	// implementation can access the config, logger and file system. If nil,
+	// no updaters are registered.
+	BuildUpdaters func(*App) []*updater.Manager
+	// RegisterCommands registers CLI commands on the engine.
+	RegisterCommands func(*cli.Engine[*App])
+	// RunGUI starts the GUI. It receives the fully constructed App and
+	// returns true if the GUI ran successfully. If nil and no CLI command
+	// was given, Run exits without error.
+	RunGUI func(*App) bool
+}
+
+// parseDataDir extracts --data-dir from args and returns the directory plus
+// remaining arguments.
+func parseDataDir(args []string) (string, []string) {
+	for i := range args {
+		if args[i] == "--data-dir" && i+1 < len(args) {
+			dir := args[i+1]
+			remaining := append(args[:i], args[i+2:]...)
+			return dir, remaining
+		}
+	}
+	return "", args
 }
 
 // NewApp creates a new framework App with the given configuration.
-func NewApp(cfg Config) *App {
-	if cfg.LoggerLimit <= 0 {
-		cfg.LoggerLimit = 1000
+func NewApp(cfg Config) (*App, error) {
+	dataDir, remaining := parseDataDir(cfg.Args)
+	if dataDir == "" {
+		if cfg.DefaultDataDir == nil {
+			return nil, fmt.Errorf("DefaultDataDir is required")
+		}
+		dataDir = cfg.DefaultDataDir()
 	}
-	if cfg.BaseDir == "" {
-		cfg.BaseDir = "."
+	_ = os.MkdirAll(dataDir, 0750)
+
+	tmpLog := logger.NewLogger(1000)
+	tmpFS := fs.NewOSFileSystemWithLog(tmpLog.Root, dataDir)
+	_ = tmpFS.MkdirAll("configs", 0750)
+	_ = tmpFS.MkdirAll("plugins", 0750)
+	_ = tmpFS.MkdirAll("docs", 0750)
+
+	sheet := config.NewSheet(config.SheetOptions{Logger: tmpLog.Root})
+	if cfg.RegisterConfig != nil {
+		cfg.RegisterConfig(sheet)
 	}
 
-	log := logger.NewLogger(cfg.LoggerLimit)
+	conf, err := cfg.LoadConfig(dataDir, sheet)
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+
+	limit := 1000
+	if cfg.GetLoggerLimit != nil {
+		limit = cfg.GetLoggerLimit(conf)
+	}
+	log := logger.NewLogger(limit)
+	appFS := fs.NewOSFileSystemWithLog(log.Root, dataDir)
 
 	localengine.SetLogger(log.Root)
 	if cfg.LoadLocales != nil {
 		_ = cfg.LoadLocales(localengine.LoadFromFS)
 	}
-	appFS := fs.NewOSFileSystemWithLog(log.Root, cfg.BaseDir)
 
-	var updaters []*updater.Manager
-	if cfg.BuildUpdaters != nil {
-		updaters = cfg.BuildUpdaters(log, appFS)
+	app := &App{
+		Logger:        log,
+		FS:            appFS,
+		BaseDir:       dataDir,
+		Config:        conf,
+		CLI:           cli.New[*App](),
+		RemainingArgs: remaining,
+		runGUI:        cfg.RunGUI,
 	}
 
-	// Register the first updater with an Apply backend as the default manager
-	// for package-level helpers.
-	for _, mgr := range updaters {
-		if mgr.Apply != nil {
-			updater.SetManager(mgr)
-			break
+	if cfg.BuildUpdaters != nil {
+		app.Updaters = cfg.BuildUpdaters(app)
+		for _, mgr := range app.Updaters {
+			if mgr.Apply != nil {
+				updater.SetManager(mgr)
+				break
+			}
 		}
 	}
 
-	return &App{
-		Logger:   log,
-		FS:       appFS,
-		Updaters: updaters,
-		BaseDir:  cfg.BaseDir,
+	if cfg.RegisterCommands != nil {
+		cfg.RegisterCommands(app.CLI)
+	}
+
+	return app, nil
+}
+
+// Run executes the CLI command if arguments remain, otherwise starts the GUI.
+func (a *App) Run() {
+	if len(a.RemainingArgs) > 0 {
+		if err := a.CLI.Run(a.RemainingArgs, a); err != nil {
+			// Errors are already logged by commands; exit with non-zero status.
+			os.Exit(1)
+		}
+		return
+	}
+
+	if a.runGUI != nil && !a.runGUI(a) {
+		// GUI could not start (no display, no wayland, etc).
+		// Exit gracefully so make/run does not show a scary error.
+		os.Exit(0)
 	}
 }
 

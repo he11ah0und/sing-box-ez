@@ -15,6 +15,7 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/gui/gio/pages"
+	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
 )
 
@@ -464,7 +465,7 @@ func (s *Shell) layoutPageScroll(gtx layout.Context, tag string, content layout.
 	style := material.List(s.th, list)
 	style.AnchorStrategy = material.Overlay
 	style.Indicator.Color = color.NRGBA{}
-	hoverColor := s.th.Palette.Fg
+	hoverColor := theme.Current().Colors().Fg
 	hoverColor.A = 180
 	style.Indicator.HoverColor = hoverColor
 	return style.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
@@ -475,10 +476,7 @@ func (s *Shell) layoutPageScroll(gtx layout.Context, tag string, content layout.
 // layoutContent renders the current page with a background color.
 func (s *Shell) layoutContent(gtx layout.Context) layout.Dimensions {
 	// Fill background.
-	bg := s.th.Palette.Bg
-	if bg == (color.NRGBA{}) {
-		bg = color.NRGBA{R: 18, G: 18, B: 18, A: 255}
-	}
+	bg := theme.Current().Colors().Bg
 	paint.FillShape(gtx.Ops, bg, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
 	for i, p := range s.primary {

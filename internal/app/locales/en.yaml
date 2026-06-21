@@ -113,6 +113,13 @@ settings:
     label: 'Default update interval (hours):'
   language:
     title: Language
+  theme:
+    title: Theme
+  theme_mode:
+    title: Theme mode
+    system: System
+    dark: Dark
+    light: Light
   plugins:
     title: Plugins
     enabled: Plugins feature
@@ -125,7 +132,7 @@ settings:
     btn: Reset all data
     confirm_title: Reset all data?
     confirm_msg: |
-      This will permanently delete config.json, profiles.json and the configs/ folder.
+      This will permanently delete config.yaml, profiles.yaml and the configs/ folder.
       The application will restart afterwards.
     success_title: Data reset
     success_msg: All data has been reset. The application will restart now.

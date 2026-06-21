@@ -1,0 +1,94 @@
+name: default
+display_name: Default
+
+dark:
+  bg: "#121212"
+  fg: "#FFFFFF"
+  surface: "#1E1E1E"
+  surface_variant: "#2C2C2C"
+  primary: "#1976D2"
+  primary_variant: "#42A5F5"
+  on_primary: "#FFFFFF"
+
+  error: "#EF5350"
+  warning: "#FFA726"
+  success: "#66BB6A"
+  info: "#42A5F5"
+  disabled: "#808080"
+  disabled_fg: "#B0B0B0"
+
+  border: "#484848"
+  backdrop: "#000000A0"
+  hover: "#FFFFFF20"
+
+  input_bg: "#282828"
+  input_dirty_bg: "#504614"
+  input_border: "#80808080"
+
+  log_date: "#C88C3C"
+  log_source: "#8CC850"
+  log_arrow: "#FFFFFF"
+  log_debug: "#B4B4B4"
+  log_info: "#6496FF"
+  log_warn: "#FFC864"
+  log_error: "#FF6464"
+
+  log_bg_debug: "#1E1E1E"
+  log_bg_info: "#142032"
+  log_bg_warn: "#322814"
+  log_bg_error: "#321414"
+  log_bg_default: "#141414"
+
+  card_cached: "#28643C"
+  card_uncached: "#783C28"
+
+  core_highlight: "#FFC8003C"
+  status_warning: "#FFFF00"
+  status_ok: "#00FF00"
+  separator: "#505050"
+
+light:
+  bg: "#FAFAFA"
+  fg: "#1A1A1A"
+  surface: "#FFFFFF"
+  surface_variant: "#EEEEEE"
+  primary: "#1976D2"
+  primary_variant: "#42A5F5"
+  on_primary: "#FFFFFF"
+
+  error: "#D32F2F"
+  warning: "#F57C00"
+  success: "#388E3C"
+  info: "#1976D2"
+  disabled: "#BDBDBD"
+  disabled_fg: "#757575"
+
+  border: "#BDBDBD"
+  backdrop: "#00000060"
+  hover: "#00000010"
+
+  input_bg: "#F5F5F5"
+  input_dirty_bg: "#FFF8E1"
+  input_border: "#9E9E9E80"
+
+  log_date: "#A05A00"
+  log_source: "#5A8A20"
+  log_arrow: "#1A1A1A"
+  log_debug: "#757575"
+  log_info: "#1565C0"
+  log_warn: "#E65100"
+  log_error: "#C62828"
+
+  log_bg_debug: "#F5F5F5"
+  log_bg_info: "#E3F2FD"
+  log_bg_warn: "#FFF3E0"
+  log_bg_error: "#FFEBEE"
+  log_bg_default: "#FAFAFA"
+
+  card_cached: "#C8E6C9"
+  card_uncached: "#FFCCBC"
+
+  core_highlight: "#FFC8003C"
+  status_warning: "#F9A825"
+  status_ok: "#43A047"
+  separator: "#E0E0E0"

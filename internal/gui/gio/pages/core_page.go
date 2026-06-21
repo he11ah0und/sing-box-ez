@@ -19,6 +19,7 @@ import (
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
 )
 
@@ -52,8 +53,8 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 		ctrl:   ctrl,
 		dialog: dialog,
 	}
-	p.autoRestart.Value = ctrl.Controller.Config().GetCoreAutoRestart()
-	p.watchLogs.Value = ctrl.Controller.Config().GetWatchCoreLogs()
+	p.autoRestart.Value = ctrl.Controller.Config().MustGet("core", "auto_restart").Bool()
+	p.watchLogs.Value = ctrl.Controller.Config().MustGet("core", "watch_logs").Bool()
 
 	p.privilegeState = ctrl.Controller.GetPrivilegeTabState()
 
@@ -118,7 +119,7 @@ func (p *CorePage) layoutHighlightedUpdate(gtx layout.Context) layout.Dimensions
 	if time.Now().Before(p.highlightEnd) {
 		elapsed := time.Since(p.highlightEnd.Add(-3 * time.Second))
 		if int(elapsed.Milliseconds()/500)%2 == 0 {
-			paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 200, B: 0, A: 60}, clip.Rect{Max: dims.Size}.Op())
+			paint.FillShape(gtx.Ops, theme.Current().Colors().CoreHighlight, clip.Rect{Max: dims.Size}.Op())
 		}
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -165,11 +166,11 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 	}
 
 	if changed := p.autoRestart.Update(gtx); changed {
-		p.ctrl.Controller.Config().SetCoreAutoRestart(p.autoRestart.Value)
+		p.ctrl.Controller.Config().MustGet("core", "auto_restart").Update(p.autoRestart.Value)
 		_ = p.ctrl.Controller.Config().Save()
 	}
 	if changed := p.watchLogs.Update(gtx); changed {
-		p.ctrl.Controller.Config().SetWatchCoreLogs(p.watchLogs.Value)
+		p.ctrl.Controller.Config().MustGet("core", "watch_logs").Update(p.watchLogs.Value)
 		_ = p.ctrl.Controller.Config().Save()
 	}
 
@@ -202,7 +203,7 @@ func (p *CorePage) separator(gtx layout.Context) layout.Dimensions {
 	h := gtx.Dp(unit.Dp(1))
 	bounds := image.Rect(0, 0, gtx.Constraints.Max.X, h)
 	defer clip.Rect(bounds).Push(gtx.Ops).Pop()
-	paint.ColorOp{Color: color.NRGBA{R: 80, G: 80, B: 80, A: 255}}.Add(gtx.Ops)
+	paint.ColorOp{Color: theme.Current().Colors().Separator}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 	return layout.Dimensions{Size: image.Point{X: gtx.Constraints.Max.X, Y: h}}
 }
@@ -215,9 +216,10 @@ func (p *CorePage) layoutPrivileges(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *CorePage) layoutWindowsPrivileges(gtx layout.Context) layout.Dimensions {
-	c := color.NRGBA{R: 255, G: 255, B: 0, A: 255} // yellow
+	colors := theme.Current().Colors()
+	c := colors.StatusWarning
 	if p.privilegeState.AdminStatusColor == "green" {
-		c = color.NRGBA{R: 0, G: 255, B: 0, A: 255}
+		c = colors.StatusOK
 	}
 
 	children := []layout.FlexChild{

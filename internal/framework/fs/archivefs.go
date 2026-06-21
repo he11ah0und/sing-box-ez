@@ -403,7 +403,7 @@ func (d *archiveDirEntry) Name() string {
 	return filepath.Base(name)
 }
 
-func (d *archiveDirEntry) IsDir() bool  { return d.e.isDir }
+func (d *archiveDirEntry) IsDir() bool { return d.e.isDir }
 func (d *archiveDirEntry) Type() os.FileMode {
 	if d.e.isDir {
 		return os.ModeDir
