@@ -55,7 +55,8 @@ func (t *LogTerminal) Warnf(v ...interface{}) {
 
 // Errorf logs an error-level message from this terminal and returns the
 // formatted error. This allows idiomatic one-line error handling such as
-//   return t.Errorf("download failed: %w", err)
+//
+//	return t.Errorf("download failed: %w", err)
 func (t *LogTerminal) Errorf(format string, v ...interface{}) error {
 	err := fmt.Errorf(format, v...)
 	if t != nil && t.logger != nil {

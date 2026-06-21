@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/color"
 	"sync"
 	"time"
 
@@ -13,6 +12,8 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
+	"sing-box-ez/internal/gui/gio/theme"
 )
 
 // UpdateCheckInfo holds the result of an update check.
@@ -40,18 +41,18 @@ type UpdateCheck struct {
 	checkFn  func(ctx context.Context) (UpdateCheckInfo, error)
 	updateFn func(ctx context.Context, onProgress func(downloaded, total int64)) error
 
-	currentVersion          string
-	currentVersionFormatter func(current string) string
-	updateLabel             string
-	checkingLabel           string
-	updatingLabel           string
-	upToDateLabel           string
+	currentVersion           string
+	currentVersionFormatter  func(current string) string
+	updateLabel              string
+	checkingLabel            string
+	updatingLabel            string
+	upToDateLabel            string
 	availableFormatter       func(latest string) string
 	devBuildFormatter        func(current, latest string) string
 	devBuildConfirmFormatter func(current, latest string) (title, body string)
 	detailsTitle             string
-	detailsFormatter        func(info UpdateCheckInfo) string
-	checkIcon               *widget.Icon
+	detailsFormatter         func(info UpdateCheckInfo) string
+	checkIcon                *widget.Icon
 
 	mainBtn  widget.Clickable
 	checkBtn widget.Clickable
@@ -209,8 +210,8 @@ func (u *UpdateCheck) Layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 
-	disabledBg := color.NRGBA{R: 128, G: 128, B: 128, A: 255}
-	disabledFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
+	disabledBg := theme.Current().Colors().Disabled
+	disabledFg := theme.Current().Colors().DisabledFg
 
 	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {

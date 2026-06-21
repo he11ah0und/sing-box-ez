@@ -10,6 +10,7 @@ require (
 	github.com/gogpu/systray v0.1.0
 	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/sys v0.43.0
+	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/yaml.v3 v3.0.1
 )
 

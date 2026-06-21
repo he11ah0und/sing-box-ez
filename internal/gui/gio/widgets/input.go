@@ -2,7 +2,6 @@ package widgets
 
 import (
 	"image"
-	"image/color"
 
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -11,13 +10,15 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
+	"sing-box-ez/internal/gui/gio/theme"
 )
 
 // LabeledInput renders a label + full-width bordered editor with optional dirty highlighting.
 func LabeledInput(gtx layout.Context, th *material.Theme, label string, ed *widget.Editor, dirty bool) layout.Dimensions {
-	bg := color.NRGBA{R: 40, G: 40, B: 40, A: 255}
+	bg := theme.Current().Colors().InputBg
 	if dirty {
-		bg = color.NRGBA{R: 80, G: 70, B: 20, A: 255}
+		bg = theme.Current().Colors().InputDirtyBg
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -32,7 +33,7 @@ func LabeledInput(gtx layout.Context, th *material.Theme, label string, ed *widg
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			macro := op.Record(gtx.Ops)
 			dims := widget.Border{
-				Color:        color.NRGBA{R: 128, G: 128, B: 128, A: 128},
+				Color:        theme.Current().Colors().InputBorder,
 				CornerRadius: unit.Dp(4),
 				Width:        unit.Dp(1),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

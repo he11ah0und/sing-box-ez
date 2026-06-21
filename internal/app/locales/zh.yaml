@@ -118,6 +118,13 @@ settings:
     label: 默认更新间隔（小时）：
   language:
     title: 语言
+  theme:
+    title: 主题
+  theme_mode:
+    title: 主题模式
+    system: 跟随系统
+    dark: 深色
+    light: 浅色
   plugins:
     title: 插件
     enabled: 插件功能
@@ -130,7 +137,7 @@ settings:
     btn: 重置所有数据
     confirm_title: 重置所有数据？
     confirm_msg: |
-      这将永久删除 config.json、profiles.json 和 configs/ 文件夹。
+      这将永久删除 config.yaml、profiles.yaml 和 configs/ 文件夹。
       之后应用将重新启动。
     success_title: 数据已重置
     success_msg: 所有数据已重置。应用现在将重新启动。

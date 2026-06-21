@@ -22,6 +22,7 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
 )
 
@@ -83,7 +84,7 @@ func (p *LogPage) Children(gtx layout.Context) []layout.FlexChild {
 		p.ctrl.ClearLogs()
 	}
 
-	lines := p.ctrl.GetLogLinesAtLeast(levelFromString(p.ctrl.Config().GetLogLevel()))
+	lines := p.ctrl.GetLogLinesAtLeast(levelFromString(p.ctrl.Config().MustGet("log", "level").String()))
 	text := strings.Join(lines, "\n")
 	if text != p.lastText {
 		p.lastText = text
@@ -151,9 +152,10 @@ func parseLogLine(line string) []logPart {
 	var parts []logPart
 
 	// Distinct non-gray accent colors for structural tokens.
-	dateColor := color.NRGBA{R: 200, G: 140, B: 60, A: 255}   // burnt orange
-	sourceColor := color.NRGBA{R: 140, G: 200, B: 80, A: 255} // lime green
-	arrowColor := color.NRGBA{R: 255, G: 255, B: 255, A: 255} // white
+	colors := theme.Current().Colors()
+	dateColor := colors.LogDate
+	sourceColor := colors.LogSource
+	arrowColor := colors.LogArrow
 
 	arrowIdx := strings.Index(line, " -> ")
 	if arrowIdx < 0 {
@@ -175,7 +177,7 @@ func parseLogLine(line string) []logPart {
 	}
 
 	// Extract level: next [LEVEL]
-	levelColor := color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+	levelColor := colors.LogDebug
 	if idx := strings.Index(header, "] "); idx >= 0 {
 		level := header[:idx+1]
 		levelColor = levelColorFor(level)
@@ -202,17 +204,18 @@ func parseLogLine(line string) []logPart {
 }
 
 func levelColorFor(level string) color.NRGBA {
+	colors := theme.Current().Colors()
 	switch level {
 	case "[DBG]":
-		return color.NRGBA{R: 180, G: 180, B: 180, A: 255} // light gray
+		return colors.LogDebug
 	case "[INF]":
-		return color.NRGBA{R: 100, G: 150, B: 255, A: 255} // light blue
+		return colors.LogInfo
 	case "[WRN]":
-		return color.NRGBA{R: 255, G: 200, B: 100, A: 255} // light orange
+		return colors.LogWarn
 	case "[ERR]":
-		return color.NRGBA{R: 255, G: 100, B: 100, A: 255} // light red
+		return colors.LogError
 	default:
-		return color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+		return colors.LogDebug
 	}
 }
 
@@ -231,16 +234,17 @@ func levelFromString(s string) logger.LogLevel {
 }
 
 func logLineBg(line string) color.NRGBA {
+	colors := theme.Current().Colors()
 	switch {
 	case strings.Contains(line, "[DBG]"):
-		return color.NRGBA{R: 30, G: 30, B: 30, A: 255}
+		return colors.LogBgDebug
 	case strings.Contains(line, "[INF]"):
-		return color.NRGBA{R: 20, G: 30, B: 50, A: 255}
+		return colors.LogBgInfo
 	case strings.Contains(line, "[WRN]"):
-		return color.NRGBA{R: 50, G: 40, B: 20, A: 255}
+		return colors.LogBgWarn
 	case strings.Contains(line, "[ERR]"):
-		return color.NRGBA{R: 50, G: 20, B: 20, A: 255}
+		return colors.LogBgError
 	default:
-		return color.NRGBA{R: 20, G: 20, B: 20, A: 255}
+		return colors.LogBgDefault
 	}
 }
