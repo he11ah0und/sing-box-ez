@@ -61,12 +61,22 @@ func LoadProfiles(root fs.Directory) (*Profiles, error) {
 // Save writes profiles to profiles.yaml inside root.
 func (p *Profiles) Save(root fs.Directory) error {
 	p.mu.RLock()
+	p.normalizeAutoUpdate()
 	data, err := yaml.Marshal(p)
 	p.mu.RUnlock()
 	if err != nil {
 		return err
 	}
 	return root.File("profiles.yaml").AtomicWrite(data, 0600)
+}
+
+func (p *Profiles) normalizeAutoUpdate() {
+	for i := range p.Configs {
+		if p.Configs[i].AutoUpdate == nil {
+			enabled := true
+			p.Configs[i].AutoUpdate = &enabled
+		}
+	}
 }
 
 func (p *Profiles) GetConfigs() []ConfigRecord {

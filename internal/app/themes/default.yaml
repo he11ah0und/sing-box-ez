@@ -41,6 +41,8 @@ dark:
 
   card_cached: "#28643C"
   card_uncached: "#783C28"
+  card_cached_no_auto_update: "#0F2E18"
+  card_uncached_no_auto_update: "#3A1A0F"
 
   core_highlight: "#FFC8003C"
   status_warning: "#FFFF00"
@@ -87,6 +89,8 @@ light:
 
   card_cached: "#C8E6C9"
   card_uncached: "#FFCCBC"
+  card_cached_no_auto_update: "#66BB6A"
+  card_uncached_no_auto_update: "#FF8A65"
 
   core_highlight: "#FFC8003C"
   status_warning: "#F9A825"

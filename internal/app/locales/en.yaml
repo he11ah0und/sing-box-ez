@@ -49,7 +49,7 @@ core:
     admin: Admin
     setcap: Setcap
     setcap_prompt: setcap is not applied to the core binary. Apply it now to enable TUN without root?
-  watch_core_logs: Watch core logs
+  watch_core_logs: Record core logs
 configs:
   title: Configs
   btn:
@@ -75,6 +75,7 @@ configs:
     name: Name
     url: URL
     period: Period (hours)
+    auto_update: Auto-update
     btn:
       save: Save
       update_now: Update now

@@ -23,6 +23,18 @@ type ConfigRecord struct {
 	// Parent identifies who created this config: "user" for user-created,
 	// or "pl-{plugin_id}" for plugin-created configs.
 	Parent string `json:"parent" yaml:"parent"`
+	// AutoUpdate controls whether the config is updated automatically.
+	// nil means "enabled" for backward compatibility.
+	AutoUpdate *bool `json:"auto_update" yaml:"auto_update"`
+}
+
+// IsAutoUpdate reports whether automatic updates are enabled for this record.
+// Missing/nil value defaults to true.
+func (r *ConfigRecord) IsAutoUpdate() bool {
+	if r.AutoUpdate == nil {
+		return true
+	}
+	return *r.AutoUpdate
 }
 
 // Timestamp is a wrapper around time.Time for custom JSON/YAML unmarshalling.
@@ -75,7 +87,7 @@ func (t *Timestamp) UnmarshalYAML(n *yaml.Node) error {
 
 // NextUpdate returns the next scheduled update time for this record.
 func (r *ConfigRecord) NextUpdate() time.Time {
-	if r.LastUpdate.IsZero() {
+	if !r.IsAutoUpdate() || r.LastUpdate.IsZero() {
 		return time.Time{}
 	}
 	return r.LastUpdate.Add(time.Duration(r.UpdateIntervalHours) * time.Hour)
@@ -83,6 +95,9 @@ func (r *ConfigRecord) NextUpdate() time.Time {
 
 // ShouldUpdate reports whether this config is due for an update.
 func (r *ConfigRecord) ShouldUpdate() bool {
+	if !r.IsAutoUpdate() {
+		return false
+	}
 	if r.LastUpdate.IsZero() {
 		return true
 	}

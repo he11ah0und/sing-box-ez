@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"strings"
 	"time"
 
 	"gio.tools/icons"
@@ -133,16 +134,30 @@ func (p *ConfigsPage) Children(gtx layout.Context) []layout.FlexChild {
 }
 
 func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigRecord) layout.Dimensions {
-	isCached := p.ctrl.Controller.HasCachedConfig(rec.Name)
+	isCached := p.ctrl.Controller.HasCachedConfig(rec.Name) && !rec.LastUpdate.IsZero()
 	isActive := rec.Name == p.ctrl.Controller.Config().GetActiveName()
+	autoUpdate := rec.IsAutoUpdate()
 	click := p.cardClicks[rec.Name]
 
 	colors := theme.Current().Colors()
 	var bg color.NRGBA
-	if isCached {
+	switch {
+	case autoUpdate && isCached:
 		bg = colors.CardCached
-	} else {
+	case autoUpdate && !isCached:
 		bg = colors.CardUncached
+	case isCached:
+		if colors.CardCachedNoAutoUpdate.A != 0 {
+			bg = colors.CardCachedNoAutoUpdate
+		} else {
+			bg = colors.CardCached
+		}
+	default:
+		if colors.CardUncachedNoAutoUpdate.A != 0 {
+			bg = colors.CardUncachedNoAutoUpdate
+		} else {
+			bg = colors.CardUncached
+		}
 	}
 
 	return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -156,13 +171,15 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 					src = src[3:]
 				}
 
-				meta := fmt.Sprintf("%s: %s  •  %s: %s  •  %s: %s",
-					localengine.T("configs", "table", "last_update"),
-					p.formatLastUpdate(rec.LastUpdate.Time),
-					localengine.T("configs", "table", "next_update"),
-					p.formatNextUpdate(rec.NextUpdate()),
-					localengine.T("configs", "table", "source"),
-					src)
+				parts := []string{
+					fmt.Sprintf("%s: %s", localengine.T("configs", "table", "last_update"), p.formatLastUpdate(rec.LastUpdate.Time)),
+				}
+				if autoUpdate {
+					parts = append(parts, fmt.Sprintf("%s: %s", localengine.T("configs", "table", "next_update"), p.formatNextUpdate(rec.NextUpdate())))
+				}
+				parts = append(parts, fmt.Sprintf("%s: %s", localengine.T("configs", "table", "source"), src))
+
+				meta := strings.Join(parts, "  •  ")
 
 				nameColor := p.th.Palette.Fg
 				if isActive {
@@ -213,10 +230,12 @@ func (p *ConfigsPage) openAddDialog() {
 	var nameEd widget.Editor
 	var urlEd widget.Editor
 	var periodEd widget.Editor
+	var autoUpdate widget.Bool
 	nameEd.SingleLine = true
 	urlEd.SingleLine = true
 	periodEd.SingleLine = true
 	periodEd.SetText(fmt.Sprintf("%d", p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()))
+	autoUpdate.Value = true
 
 	var saveBtn widget.Clickable
 
@@ -233,6 +252,7 @@ func (p *ConfigsPage) openAddDialog() {
 				URL:                 urlEd.Text(),
 				UpdateIntervalHours: hours,
 				Parent:              "user",
+				AutoUpdate:          &autoUpdate.Value,
 			}
 			go func() {
 				if err := p.ctrl.Controller.AddConfig(rec); err == nil {
@@ -252,6 +272,9 @@ func (p *ConfigsPage) openAddDialog() {
 				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.CheckBox(p.th, &autoUpdate, localengine.T("configs", "dialog", "auto_update")).Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Button(p.th, &saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
 			}),
 		)
@@ -267,12 +290,14 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 	var nameEd widget.Editor
 	var urlEd widget.Editor
 	var periodEd widget.Editor
+	var autoUpdate widget.Bool
 	nameEd.SingleLine = true
 	urlEd.SingleLine = true
 	periodEd.SingleLine = true
 	nameEd.SetText(old.Name)
 	urlEd.SetText(old.URL)
 	periodEd.SetText(fmt.Sprintf("%d", old.UpdateIntervalHours))
+	autoUpdate.Value = old.IsAutoUpdate()
 
 	var saveBtn widget.Clickable
 	var deleteBtn widget.Clickable
@@ -292,6 +317,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 				UpdateIntervalHours: hours,
 				Parent:              old.Parent,
 				LastUpdate:          old.LastUpdate,
+				AutoUpdate:          &autoUpdate.Value,
 			}
 			go func() {
 				if err := p.ctrl.Controller.EditConfig(old.Name, rec); err == nil {
@@ -322,6 +348,9 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.CheckBox(p.th, &autoUpdate, localengine.T("configs", "dialog", "auto_update")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,

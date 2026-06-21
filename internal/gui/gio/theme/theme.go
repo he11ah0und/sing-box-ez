@@ -73,8 +73,10 @@ type Palette struct {
 	LogBgDefault color.NRGBA
 
 	// Profile cards.
-	CardCached   color.NRGBA
-	CardUncached color.NRGBA
+	CardCached               color.NRGBA
+	CardUncached             color.NRGBA
+	CardCachedNoAutoUpdate   color.NRGBA
+	CardUncachedNoAutoUpdate color.NRGBA
 
 	// Core / privileges.
 	CoreHighlight color.NRGBA
@@ -166,8 +168,10 @@ type rawPalette struct {
 	LogBgError   string `yaml:"log_bg_error"`
 	LogBgDefault string `yaml:"log_bg_default"`
 
-	CardCached   string `yaml:"card_cached"`
-	CardUncached string `yaml:"card_uncached"`
+	CardCached               string `yaml:"card_cached"`
+	CardUncached             string `yaml:"card_uncached"`
+	CardCachedNoAutoUpdate   string `yaml:"card_cached_no_auto_update"`
+	CardUncachedNoAutoUpdate string `yaml:"card_uncached_no_auto_update"`
 
 	CoreHighlight string `yaml:"core_highlight"`
 	StatusWarning string `yaml:"status_warning"`
@@ -267,6 +271,8 @@ func rawToPalette(r rawPalette) (Palette, error) {
 		{"log_bg_default", r.LogBgDefault, &pal.LogBgDefault},
 		{"card_cached", r.CardCached, &pal.CardCached},
 		{"card_uncached", r.CardUncached, &pal.CardUncached},
+		{"card_cached_no_auto_update", r.CardCachedNoAutoUpdate, &pal.CardCachedNoAutoUpdate},
+		{"card_uncached_no_auto_update", r.CardUncachedNoAutoUpdate, &pal.CardUncachedNoAutoUpdate},
 		{"core_highlight", r.CoreHighlight, &pal.CoreHighlight},
 		{"status_warning", r.StatusWarning, &pal.StatusWarning},
 		{"status_ok", r.StatusOK, &pal.StatusOK},
