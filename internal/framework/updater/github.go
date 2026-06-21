@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -258,9 +259,23 @@ type ghBranch struct {
 	Name string `json:"name"`
 }
 
+var latestVersionRE = regexp.MustCompile(`\(([0-9a-fA-F]{7,40})\)`)
+
 func (b *GitHubBackend) toRelease(raw ghRelease) Release {
+	version := raw.TagName
+	// Some workflows publish a rolling release tagged "latest". Try to extract
+	// a commit-like hash from the release name (e.g. "Latest Build (1a4a0b4)"),
+	// otherwise fall back to the name itself.
+	if version == "latest" {
+		name := strings.TrimSpace(raw.Name)
+		if m := latestVersionRE.FindStringSubmatch(name); m != nil {
+			version = strings.ToLower(m[1])
+		} else if name != "" {
+			version = name
+		}
+	}
 	release := Release{
-		Version:     raw.TagName,
+		Version:     version,
 		Channel:     raw.TargetCommitish,
 		Name:        raw.Name,
 		Body:        raw.Body,
