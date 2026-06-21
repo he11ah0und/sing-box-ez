@@ -182,10 +182,10 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 			return p.layoutHighlightedUpdate(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)
+			return material.CheckBox(p.th, &p.watchLogs, localengine.T("core", "watch_core_logs")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.watchLogs, localengine.T("core", "watch_core_logs")).Layout(gtx)
+			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.separator(gtx)

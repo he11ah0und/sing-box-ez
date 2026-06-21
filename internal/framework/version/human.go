@@ -2,7 +2,6 @@ package version
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"sing-box-ez/internal/framework/localengine"
@@ -27,27 +26,27 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 		return localengine.T("duration", "just_now")
 	}
 
-	var unitKey string
-	var value int
+	var unit string
 	switch {
 	case d < time.Hour:
-		unitKey = "duration.unit_minutes"
-		value = int(d.Minutes())
+		unit = fmt.Sprintf(localengine.T("duration", "unit_minutes"), int(d.Minutes()))
 	case d < 24*time.Hour:
-		unitKey = "duration.unit_hours"
-		value = int(d.Hours())
+		hours := int(d.Hours())
+		mins := int(d.Minutes()) % 60
+		hoursStr := fmt.Sprintf(localengine.T("duration", "unit_hours"), hours)
+		if mins == 0 {
+			unit = hoursStr
+		} else {
+			minsStr := fmt.Sprintf(localengine.T("duration", "unit_minutes"), mins)
+			unit = hoursStr + " " + minsStr
+		}
 	case d < 30*24*time.Hour:
-		unitKey = "duration.unit_days"
-		value = int(d.Hours() / 24)
+		unit = fmt.Sprintf(localengine.T("duration", "unit_days"), int(d.Hours()/24))
 	case d < 365*24*time.Hour:
-		unitKey = "duration.unit_months"
-		value = int(d.Hours() / 24 / 30)
+		unit = fmt.Sprintf(localengine.T("duration", "unit_months"), int(d.Hours()/24/30))
 	default:
-		unitKey = "duration.unit_years"
-		value = int(d.Hours() / 24 / 365)
+		unit = fmt.Sprintf(localengine.T("duration", "unit_years"), int(d.Hours()/24/365))
 	}
-
-	unit := fmt.Sprintf(localengine.T(strings.Split(unitKey, ".")...), value)
 	if future {
 		return fmt.Sprintf(localengine.T("duration", "in"), unit)
 	}

@@ -41,6 +41,25 @@ func (fs *OSFS) resolve(name string) string {
 	return filepath.Join(fs.BaseDir, clean)
 }
 
+// relPath converts an absolute path under BaseDir into a relative path
+// suitable for the FS root. Relative paths are returned unchanged.
+// If the path is absolute and outside BaseDir, ok is false.
+func (fs *OSFS) relPath(name string) (string, bool) {
+	if !filepath.IsAbs(name) {
+		return name, true
+	}
+	base := filepath.Clean(fs.BaseDir)
+	target := filepath.Clean(name)
+	rel, err := filepath.Rel(base, target)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", false
+	}
+	if rel == "." {
+		return "", false
+	}
+	return NormalizePath(rel), true
+}
+
 func (fs *OSFS) errf(format string, v ...interface{}) error {
 	if fs.Log != nil {
 		return fs.Log.Errorf(format, v...)
@@ -114,12 +133,20 @@ type osDirectory struct {
 }
 
 func (d *osDirectory) File(name string) File {
-	p, _ := joinChild(d.path, name)
+	local, ok := d.fs.relPath(name)
+	if !ok {
+		return &osFile{osEntry: osEntry{fs: d.fs, path: ""}}
+	}
+	p, _ := joinChild(d.path, local)
 	return &osFile{osEntry: osEntry{fs: d.fs, path: p}}
 }
 
 func (d *osDirectory) Subdir(name string) Directory {
-	p, _ := joinChild(d.path, name)
+	local, ok := d.fs.relPath(name)
+	if !ok {
+		return &osDirectory{osEntry: osEntry{fs: d.fs, path: ""}}
+	}
+	p, _ := joinChild(d.path, local)
 	return &osDirectory{osEntry: osEntry{fs: d.fs, path: p}}
 }
 

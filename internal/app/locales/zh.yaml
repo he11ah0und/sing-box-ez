@@ -54,7 +54,7 @@ core:
     admin: 管理员
     setcap: Setcap
     setcap_prompt: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
-  watch_core_logs: 监视核心日志
+  watch_core_logs: 记录核心日志
 configs:
   title: 配置
   btn:
@@ -80,6 +80,7 @@ configs:
     name: 名称
     url: URL
     period: 周期（小时）
+    auto_update: 自动更新
     btn:
       save: 保存
       update_now: 立即更新
