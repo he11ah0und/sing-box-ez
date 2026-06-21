@@ -22,11 +22,18 @@ import (
 // management.
 type App struct {
 	Logger   *logger.Logger
-	FS       fs.FileSystem
+	FS       fs.FS
 	Updaters []*updater.Manager
 	BaseDir  string
 	Config   config.Config
 	CLI      *cli.Engine[*App]
+
+	// Root is the data directory. ConfigsDir/PluginsDir/DocsDir are
+	// pre-created subdirectories with enforced permissions.
+	Root       fs.Directory
+	ConfigsDir fs.Directory
+	PluginsDir fs.Directory
+	DocsDir    fs.Directory
 
 	RemainingArgs []string
 	runGUI        func(*App) bool
@@ -43,17 +50,17 @@ type Config struct {
 	RegisterConfig func(*config.Sheet)
 	// LoadConfig loads persisted settings into the Sheet and returns the
 	// application-specific config object. Required.
-	LoadConfig func(dataDir string, sheet *config.Sheet) (config.Config, error)
+	LoadConfig func(root fs.Directory, dataDir string, sheet *config.Sheet) (config.Config, error)
 	// GetLoggerLimit extracts the log buffer limit from the loaded config.
 	// If nil, a default limit is used.
 	GetLoggerLimit func(config.Config) int
 	// LoadLocales is called during app construction to load localization
-	// bundles. The framework passes the localengine.LoadFromFS loader so the
+	// bundles. The framework passes the localengine.LoadFromDir loader so the
 	// implementation can load locale files from any backend (e.g. embed.FS,
-	// OS directory, or a custom fs.FileSystem). It may call the loader
+	// OS directory, or a custom fs.Directory). It may call the loader
 	// multiple times for different sources.
 	// If nil, localengine is only initialised with a logger.
-	LoadLocales func(load func(fsys fs.FileSystem, dir string) error) error
+	LoadLocales func(load func(dir fs.Directory) error) error
 	// BuildUpdaters returns the list of updater managers that should be
 	// registered in the app. The framework passes the constructed App so the
 	// implementation can access the config, logger and file system. If nil,
@@ -80,6 +87,14 @@ func parseDataDir(args []string) (string, []string) {
 	return "", args
 }
 
+func ensureSubdir(root fs.Directory, name string, perm os.FileMode) (fs.Directory, error) {
+	d := root.Subdir(name)
+	if err := d.Ensure(perm); err != nil {
+		return nil, fmt.Errorf("ensure %q: %w", name, err)
+	}
+	return d, nil
+}
+
 // NewApp creates a new framework App with the given configuration.
 func NewApp(cfg Config) (*App, error) {
 	dataDir, remaining := parseDataDir(cfg.Args)
@@ -89,20 +104,19 @@ func NewApp(cfg Config) (*App, error) {
 		}
 		dataDir = cfg.DefaultDataDir()
 	}
-	_ = os.MkdirAll(dataDir, 0750)
-
 	tmpLog := logger.NewLogger(1000)
-	tmpFS := fs.NewOSFileSystemWithLog(tmpLog.Root, dataDir)
-	_ = tmpFS.MkdirAll("configs", 0750)
-	_ = tmpFS.MkdirAll("plugins", 0750)
-	_ = tmpFS.MkdirAll("docs", 0750)
+	tmpFS := fs.NewOSWithLog(dataDir, tmpLog.Root)
+	tmpRoot := tmpFS.Root()
+	if err := tmpRoot.Ensure(0750); err != nil {
+		return nil, fmt.Errorf("ensure data dir: %w", err)
+	}
 
 	sheet := config.NewSheet(config.SheetOptions{Logger: tmpLog.Root})
 	if cfg.RegisterConfig != nil {
 		cfg.RegisterConfig(sheet)
 	}
 
-	conf, err := cfg.LoadConfig(dataDir, sheet)
+	conf, err := cfg.LoadConfig(tmpRoot, dataDir, sheet)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
@@ -112,17 +126,34 @@ func NewApp(cfg Config) (*App, error) {
 		limit = cfg.GetLoggerLimit(conf)
 	}
 	log := logger.NewLogger(limit)
-	appFS := fs.NewOSFileSystemWithLog(log.Root, dataDir)
+	appFS := fs.NewOSWithLog(dataDir, log.Root)
+	root := appFS.Root()
+	configsDir, err := ensureSubdir(root, "configs", 0750)
+	if err != nil {
+		return nil, err
+	}
+	pluginsDir, err := ensureSubdir(root, "plugins", 0750)
+	if err != nil {
+		return nil, err
+	}
+	docsDir, err := ensureSubdir(root, "docs", 0750)
+	if err != nil {
+		return nil, err
+	}
 
 	localengine.SetLogger(log.Root)
 	if cfg.LoadLocales != nil {
-		_ = cfg.LoadLocales(localengine.LoadFromFS)
+		_ = cfg.LoadLocales(localengine.LoadFromDir)
 	}
 
 	app := &App{
 		Logger:        log,
 		FS:            appFS,
 		BaseDir:       dataDir,
+		Root:          root,
+		ConfigsDir:    configsDir,
+		PluginsDir:    pluginsDir,
+		DocsDir:       docsDir,
 		Config:        conf,
 		CLI:           cli.New[*App](),
 		RemainingArgs: remaining,
@@ -169,7 +200,9 @@ func (a *App) Start() error {
 	if a == nil {
 		return errors.New("framework.App is nil")
 	}
-	_ = a.FS.MkdirAll("", 0750)
+	if err := a.Root.Ensure(0750); err != nil {
+		return err
+	}
 	a.Logger.Root.Infof("framework started")
 	return nil
 }

@@ -282,7 +282,7 @@ func luaConfigDownload(cfg *config.AppConfig, parent string) lua.LGFunction {
 			L.Push(lua.LString("config has no URL"))
 			return 1
 		}
-		manager := core.NewManager(cfg.DataDir, fs.NewOSFileSystem(cfg.DataDir), nil, logger.NewLogger(0))
+		manager := core.NewManager(cfg.DataDir, fs.NewOS(cfg.DataDir), nil, logger.NewLogger(0))
 		if err := manager.DownloadConfigFor(name, rec.URL); err != nil {
 			L.Push(lua.LString(err.Error()))
 			return 1

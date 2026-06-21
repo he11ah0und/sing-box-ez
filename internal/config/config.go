@@ -6,12 +6,12 @@ package config
 
 import (
 	"os"
-	"path/filepath"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
 	fwconfig "sing-box-ez/internal/framework/config"
+	"sing-box-ez/internal/framework/fs"
 )
 
 // ConfigRecord represents a single subscription / config entry.
@@ -93,31 +93,33 @@ func (r *ConfigRecord) ShouldUpdate() bool {
 // profiles and the data directory path.
 type AppConfig struct {
 	*fwconfig.Sheet
+	Root     fs.Directory
 	DataDir  string
 	Profiles *Profiles
 }
 
-// Load reads settings and profiles from dataDir and returns the loaded config.
-func Load(dataDir string, sheet *fwconfig.Sheet) (fwconfig.Config, error) {
-	if err := LoadYAML(dataDir, sheet); err != nil {
+// Load reads settings and profiles from root and returns the loaded config.
+func Load(root fs.Directory, dataDir string, sheet *fwconfig.Sheet) (fwconfig.Config, error) {
+	if err := LoadYAML(root, sheet); err != nil {
 		return nil, err
 	}
 
-	profiles, err := LoadProfiles(dataDir)
+	profiles, err := LoadProfiles(root)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AppConfig{
 		Sheet:    sheet,
+		Root:     root,
 		DataDir:  dataDir,
 		Profiles: profiles,
 	}, nil
 }
 
 // LoadYAML reads config.yaml into the sheet. Missing file is not an error.
-func LoadYAML(dataDir string, sheet *fwconfig.Sheet) error {
-	data, err := os.ReadFile(filepath.Join(dataDir, "config.yaml"))
+func LoadYAML(root fs.Directory, sheet *fwconfig.Sheet) error {
+	data, err := root.File("config.yaml").Read()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -128,24 +130,24 @@ func LoadYAML(dataDir string, sheet *fwconfig.Sheet) error {
 }
 
 // SaveYAML writes the sheet to config.yaml.
-func SaveYAML(dataDir string, sheet *fwconfig.Sheet) error {
+func SaveYAML(root fs.Directory, sheet *fwconfig.Sheet) error {
 	data, err := sheet.SaveYAML()
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dataDir, "config.yaml"), data, 0600)
+	return root.File("config.yaml").AtomicWrite(data, 0600)
 }
 
 // Save persists both settings and profiles.
 func (c *AppConfig) Save() error {
-	if c.DataDir == "" {
+	if c.Root == nil {
 		return os.ErrInvalid
 	}
-	if err := SaveYAML(c.DataDir, c.Sheet); err != nil {
+	if err := SaveYAML(c.Root, c.Sheet); err != nil {
 		return err
 	}
 	if c.Profiles != nil {
-		return c.Profiles.Save(c.DataDir)
+		return c.Profiles.Save(c.Root)
 	}
 	return nil
 }

@@ -18,13 +18,13 @@ import (
 // without touching the running application executable.
 type FilesUpdateApply struct {
 	Log           *logger.LogTerminal
-	FS            fs.FileSystem
+	FS            fs.FS
 	BaseDir       string
 	InstallScript []byte
 }
 
 // NewFilesUpdateApply creates a FilesUpdateApply with a logger allocated from parent.
-func NewFilesUpdateApply(parent *logger.LogTerminal, fsys fs.FileSystem) *FilesUpdateApply {
+func NewFilesUpdateApply(parent *logger.LogTerminal, fsys fs.FS) *FilesUpdateApply {
 	return &FilesUpdateApply{Log: parent.Allocate("apply"), FS: fsys}
 }
 
@@ -61,7 +61,8 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 	if uf.Asset.Format != FormatRaw {
 		tmpDir = uf.DestPath
 	}
-	if err := a.FS.MkdirAll(tmpDir, 0750); err != nil {
+	tmpDirObj := a.FS.Root().Subdir(tmpDir)
+	if err := tmpDirObj.MkdirAll(0750); err != nil {
 		return a.Log.Errorf("cannot prepare temp dir for %q: %v", uf.DestPath, err)
 	}
 	tmpPath := filepath.Join(tmpDir, tmpName)
@@ -71,11 +72,12 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 		tmpPath = filepath.Join(a.BaseDir, tmpPath)
 	}
 
-	f, err := a.FS.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
+	tmpFile := a.FS.Root().File(tmpPath)
+	f, err := tmpFile.OpenFile(os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
 		return a.Log.Errorf("cannot create temporary file for %q: %v", uf.DestPath, err)
 	}
-	cleanup := func() { _ = a.FS.Remove(tmpPath) }
+	cleanup := func() { _ = tmpFile.Remove() }
 
 	downloadErr := source.DownloadAsset(ctx, uf.Asset, f, onProgress)
 	if closeErr := f.Close(); closeErr != nil && downloadErr == nil {
@@ -128,7 +130,7 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 
 	switch uf.Asset.Format {
 	case FormatRaw:
-		if err := a.FS.Rename(tmpPath, uf.DestPath); err != nil {
+		if err := tmpFile.Rename(filepath.Base(uf.DestPath)); err != nil {
 			cleanup()
 			return a.Log.Errorf("replace %q failed: %v", uf.DestPath, err)
 		}
@@ -139,11 +141,7 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 			cleanup()
 			return a.Log.Errorf("open archive %q: %v", tmpPath, err)
 		}
-		if err := fs.Copy(ctx, assetFS, a.FS, ".", uf.DestPath, fs.CopyOptions{
-			Recursive:    true,
-			PreserveMode: true,
-			Progress:     toProgressConfig("copy", onProgress),
-		}); err != nil {
+		if err := assetFS.Root().CopyTo(a.FS.Root().Subdir(uf.DestPath)); err != nil {
 			cleanup()
 			return a.Log.Errorf("extract archive %s to %q failed: %v", uf.Asset.Name, uf.DestPath, err)
 		}
@@ -155,10 +153,10 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 	}
 }
 
-func (a *FilesUpdateApply) assetFS(format, tmpPath string) (fs.FileSystem, error) {
+func (a *FilesUpdateApply) assetFS(format, tmpPath string) (fs.FS, error) {
 	switch format {
 	case FormatRaw:
-		return fs.NewOSFileSystem(filepath.Dir(tmpPath)), nil
+		return fs.NewOS(filepath.Dir(tmpPath)), nil
 	case FormatZIP, FormatTarGz, FormatTarBz2:
 		return fs.NewArchiveFS(tmpPath, format)
 	default:
@@ -166,7 +164,7 @@ func (a *FilesUpdateApply) assetFS(format, tmpPath string) (fs.FileSystem, error
 	}
 }
 
-func (a *FilesUpdateApply) closeAssetFS(fsys fs.FileSystem) {
+func (a *FilesUpdateApply) closeAssetFS(fsys fs.FS) {
 	// ArchiveFS may hold resources in the future; for now no explicit close needed.
 	_ = fsys
 }

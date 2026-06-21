@@ -220,8 +220,7 @@ func (c *Controller) UpdateConfigNow(name, url string) error {
 // ---------- Core binary ----------
 
 func (c *Controller) CoreExists() bool {
-	_, err := c.fwApp.FS.Stat(c.manager.coreBinary())
-	return err == nil
+	return c.fwApp.FS.Root().File(c.manager.coreBinary()).Exists()
 }
 
 func (c *Controller) GetInstalledCoreVersion() (string, error) {
@@ -266,8 +265,7 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 }
 
 func (c *Controller) HasCachedConfig(name string) bool {
-	_, err := c.fwApp.FS.Stat(c.manager.cachedConfig(name))
-	return err == nil
+	return c.fwApp.FS.Root().File(c.manager.cachedConfig(name)).Exists()
 }
 
 func (c *Controller) DownloadConfigFor(name, url string) error {

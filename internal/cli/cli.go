@@ -76,7 +76,7 @@ func hasCachedConfig(dataDir, name string) bool {
 
 func newCoreManager(dataDir string) *core.Manager {
 	log := logger.NewLogger(0)
-	return core.NewManager(dataDir, fs.NewOSFileSystem(dataDir), nil, log)
+	return core.NewManager(dataDir, fs.NewOS(dataDir), nil, log)
 }
 
 // ensureUpdater installs default updater managers when none are configured.

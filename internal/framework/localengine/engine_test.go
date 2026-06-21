@@ -1,10 +1,8 @@
 package localengine
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"sing-box-ez/internal/framework/fs"
@@ -15,8 +13,8 @@ func resetBundles() {
 }
 
 // newTestFS writes the given file contents to a temporary directory and
-// returns an OSFileSystem rooted there.
-func newTestFS(t *testing.T, files map[string]string) fs.FileSystem {
+// returns the root directory of an OS-backed FS.
+func newTestFS(t *testing.T, files map[string]string) fs.Directory {
 	t.Helper()
 	dir := t.TempDir()
 	for name, data := range files {
@@ -24,24 +22,10 @@ func newTestFS(t *testing.T, files map[string]string) fs.FileSystem {
 			t.Fatalf("write test file %s: %v", name, err)
 		}
 	}
-	return fs.NewOSFileSystem(dir)
+	return fs.NewOS(dir).Root()
 }
 
-// slashSensitiveFS fails any ReadFile call that uses a backslash separator.
-// This reproduces the Windows/embed.FS behaviour on any OS.
-type slashSensitiveFS struct {
-	fs.FileSystem
-	t *testing.T
-}
-
-func (s *slashSensitiveFS) ReadFile(name string) ([]byte, error) {
-	if strings.Contains(name, "\\") {
-		return nil, fmt.Errorf("backslash path %q not allowed", name)
-	}
-	return s.FileSystem.ReadFile(name)
-}
-
-func TestLoadFromFSUsesForwardSlashes(t *testing.T) {
+func TestLoadFromDirUsesForwardSlashes(t *testing.T) {
 	dir := t.TempDir()
 	localesDir := filepath.Join(dir, "locales")
 	if err := os.MkdirAll(localesDir, 0750); err != nil {
@@ -52,8 +36,7 @@ func TestLoadFromFSUsesForwardSlashes(t *testing.T) {
 	}
 
 	resetBundles()
-	wrapped := &slashSensitiveFS{FileSystem: fs.NewOSFileSystem(dir), t: t}
-	if err := LoadFromFS(wrapped, "locales"); err != nil {
+	if err := LoadFromDir(fs.NewOS(dir).Root().Subdir("locales")); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 
@@ -63,14 +46,14 @@ func TestLoadFromFSUsesForwardSlashes(t *testing.T) {
 }
 
 func TestSetLanguage(t *testing.T) {
-	fsys := newTestFS(t, map[string]string{
+	dir := newTestFS(t, map[string]string{
 		"en.yaml": "tab:\n  settings: Settings\nlocale:\n  name: English\n",
 		"ru.yaml": "tab:\n  settings: Настройки\nlocale:\n  name: Русский\n",
 		"zh.yaml": "tab:\n  settings: 设置\nlocale:\n  name: 中文\n",
 	})
 
 	resetBundles()
-	if err := LoadFromFS(fsys, ""); err != nil {
+	if err := LoadFromDir(dir); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 
@@ -86,12 +69,12 @@ func TestSetLanguage(t *testing.T) {
 }
 
 func TestNestedKeys(t *testing.T) {
-	fsys := newTestFS(t, map[string]string{
+	dir := newTestFS(t, map[string]string{
 		"en.yaml": "about:\n  btn:\n    open_repo: Open repo\n    open_data: Open data\n",
 	})
 
 	resetBundles()
-	if err := LoadFromFS(fsys, ""); err != nil {
+	if err := LoadFromDir(dir); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 
@@ -104,13 +87,13 @@ func TestNestedKeys(t *testing.T) {
 }
 
 func TestFallbackToEnglish(t *testing.T) {
-	fsys := newTestFS(t, map[string]string{
+	dir := newTestFS(t, map[string]string{
 		"en.yaml": "only:\n  english: Hello\n",
 		"ru.yaml": "other: Другое\n",
 	})
 
 	resetBundles()
-	if err := LoadFromFS(fsys, ""); err != nil {
+	if err := LoadFromDir(dir); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 
@@ -130,13 +113,13 @@ func TestMissingKeyReturnsPath(t *testing.T) {
 }
 
 func TestLanguageName(t *testing.T) {
-	fsys := newTestFS(t, map[string]string{
+	dir := newTestFS(t, map[string]string{
 		"en.yaml": "locale:\n  name: English\n",
 		"ru.yaml": "locale:\n  name: Русский\n",
 	})
 
 	resetBundles()
-	if err := LoadFromFS(fsys, ""); err != nil {
+	if err := LoadFromDir(dir); err != nil {
 		t.Fatalf("load locales: %v", err)
 	}
 
@@ -168,14 +151,14 @@ func TestDetectSystemLanguage(t *testing.T) {
 	}
 }
 
-func TestLoadFromDir(t *testing.T) {
+func TestLoadFromOSDir(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "en.yaml"), []byte("key: value\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	resetBundles()
-	if err := LoadFromDir(dir); err != nil {
+	if err := LoadFromOSDir(dir); err != nil {
 		t.Fatalf("load from dir: %v", err)
 	}
 

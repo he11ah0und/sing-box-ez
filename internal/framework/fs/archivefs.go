@@ -14,16 +14,30 @@ import (
 	"time"
 )
 
-// ArchiveFS implements FileSystem over an archive file (zip, tar, tar.gz, tar.bz2).
-// It is read-only; write operations return ErrReadOnly.
-// For tar-based archives entries are read on demand by re-scanning the stream;
-// for zip entries random access is used.
-type ArchiveFS struct {
-	path    string
-	format  string
-	files   map[string]*archiveEntry
-	dirs    map[string][]os.DirEntry
-	modTime time.Time
+// NewArchiveFS opens path as an archive and returns a read-only FS.
+// Supported formats: "zip", "tar", "tar.gz", "tar.bz2".
+func NewArchiveFS(path, format string) (FS, error) {
+	switch format {
+	case "zip":
+		return newZipFS(path)
+	case "tar":
+		return newTarFS(path, false)
+	case "tar.gz":
+		return newTarFS(path, true)
+	case "tar.bz2":
+		return newTarFS(path, false)
+	default:
+		return nil, fmt.Errorf("unsupported archive format %q", format)
+	}
+}
+
+type archiveFS struct {
+	path      string
+	format    string
+	files     map[string]*archiveEntry
+	dirs      map[string][]*archiveEntry
+	modTime   time.Time
+	zipReader *zip.ReadCloser
 }
 
 type archiveEntry struct {
@@ -40,36 +54,19 @@ type archiveEntry struct {
 	tarOffset int64
 }
 
-// NewArchiveFS opens path as an archive and returns a read-only FileSystem.
-// Supported formats: "zip", "tar", "tar.gz", "tar.bz2".
-func NewArchiveFS(path, format string) (*ArchiveFS, error) {
-	switch format {
-	case "zip":
-		return newZipFS(path)
-	case "tar":
-		return newTarFS(path, false)
-	case "tar.gz":
-		return newTarFS(path, true)
-	case "tar.bz2":
-		return newTarFS(path, false) // bzip2 handled separately
-	default:
-		return nil, fmt.Errorf("unsupported archive format %q", format)
-	}
-}
-
-func newZipFS(path string) (*ArchiveFS, error) {
+func newZipFS(path string) (FS, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return nil, fmt.Errorf("open zip %q: %w", path, err)
 	}
-	defer r.Close()
 
-	fs := &ArchiveFS{
-		path:    path,
-		format:  "zip",
-		files:   make(map[string]*archiveEntry),
-		dirs:    make(map[string][]os.DirEntry),
-		modTime: time.Now(),
+	fsys := &archiveFS{
+		path:      path,
+		format:    "zip",
+		files:     make(map[string]*archiveEntry),
+		dirs:      make(map[string][]*archiveEntry),
+		modTime:   time.Now(),
+		zipReader: r,
 	}
 
 	for _, f := range r.File {
@@ -85,13 +82,13 @@ func newZipFS(path string) (*ArchiveFS, error) {
 			isDir:   f.FileInfo().IsDir(),
 			zipFile: f,
 		}
-		fs.addEntry(name, entry)
+		fsys.addEntry(name, entry)
 	}
-	fs.ensureDirs()
-	return fs, nil
+	fsys.ensureDirs()
+	return fsys, nil
 }
 
-func newTarFS(path string, gz bool) (*ArchiveFS, error) {
+func newTarFS(path string, gz bool) (FS, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open tar %q: %w", path, err)
@@ -106,7 +103,6 @@ func newTarFS(path string, gz bool) (*ArchiveFS, error) {
 		}
 		r = gr
 	} else {
-		// peek magic for bzip2
 		buf := make([]byte, 2)
 		if _, err := f.Read(buf); err == nil {
 			if _, err := f.Seek(0, io.SeekStart); err != nil {
@@ -121,15 +117,15 @@ func newTarFS(path string, gz bool) (*ArchiveFS, error) {
 	cr := &countingReader{Reader: r}
 	tr := tar.NewReader(cr)
 
-	fs := &ArchiveFS{
+	fsys := &archiveFS{
 		path:    path,
 		format:  "tar",
 		files:   make(map[string]*archiveEntry),
-		dirs:    make(map[string][]os.DirEntry),
+		dirs:    make(map[string][]*archiveEntry),
 		modTime: time.Now(),
 	}
 	if gz {
-		fs.format = "tar.gz"
+		fsys.format = "tar.gz"
 	}
 
 	for {
@@ -155,24 +151,26 @@ func newTarFS(path string, gz bool) (*ArchiveFS, error) {
 			isDir:     h.Typeflag == tar.TypeDir,
 			tarOffset: offset,
 		}
-		fs.addEntry(name, entry)
+		fsys.addEntry(name, entry)
 
-		// Skip content to update the counter past this entry.
 		if _, err := io.Copy(io.Discard, tr); err != nil {
 			return nil, fmt.Errorf("skip tar content: %w", err)
 		}
 	}
 
-	fs.ensureDirs()
-	return fs, nil
+	fsys.ensureDirs()
+	return fsys, nil
 }
 
-func (fs *ArchiveFS) addEntry(name string, e *archiveEntry) {
-	fs.files[name] = e
-	// Register in parent directories.
+func (fsys *archiveFS) Root() Directory {
+	return &archiveDirectory{node: archiveNode{fs: fsys, path: ""}}
+}
+
+func (fsys *archiveFS) addEntry(name string, e *archiveEntry) {
+	fsys.files[name] = e
 	dir := filepath.ToSlash(filepath.Dir(name))
 	for {
-		fs.dirs[dir] = append(fs.dirs[dir], &archiveDirEntry{e: e, parent: dir})
+		fsys.dirs[dir] = append(fsys.dirs[dir], e)
 		if dir == "." || dir == "/" {
 			break
 		}
@@ -180,75 +178,208 @@ func (fs *ArchiveFS) addEntry(name string, e *archiveEntry) {
 	}
 }
 
-func (fs *ArchiveFS) ensureDirs() {
-	for dir := range fs.dirs {
-		if _, ok := fs.files[dir]; !ok {
-			fs.files[dir] = &archiveEntry{
+func (fsys *archiveFS) ensureDirs() {
+	for dir := range fsys.dirs {
+		if _, ok := fsys.files[dir]; !ok {
+			fsys.files[dir] = &archiveEntry{
 				name:    dir,
 				isDir:   true,
 				mode:    0750,
-				modTime: fs.modTime,
+				modTime: fsys.modTime,
 			}
 		}
 	}
 }
 
-// ReadFile reads the named file from the archive.
-func (fs *ArchiveFS) ReadFile(name string) ([]byte, error) {
-	f, err := fs.Open(name)
+func (fsys *archiveFS) readOnly(op string) error {
+	return fmt.Errorf("%s: %w", op, ErrReadOnly)
+}
+
+type archiveNode struct {
+	fs   *archiveFS
+	path string
+}
+
+func (n *archiveNode) archivePath() string {
+	if n.path == "" {
+		return "."
+	}
+	return n.path
+}
+
+func (n *archiveNode) raw() (*archiveEntry, error) {
+	entry, ok := n.fs.files[n.archivePath()]
+	if !ok {
+		return nil, fmt.Errorf("entry not found: %s", n.path)
+	}
+	return entry, nil
+}
+
+func (n *archiveNode) Name() string { return baseName(n.path) }
+
+func (n *archiveNode) Path() string { return n.path }
+
+func (n *archiveNode) Exists() bool {
+	_, err := n.raw()
+	return err == nil
+}
+
+func (n *archiveNode) Stat() (os.FileInfo, error) {
+	raw, err := n.raw()
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	return io.ReadAll(f)
+	return &archiveFileInfo{e: raw}, nil
 }
 
-// WriteFile always returns ErrReadOnly.
-func (fs *ArchiveFS) WriteFile(name string, data []byte, perm os.FileMode) error {
-	return ErrReadOnly
-}
-
-// MkdirAll always returns ErrReadOnly.
-func (fs *ArchiveFS) MkdirAll(path string, perm os.FileMode) error {
-	return ErrReadOnly
-}
-
-// OpenFile always returns ErrReadOnly for write flags.
-func (fs *ArchiveFS) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
-	if flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0 {
-		return nil, ErrReadOnly
+func (n *archiveNode) Parent() Directory {
+	p := parentPath(n.path)
+	if p == "" && n.path == "" {
+		return nil
 	}
-	return fs.Open(name)
+	return &archiveDirectory{node: archiveNode{fs: n.fs, path: p}}
 }
 
-// Open opens the named file for reading.
-func (fs *ArchiveFS) Open(name string) (*os.File, error) {
-	name = filepath.ToSlash(name)
-	e, ok := fs.files[name]
+func (n *archiveNode) Rename(newName string) error { return n.fs.readOnly("rename") }
+
+func (n *archiveNode) Remove() error                { return n.fs.readOnly("remove") }
+func (n *archiveNode) Chmod(perm os.FileMode) error { return n.fs.readOnly("chmod") }
+
+type archiveDirectory struct {
+	node archiveNode
+}
+
+func (d *archiveDirectory) Name() string { return d.node.Name() }
+func (d *archiveDirectory) Path() string { return d.node.Path() }
+func (d *archiveDirectory) Exists() bool { return d.node.Exists() }
+func (d *archiveDirectory) Stat() (os.FileInfo, error) {
+	return d.node.Stat()
+}
+func (d *archiveDirectory) Parent() Directory { return d.node.Parent() }
+func (d *archiveDirectory) Rename(newName string) error {
+	return d.node.Rename(newName)
+}
+func (d *archiveDirectory) Remove() error                { return d.node.Remove() }
+func (d *archiveDirectory) Chmod(perm os.FileMode) error { return d.node.Chmod(perm) }
+
+func (d *archiveDirectory) File(name string) File {
+	p, _ := joinChild(d.node.path, name)
+	return &archiveFile{node: archiveNode{fs: d.node.fs, path: p}}
+}
+
+func (d *archiveDirectory) Subdir(name string) Directory {
+	p, _ := joinChild(d.node.path, name)
+	return &archiveDirectory{node: archiveNode{fs: d.node.fs, path: p}}
+}
+
+func (d *archiveDirectory) ReadDir() ([]Entry, error) {
+	name := d.node.archivePath()
+	entries, ok := d.node.fs.dirs[name]
 	if !ok {
-		return nil, fmt.Errorf("file not found: %s", name)
+		return nil, fmt.Errorf("directory not found: %s", d.node.path)
 	}
-	if e.isDir {
-		return nil, fmt.Errorf("is a directory: %s", name)
+	sort.Slice(entries, func(i, j int) bool {
+		return baseName(entries[i].name) < baseName(entries[j].name)
+	})
+	out := make([]Entry, 0, len(entries))
+	for _, e := range entries {
+		childPath, err := joinChild(d.node.path, baseName(e.name))
+		if err != nil {
+			continue
+		}
+		node := archiveNode{fs: d.node.fs, path: childPath}
+		if e.isDir {
+			out = append(out, &archiveDirectory{node: node})
+		} else {
+			out = append(out, &archiveFile{node: node})
+		}
+	}
+	return out, nil
+}
+
+func (d *archiveDirectory) MkdirAll(perm os.FileMode) error { return d.node.fs.readOnly("mkdir") }
+
+func (d *archiveDirectory) RemoveAll() error { return d.node.fs.readOnly("remove all") }
+
+func (d *archiveDirectory) CopyTo(dst Directory) error {
+	if err := dst.MkdirAll(0750); err != nil {
+		return err
+	}
+	entries, err := d.ReadDir()
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		switch src := e.(type) {
+		case Directory:
+			if err := src.CopyTo(dst.Subdir(src.Name())); err != nil {
+				return err
+			}
+		case File:
+			if err := src.CopyTo(dst.File(src.Name())); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (d *archiveDirectory) Ensure(perm os.FileMode) error {
+	if d.Exists() {
+		return nil
+	}
+	return d.node.fs.readOnly("ensure dir")
+}
+
+type archiveFile struct {
+	node archiveNode
+}
+
+func (f *archiveFile) Name() string                 { return f.node.Name() }
+func (f *archiveFile) Path() string                 { return f.node.Path() }
+func (f *archiveFile) Exists() bool                 { return f.node.Exists() }
+func (f *archiveFile) Stat() (os.FileInfo, error)   { return f.node.Stat() }
+func (f *archiveFile) Parent() Directory            { return f.node.Parent() }
+func (f *archiveFile) Rename(newName string) error  { return f.node.Rename(newName) }
+func (f *archiveFile) Remove() error                { return f.node.Remove() }
+func (f *archiveFile) Chmod(perm os.FileMode) error { return f.node.Chmod(perm) }
+
+func (f *archiveFile) Read() ([]byte, error) {
+	file, err := f.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	return io.ReadAll(file)
+}
+
+func (f *archiveFile) Write(data []byte, perm os.FileMode) error { return f.node.fs.readOnly("write") }
+
+func (f *archiveFile) Open() (*os.File, error) {
+	raw, err := f.node.raw()
+	if err != nil {
+		return nil, err
+	}
+	if raw.isDir {
+		return nil, fmt.Errorf("is a directory: %s", f.node.path)
 	}
 
 	var r io.Reader
-	switch fs.format {
+	switch f.node.fs.format {
 	case "zip":
-		rc, err := e.zipFile.Open()
+		rc, err := raw.zipFile.Open()
 		if err != nil {
-			return nil, fmt.Errorf("open zip entry %q: %w", name, err)
+			return nil, fmt.Errorf("open zip entry %q: %w", f.node.path, err)
 		}
 		defer rc.Close()
 		r = rc
 	case "tar", "tar.gz":
-		var err error
-		r, err = fs.openTarEntry(e.tarOffset, e.size)
+		r, err = f.node.fs.openTarEntry(raw.tarOffset, raw.size)
 		if err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("unsupported archive format %q", fs.format)
+		return nil, fmt.Errorf("unsupported archive format %q", f.node.fs.format)
 	}
 
 	tmp, err := os.CreateTemp("", "archivefs-*")
@@ -258,7 +389,7 @@ func (fs *ArchiveFS) Open(name string) (*os.File, error) {
 	if _, err := io.Copy(tmp, r); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmp.Name())
-		return nil, fmt.Errorf("read archive entry %q: %w", name, err)
+		return nil, fmt.Errorf("read archive entry %q: %w", f.node.path, err)
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 		_ = tmp.Close()
@@ -268,23 +399,64 @@ func (fs *ArchiveFS) Open(name string) (*os.File, error) {
 	return tmp, nil
 }
 
-func (fs *ArchiveFS) openTarEntry(targetOffset, size int64) (io.Reader, error) {
-	f, err := os.Open(fs.path)
+func (f *archiveFile) OpenFile(flag int, perm os.FileMode) (*os.File, error) {
+	if flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_APPEND) != 0 {
+		return nil, ErrReadOnly
+	}
+	return f.Open()
+}
+
+func (f *archiveFile) AtomicWrite(data []byte, perm os.FileMode) error {
+	return f.node.fs.readOnly("atomic write")
+}
+
+func (f *archiveFile) CopyTo(dst File) error {
+	src, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	mode := info.Mode().Perm()
+	if mode == 0 {
+		mode = 0640
+	}
+
+	if err := dst.Parent().MkdirAll(0750); err != nil {
+		return err
+	}
+
+	dstFile, err := dst.OpenFile(os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	if _, err := io.Copy(dstFile, src); err != nil {
+		return fmt.Errorf("copy %q → %q: %w", f.node.path, dst.Path(), err)
+	}
+	return nil
+}
+
+func (fsys *archiveFS) openTarEntry(targetOffset, size int64) (io.Reader, error) {
+	f, err := os.Open(fsys.path)
 	if err != nil {
 		return nil, err
 	}
-	// The returned offsetFileReader owns f and closes it when the entry is
-	// fully read or explicitly closed; do not close f here.
 
 	var r io.Reader = f
-	if fs.format == "tar.gz" {
+	if fsys.format == "tar.gz" {
 		gr, err := gzip.NewReader(f)
 		if err != nil {
+			_ = f.Close()
 			return nil, err
 		}
 		r = gr
 	}
-	// bzip2 does not support seeking; for now treat as sequential re-read.
 
 	cr := &countingReader{Reader: r}
 	tr := tar.NewReader(cr)
@@ -295,20 +467,21 @@ func (fs *ArchiveFS) openTarEntry(targetOffset, size int64) (io.Reader, error) {
 			break
 		}
 		if err != nil {
+			_ = f.Close()
 			return nil, err
 		}
 		if cr.bytes == targetOffset {
-			// Return a reader that closes the underlying file when done.
 			return &offsetFileReader{r: io.LimitReader(cr, size), f: f}, nil
 		}
 		if _, err := io.Copy(io.Discard, tr); err != nil {
+			_ = f.Close()
 			return nil, err
 		}
 	}
+	_ = f.Close()
 	return nil, fmt.Errorf("tar entry not found")
 }
 
-// offsetFileReader wraps a reader and closes the underlying file on EOF or Close.
 type offsetFileReader struct {
 	r    io.Reader
 	f    *os.File
@@ -331,53 +504,6 @@ func (r *offsetFileReader) Close() error {
 	return nil
 }
 
-// ReadDir reads the named directory inside the archive.
-func (fs *ArchiveFS) ReadDir(name string) ([]os.DirEntry, error) {
-	name = filepath.ToSlash(name)
-	if name == "" {
-		name = "."
-	}
-	entries, ok := fs.dirs[name]
-	if !ok {
-		return nil, fmt.Errorf("directory not found: %s", name)
-	}
-	// Sort for stable ordering.
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
-	return entries, nil
-}
-
-// Rename always returns ErrReadOnly.
-func (fs *ArchiveFS) Rename(oldpath, newpath string) error {
-	return ErrReadOnly
-}
-
-// Remove always returns ErrReadOnly.
-func (fs *ArchiveFS) Remove(name string) error {
-	return ErrReadOnly
-}
-
-// RemoveAll always returns ErrReadOnly.
-func (fs *ArchiveFS) RemoveAll(path string) error {
-	return ErrReadOnly
-}
-
-// Stat returns file info for the named file.
-func (fs *ArchiveFS) Stat(name string) (os.FileInfo, error) {
-	name = filepath.ToSlash(name)
-	e, ok := fs.files[name]
-	if !ok {
-		return nil, fmt.Errorf("file not found: %s", name)
-	}
-	return &archiveFileInfo{e: e}, nil
-}
-
-// Exists reports whether the named file exists in the archive.
-func (fs *ArchiveFS) Exists(name string) bool {
-	_, err := fs.Stat(name)
-	return err == nil
-}
-
-// countingReader counts bytes read through it.
 type countingReader struct {
 	Reader io.Reader
 	bytes  int64
@@ -389,37 +515,11 @@ func (c *countingReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// archiveDirEntry implements os.DirEntry for archive entries.
-type archiveDirEntry struct {
-	e      *archiveEntry
-	parent string
-}
-
-func (d *archiveDirEntry) Name() string {
-	name := d.e.name
-	if d.parent != "" && d.parent != "." {
-		name = strings.TrimPrefix(name, d.parent+"/")
-	}
-	return filepath.Base(name)
-}
-
-func (d *archiveDirEntry) IsDir() bool { return d.e.isDir }
-func (d *archiveDirEntry) Type() os.FileMode {
-	if d.e.isDir {
-		return os.ModeDir
-	}
-	return d.e.mode.Type()
-}
-func (d *archiveDirEntry) Info() (os.FileInfo, error) {
-	return &archiveFileInfo{e: d.e}, nil
-}
-
-// archiveFileInfo implements os.FileInfo.
 type archiveFileInfo struct {
 	e *archiveEntry
 }
 
-func (fi *archiveFileInfo) Name() string       { return filepath.Base(fi.e.name) }
+func (fi *archiveFileInfo) Name() string       { return baseName(fi.e.name) }
 func (fi *archiveFileInfo) Size() int64        { return fi.e.size }
 func (fi *archiveFileInfo) Mode() os.FileMode  { return fi.e.mode }
 func (fi *archiveFileInfo) ModTime() time.Time { return fi.e.modTime }

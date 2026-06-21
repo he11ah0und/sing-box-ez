@@ -5,7 +5,6 @@ import (
 	"embed"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 
 	"sing-box-ez/internal/cli"
@@ -41,15 +40,15 @@ type App struct {
 func New(args []string, runGUI func(*App) bool) (*App, error) {
 	fwApp, err := framework.NewApp(framework.Config{
 		Args:           args,
-		DefaultDataDir: defaultDataDir,
+		DefaultDataDir: func() string { return framework.DefaultDataDir("sing-box-ez") },
 		RegisterConfig: registerConfig,
 		LoadConfig:     config.Load,
 		GetLoggerLimit: func(conf fwconfig.Config) int {
 			cfg := conf.(*config.AppConfig)
 			return cfg.Int("log", "limit")
 		},
-		LoadLocales: func(load func(fsys fs.FileSystem, dir string) error) error {
-			return load(&fs.EmbedFS{FS: localesFS}, "locales")
+		LoadLocales: func(load func(dir fs.Directory) error) error {
+			return load(fs.Embed(localesFS).Root().Subdir("locales"))
 		},
 		BuildUpdaters:    buildUpdaters,
 		RegisterCommands: cli.RegisterCommands,
@@ -69,8 +68,6 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 		runGUI:      runGUI,
 	}
 
-	_ = app.FS.MkdirAll("configs", 0750)
-
 	return app, nil
 }
 
@@ -87,26 +84,6 @@ func (a *App) Run() {
 		// GUI could not start (no display, no wayland, etc).
 		// Exit gracefully so make/run does not show a scary error.
 		os.Exit(0)
-	}
-}
-
-func defaultDataDir() string {
-	switch runtime.GOOS {
-	case "windows":
-		appData := os.Getenv("APPDATA")
-		if appData == "" {
-			appData = os.Getenv("LOCALAPPDATA")
-		}
-		if appData == "" {
-			appData = os.TempDir()
-		}
-		return filepath.Join(appData, "sing-box-ez")
-	default:
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "."
-		}
-		return filepath.Join(home, ".sing-box-ez")
 	}
 }
 

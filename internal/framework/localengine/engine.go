@@ -5,7 +5,6 @@ package localengine
 
 import (
 	"os"
-	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -32,38 +31,42 @@ func SetLogger(parent *logger.LogTerminal) {
 	}
 }
 
-// LoadFromFS reads all *.yaml files from dir inside fsys and parses them as locales.
-func LoadFromFS(fsys fs.FileSystem, dir string) error {
-	files, err := fsys.ReadDir(dir)
+// LoadFromDir reads all *.yaml files from dir and parses them as locales.
+func LoadFromDir(dir fs.Directory) error {
+	entries, err := dir.ReadDir()
 	if err != nil {
-		return logTerminal.Errorf("read locale dir %q: %w", dir, err)
+		return logTerminal.Errorf("read locale dir %q: %w", dir.Path(), err)
 	}
 	loaded := 0
-	for _, f := range files {
-		if f.IsDir() {
+	for _, e := range entries {
+		if _, ok := e.(fs.Directory); ok {
 			continue
 		}
-		if !strings.HasSuffix(f.Name(), ".yaml") {
+		file, ok := e.(fs.File)
+		if !ok {
 			continue
 		}
-		data, err := fsys.ReadFile(path.Join(dir, f.Name()))
+		if !strings.HasSuffix(e.Name(), ".yaml") {
+			continue
+		}
+		data, err := file.Read()
 		if err != nil {
-			return logTerminal.Errorf("read locale %s: %w", f.Name(), err)
+			return logTerminal.Errorf("read locale %s: %w", e.Name(), err)
 		}
-		lang := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
+		lang := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
 		logTerminal.Debugf("loading locale %s", lang)
 		if err := loadLanguage(lang, data); err != nil {
-			return logTerminal.Errorf("load locale %s: %w", f.Name(), err)
+			return logTerminal.Errorf("load locale %s: %w", e.Name(), err)
 		}
 		loaded++
 	}
-	logTerminal.Infof("loaded %d locale(s) from %s", loaded, dir)
+	logTerminal.Infof("loaded %d locale(s) from %s", loaded, dir.Path())
 	return nil
 }
 
-// LoadFromDir reads all *.yaml files from dir on the local filesystem.
-func LoadFromDir(dir string) error {
-	return LoadFromFS(fs.NewOSFileSystem(dir), "")
+// LoadFromOSDir reads all *.yaml files from dir on the local filesystem.
+func LoadFromOSDir(dir string) error {
+	return LoadFromDir(fs.NewOS(dir).Root())
 }
 
 func loadLanguage(lang string, data []byte) error {
