@@ -33,7 +33,7 @@ type Manager struct {
 	logOutput  io.Writer
 
 	baseDir string
-	fsys    fs.FileSystem
+	fsys    fs.FS
 	net     *net.Client
 	updater *updater.Manager
 	log     *logger.Logger
@@ -43,7 +43,7 @@ type Manager struct {
 type ProgressFunc func(downloaded, total int64)
 
 // NewManager creates a new core manager for the given base directory and framework services.
-func NewManager(baseDir string, fsys fs.FileSystem, updater *updater.Manager, log *logger.Logger) *Manager {
+func NewManager(baseDir string, fsys fs.FS, updater *updater.Manager, log *logger.Logger) *Manager {
 	return &Manager{
 		baseDir: baseDir,
 		fsys:    fsys,
@@ -62,10 +62,6 @@ func (m *Manager) coreBinary() string {
 
 func (m *Manager) cachedConfig(name string) string {
 	return filepath.Join(m.baseDir, "configs", name+".json")
-}
-
-func (m *Manager) configsDir() string {
-	return filepath.Join(m.baseDir, "configs")
 }
 
 func (m *Manager) IsRunning() bool {
@@ -160,7 +156,7 @@ func (m *Manager) Start() error {
 	}
 
 	corePath := m.coreBinary()
-	if _, err := m.fsys.Stat(corePath); err != nil {
+	if _, err := m.fsys.Root().File(corePath).Stat(); err != nil {
 		return fmt.Errorf("sing-box core not found at %s", corePath)
 	}
 
@@ -168,7 +164,7 @@ func (m *Manager) Start() error {
 		return fmt.Errorf("no config name set")
 	}
 	configPath := m.cachedConfig(m.configName)
-	if _, err := m.fsys.Stat(configPath); err != nil {
+	if _, err := m.fsys.Root().File(configPath).Stat(); err != nil {
 		return fmt.Errorf("config not found at %s", configPath)
 	}
 
@@ -278,13 +274,12 @@ func (m *Manager) UpdateConfig() error {
 }
 
 func (m *Manager) hasCachedConfig(name string) bool {
-	_, err := m.fsys.Stat(m.cachedConfig(name))
-	return err == nil
+	return m.fsys.Root().File(m.cachedConfig(name)).Exists()
 }
 
 func (m *Manager) DownloadConfigFor(name, url string) error {
 	path := m.cachedConfig(name)
-	if err := m.fsys.MkdirAll(m.configsDir(), 0750); err != nil {
+	if err := m.fsys.Root().Subdir("configs").MkdirAll(0750); err != nil {
 		return err
 	}
 	return m.net.DownloadToFile(context.Background(), m.fsys, url, path)

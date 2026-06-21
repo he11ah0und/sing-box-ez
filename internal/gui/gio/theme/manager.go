@@ -3,8 +3,6 @@ package theme
 import (
 	"embed"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -44,7 +42,7 @@ func Init(th *material.Theme, dataDir string, embedFS embed.FS) error {
 		userThemes:    make(map[string]*Theme),
 		dataDir:       dataDir,
 	}
-	if err := m.Load(embedFS); err != nil {
+	if err := m.Load(fs.Embed(embedFS)); err != nil {
 		return err
 	}
 	M = m
@@ -62,30 +60,33 @@ func NewManager(th *material.Theme, dataDir string) *Manager {
 }
 
 // Load reads themes from the embedded FS and from dataDir/themes/*.yaml.
-func (m *Manager) Load(embedFS embed.FS) error {
-	if err := m.loadFromFS(&fs.EmbedFS{FS: embedFS}, "themes", m.defaultThemes, true); err != nil {
+func (m *Manager) Load(defaultFS fs.FS) error {
+	if err := m.loadFromDir(defaultFS.Root().Subdir("themes"), m.defaultThemes, true); err != nil {
 		return fmt.Errorf("load embedded themes: %w", err)
 	}
-	userDir := filepath.Join(m.dataDir, "themes")
-	if _, err := os.Stat(userDir); err == nil {
-		osFS := fs.NewOSFileSystem(m.dataDir)
-		if err := m.loadFromFS(osFS, "themes", m.userThemes, false); err != nil {
+	userDir := fs.NewOS(m.dataDir).Root().Subdir("themes")
+	if userDir.Exists() {
+		if err := m.loadFromDir(userDir, m.userThemes, false); err != nil {
 			return fmt.Errorf("load user themes: %w", err)
 		}
 	}
 	return nil
 }
 
-func (m *Manager) loadFromFS(fsys fs.FileSystem, dir string, into map[string]*Theme, isDefault bool) error {
-	entries, err := fsys.ReadDir(dir)
+func (m *Manager) loadFromDir(dir fs.Directory, into map[string]*Theme, isDefault bool) error {
+	entries, err := dir.ReadDir()
 	if err != nil {
 		return err
 	}
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
+		if _, isDir := e.(fs.Directory); isDir || !strings.HasSuffix(e.Name(), ".yaml") {
 			continue
 		}
-		data, err := fsys.ReadFile(filepath.Join(dir, e.Name()))
+		file, ok := e.(fs.File)
+		if !ok {
+			continue
+		}
+		data, err := file.Read()
 		if err != nil {
 			return err
 		}

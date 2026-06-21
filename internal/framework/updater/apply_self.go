@@ -26,14 +26,14 @@ type selfUpdatePlatform interface {
 // SelfUpdateApply replaces the running binary and restarts the process.
 type SelfUpdateApply struct {
 	Log           *logger.LogTerminal
-	FS            fs.FileSystem
+	FS            fs.FS
 	BaseDir       string
 	InstallScript []byte
 	Platform      selfUpdatePlatform
 }
 
 // NewSelfUpdateApply creates a SelfUpdateApply with a logger allocated from parent.
-func NewSelfUpdateApply(parent *logger.LogTerminal, fsys fs.FileSystem) *SelfUpdateApply {
+func NewSelfUpdateApply(parent *logger.LogTerminal, fsys fs.FS) *SelfUpdateApply {
 	log := parent.Allocate("apply")
 	return &SelfUpdateApply{
 		Log:      log,
@@ -87,7 +87,7 @@ func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info Upda
 
 		result, err := vm.Run(a.InstallScript, a.installContext(info, tmp))
 		if err != nil {
-			_ = a.FS.Remove(tmp)
+			_ = a.FS.Root().File(tmp).Remove()
 			return err
 		}
 		if result.ReplaceBinary != "" {
@@ -96,7 +96,7 @@ func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info Upda
 	}
 
 	if err := platform.replace(exe, tmp); err != nil {
-		_ = a.FS.Remove(tmp)
+		_ = a.FS.Root().File(tmp).Remove()
 		return fmt.Errorf("replace binary failed: %w", err)
 	}
 
@@ -137,7 +137,7 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 		if err != nil {
 			return a.Log.Errorf("open archive fs: %v", err)
 		}
-		newExe, err := findBinaryInDir(assetFS, tmpDir, filepath.Base(exe))
+		newExe, err := findBinaryInDir(assetFS.Root(), tmpDir, filepath.Base(exe))
 		if err != nil {
 			return a.Log.Errorf("locate updated binary: %v", err)
 		}
@@ -159,28 +159,33 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 }
 
 // findBinaryInDir recursively searches fsys under dir for a file named name.
-func findBinaryInDir(fsys fs.FileSystem, dir, name string) (string, error) {
-	entries, err := fsys.ReadDir(dir)
+func findBinaryInDir(dir fs.Directory, tmpDir, name string) (string, error) {
+	entries, err := dir.ReadDir()
 	if err != nil {
 		return "", err
 	}
 	for _, e := range entries {
-		path := filepath.Join(dir, e.Name())
-		if e.IsDir() {
-			if found, err := findBinaryInDir(fsys, path, name); err != nil || found != "" {
+		if subdir, ok := e.(fs.Directory); ok {
+			if found, err := findBinaryInDir(subdir, tmpDir, name); err != nil || found != "" {
 				return found, err
 			}
 			continue
 		}
 		if e.Name() == name {
-			return path, nil
+			f := e.(fs.File)
+			outPath := filepath.Join(tmpDir, e.Name())
+			if err := f.CopyTo(fs.NewOS(tmpDir).Root().File(e.Name())); err != nil {
+				return "", err
+			}
+			return outPath, nil
 		}
 	}
 	return "", nil
 }
 
 func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source, asset Asset, path string, onProgress func(downloaded, total int64)) error {
-	f, err := a.FS.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
+	dst := a.FS.Root().File(path)
+	f, err := dst.OpenFile(os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
 		return a.Log.Errorf("cannot create %q: %v", path, err)
 	}
@@ -190,7 +195,7 @@ func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source
 		downloadErr = closeErr
 	}
 	if downloadErr != nil {
-		_ = a.FS.Remove(path)
+		_ = dst.Remove()
 		return fmt.Errorf("download failed: %w", downloadErr)
 	}
 	return nil

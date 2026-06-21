@@ -4,11 +4,12 @@ package config
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"sing-box-ez/internal/framework/fs"
 )
 
 // Profiles holds the config list and active selection.
@@ -18,25 +19,25 @@ type Profiles struct {
 	mu         sync.RWMutex
 }
 
-// LoadProfiles loads profiles from profiles.yaml inside dataDir.
+// LoadProfiles loads profiles from profiles.yaml inside root.
 // If the file does not exist it returns an empty Profiles struct.
 // A legacy profiles.json file is automatically migrated to profiles.yaml.
-func LoadProfiles(dataDir string) (*Profiles, error) {
-	yamlPath := filepath.Join(dataDir, "profiles.yaml")
-	jsonPath := filepath.Join(dataDir, "profiles.json")
+func LoadProfiles(root fs.Directory) (*Profiles, error) {
+	yamlFile := root.File("profiles.yaml")
+	jsonFile := root.File("profiles.json")
 
-	data, err := os.ReadFile(yamlPath)
+	data, err := yamlFile.Read()
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Migrate legacy JSON profiles if present.
-			if legacy, readErr := os.ReadFile(jsonPath); readErr == nil && len(legacy) > 0 {
+			if legacy, readErr := jsonFile.Read(); readErr == nil && len(legacy) > 0 {
 				var p Profiles
 				if jerr := json.Unmarshal(legacy, &p); jerr == nil {
 					if p.Configs == nil {
 						p.Configs = []ConfigRecord{}
 					}
-					_ = os.Remove(jsonPath)
-					_ = p.Save(dataDir)
+					_ = jsonFile.Remove()
+					_ = p.Save(root)
 					return &p, nil
 				}
 			}
@@ -57,15 +58,15 @@ func LoadProfiles(dataDir string) (*Profiles, error) {
 	return &p, nil
 }
 
-// Save writes profiles to profiles.yaml inside dataDir.
-func (p *Profiles) Save(dataDir string) error {
+// Save writes profiles to profiles.yaml inside root.
+func (p *Profiles) Save(root fs.Directory) error {
 	p.mu.RLock()
 	data, err := yaml.Marshal(p)
 	p.mu.RUnlock()
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dataDir, "profiles.yaml"), data, 0600)
+	return root.File("profiles.yaml").AtomicWrite(data, 0600)
 }
 
 func (p *Profiles) GetConfigs() []ConfigRecord {

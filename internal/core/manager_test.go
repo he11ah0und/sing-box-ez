@@ -35,7 +35,7 @@ func TestManagerLifecycle(t *testing.T) {
 	}
 
 	log := logger.NewLogger(100)
-	m := NewManager(baseDir, fs.NewOSFileSystem(baseDir), nil, log)
+	m := NewManager(baseDir, fs.NewOS(baseDir), nil, log)
 	m.SetConfigName("test")
 
 	if m.IsRunning() {
@@ -94,7 +94,7 @@ func TestManagerRestartWaitsForProcessExit(t *testing.T) {
 	}
 
 	log := logger.NewLogger(100)
-	m := NewManager(baseDir, fs.NewOSFileSystem(baseDir), nil, log)
+	m := NewManager(baseDir, fs.NewOS(baseDir), nil, log)
 	m.SetConfigName("test")
 
 	if err := m.Start(); err != nil {
