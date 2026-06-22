@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -211,7 +212,7 @@ func (d *osDirectory) CopyTo(dst Directory) error {
 func (d *osDirectory) Ensure(perm os.FileMode) error {
 	info, err := d.Stat()
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 		if err := d.MkdirAll(perm); err != nil {

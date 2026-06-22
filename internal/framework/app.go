@@ -74,19 +74,6 @@ type Config struct {
 	RunGUI func(*App) bool
 }
 
-// parseDataDir extracts --data-dir from args and returns the directory plus
-// remaining arguments.
-func parseDataDir(args []string) (string, []string) {
-	for i := range args {
-		if args[i] == "--data-dir" && i+1 < len(args) {
-			dir := args[i+1]
-			remaining := append(args[:i], args[i+2:]...)
-			return dir, remaining
-		}
-	}
-	return "", args
-}
-
 func ensureSubdir(root fs.Directory, name string, perm os.FileMode) (fs.Directory, error) {
 	d := root.Subdir(name)
 	if err := d.Ensure(perm); err != nil {
@@ -97,7 +84,22 @@ func ensureSubdir(root fs.Directory, name string, perm os.FileMode) (fs.Director
 
 // NewApp creates a new framework App with the given configuration.
 func NewApp(cfg Config) (*App, error) {
-	dataDir, remaining := parseDataDir(cfg.Args)
+	cliEngine := cli.New[*App]()
+	cliEngine.AddGlobalFlag(cli.Flag{
+		Name: "data-dir",
+		Type: cli.Path,
+		Desc: "Override default data directory",
+	})
+
+	globals, remaining, err := cliEngine.ParseGlobals(cfg.Args)
+	if err != nil {
+		return nil, fmt.Errorf("parse global flags: %w", err)
+	}
+
+	dataDir := ""
+	if v, ok := globals["data-dir"]; ok {
+		dataDir = cli.AsString(v)
+	}
 	if dataDir == "" {
 		if cfg.DefaultDataDir == nil {
 			return nil, fmt.Errorf("DefaultDataDir is required")
@@ -155,7 +157,7 @@ func NewApp(cfg Config) (*App, error) {
 		PluginsDir:    pluginsDir,
 		DocsDir:       docsDir,
 		Config:        conf,
-		CLI:           cli.New[*App](),
+		CLI:           cliEngine,
 		RemainingArgs: remaining,
 		runGUI:        cfg.RunGUI,
 	}
@@ -179,6 +181,11 @@ func NewApp(cfg Config) (*App, error) {
 
 // Run executes the CLI command if arguments remain, otherwise starts the GUI.
 func (a *App) Run() {
+	if a.CLI.HelpRequested() {
+		a.CLI.PrintHelp(os.Stdout)
+		return
+	}
+
 	if len(a.RemainingArgs) > 0 {
 		if err := a.CLI.Run(a.RemainingArgs, a); err != nil {
 			// Errors are already logged by commands; exit with non-zero status.
@@ -192,6 +199,12 @@ func (a *App) Run() {
 		// Exit gracefully so make/run does not show a scary error.
 		os.Exit(0)
 	}
+}
+
+// SetRunGUI replaces the GUI runner. Used by wrappers that need a different
+// receiver type (e.g. app.App).
+func (a *App) SetRunGUI(fn func(*App) bool) {
+	a.runGUI = fn
 }
 
 // Start starts framework-level services. It is safe to call even when core

@@ -3,6 +3,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"sync"
 	"time"
@@ -28,7 +29,7 @@ func LoadProfiles(root fs.Directory) (*Profiles, error) {
 
 	data, err := yamlFile.Read()
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			// Migrate legacy JSON profiles if present.
 			if legacy, readErr := jsonFile.Read(); readErr == nil && len(legacy) > 0 {
 				var p Profiles
