@@ -259,12 +259,12 @@ build-nogui:
 # ---------------------------------------------------------------------------
 run: GUI=1
 run: build
-	$(OUTPUT)
+	$(OUTPUT) $(ARGS)
 
 run-nogui: GUI=0
 run-nogui: PLUGINS=0
 run-nogui: build
-	$(OUTPUT)
+	$(OUTPUT) $(ARGS)
 
 # ---------------------------------------------------------------------------
 # Clean

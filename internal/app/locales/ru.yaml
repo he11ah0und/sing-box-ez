@@ -54,7 +54,7 @@ core:
     admin: Админ
     setcap: Setcap
     setcap_prompt: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
-  watch_core_logs: Записывать логи ядра
+  record_core_logs: Записывать логи ядра
 configs:
   title: Конфиги
   btn:

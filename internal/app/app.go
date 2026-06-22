@@ -4,7 +4,6 @@ package app
 import (
 	"embed"
 	"fmt"
-	"os"
 	"runtime"
 
 	"sing-box-ez/internal/cli"
@@ -67,24 +66,11 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 		CoreUpdater: findUpdater(fwApp.Updaters, "core-updater"),
 		runGUI:      runGUI,
 	}
+	app.App.SetRunGUI(func(_ *framework.App) bool {
+		return app.runGUI(app)
+	})
 
 	return app, nil
-}
-
-// Run executes a CLI command if arguments remain, otherwise starts the GUI.
-func (a *App) Run() {
-	if len(a.RemainingArgs) > 0 {
-		if err := a.CLI.Run(a.RemainingArgs, a.App); err != nil {
-			os.Exit(1)
-		}
-		return
-	}
-
-	if a.runGUI != nil && !a.runGUI(a) {
-		// GUI could not start (no display, no wayland, etc).
-		// Exit gracefully so make/run does not show a scary error.
-		os.Exit(0)
-	}
 }
 
 func loadInstallScript(name string) []byte {

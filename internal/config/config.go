@@ -5,6 +5,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"time"
 
@@ -136,7 +137,7 @@ func Load(root fs.Directory, dataDir string, sheet *fwconfig.Sheet) (fwconfig.Co
 func LoadYAML(root fs.Directory, sheet *fwconfig.Sheet) error {
 	data, err := root.File("config.yaml").Read()
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 		return err
