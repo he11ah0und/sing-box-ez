@@ -6,10 +6,10 @@ import (
 	"runtime"
 	"strings"
 
-	"sing-box-ez/internal/ipc"
-	"sing-box-ez/internal/ipc/namedpipe"
-	"sing-box-ez/internal/ipc/tcp"
-	"sing-box-ez/internal/ipc/unixsocket"
+	"sing-box-ez/internal/framework/ipc"
+	"sing-box-ez/internal/framework/ipc/namedpipe"
+	"sing-box-ez/internal/framework/ipc/tcp"
+	"sing-box-ez/internal/framework/ipc/unixsocket"
 )
 
 // ParseAddress converts a remote address string into an IPC transport.

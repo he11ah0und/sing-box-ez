@@ -11,6 +11,7 @@ import (
 
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/gui/gio/startup"
 	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
 )
@@ -46,6 +47,8 @@ type SettingsPage struct {
 	origLang                          string
 	origTheme                         string
 	origThemeMode                     string
+
+	startupOptions []startup.Option
 
 	// Pending (unsaved) selections.
 	pendingLang        string
@@ -120,9 +123,13 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 	p.origAutoRestartOnConfigUpdate = ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Bool()
 	p.autoRestartOnConfigUpdate.Value = p.origAutoRestartOnConfigUpdate
 
+	p.startupOptions = startup.Discover(ctrl.Controller.Config())
 	p.origStartupMode = ctrl.Controller.Config().MustGet("remote", "last_connection_mode").String()
-	if p.origStartupMode == "" {
-		p.origStartupMode = "embedded"
+	if p.origStartupMode == "" || p.origStartupMode == "embedded" {
+		p.origStartupMode = "embed"
+	}
+	if !p.startupOptionExists(p.origStartupMode) {
+		p.origStartupMode = "embed"
 	}
 	p.pendingStartupMode = p.origStartupMode
 
@@ -155,6 +162,15 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 		levels,
 		func(level string) string { return localengine.T("settings", "log_level", level) },
 		func(level string) { p.pendingLogLevel = level },
+	)
+
+	p.startupModeDropdown = widgets.NewDropdown(
+		th, dialog,
+		localengine.T("settings", "startup", "mode_label"),
+		p.pendingStartupMode,
+		p.startupOptionIDs(),
+		func(id string) string { return p.formatStartupOption(id) },
+		func(id string) { p.pendingStartupMode = id },
 	)
 
 	langs := localengine.AvailableLanguages()
@@ -193,6 +209,53 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 }
 
 // Tag returns the page tag.
+func (p *SettingsPage) startupOptionExists(id string) bool {
+	for _, opt := range p.startupOptions {
+		if opt.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *SettingsPage) startupOptionIDs() []string {
+	ids := make([]string, len(p.startupOptions))
+	for i, opt := range p.startupOptions {
+		ids[i] = opt.ID
+	}
+	return ids
+}
+
+func (p *SettingsPage) formatStartupOption(id string) string {
+	for i := range p.startupOptions {
+		if p.startupOptions[i].ID == id {
+			opt := &p.startupOptions[i]
+			statusKey := "status_online"
+			if !opt.Online {
+				statusKey = "status_offline"
+			}
+			status := localengine.T("startup", statusKey)
+			switch opt.Type {
+			case "embed":
+				return localengine.T("settings", "startup", "mode_embed") + " (" + status + ")"
+			case "remote":
+				name := localengine.T("settings", "startup", "mode_remote")
+				if opt.Address != "" {
+					name += " " + opt.Address
+				}
+				return name + " (" + status + ")"
+			default:
+				name := opt.Type
+				if n := localengine.T("settings", "startup", "mode_"+opt.Type); n != "" && n != "mode_"+opt.Type {
+					name = n
+				}
+				return name + " (" + status + ")"
+			}
+		}
+	}
+	return id
+}
+
 func (p *SettingsPage) Tag() string { return "settings" }
 
 // Name returns the page name.
@@ -201,113 +264,64 @@ func (p *SettingsPage) Name() string { return localengine.T("tab", "settings") }
 // Icon returns the page icon.
 func (p *SettingsPage) Icon() *widget.Icon { return icons.ActionSettings }
 
-func (p *SettingsPage) isDirty() bool {
-	return p.logLimitEditor.Text() != p.origLogLimit ||
-		p.pendingLogLevel != p.origLogLevel ||
-		p.intervalEditor.Text() != p.origInterval ||
-		p.autoUpdateConfigsIntervalEditor.Text() != p.origAutoUpdateConfigsInterval ||
-		p.backgroundUpdateCheckIntervalEditor.Text() != p.origBackgroundUpdateCheckInterval ||
-		p.showLogs.Value != p.origShowLogs ||
-		p.desktopNotif.Value != p.origDesktopNotif ||
-		p.autoCheckSelf.Value != p.origAutoCheckSelf ||
-		p.autoCheckCore.Value != p.origAutoCheckCore ||
-		p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs ||
-		p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate ||
-		p.pendingStartupMode != p.origStartupMode ||
-		p.showStartupDialog.Value != p.origShowStartupDialog ||
-		p.pendingLang != p.origLang ||
-		p.pendingTheme != p.origTheme ||
-		p.pendingThemeMode != p.origThemeMode
+// settingsDirty tracks per-field unsaved changes.
+type settingsDirty struct {
+	logLimit                      bool
+	logLevel                      bool
+	interval                      bool
+	autoUpdateConfigsInterval     bool
+	backgroundUpdateCheckInterval bool
+	showLogs                      bool
+	desktopNotif                  bool
+	autoCheckSelf                 bool
+	autoCheckCore                 bool
+	autoUpdateConfigs             bool
+	autoRestart                   bool
+	startupMode                   bool
+	showStartupDialog             bool
+	lang                          bool
+	theme                         bool
+	themeMode                     bool
 }
 
-// Layout draws the settings page.
-func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
-	return widgets.SpacedList(gtx, p.Children(gtx)...)
+func (d settingsDirty) any() bool {
+	return d.numericDirty() || d.boolDirty() || d.choiceDirty()
 }
 
-// Children returns the page widgets; the shell adds standard vertical spacing.
-func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
-	if p.isDirty() && p.saveBtn.Clicked(gtx) {
-		if v, err := strconv.Atoi(p.logLimitEditor.Text()); err == nil && v >= 0 {
-			p.ctrl.Controller.SetLogLimit(v)
-			p.origLogLimit = fmt.Sprintf("%d", v)
-		}
-		if h, err := strconv.Atoi(p.intervalEditor.Text()); err == nil && h > 0 {
-			p.ctrl.Controller.SetDefaultInterval(h)
-			p.origInterval = fmt.Sprintf("%d", h)
-		}
-		if h, err := strconv.Atoi(p.backgroundUpdateCheckIntervalEditor.Text()); err == nil && h > 0 {
-			p.ctrl.Controller.Config().MustGet("updates", "background_update_check_interval_hours").Update(h)
-			p.origBackgroundUpdateCheckInterval = fmt.Sprintf("%d", h)
-		}
-		if h, err := strconv.Atoi(p.autoUpdateConfigsIntervalEditor.Text()); err == nil && h > 0 {
-			p.ctrl.Controller.Config().MustGet("updates", "auto_update_configs_interval_hours").Update(h)
-			p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", h)
-		}
-		p.ctrl.Controller.Config().MustGet("ui", "show_logs").Update(p.showLogs.Value)
-		if p.OnShowLogsChange != nil {
-			p.OnShowLogsChange(p.showLogs.Value)
-		}
-		p.origShowLogs = p.showLogs.Value
-		p.ctrl.Controller.Config().MustGet("log", "level").Update(p.pendingLogLevel)
-		p.origLogLevel = p.pendingLogLevel
-		p.ctrl.Controller.Config().MustGet("ui", "desktop_notifications").Update(p.desktopNotif.Value)
-		p.origDesktopNotif = p.desktopNotif.Value
-		p.ctrl.Controller.Config().MustGet("updates", "auto_check_self").Update(p.autoCheckSelf.Value)
-		p.origAutoCheckSelf = p.autoCheckSelf.Value
-		p.ctrl.Controller.Config().MustGet("updates", "auto_check_core").Update(p.autoCheckCore.Value)
-		p.origAutoCheckCore = p.autoCheckCore.Value
-		p.ctrl.Controller.Config().MustGet("updates", "auto_update_configs").Update(p.autoUpdateConfigs.Value)
-		p.origAutoUpdateConfigs = p.autoUpdateConfigs.Value
-		p.ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Update(p.autoRestartOnConfigUpdate.Value)
-		p.origAutoRestartOnConfigUpdate = p.autoRestartOnConfigUpdate.Value
-		p.ctrl.Controller.Config().MustGet("remote", "last_connection_mode").Update(p.pendingStartupMode)
-		p.origStartupMode = p.pendingStartupMode
-		p.ctrl.Controller.Config().MustGet("remote", "remember_connection_mode").Update(!p.showStartupDialog.Value)
-		p.origShowStartupDialog = p.showStartupDialog.Value
-		if p.pendingLang != p.origLang {
-			p.ctrl.Controller.Config().MustGet("ui", "language").Update(p.pendingLang)
-			localengine.SetLanguage(p.pendingLang)
-			p.origLang = p.pendingLang
-			if p.OnLanguageChange != nil {
-				p.OnLanguageChange()
-			}
-		}
-		if p.pendingTheme != p.origTheme || p.pendingThemeMode != p.origThemeMode {
-			if theme.M != nil {
-				mode := theme.Mode(p.pendingThemeMode)
-				if mode == "" {
-					mode = theme.ModeSystem
-				}
-				if err := theme.M.Apply(p.pendingTheme, mode); err == nil {
-					_ = p.ctrl.Controller.Config().MustGet("ui", "theme").Update(p.pendingTheme)
-					_ = p.ctrl.Controller.Config().MustGet("ui", "theme_mode").Update(string(mode))
-					p.origTheme = p.pendingTheme
-					p.origThemeMode = p.pendingThemeMode
-				}
-			}
-		}
-		_ = p.ctrl.Controller.Config().Save()
+func (d settingsDirty) numericDirty() bool {
+	return d.logLimit || d.interval || d.autoUpdateConfigsInterval || d.backgroundUpdateCheckInterval
+}
+
+func (d settingsDirty) boolDirty() bool {
+	return d.showLogs || d.desktopNotif || d.autoCheckSelf || d.autoCheckCore || d.autoUpdateConfigs || d.autoRestart || d.showStartupDialog
+}
+
+func (d settingsDirty) choiceDirty() bool {
+	return d.logLevel || d.startupMode || d.lang || d.theme || d.themeMode
+}
+
+func (p *SettingsPage) dirtyFlags() settingsDirty {
+	return settingsDirty{
+		logLimit:                      p.logLimitEditor.Text() != p.origLogLimit,
+		logLevel:                      p.pendingLogLevel != p.origLogLevel,
+		interval:                      p.intervalEditor.Text() != p.origInterval,
+		autoUpdateConfigsInterval:     p.autoUpdateConfigsIntervalEditor.Text() != p.origAutoUpdateConfigsInterval,
+		backgroundUpdateCheckInterval: p.backgroundUpdateCheckIntervalEditor.Text() != p.origBackgroundUpdateCheckInterval,
+		showLogs:                      p.showLogs.Value != p.origShowLogs,
+		desktopNotif:                  p.desktopNotif.Value != p.origDesktopNotif,
+		autoCheckSelf:                 p.autoCheckSelf.Value != p.origAutoCheckSelf,
+		autoCheckCore:                 p.autoCheckCore.Value != p.origAutoCheckCore,
+		autoUpdateConfigs:             p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs,
+		autoRestart:                   p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate,
+		startupMode:                   p.pendingStartupMode != p.origStartupMode,
+		showStartupDialog:             p.showStartupDialog.Value != p.origShowStartupDialog,
+		lang:                          p.pendingLang != p.origLang,
+		theme:                         p.pendingTheme != p.origTheme,
+		themeMode:                     p.pendingThemeMode != p.origThemeMode,
 	}
+}
 
-	logLimitDirty := p.logLimitEditor.Text() != p.origLogLimit
-	logLevelDirty := p.pendingLogLevel != p.origLogLevel
-	intervalDirty := p.intervalEditor.Text() != p.origInterval
-	autoUpdateConfigsIntervalDirty := p.autoUpdateConfigsIntervalEditor.Text() != p.origAutoUpdateConfigsInterval
-	backgroundUpdateCheckIntervalDirty := p.backgroundUpdateCheckIntervalEditor.Text() != p.origBackgroundUpdateCheckInterval
-	showLogsDirty := p.showLogs.Value != p.origShowLogs
-	desktopNotifDirty := p.desktopNotif.Value != p.origDesktopNotif
-	autoCheckSelfDirty := p.autoCheckSelf.Value != p.origAutoCheckSelf
-	autoCheckCoreDirty := p.autoCheckCore.Value != p.origAutoCheckCore
-	autoUpdateConfigsDirty := p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs
-	autoRestartDirty := p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate
-	startupModeDirty := p.pendingStartupMode != p.origStartupMode
-	showStartupDialogDirty := p.showStartupDialog.Value != p.origShowStartupDialog
-	langDirty := p.pendingLang != p.origLang
-	themeDirty := p.pendingTheme != p.origTheme
-	themeModeDirty := p.pendingThemeMode != p.origThemeMode
-	dirty := p.isDirty()
-
+func (p *SettingsPage) updateDropdowns() {
 	p.logLevelDropdown.SetValue(p.pendingLogLevel)
 	p.logLevelDropdown.SetLabel(localengine.T("settings", "log_level", "label"))
 	if p.startupModeDropdown != nil {
@@ -324,153 +338,211 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 		p.themeModeDropdown.SetValue(p.pendingThemeMode)
 		p.themeModeDropdown.SetLabel(localengine.T("settings", "theme_mode", "title"))
 	}
+}
 
+func (p *SettingsPage) applySettings(d *settingsDirty) {
+	p.applyIntField(d.logLimit, &p.logLimitEditor, &p.origLogLimit, 0, func(v int) { p.ctrl.Controller.SetLogLimit(v) })
+	p.applyIntField(d.interval, &p.intervalEditor, &p.origInterval, 1, func(v int) { p.ctrl.Controller.SetDefaultInterval(v) })
+	p.applyIntField(d.backgroundUpdateCheckInterval, &p.backgroundUpdateCheckIntervalEditor, &p.origBackgroundUpdateCheckInterval, 1, func(v int) {
+		p.ctrl.Controller.Config().MustGet("updates", "background_update_check_interval_hours").Update(v)
+	})
+	p.applyIntField(d.autoUpdateConfigsInterval, &p.autoUpdateConfigsIntervalEditor, &p.origAutoUpdateConfigsInterval, 1, func(v int) {
+		p.ctrl.Controller.Config().MustGet("updates", "auto_update_configs_interval_hours").Update(v)
+	})
+
+	p.ctrl.Controller.Config().MustGet("ui", "show_logs").Update(p.showLogs.Value)
+	if p.OnShowLogsChange != nil {
+		p.OnShowLogsChange(p.showLogs.Value)
+	}
+	p.origShowLogs = p.showLogs.Value
+
+	p.ctrl.Controller.Config().MustGet("log", "level").Update(p.pendingLogLevel)
+	p.origLogLevel = p.pendingLogLevel
+
+	p.ctrl.Controller.Config().MustGet("ui", "desktop_notifications").Update(p.desktopNotif.Value)
+	p.origDesktopNotif = p.desktopNotif.Value
+
+	p.ctrl.Controller.Config().MustGet("updates", "auto_check_self").Update(p.autoCheckSelf.Value)
+	p.origAutoCheckSelf = p.autoCheckSelf.Value
+
+	p.ctrl.Controller.Config().MustGet("updates", "auto_check_core").Update(p.autoCheckCore.Value)
+	p.origAutoCheckCore = p.autoCheckCore.Value
+
+	p.ctrl.Controller.Config().MustGet("updates", "auto_update_configs").Update(p.autoUpdateConfigs.Value)
+	p.origAutoUpdateConfigs = p.autoUpdateConfigs.Value
+
+	p.ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Update(p.autoRestartOnConfigUpdate.Value)
+	p.origAutoRestartOnConfigUpdate = p.autoRestartOnConfigUpdate.Value
+
+	p.ctrl.Controller.Config().MustGet("remote", "last_connection_mode").Update(p.pendingStartupMode)
+	p.origStartupMode = p.pendingStartupMode
+
+	p.ctrl.Controller.Config().MustGet("remote", "remember_connection_mode").Update(!p.showStartupDialog.Value)
+	p.origShowStartupDialog = p.showStartupDialog.Value
+
+	if d.lang {
+		p.ctrl.Controller.Config().MustGet("ui", "language").Update(p.pendingLang)
+		localengine.SetLanguage(p.pendingLang)
+		p.origLang = p.pendingLang
+		if p.OnLanguageChange != nil {
+			p.OnLanguageChange()
+		}
+	}
+
+	if d.theme || d.themeMode {
+		if theme.M != nil {
+			mode := theme.Mode(p.pendingThemeMode)
+			if mode == "" {
+				mode = theme.ModeSystem
+			}
+			if err := theme.M.Apply(p.pendingTheme, mode); err == nil {
+				_ = p.ctrl.Controller.Config().MustGet("ui", "theme").Update(p.pendingTheme)
+				_ = p.ctrl.Controller.Config().MustGet("ui", "theme_mode").Update(string(mode))
+				p.origTheme = p.pendingTheme
+				p.origThemeMode = p.pendingThemeMode
+			}
+		}
+	}
+
+	_ = p.ctrl.Controller.Config().Save()
+}
+
+func (p *SettingsPage) applyIntField(dirty bool, ed *widget.Editor, orig *string, min int, apply func(int)) {
+	if !dirty {
+		return
+	}
+	if v, err := strconv.Atoi(ed.Text()); err == nil && v >= min {
+		apply(v)
+		*orig = fmt.Sprintf("%d", v)
+	}
+}
+
+// Layout draws the settings page.
+func (p *SettingsPage) Layout(gtx layout.Context) layout.Dimensions {
+	return widgets.SpacedList(gtx, p.Children(gtx)...)
+}
+
+// Children returns the page widgets; the shell adds standard vertical spacing.
+func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
+	d := p.dirtyFlags()
+	if d.any() && p.saveBtn.Clicked(gtx) {
+		p.applySettings(&d)
+	}
+	p.updateDropdowns()
 	if p.resetBtn.Clicked(gtx) && p.OnResetRequested != nil {
 		p.OnResetRequested()
 	}
+	return p.settingsFields(&d)
+}
 
-	return []layout.FlexChild{
-		// Header row with Save button on the right.
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+func (p *SettingsPage) settingsFields(d *settingsDirty) []layout.FlexChild {
+	fields := []func(layout.Context) layout.Dimensions{
+		func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return material.H6(p.th, localengine.T("settings", "language", "title")).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !dirty {
+					if !d.any() {
 						return layout.Dimensions{}
 					}
 					return material.Button(p.th, &p.saveBtn, localengine.T("settings", "btn", "save")).Layout(gtx)
 				}),
 			)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.langDropdown.Layout(gtx, langDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		},
+		func(gtx layout.Context) layout.Dimensions { return p.langDropdown.Layout(gtx, d.lang) },
+		func(gtx layout.Context) layout.Dimensions {
 			if p.themeDropdown == nil {
 				return layout.Dimensions{}
 			}
 			return material.H6(p.th, localengine.T("settings", "theme", "title")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		},
+		func(gtx layout.Context) layout.Dimensions {
 			if p.themeDropdown == nil {
 				return layout.Dimensions{}
 			}
-			return p.themeDropdown.Layout(gtx, themeDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.themeDropdown.Layout(gtx, d.theme)
+		},
+		func(gtx layout.Context) layout.Dimensions {
 			if p.themeModeDropdown == nil {
 				return layout.Dimensions{}
 			}
-			return p.themeModeDropdown.Layout(gtx, themeModeDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(p.th, localengine.T("settings", "logging", "title")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "log_limit", "label")
-			if logLimitDirty {
-				label += " *"
-			}
-			return widgets.LabeledInput(gtx, p.th, label, &p.logLimitEditor, logLimitDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.logLevelDropdown.Layout(gtx, logLevelDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "show_logs")
-			if showLogsDirty {
-				label += " *"
-			}
-			return material.CheckBox(p.th, &p.showLogs, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "desktop_notifications")
-			if desktopNotifDirty {
-				label += " *"
-			}
-			return material.CheckBox(p.th, &p.desktopNotif, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(p.th, localengine.T("settings", "update_check", "title")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "update_check", "self")
-			if autoCheckSelfDirty {
-				label += " *"
-			}
-			return material.CheckBox(p.th, &p.autoCheckSelf, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "update_check", "core")
-			if autoCheckCoreDirty {
-				label += " *"
-			}
-			return material.CheckBox(p.th, &p.autoCheckCore, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "update_check", "background_interval")
-			if backgroundUpdateCheckIntervalDirty {
-				label += " *"
-			}
-			return widgets.LabeledInput(gtx, p.th, label, &p.backgroundUpdateCheckIntervalEditor, backgroundUpdateCheckIntervalDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(p.th, localengine.T("settings", "config_update", "title")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "config_update", "auto")
-			if autoUpdateConfigsDirty {
-				label += " *"
-			}
-			return material.CheckBox(p.th, &p.autoUpdateConfigs, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "config_update", "auto_restart")
-			if autoRestartDirty {
-				label += " *"
-			}
-			return material.CheckBox(p.th, &p.autoRestartOnConfigUpdate, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "config_update", "interval")
-			if autoUpdateConfigsIntervalDirty {
-				label += " *"
-			}
-			return widgets.LabeledInput(gtx, p.th, label, &p.autoUpdateConfigsIntervalEditor, autoUpdateConfigsIntervalDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(p.th, localengine.T("settings", "startup", "title")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.themeModeDropdown.Layout(gtx, d.themeMode)
+		},
+		p.section(localengine.T("settings", "logging", "title")),
+		func(gtx layout.Context) layout.Dimensions {
+			return p.labeledInput(gtx, localengine.T("settings", "log_limit", "label"), &p.logLimitEditor, d.logLimit)
+		},
+		func(gtx layout.Context) layout.Dimensions { return p.logLevelDropdown.Layout(gtx, d.logLevel) },
+		func(gtx layout.Context) layout.Dimensions {
+			return p.checkBox(gtx, &p.showLogs, localengine.T("settings", "show_logs"), d.showLogs)
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return p.checkBox(gtx, &p.desktopNotif, localengine.T("settings", "desktop_notifications"), d.desktopNotif)
+		},
+		p.section(localengine.T("settings", "update_check", "title")),
+		func(gtx layout.Context) layout.Dimensions {
+			return p.checkBox(gtx, &p.autoCheckSelf, localengine.T("settings", "update_check", "self"), d.autoCheckSelf)
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return p.checkBox(gtx, &p.autoCheckCore, localengine.T("settings", "update_check", "core"), d.autoCheckCore)
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return p.labeledInput(gtx, localengine.T("settings", "update_check", "background_interval"), &p.backgroundUpdateCheckIntervalEditor, d.backgroundUpdateCheckInterval)
+		},
+		p.section(localengine.T("settings", "config_update", "title")),
+		func(gtx layout.Context) layout.Dimensions {
+			return p.checkBox(gtx, &p.autoUpdateConfigs, localengine.T("settings", "config_update", "auto"), d.autoUpdateConfigs)
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return p.checkBox(gtx, &p.autoRestartOnConfigUpdate, localengine.T("settings", "config_update", "auto_restart"), d.autoRestart)
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return p.labeledInput(gtx, localengine.T("settings", "config_update", "interval"), &p.autoUpdateConfigsIntervalEditor, d.autoUpdateConfigsInterval)
+		},
+		p.section(localengine.T("settings", "startup", "title")),
+		func(gtx layout.Context) layout.Dimensions {
 			if p.startupModeDropdown == nil {
 				return layout.Dimensions{}
 			}
-			return p.startupModeDropdown.Layout(gtx, startupModeDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "startup", "show_dialog")
-			if showStartupDialogDirty {
-				label += " *"
-			}
-			return material.CheckBox(p.th, &p.showStartupDialog, label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(p.th, localengine.T("settings", "config", "title")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := localengine.T("settings", "default_interval", "label")
-			if intervalDirty {
-				label += " *"
-			}
-			return widgets.LabeledInput(gtx, p.th, label, &p.intervalEditor, intervalDirty)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(p.th, localengine.T("settings", "reset", "title")).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.startupModeDropdown.Layout(gtx, d.startupMode)
+		},
+		func(gtx layout.Context) layout.Dimensions {
+			return p.checkBox(gtx, &p.showStartupDialog, localengine.T("settings", "startup", "show_dialog"), d.showStartupDialog)
+		},
+		p.section(localengine.T("settings", "config", "title")),
+		func(gtx layout.Context) layout.Dimensions {
+			return p.labeledInput(gtx, localengine.T("settings", "default_interval", "label"), &p.intervalEditor, d.interval)
+		},
+		p.section(localengine.T("settings", "reset", "title")),
+		func(gtx layout.Context) layout.Dimensions {
 			return material.Button(p.th, &p.resetBtn, localengine.T("settings", "reset", "btn")).Layout(gtx)
-		}),
+		},
 	}
+
+	children := make([]layout.FlexChild, 0, len(fields))
+	for _, f := range fields {
+		children = append(children, layout.Rigid(f))
+	}
+	return children
+}
+
+func (p *SettingsPage) section(title string) func(layout.Context) layout.Dimensions {
+	return func(gtx layout.Context) layout.Dimensions {
+		return material.H6(p.th, title).Layout(gtx)
+	}
+}
+
+func (p *SettingsPage) checkBox(gtx layout.Context, btn *widget.Bool, label string, dirty bool) layout.Dimensions {
+	if dirty {
+		label += " *"
+	}
+	return material.CheckBox(p.th, btn, label).Layout(gtx)
+}
+
+func (p *SettingsPage) labeledInput(gtx layout.Context, label string, ed *widget.Editor, dirty bool) layout.Dimensions {
+	if dirty {
+		label += " *"
+	}
+	return widgets.LabeledInput(gtx, p.th, label, ed, dirty)
 }

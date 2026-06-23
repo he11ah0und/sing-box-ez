@@ -53,10 +53,6 @@ func RegisterCommands(cli *fwcli.Engine[*framework.App]) {
 	cli.Register("version", "Show version and repository info", wrap(cmdVersion))
 	cli.Register("update-check", "Check for app and core updates", wrap(cmdUpdateCheck))
 	cli.Register("self-update", "Update this application to latest release", wrap(cmdSelfUpdate))
-
-	cli.Register("remote", "Run the sing-box-ez remote daemon", cmdRemote,
-		fwcli.Arg{Name: "address", Type: fwcli.String, Optional: true, Default: fwcli.StringValue("auto"), Desc: "IPC address (auto, unix:///path, tcp://host:port, npipe://name)"},
-	)
 }
 
 func wrap(fn func(*config.AppConfig, *fwcli.Context) error) fwcli.CommandFunc[*framework.App] {
@@ -64,27 +60,10 @@ func wrap(fn func(*config.AppConfig, *fwcli.Context) error) fwcli.CommandFunc[*f
 		cfg := app.Config.(*config.AppConfig)
 
 		if remoteAddressFromContext(ctx) != "" {
-			return dispatchRemote(fn, cfg, ctx)
+			return dispatchRemoteCommand(app, ctx)
 		}
 
 		return fn(cfg, ctx)
-	}
-}
-
-func dispatchRemote(fn func(*config.AppConfig, *fwcli.Context) error, cfg *config.AppConfig, ctx *fwcli.Context) error {
-	switch ctx.Command() {
-	case "start":
-		return remoteStart(ctx)
-	case "stop":
-		return remoteStop(ctx)
-	case "update":
-		return remoteUpdate(cfg, ctx)
-	case "download":
-		return remoteDownload(ctx)
-	case "status":
-		return remoteStatus(ctx)
-	default:
-		return fmt.Errorf("command %q is not supported with --remote", ctx.Command())
 	}
 }
 

@@ -32,7 +32,6 @@ type CorePage struct {
 	coreUpdate *widgets.UpdateCheck
 
 	autoRestart widget.Bool
-	watchLogs   widget.Bool
 
 	highlightEnd time.Time
 
@@ -54,7 +53,6 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 		dialog: dialog,
 	}
 	p.autoRestart.Value = ctrl.Controller.Config().MustGet("core", "auto_restart").Bool()
-	p.watchLogs.Value = ctrl.Controller.Config().MustGet("core", "watch_logs").Bool()
 
 	p.privilegeState = ctrl.Controller.GetPrivilegeTabState()
 
@@ -169,10 +167,6 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		p.ctrl.Controller.Config().MustGet("core", "auto_restart").Update(p.autoRestart.Value)
 		_ = p.ctrl.Controller.Config().Save()
 	}
-	if changed := p.watchLogs.Update(gtx); changed {
-		p.ctrl.Controller.Config().MustGet("core", "watch_logs").Update(p.watchLogs.Value)
-		_ = p.ctrl.Controller.Config().Save()
-	}
 
 	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -180,9 +174,6 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutHighlightedUpdate(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.watchLogs, localengine.T("core", "record_core_logs")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"sing-box-ez/internal/ipc"
+	"sing-box-ez/internal/framework/ipc"
 )
 
 // Client connects to a remote sing-box-ez daemon and executes RPC calls.
@@ -140,11 +140,6 @@ func (c *Client) CoreStatus() (CoreStatusRes, error) {
 	var res CoreStatusRes
 	err := c.Call(MethodCoreStatus, Empty{}, &res)
 	return res, err
-}
-
-// SetWatchLogs toggles whether the remote daemon watches core logs.
-func (c *Client) SetWatchLogs(v bool) error {
-	return c.Call(MethodSetWatchLogs, BoolValue{Value: v}, nil)
 }
 
 // ConfigGetActive returns the active config record.

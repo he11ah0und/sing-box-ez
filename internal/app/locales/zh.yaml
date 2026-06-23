@@ -54,7 +54,6 @@ core:
     admin: 管理员
     setcap: Setcap
     setcap_prompt: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
-  record_core_logs: 记录核心日志
 configs:
   title: 配置
   btn:
@@ -129,8 +128,17 @@ settings:
   startup:
     title: 启动
     mode_label: 默认启动模式
-    mode_embedded: 本地
+    mode_embed: embed
     mode_remote: 远程
+    mode_systemd: systemd
+    mode_openrc: openrc
+    mode_sysv: sysv
+    mode_windows: Windows 服务
+    mode_systemd-user: systemd 用户
+    mode_dummy: dummy
+    mode_unix: remote
+    mode_tcp: remote
+    mode_npipe: remote
     show_dialog: 启动时显示模式选择对话框
   plugins:
     title: 插件
@@ -152,12 +160,30 @@ settings:
 startup:
   title: sing-box-ez
   subtitle: 选择运行方式
-  btn:
-    embedded: 本地运行核心
-    remote: 连接到远程
   remember: 记住我的选择
+  continue: 继续
+  status_online: 在线
+  status_offline: 离线
+  mode_embed: embed
+  mode_remote: 远程
+  mode_systemd: systemd
+  mode_openrc: openrc
+  mode_sysv: sysv
+  mode_windows: Windows 服务
+  mode_systemd-user: systemd 用户
+  mode_dummy: dummy
+  remote_address_placeholder: TCP 地址（例如 127.0.0.1:8080）
+  service_start: 启动服务
+  service_stop: 停止服务
+  mode_unix: remote
+  mode_tcp: remote
+  mode_npipe: remote
 log:
   title: 日志
+  tab:
+    app: 应用
+    core: 核心
+  empty: 没有日志条目
   btn:
     copy: 复制全部
     clear: 清空

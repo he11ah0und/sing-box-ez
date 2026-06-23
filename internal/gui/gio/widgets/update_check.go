@@ -3,7 +3,6 @@ package widgets
 import (
 	"context"
 	"fmt"
-	"image"
 	"sync"
 	"time"
 
@@ -177,9 +176,36 @@ func (u *UpdateCheck) RunCheck() {
 	u.runCheck()
 }
 
+func (u *UpdateCheck) mainButtonDisabled() bool {
+	return u.checking || u.updating || (u.checked && !u.hasUpdate && !u.isDevBuild) || !u.checked
+}
+
+func (u *UpdateCheck) mainButtonLabel() string {
+	label := u.currentVersionFormatter(u.currentVersion)
+	if label == "" {
+		label = "Update"
+	}
+	switch {
+	case u.updating:
+		return u.updatingLabel
+	case u.checking:
+		return u.checkingLabel
+	case u.checked && u.hasUpdate:
+		return u.availableFormatter(u.lastInfo.Latest)
+	case u.checked && u.isDevBuild:
+		return u.devBuildFormatter(u.lastInfo.Current, u.lastInfo.Latest)
+	case u.checked && !u.hasUpdate:
+		if u.upToDateLabel != "" {
+			return u.upToDateLabel
+		}
+		return u.currentVersionFormatter(u.lastInfo.Current)
+	}
+	return label
+}
+
 // Layout draws the update-check row.
 func (u *UpdateCheck) Layout(gtx layout.Context) layout.Dimensions {
-	mainDisabled := u.checking || u.updating || (u.checked && !u.hasUpdate && !u.isDevBuild) || !u.checked
+	mainDisabled := u.mainButtonDisabled()
 	checkDisabled := u.checking
 
 	if u.mainBtn.Clicked(gtx) && !mainDisabled {
@@ -189,27 +215,7 @@ func (u *UpdateCheck) Layout(gtx layout.Context) layout.Dimensions {
 		go u.runCheck()
 	}
 
-	mainLabel := u.currentVersionFormatter(u.currentVersion)
-	if mainLabel == "" {
-		mainLabel = "Update"
-	}
-	switch {
-	case u.updating:
-		mainLabel = u.updatingLabel
-	case u.checking:
-		mainLabel = u.checkingLabel
-	case u.checked && u.hasUpdate:
-		mainLabel = u.availableFormatter(u.lastInfo.Latest)
-	case u.checked && u.isDevBuild:
-		mainLabel = u.devBuildFormatter(u.lastInfo.Current, u.lastInfo.Latest)
-	case u.checked && !u.hasUpdate:
-		if u.upToDateLabel != "" {
-			mainLabel = u.upToDateLabel
-		} else {
-			mainLabel = u.currentVersionFormatter(u.lastInfo.Current)
-		}
-	}
-
+	mainLabel := u.mainButtonLabel()
 	disabledBg := theme.Current().Colors().Disabled
 	disabledFg := theme.Current().Colors().DisabledFg
 
@@ -224,7 +230,7 @@ func (u *UpdateCheck) Layout(gtx layout.Context) layout.Dimensions {
 			return btn.Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+			return HSpace(gtx, unit.Dp(8))
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			btn := material.IconButton(u.th, &u.checkBtn, u.checkIcon, "Check for updates")

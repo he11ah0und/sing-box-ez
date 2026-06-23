@@ -7,6 +7,8 @@ import (
 
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/framework/svcman"
+	"sing-box-ez/internal/framework/svcman/embed"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
 )
@@ -14,6 +16,11 @@ import (
 // InteractiveController wraps Controller with GUI-specific callbacks and background loops.
 type InteractiveController struct {
 	Controller *Controller
+
+	// serviceManager controls the core lifecycle. In embed mode it wraps the
+	// in-process core.Manager; in future service modes it will be a system
+	// service manager.
+	serviceManager svcman.Manager
 
 	// UI callbacks (optional, invoked when state changes)
 	OnStatusChange    func(running bool)
@@ -40,6 +47,13 @@ type InteractiveController struct {
 
 // NewInteractiveController creates an interactive controller wrapping an existing core controller.
 func NewInteractiveController(c *Controller) *InteractiveController {
+	return NewInteractiveControllerWithManager(c, nil)
+}
+
+// NewInteractiveControllerWithManager creates an interactive controller that
+// uses the provided service manager. If manager is nil, an embed manager is
+// used.
+func NewInteractiveControllerWithManager(c *Controller, manager svcman.Manager) *InteractiveController {
 	cfg := c.Config()
 	if lang := cfg.MustGet("ui", "language").String(); lang == "" {
 		lang = localengine.DetectSystemLanguage()
@@ -50,8 +64,13 @@ func NewInteractiveController(c *Controller) *InteractiveController {
 		localengine.SetLanguage(lang)
 	}
 
+	if manager == nil {
+		manager = embed.New("sing-box-ez", c.manager)
+	}
+
 	ic := &InteractiveController{
-		Controller: c,
+		Controller:     c,
+		serviceManager: manager,
 	}
 
 	ic.Controller.LogProcessor().OnAutoRestart = func() {
@@ -122,7 +141,7 @@ func (ic *InteractiveController) StartService() error {
 		}
 		return err
 	}
-	if err := ic.Controller.Start(); err != nil {
+	if err := ic.serviceManager.Start(); err != nil {
 		ic.Controller.Terminal().Infof("Failed to start: %v", err)
 		return err
 	}
@@ -131,7 +150,7 @@ func (ic *InteractiveController) StartService() error {
 
 // StopService stops the core. It mirrors the main page stop button action.
 func (ic *InteractiveController) StopService() error {
-	if err := ic.Controller.Stop(); err != nil {
+	if err := ic.serviceManager.Stop(); err != nil {
 		ic.Controller.Terminal().Infof("Failed to stop: %v", err)
 		return err
 	}

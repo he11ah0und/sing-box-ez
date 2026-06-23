@@ -2,8 +2,11 @@
 package app
 
 import (
+	"context"
 	"embed"
 	"fmt"
+	"os"
+	"os/signal"
 	"runtime"
 
 	"sing-box-ez/internal/cli"
@@ -13,7 +16,9 @@ import (
 	fwcli "sing-box-ez/internal/framework/cli"
 	fwconfig "sing-box-ez/internal/framework/config"
 	"sing-box-ez/internal/framework/fs"
+	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/remote"
 )
 
 //go:embed locales/*.yaml
@@ -31,8 +36,10 @@ type App struct {
 	*framework.App
 	Profiles    *config.Profiles
 	Controller  *core.Controller
+	Backend     rpc.Backend
 	SelfUpdater *updater.Manager
 	CoreUpdater *updater.Manager
+	host        string
 	runGUI      func(*App) bool
 }
 
@@ -58,6 +65,11 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 				Desc: "Execute commands on a remote daemon (tcp://host:port, unix:///path, npipe://name, or auto)",
 				Type: fwcli.String,
 			},
+			{
+				Name: "host",
+				Desc: "Run as an RPC daemon on the given IPC address (tcp://host:port, unix:///path, npipe://name, or auto)",
+				Type: fwcli.String,
+			},
 		},
 	})
 	if err != nil {
@@ -78,7 +90,55 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 		return app.runGUI(app)
 	})
 
+	// Read global flags that influence operating mode.
+	if v, ok := fwApp.CLI.GlobalValue("host"); ok {
+		app.host = fwcli.AsString(v)
+	}
+
+	registry := rpc.NewRegistry()
+	app.registerRPC(registry)
+
+	if v, ok := fwApp.CLI.GlobalValue("remote"); ok {
+		addr := fwcli.AsString(v)
+		if addr != "" {
+			transport, err := remote.ParseAddress(addr)
+			if err != nil {
+				return nil, err
+			}
+			app.Backend = rpc.NewRemoteBackend(transport)
+		}
+	}
+	if app.Backend == nil {
+		app.Backend = rpc.NewLocalBackend(registry)
+	}
+	app.App.Backend = app.Backend
+
 	return app, nil
+}
+
+// Run executes the CLI command, runs the RPC daemon with --host, or starts the GUI.
+func (a *App) Run() {
+	if a.host != "" {
+		transport, err := remote.ParseAddress(a.host)
+		if err != nil {
+			a.Logger.Root.Errorf("invalid --host address: %v", err)
+			os.Exit(1)
+		}
+		registry := rpc.NewRegistry()
+		a.registerRPC(registry)
+		server := rpc.NewServer(registry, transport)
+		a.Logger.Root.Infof("RPC server listening on %s", transport.Addr())
+
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer cancel()
+		if err := server.Run(ctx); err != nil {
+			a.Logger.Root.Errorf("RPC server error: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	a.App.Run()
 }
 
 func loadInstallScript(name string) []byte {
@@ -123,7 +183,6 @@ func buildUpdaters(app *framework.App) []*updater.Manager {
 // registerConfig defines the sing-box-ez configuration schema.
 func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"core", "watch_logs"}, fwconfig.TypeBool, true)
 
 	sheet.Register([]string{"log", "level"}, fwconfig.TypeString, "info")
 	sheet.Register([]string{"log", "limit"}, fwconfig.TypeInt, 100)

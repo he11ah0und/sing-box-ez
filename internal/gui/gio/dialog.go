@@ -21,10 +21,28 @@ import (
 	"sing-box-ez/internal/gui/gio/theme"
 )
 
+// DialogContent renders the inner part of a dialog card (title + body).
+type DialogContent interface {
+	Layout(gtx layout.Context, th *material.Theme) layout.Dimensions
+	ShowsButtons() bool
+}
+
+const dialogMaxBodyHeight = unit.Dp(420)
+
+func limitMaxHeight(gtx layout.Context, h unit.Dp) layout.Context {
+	maxH := gtx.Dp(h)
+	if gtx.Constraints.Max.Y > maxH {
+		gtx.Constraints.Max.Y = maxH
+	}
+	if gtx.Constraints.Min.Y > gtx.Constraints.Max.Y {
+		gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+	}
+	return gtx
+}
+
 // Dialog is a reusable modal dialog.
 type Dialog struct {
-	title string
-	body  string
+	content DialogContent
 
 	closeLabel   string
 	confirmLabel string
@@ -37,136 +55,56 @@ type Dialog struct {
 	onConfirm func()
 
 	active bool
-
-	bodyList widget.List
-
-	// Markdown support
-	isMarkdown bool
-	richState  richtext.InteractiveText
-	mdRenderer *markdown.Renderer
-	mdSpans    []richtext.SpanStyle
-
-	// Theme reference for markdown colors.
-	th *material.Theme
-
-	// Loading state
-	isLoading    bool
-	loadingTitle string
-
-	// Progress-loading state
-	isProgressLoading bool
-	progress          func() float32
-
-	// Custom content state
-	isCustom       bool
-	customNoCancel bool
-	customTitle    string
-	customBody     layout.Widget
+	th     *material.Theme
 }
 
 // NewDialog creates a new dialog.
 func NewDialog() *Dialog {
-	return &Dialog{
-		bodyList: widget.List{
-			List: layout.List{Axis: layout.Vertical},
-		},
-		mdRenderer: markdown.NewRenderer(),
-	}
+	return &Dialog{}
+}
+
+func (d *Dialog) show(c DialogContent) {
+	d.content = c
+	d.active = true
 }
 
 // Show displays an informational dialog with a single Close button.
 func (d *Dialog) Show(title, body string) {
-	d.title = title
-	d.body = body
-	d.isMarkdown = false
-	d.isLoading = false
-	d.isProgressLoading = false
-	d.progress = nil
-	d.isCustom = false
 	d.closeLabel = localengine.T("about", "dialog", "close")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil
 	d.onDismiss = nil
-	d.active = true
-	d.bodyList = widget.List{List: layout.List{Axis: layout.Vertical}}
+	d.show(&textDialogContent{title: title, body: body})
 }
 
 // ShowMarkdown displays a dialog with Markdown-rendered body.
 func (d *Dialog) ShowMarkdown(title, body string) {
-	d.title = title
-	d.body = body
-	d.isMarkdown = true
-	d.isLoading = false
-	d.isProgressLoading = false
-	d.progress = nil
-	d.isCustom = false
 	d.closeLabel = localengine.T("about", "dialog", "close")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil
 	d.onDismiss = nil
-	d.active = true
-	d.bodyList = widget.List{List: layout.List{Axis: layout.Vertical}}
-
-	// Use compact sizes so markdown headings aren't overwhelming in a dialog.
-	d.mdRenderer.Config.DefaultSize = unit.Sp(13)
-	d.mdRenderer.Config.H1Size = unit.Sp(18)
-	d.mdRenderer.Config.H2Size = unit.Sp(16)
-	d.mdRenderer.Config.H3Size = unit.Sp(15)
-	d.mdRenderer.Config.H4Size = unit.Sp(14)
-	d.mdRenderer.Config.H5Size = unit.Sp(13)
-	d.mdRenderer.Config.H6Size = unit.Sp(13)
-
-	// Apply theme colors before rendering so spans have the right color.
-	if d.th != nil {
-		d.SetThemeColors(d.th.Palette.Fg, d.th.Palette.ContrastBg)
-	}
-
-	spans, err := d.mdRenderer.Render([]byte(body))
-	if err != nil {
-		// Fallback to plain text if markdown parsing fails.
-		d.isMarkdown = false
-		return
-	}
-	d.mdSpans = spans
-}
-
-// SetThemeColors updates the markdown renderer default colors from the theme.
-func (d *Dialog) SetThemeColors(fg, link color.NRGBA) {
-	d.mdRenderer.Config.DefaultColor = fg
-	d.mdRenderer.Config.InteractiveColor = link
+	d.show(&markdownDialogContent{title: title, body: body})
 }
 
 // ShowLoading displays a centered loading dialog with a spinner.
 func (d *Dialog) ShowLoading(title string) {
-	d.loadingTitle = title
-	d.isLoading = true
-	d.isProgressLoading = false
-	d.progress = nil
-	d.isCustom = false
-	d.active = true
+	d.show(&loadingDialogContent{title: title})
 }
 
 // HideLoading closes the loading dialog only if it is currently active.
 func (d *Dialog) HideLoading() {
-	if d.isLoading || d.isProgressLoading {
-		d.isLoading = false
-		d.isProgressLoading = false
-		d.progress = nil
+	if _, ok := d.content.(*loadingDialogContent); ok {
 		d.active = false
+		d.content = nil
 	}
 }
 
 // ShowLoadingWithProgress displays a loading dialog with a determinate progress bar.
 // The progress callback is invoked on every frame and should return a value in [0,1].
 func (d *Dialog) ShowLoadingWithProgress(title string, progress func() float32) {
-	d.loadingTitle = title
-	d.progress = progress
-	d.isProgressLoading = true
-	d.isLoading = false
-	d.isCustom = false
-	d.active = true
+	d.show(&loadingDialogContent{title: title, progress: progress})
 }
 
 // ShowConfirm displays a dialog with Cancel and Confirm buttons.
@@ -190,58 +128,38 @@ func (d *Dialog) ShowConfirmMarkdown(title, body string, onConfirm func(), onDis
 }
 
 // ShowCustom displays a dialog with arbitrary widget content and a Cancel button.
-func (d *Dialog) ShowCustom(title string, content layout.Widget) {
-	d.customTitle = title
-	d.customBody = content
-	d.isCustom = true
-	d.customNoCancel = false
-	d.isLoading = false
-	d.isProgressLoading = false
-	d.progress = nil
-	d.isMarkdown = false
+func (d *Dialog) ShowCustom(title string, body layout.Widget) {
 	d.closeLabel = localengine.T("dialog", "btn", "cancel")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil
 	d.onDismiss = nil
-	d.active = true
+	d.show(&customDialogContent{title: title, body: body, showButtons: true})
 }
 
 // ShowCustomNoCancel displays a dialog with arbitrary widget content and no buttons.
 // The caller is responsible for closing the dialog programmatically.
-func (d *Dialog) ShowCustomNoCancel(title string, content layout.Widget) {
-	d.customTitle = title
-	d.customBody = content
-	d.isCustom = true
-	d.customNoCancel = true
-	d.isLoading = false
-	d.isProgressLoading = false
-	d.progress = nil
-	d.isMarkdown = false
+func (d *Dialog) ShowCustomNoCancel(title string, body layout.Widget) {
 	d.closeLabel = ""
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil
 	d.onDismiss = nil
-	d.active = true
+	d.show(&customDialogContent{title: title, body: body, showButtons: false})
 }
 
 // HideCustom closes the custom dialog.
 func (d *Dialog) HideCustom() {
-	d.isCustom = false
-	d.customNoCancel = false
-	d.active = false
+	if _, ok := d.content.(*customDialogContent); ok {
+		d.active = false
+		d.content = nil
+	}
 }
 
 // Dismiss closes the dialog programmatically.
 func (d *Dialog) Dismiss() {
 	d.active = false
-	d.isCustom = false
-	d.customNoCancel = false
-	d.isMarkdown = false
-	d.isLoading = false
-	d.isProgressLoading = false
-	d.progress = nil
+	d.content = nil
 }
 
 // Visible reports whether the dialog is currently shown.
@@ -252,7 +170,7 @@ func (d *Dialog) Visible() bool {
 // Layout renders the dialog if active.
 func (d *Dialog) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	d.th = th
-	if !d.active {
+	if !d.active || d.content == nil {
 		return layout.Dimensions{}
 	}
 
@@ -274,25 +192,22 @@ func (d *Dialog) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return d.layoutContent(gtx, th)
+			return d.layoutCard(gtx, th)
 		}),
 	)
 }
 
-func (d *Dialog) layoutContent(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	if d.isLoading || d.isProgressLoading {
-		return d.layoutLoading(gtx, th)
-	}
-	if d.isCustom {
-		return d.layoutCustom(gtx, th)
-	}
+func (d *Dialog) layoutCard(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	maxWidth := gtx.Dp(unit.Dp(480))
+	if _, ok := d.content.(*loadingDialogContent); ok {
+		maxWidth = gtx.Dp(unit.Dp(360))
+	}
 	if gtx.Constraints.Max.X < maxWidth {
 		maxWidth = gtx.Constraints.Max.X - gtx.Dp(unit.Dp(32))
 	}
-	// Limit height so the dialog doesn't overflow the screen.
 	maxHeight := gtx.Constraints.Max.Y - gtx.Dp(unit.Dp(64))
 
+	inset := unit.Dp(16)
 	cardGtx := gtx
 	cardGtx.Constraints.Min.X = 0
 	cardGtx.Constraints.Max.X = maxWidth
@@ -300,119 +215,13 @@ func (d *Dialog) layoutContent(gtx layout.Context, th *material.Theme) layout.Di
 	cardGtx.Constraints.Max.Y = maxHeight
 
 	return component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.H6(th, d.title).Layout(gtx)
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return d.layoutScrollableBody(gtx, th)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return d.layoutButtons(gtx, th)
-				}),
-			)
-		})
-	})
-}
-
-func (d *Dialog) layoutScrollableBody(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	listStyle := material.List(th, &d.bodyList)
-	listStyle.AnchorStrategy = material.Overlay
-	return listStyle.Layout(gtx, 1, func(gtx layout.Context, index int) layout.Dimensions {
-		if d.isMarkdown {
-			return d.layoutMarkdown(gtx, th)
-		}
-		return material.Body1(th, d.body).Layout(gtx)
-	})
-}
-
-func (d *Dialog) layoutLoading(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	maxWidth := gtx.Dp(unit.Dp(360))
-	if gtx.Constraints.Max.X < maxWidth {
-		maxWidth = gtx.Constraints.Max.X - gtx.Dp(unit.Dp(32))
-	}
-
-	cardGtx := gtx
-	cardGtx.Constraints.Min.X = 0
-	cardGtx.Constraints.Max.X = maxWidth
-	cardGtx.Constraints.Min.Y = 0
-
-	return component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(inset).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			children := []layout.FlexChild{
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.H6(th, d.loadingTitle).Layout(gtx)
+					return d.content.Layout(gtx, th)
 				}),
 			}
-
-			if d.isProgressLoading && d.progress != nil {
-				gtx.Execute(op.InvalidateCmd{})
-				progress := d.progress()
-				if progress < 0 {
-					progress = 0
-				}
-				if progress > 1 {
-					progress = 1
-				}
-				children = append(children,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Top: unit.Dp(24), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.ProgressBar(th, progress).Layout(gtx)
-						})
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Body2(th, fmt.Sprintf("%d%%", int(progress*100))).Layout(gtx)
-					}),
-				)
-			} else {
-				children = append(children,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Top: unit.Dp(24), Bottom: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							gtx.Constraints.Min.X = gtx.Dp(48)
-							gtx.Constraints.Min.Y = gtx.Dp(48)
-							return material.Loader(th).Layout(gtx)
-						})
-					}),
-				)
-			}
-
-			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx, children...)
-		})
-	})
-}
-
-func (d *Dialog) layoutCustom(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	maxWidth := gtx.Dp(unit.Dp(480))
-	if gtx.Constraints.Max.X < maxWidth {
-		maxWidth = gtx.Constraints.Max.X - gtx.Dp(unit.Dp(32))
-	}
-	maxHeight := gtx.Constraints.Max.Y - gtx.Dp(unit.Dp(64))
-
-	cardGtx := gtx
-	cardGtx.Constraints.Min.X = 0
-	cardGtx.Constraints.Max.X = maxWidth
-	cardGtx.Constraints.Min.Y = 0
-	cardGtx.Constraints.Max.Y = maxHeight
-
-	return component.Surface(th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			children := []layout.FlexChild{
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.H6(th, d.customTitle).Layout(gtx)
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						if d.customBody != nil {
-							return d.customBody(gtx)
-						}
-						return layout.Dimensions{}
-					})
-				}),
-			}
-			if !d.customNoCancel {
+			if d.content.ShowsButtons() {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return d.layoutButtons(gtx, th)
 				}))
@@ -420,30 +229,6 @@ func (d *Dialog) layoutCustom(gtx layout.Context, th *material.Theme) layout.Dim
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 		})
 	})
-}
-
-func (d *Dialog) layoutMarkdown(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	// Ensure colors match the current theme.
-	d.SetThemeColors(th.Palette.Fg, th.Palette.ContrastBg)
-
-	// Handle link clicks.
-	for {
-		span, event, ok := d.richState.Update(gtx)
-		if !ok {
-			break
-		}
-		if event.Type == richtext.Click {
-			if url := span.Get(markdown.MetadataURL); url != nil {
-				if urlStr, ok := url.(string); ok {
-					_ = openurl.OpenURL(urlStr)
-				}
-			}
-		}
-	}
-
-	style := richtext.Text(&d.richState, th.Shaper, d.mdSpans...)
-	style.Alignment = text.Start
-	return style.Layout(gtx)
 }
 
 func (d *Dialog) layoutButtons(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -490,4 +275,173 @@ func (d *Dialog) layoutButtons(gtx layout.Context, th *material.Theme) layout.Di
 		}
 	}
 	return dims
+}
+
+// ---------- Content implementations ----------
+
+type textDialogContent struct {
+	title string
+	body  string
+	list  widget.List
+}
+
+func (c *textDialogContent) ShowsButtons() bool { return true }
+
+func (c *textDialogContent) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(material.H6(th, c.title).Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx = limitMaxHeight(gtx, dialogMaxBodyHeight)
+				c.list.Axis = layout.Vertical
+				list := material.List(th, &c.list)
+				list.AnchorStrategy = material.Overlay
+				return list.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+					return material.Body1(th, c.body).Layout(gtx)
+				})
+			})
+		}),
+	)
+}
+
+type markdownDialogContent struct {
+	title     string
+	body      string
+	renderer  *markdown.Renderer
+	richState richtext.InteractiveText
+	spans     []richtext.SpanStyle
+	list      widget.List
+}
+
+func (c *markdownDialogContent) ShowsButtons() bool { return true }
+
+func (c *markdownDialogContent) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	if c.renderer == nil {
+		c.renderer = markdown.NewRenderer()
+		c.renderer.Config.DefaultSize = unit.Sp(13)
+		c.renderer.Config.H1Size = unit.Sp(18)
+		c.renderer.Config.H2Size = unit.Sp(16)
+		c.renderer.Config.H3Size = unit.Sp(15)
+		c.renderer.Config.H4Size = unit.Sp(14)
+		c.renderer.Config.H5Size = unit.Sp(13)
+		c.renderer.Config.H6Size = unit.Sp(13)
+	}
+	c.setThemeColors(th.Palette.Fg, th.Palette.ContrastBg)
+	if c.spans == nil {
+		spans, err := c.renderer.Render([]byte(c.body))
+		if err != nil {
+			c.spans = nil
+			return (&textDialogContent{title: c.title, body: c.body, list: widget.List{List: layout.List{Axis: layout.Vertical}}}).Layout(gtx, th)
+		}
+		c.spans = spans
+	}
+
+	// Handle link clicks.
+	for {
+		span, event, ok := c.richState.Update(gtx)
+		if !ok {
+			break
+		}
+		if event.Type == richtext.Click {
+			if url := span.Get(markdown.MetadataURL); url != nil {
+				if urlStr, ok := url.(string); ok {
+					_ = openurl.OpenURL(urlStr)
+				}
+			}
+		}
+	}
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(material.H6(th, c.title).Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx = limitMaxHeight(gtx, dialogMaxBodyHeight)
+				c.list.Axis = layout.Vertical
+				list := material.List(th, &c.list)
+				list.AnchorStrategy = material.Overlay
+				return list.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+					style := richtext.Text(&c.richState, th.Shaper, c.spans...)
+					style.Alignment = text.Start
+					return style.Layout(gtx)
+				})
+			})
+		}),
+	)
+}
+
+func (c *markdownDialogContent) setThemeColors(fg, link color.NRGBA) {
+	if c.renderer == nil {
+		return
+	}
+	c.renderer.Config.DefaultColor = fg
+	c.renderer.Config.InteractiveColor = link
+}
+
+type loadingDialogContent struct {
+	title    string
+	progress func() float32
+}
+
+func (c *loadingDialogContent) ShowsButtons() bool { return false }
+
+func (c *loadingDialogContent) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	children := []layout.FlexChild{
+		layout.Rigid(material.H6(th, c.title).Layout),
+	}
+
+	if c.progress != nil {
+		gtx.Execute(op.InvalidateCmd{})
+		progress := c.progress()
+		if progress < 0 {
+			progress = 0
+		}
+		if progress > 1 {
+			progress = 1
+		}
+		children = append(children,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(24), Bottom: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.ProgressBar(th, progress).Layout(gtx)
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Body2(th, fmt.Sprintf("%d%%", int(progress*100))).Layout(gtx)
+			}),
+		)
+	} else {
+		children = append(children,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(24), Bottom: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Dp(unit.Dp(48))
+					gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(48))
+					return material.Loader(th).Layout(gtx)
+				})
+			}),
+		)
+	}
+
+	return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx, children...)
+}
+
+type customDialogContent struct {
+	title       string
+	body        layout.Widget
+	showButtons bool
+}
+
+func (c *customDialogContent) ShowsButtons() bool { return c.showButtons }
+
+func (c *customDialogContent) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(material.H6(th, c.title).Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(16)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx = limitMaxHeight(gtx, dialogMaxBodyHeight)
+				if c.body != nil {
+					return c.body(gtx)
+				}
+				return layout.Dimensions{}
+			})
+		}),
+	)
 }

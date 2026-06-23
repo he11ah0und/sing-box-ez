@@ -83,8 +83,8 @@ func TestCoreLogWriterClose(t *testing.T) {
 
 func TestCoreLogProcessorDrainsOnStop(t *testing.T) {
 	sheet := fwconfig.NewSheet(fwconfig.SheetOptions{})
-	sheet.Register([]string{"core", "watch_logs"}, fwconfig.TypeBool, true)
 	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, false)
+	sheet.Register([]string{"log", "limit"}, fwconfig.TypeInt, 100)
 	cfg := &config.AppConfig{
 		Sheet:   sheet,
 		DataDir: t.TempDir(),
@@ -106,7 +106,7 @@ func TestCoreLogProcessorDrainsOnStop(t *testing.T) {
 	// Give the asynchronous log append a moment to land.
 	time.Sleep(50 * time.Millisecond)
 
-	lines := log.GetLines()
+	lines := p.LogBuffer().GetLines()
 	found := false
 	for _, line := range lines {
 		if strings.Contains(line, "hello world") {
@@ -115,6 +115,14 @@ func TestCoreLogProcessorDrainsOnStop(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected drained log line to be mirrored, got: %v", lines)
+		t.Errorf("expected drained log line in core buffer, got: %v", lines)
+	}
+
+	clean := p.LogBuffer().GetCleanLines()
+	if len(clean) != len(lines) {
+		t.Fatalf("expected %d clean lines, got %d", len(lines), len(clean))
+	}
+	if !strings.Contains(clean[0], "hello world") {
+		t.Errorf("expected clean line to contain hello world, got %q", clean[0])
 	}
 }

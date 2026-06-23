@@ -6,7 +6,7 @@ package windows
 
 import (
 	"errors"
-	"sing-box-ez/internal/svcman"
+	"sing-box-ez/internal/framework/svcman"
 )
 
 // Manager is a no-op stub on non-Windows platforms.

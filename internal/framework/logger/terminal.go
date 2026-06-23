@@ -11,6 +11,38 @@ type LogTerminal struct {
 	parent *LogTerminal
 }
 
+// GetLines returns a copy of the current log lines.
+func (t *LogTerminal) GetLines() []string {
+	if t == nil || t.logger == nil {
+		return nil
+	}
+	return t.logger.GetLines()
+}
+
+// GetLinesAtLeast returns log lines with severity >= minLevel.
+func (t *LogTerminal) GetLinesAtLeast(minLevel LogLevel) []string {
+	if t == nil || t.logger == nil {
+		return nil
+	}
+	return t.logger.GetLinesAtLeast(minLevel)
+}
+
+// Clear removes all stored log lines.
+func (t *LogTerminal) Clear() {
+	if t == nil || t.logger == nil {
+		return
+	}
+	t.logger.Clear()
+}
+
+// SetLimit updates the stored line limit.
+func (t *LogTerminal) SetLimit(limit int) {
+	if t == nil || t.logger == nil {
+		return
+	}
+	t.logger.SetLimit(limit)
+}
+
 // FullPath returns the slash-separated path of this terminal
 // (e.g. "root/core/start").
 func (t *LogTerminal) FullPath() string {
