@@ -2,7 +2,6 @@ package pages
 
 import (
 	"fmt"
-	"image"
 	"image/color"
 	"strings"
 	"time"
@@ -113,7 +112,7 @@ func (p *ConfigsPage) Children(gtx layout.Context) []layout.FlexChild {
 						return material.Button(p.th, &p.addBtn, localengine.T("configs", "btn", "add")).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+						return widgets.HSpace(gtx, unit.Dp(8))
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Button(p.th, &p.updateAllBtn, localengine.T("configs", "btn", "update_all")).Layout(gtx)
@@ -358,13 +357,13 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 						return material.Button(p.th, &saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+						return widgets.HSpace(gtx, unit.Dp(8))
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Button(p.th, &updateNowBtn, localengine.T("configs", "dialog", "btn", "update_now")).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+						return widgets.HSpace(gtx, unit.Dp(8))
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Button(p.th, &deleteBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)

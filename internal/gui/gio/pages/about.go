@@ -3,7 +3,6 @@ package pages
 import (
 	"context"
 	"fmt"
-	"image"
 	"sync"
 
 	"gio.tools/icons"
@@ -214,7 +213,7 @@ func (p *AboutPage) Children(gtx layout.Context) []layout.FlexChild {
 					return material.Button(p.th, &p.releaseNotesBtn, localengine.T("about", "btn", "release_notes")).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+					return widgets.HSpace(gtx, unit.Dp(8))
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return material.Button(p.th, &p.openReleaseNotesBtn, localengine.T("about", "btn", "open_release_notes")).Layout(gtx)

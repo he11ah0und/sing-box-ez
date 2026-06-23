@@ -246,6 +246,12 @@ func (e *Engine[T]) HelpRequested() bool {
 	return e.helpRequested()
 }
 
+// GlobalValue returns the parsed value of a global flag, if present.
+func (e *Engine[T]) GlobalValue(name string) (Value, bool) {
+	v, ok := e.globalValues[name]
+	return v, ok
+}
+
 func (e *Engine[T]) findGlobalFlag(name string, short rune) *Flag {
 	for i := range e.globalFlags {
 		f := &e.globalFlags[i]
@@ -272,19 +278,26 @@ func (e *Engine[T]) findCommandFlag(cmd *CommandDef[T], name string, short rune)
 	return nil
 }
 
-type parsedItem struct {
-	name  string
-	desc  string
-	raw   string
-	value Value
-	err   error
+func (e *Engine[T]) parseCommand(cmdName string, cmd *CommandDef[T], tokens []string) (*Context, error) {
+	positionals, flags, errs := e.parseCommandFlags(cmd, tokens)
+	argValues, argErrs := e.parseCommandArgs(cmd, positionals)
+	errs = append(errs, argErrs...)
+
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+
+	return &Context{
+		command: cmdName,
+		args:    argValues,
+		flags:   flags,
+		globals: e.globalValues,
+	}, nil
 }
 
-func (e *Engine[T]) parseCommand(cmdName string, cmd *CommandDef[T], tokens []string) (*Context, error) {
-	positionals := make([]string, 0, len(tokens))
-	flags := make(map[string]Value)
-	flagItems := make([]parsedItem, 0, len(cmd.Flags))
-	var errs []string
+func (e *Engine[T]) parseCommandFlags(cmd *CommandDef[T], tokens []string) (positionals []string, flags map[string]Value, errs []string) {
+	flags = make(map[string]Value)
+	positionals = make([]string, 0, len(tokens))
 
 	i := 0
 	for i < len(tokens) {
@@ -335,7 +348,6 @@ func (e *Engine[T]) parseCommand(cmdName string, cmd *CommandDef[T], tokens []st
 		}
 
 		v, err := def.Type.Parse(raw)
-		flagItems = append(flagItems, parsedItem{name: def.Name, desc: def.Desc, raw: raw, value: v, err: err})
 		if err == nil {
 			flags[def.Name] = v
 		} else {
@@ -343,16 +355,16 @@ func (e *Engine[T]) parseCommand(cmdName string, cmd *CommandDef[T], tokens []st
 		}
 	}
 
-	// Apply flag defaults.
 	for _, f := range cmd.Flags {
 		if _, ok := flags[f.Name]; !ok && f.Default != nil {
 			flags[f.Name] = f.Default
 		}
 	}
+	return
+}
 
-	// Validate and parse positional arguments.
-	required := 0
-	optional := 0
+func (e *Engine[T]) parseCommandArgs(cmd *CommandDef[T], positionals []string) (argValues map[string]Value, errs []string) {
+	required, optional := 0, 0
 	for _, a := range cmd.Args {
 		if a.Optional {
 			optional++
@@ -361,13 +373,12 @@ func (e *Engine[T]) parseCommand(cmdName string, cmd *CommandDef[T], tokens []st
 		}
 	}
 
-	argItems := make([]parsedItem, 0, len(cmd.Args))
-	argValues := make(map[string]Value)
+	argValues = make(map[string]Value)
 
 	if len(positionals) < required {
 		for idx := len(positionals); idx < required; idx++ {
 			def := cmd.Args[idx]
-			argItems = append(argItems, parsedItem{name: def.Name, desc: def.Desc, err: fmt.Errorf("missing required argument")})
+			_ = def
 		}
 		errs = append(errs, "missing required arguments")
 	} else if len(positionals) > required+optional {
@@ -384,7 +395,6 @@ func (e *Engine[T]) parseCommand(cmdName string, cmd *CommandDef[T], tokens []st
 			has = true
 		} else if def.Optional && def.Default != nil {
 			argValues[def.Name] = def.Default
-			argItems = append(argItems, parsedItem{name: def.Name, desc: def.Desc, raw: def.Default.String(), value: def.Default})
 			continue
 		}
 
@@ -397,24 +407,13 @@ func (e *Engine[T]) parseCommand(cmdName string, cmd *CommandDef[T], tokens []st
 			t = String
 		}
 		v, err := t.Parse(raw)
-		argItems = append(argItems, parsedItem{name: def.Name, desc: def.Desc, raw: raw, value: v, err: err})
 		if err == nil {
 			argValues[def.Name] = v
 		} else {
 			errs = append(errs, fmt.Sprintf("invalid value for argument %q: %v", def.Name, err))
 		}
 	}
-
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("%s", strings.Join(errs, "; "))
-	}
-
-	return &Context{
-		command: cmdName,
-		args:    argValues,
-		flags:   flags,
-		globals: e.globalValues,
-	}, nil
+	return
 }
 
 func (e *Engine[T]) printCommandUsage(w io.Writer, name string, cmd *CommandDef[T]) {

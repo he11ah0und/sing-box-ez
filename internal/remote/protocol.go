@@ -42,7 +42,7 @@ const (
 	MethodCoreRestart
 	MethodCoreStatus
 	MethodLogEvent     // server -> client push
-	MethodSetWatchLogs // client -> server toggle
+	MethodSetWatchLogs // deprecated: kept for protocol compatibility, ignored
 	MethodConfigGetActive
 	MethodConfigSetActive
 	MethodConfigUpdate

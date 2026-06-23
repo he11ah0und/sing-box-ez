@@ -10,18 +10,19 @@ import (
 )
 
 // CoreLogProcessor reads stdout/stderr lines from a running core process,
-// optionally mirrors them into the application log, and handles fatal-error
-// auto-restart logic.
+// stores them in a dedicated CoreLogBuffer, and handles fatal-error auto-restart
+// logic.
 type CoreLogProcessor struct {
-	cfg      *config.AppConfig
-	manager  *Manager
-	writer   *CoreLogWriter
-	terminal *logger.LogTerminal
-	started  bool
-	startMu  sync.Mutex
-	ticker   *time.Ticker
-	stopCh   chan struct{}
-	wg       sync.WaitGroup
+	cfg       *config.AppConfig
+	manager   *Manager
+	writer    *CoreLogWriter
+	terminal  *logger.LogTerminal
+	logBuffer *CoreLogBuffer
+	started   bool
+	startMu   sync.Mutex
+	ticker    *time.Ticker
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
 
 	lastAutoRestart time.Time
 	autoRestartMu   sync.Mutex
@@ -41,12 +42,18 @@ type LogSubscription struct {
 // NewCoreLogProcessor creates a processor tied to the given manager, writer and logger root.
 func NewCoreLogProcessor(cfg *config.AppConfig, manager *Manager, writer *CoreLogWriter, root *logger.LogTerminal) *CoreLogProcessor {
 	return &CoreLogProcessor{
-		cfg:      cfg,
-		manager:  manager,
-		writer:   writer,
-		terminal: root.Allocate("core"),
-		stopCh:   make(chan struct{}),
+		cfg:       cfg,
+		manager:   manager,
+		writer:    writer,
+		terminal:  root.Allocate("core"),
+		logBuffer: NewCoreLogBuffer(cfg.Int("log", "limit")),
+		stopCh:    make(chan struct{}),
 	}
+}
+
+// LogBuffer returns the dedicated core log buffer.
+func (p *CoreLogProcessor) LogBuffer() *CoreLogBuffer {
+	return p.logBuffer
 }
 
 // Start begins reading core process logs in a background goroutine.
@@ -164,17 +171,14 @@ func (p *CoreLogProcessor) notifySubscribers(line string) {
 }
 
 func (p *CoreLogProcessor) processCoreLogs(lines []string) {
-	watch := p.cfg.MustGet("core", "watch_logs").Bool()
 	restart := p.cfg.MustGet("core", "auto_restart").Bool()
-	if !watch && !restart {
-		return
-	}
 
 	for _, msg := range lines {
 		msg = strings.TrimSpace(msg)
 		if msg == "" {
 			continue
 		}
+		p.logBuffer.Add(msg)
 		if restart && isCoreFatalError(msg) {
 			p.autoRestartMu.Lock()
 			if time.Since(p.lastAutoRestart) > 30*time.Second {
@@ -192,9 +196,6 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 			} else {
 				p.autoRestartMu.Unlock()
 			}
-		}
-		if watch {
-			p.terminal.Infof("%s", msg)
 		}
 		p.notifySubscribers(msg)
 	}

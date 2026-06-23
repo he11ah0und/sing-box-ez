@@ -126,6 +126,18 @@ func (c *Controller) ClearLogs() {
 	c.fwApp.Logger.Clear()
 }
 
+func (c *Controller) GetCoreLogLines() []string {
+	return c.processor.LogBuffer().GetLines()
+}
+
+func (c *Controller) GetCoreLogCleanLines() []string {
+	return c.processor.LogBuffer().GetCleanLines()
+}
+
+func (c *Controller) ClearCoreLogs() {
+	c.processor.LogBuffer().Clear()
+}
+
 // ---------- Core lifecycle ----------
 
 func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
@@ -465,6 +477,7 @@ func (c *Controller) SetLogLimit(v int) {
 	c.cfg.MustGet("log", "limit").Update(v)
 	_ = c.cfg.Save()
 	c.fwApp.Logger.SetLimit(v)
+	c.processor.LogBuffer().SetLimit(v)
 	c.terminal.Infof("Log limit set to %d", v)
 }
 

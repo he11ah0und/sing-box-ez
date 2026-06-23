@@ -17,6 +17,7 @@ import (
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/net"
+	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
 )
 
@@ -40,7 +41,7 @@ type Manager struct {
 }
 
 // ProgressFunc is called during downloads: downloaded, total.
-type ProgressFunc func(downloaded, total int64)
+type ProgressFunc = rpc.ProgressFunc
 
 // NewManager creates a new core manager for the given base directory and framework services.
 func NewManager(baseDir string, fsys fs.FS, updater *updater.Manager, log *logger.Logger) *Manager {

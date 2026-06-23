@@ -333,7 +333,7 @@ func (s *Shell) navItem(gtx layout.Context, label string, icon *widget.Icon, btn
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(12)), Y: 0}}
+						return widgets.HSpace(gtx, unit.Dp(12))
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						lbl := material.Body1(s.th, label)

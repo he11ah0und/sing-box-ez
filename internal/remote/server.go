@@ -11,7 +11,7 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/ipc"
+	"sing-box-ez/internal/framework/ipc"
 )
 
 // Server exposes a core.Controller over the remote RPC protocol.
@@ -139,73 +139,70 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 }
 
+type handlerFunc func(s *Server, msg Message) (any, error)
+
+var handlers = map[uint8]handlerFunc{
+	MethodPing:        func(s *Server, msg Message) (any, error) { return Empty{}, nil },
+	MethodCoreStart:   func(s *Server, msg Message) (any, error) { _, err := s.ctrl.PrepareConfig(); return Empty{}, err },
+	MethodCoreStop:    func(s *Server, msg Message) (any, error) { return Empty{}, s.ctrl.Stop() },
+	MethodCoreRestart: func(s *Server, msg Message) (any, error) { return Empty{}, s.ctrl.Restart() },
+	MethodCoreStatus: func(s *Server, msg Message) (any, error) {
+		return CoreStatusRes{Running: s.ctrl.IsRunning(), PID: s.ctrl.GetPID()}, nil
+	},
+	MethodSetWatchLogs: func(s *Server, msg Message) (any, error) { return Empty{}, nil },
+	MethodConfigGetActive: func(s *Server, msg Message) (any, error) {
+		rec := s.ctrl.Config().GetActiveConfig()
+		if rec == nil {
+			return ConfigRecordMsg{}, fmt.Errorf("no active config")
+		}
+		return configRecordToMsg(*rec), nil
+	},
+	MethodConfigSetActive: func(s *Server, msg Message) (any, error) {
+		var req ConfigSetActiveReq
+		if err := UnmarshalPayload(msg.Payload, &req); err != nil {
+			return nil, err
+		}
+		return Empty{}, s.ctrl.ActivateConfig(req.Name)
+	},
+	MethodConfigUpdate: func(s *Server, msg Message) (any, error) {
+		var req ConfigUpdateReq
+		if err := UnmarshalPayload(msg.Payload, &req); err != nil {
+			return nil, err
+		}
+		return Empty{}, s.ctrl.UpdateConfigNow(req.Name, req.URL)
+	},
+	MethodConfigList: func(s *Server, msg Message) (any, error) {
+		return buildConfigList(s.ctrl.Config()), nil
+	},
+	MethodCoreDownloadCore: func(s *Server, msg Message) (any, error) {
+		_, err := s.ctrl.DownloadCore(nil)
+		return Empty{}, err
+	},
+	MethodAppShutdown: func(s *Server, msg Message) (any, error) {
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			s.ctrl.Close()
+		}()
+		return Empty{}, nil
+	},
+}
+
 func (s *Server) dispatch(cc *clientConn, msg Message) {
 	var respPayload []byte
 	var flags uint8 = FlagResponse
 
-	handle := func() (any, error) {
-		switch msg.Header.Method {
-		case MethodPing:
-			return Empty{}, nil
-		case MethodCoreStart:
-			if _, err := s.ctrl.PrepareConfig(); err != nil {
-				return nil, err
-			}
-			return Empty{}, s.ctrl.Start()
-		case MethodCoreStop:
-			return Empty{}, s.ctrl.Stop()
-		case MethodCoreRestart:
-			return Empty{}, s.ctrl.Restart()
-		case MethodCoreStatus:
-			return CoreStatusRes{Running: s.ctrl.IsRunning(), PID: s.ctrl.GetPID()}, nil
-		case MethodSetWatchLogs:
-			var req BoolValue
-			if err := UnmarshalPayload(msg.Payload, &req); err != nil {
-				return nil, err
-			}
-			s.ctrl.Config().MustGet("core", "watch_logs").Update(req.Value)
-			_ = s.ctrl.Config().Save()
-			return Empty{}, nil
-		case MethodConfigGetActive:
-			rec := s.ctrl.Config().GetActiveConfig()
-			if rec == nil {
-				return ConfigRecordMsg{}, fmt.Errorf("no active config")
-			}
-			return configRecordToMsg(*rec), nil
-		case MethodConfigSetActive:
-			var req ConfigSetActiveReq
-			if err := UnmarshalPayload(msg.Payload, &req); err != nil {
-				return nil, err
-			}
-			return Empty{}, s.ctrl.ActivateConfig(req.Name)
-		case MethodConfigUpdate:
-			var req ConfigUpdateReq
-			if err := UnmarshalPayload(msg.Payload, &req); err != nil {
-				return nil, err
-			}
-			return Empty{}, s.ctrl.UpdateConfigNow(req.Name, req.URL)
-		case MethodConfigList:
-			return buildConfigList(s.ctrl.Config()), nil
-		case MethodCoreDownloadCore:
-			_, err := s.ctrl.DownloadCore(nil)
-			return Empty{}, err
-		case MethodAppShutdown:
-			go func() {
-				time.Sleep(100 * time.Millisecond)
-				s.ctrl.Close()
-			}()
-			return Empty{}, nil
-		default:
-			return nil, fmt.Errorf("unknown method %d", msg.Header.Method)
-		}
-	}
-
-	res, err := handle()
-	if err != nil {
+	h, ok := handlers[msg.Header.Method]
+	if !ok {
 		flags = FlagError
-		respPayload, _ = MarshalPayload(NewError(err))
+		respPayload, _ = MarshalPayload(NewError(fmt.Errorf("unknown method %d", msg.Header.Method)))
 	} else {
-		respPayload, _ = MarshalPayload(res)
+		res, err := h(s, msg)
+		if err != nil {
+			flags = FlagError
+			respPayload, _ = MarshalPayload(NewError(err))
+		} else {
+			respPayload, _ = MarshalPayload(res)
+		}
 	}
 
 	respHeader := Header{

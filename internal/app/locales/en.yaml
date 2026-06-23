@@ -49,7 +49,6 @@ core:
     admin: Admin
     setcap: Setcap
     setcap_prompt: setcap is not applied to the core binary. Apply it now to enable TUN without root?
-  record_core_logs: Record core logs
 configs:
   title: Configs
   btn:
@@ -124,8 +123,17 @@ settings:
   startup:
     title: Startup
     mode_label: Default startup mode
-    mode_embedded: Embedded
-    mode_remote: Remote
+    mode_embed: embed
+    mode_remote: remote
+    mode_systemd: systemd
+    mode_openrc: openrc
+    mode_sysv: sysv
+    mode_windows: windows service
+    mode_systemd-user: systemd user
+    mode_dummy: dummy
+    mode_unix: remote
+    mode_tcp: remote
+    mode_npipe: remote
     show_dialog: Show mode selection dialog at startup
   plugins:
     title: Plugins
@@ -147,12 +155,30 @@ settings:
 startup:
   title: sing-box-ez
   subtitle: Choose how to run
-  btn:
-    embedded: Run core embedded
-    remote: Connect to remote
   remember: Remember my choice
+  continue: Continue
+  status_online: online
+  status_offline: offline
+  mode_embed: embed
+  mode_remote: remote
+  mode_systemd: systemd
+  mode_openrc: openrc
+  mode_sysv: sysv
+  mode_windows: windows service
+  mode_systemd-user: systemd user
+  mode_dummy: dummy
+  remote_address_placeholder: TCP address (e.g. 127.0.0.1:8080)
+  service_start: Start service
+  service_stop: Stop service
+  mode_unix: remote
+  mode_tcp: remote
+  mode_npipe: remote
 log:
   title: Log
+  tab:
+    app: App
+    core: Core
+  empty: No log entries
   btn:
     copy: Copy all
     clear: Clear

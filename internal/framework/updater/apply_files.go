@@ -46,6 +46,20 @@ func (a *FilesUpdateApply) Apply(ctx context.Context, source Source, info Update
 }
 
 func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info UpdateInfo, uf UpdateFile, onProgress func(downloaded, total int64)) error {
+	if err := a.validateFile(uf); err != nil {
+		return err
+	}
+	tmpFile, tmpPath, cleanup, err := a.downloadTemp(ctx, source, uf, onProgress)
+	if err != nil {
+		return err
+	}
+	if len(a.InstallScript) > 0 {
+		return a.applyInstallScript(ctx, uf, info, tmpPath, cleanup, onProgress)
+	}
+	return a.applyDownloaded(uf, tmpFile, tmpPath)
+}
+
+func (a *FilesUpdateApply) validateFile(uf UpdateFile) error {
 	if uf.Asset.URL == "" {
 		return a.Log.Errorf("file %q has no download URL", uf.DestPath)
 	}
@@ -55,7 +69,10 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 	if a.FS == nil {
 		return a.Log.Errorf("file system not configured")
 	}
+	return nil
+}
 
+func (a *FilesUpdateApply) downloadTemp(ctx context.Context, source Source, uf UpdateFile, onProgress func(downloaded, total int64)) (fs.File, string, func(), error) {
 	tmpName := fmt.Sprintf(".sing-box-ez-%d.tmp", os.Getpid())
 	tmpDir := filepath.Dir(uf.DestPath)
 	if uf.Asset.Format != FormatRaw {
@@ -63,19 +80,17 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 	}
 	tmpDirObj := a.FS.Root().Subdir(tmpDir)
 	if err := tmpDirObj.MkdirAll(0750); err != nil {
-		return a.Log.Errorf("cannot prepare temp dir for %q: %v", uf.DestPath, err)
+		return nil, "", nil, a.Log.Errorf("cannot prepare temp dir for %q: %v", uf.DestPath, err)
 	}
 	tmpPath := filepath.Join(tmpDir, tmpName)
 	if a.BaseDir != "" {
-		// NewArchiveFS opens the path directly with os.Open, so it must be
-		// absolute to be found regardless of the process working directory.
 		tmpPath = filepath.Join(a.BaseDir, tmpPath)
 	}
 
 	tmpFile := a.FS.Root().File(tmpPath)
 	f, err := tmpFile.OpenFile(os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
-		return a.Log.Errorf("cannot create temporary file for %q: %v", uf.DestPath, err)
+		return nil, "", nil, a.Log.Errorf("cannot create temporary file for %q: %v", uf.DestPath, err)
 	}
 	cleanup := func() { _ = tmpFile.Remove() }
 
@@ -85,70 +100,73 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 	}
 	if downloadErr != nil {
 		cleanup()
-		return fmt.Errorf("download %s failed: %w", uf.Asset.Name, downloadErr)
+		return nil, "", nil, fmt.Errorf("download %s failed: %w", uf.Asset.Name, downloadErr)
 	}
+	return tmpFile, tmpPath, cleanup, nil
+}
 
-	if len(a.InstallScript) > 0 {
-		assetFS, err := a.assetFS(uf.Asset.Format, tmpPath)
-		if err != nil {
-			cleanup()
-			return a.Log.Errorf("open asset fs: %v", err)
-		}
-		defer a.closeAssetFS(assetFS)
-
-		vm := luavm.NewVM(a.Log, a.BaseDir, a.FS, []string{uf.DestPath}, tmpPath)
-		vm.Progress = toProgressConfig("copy", onProgress)
-		if assetFS != nil {
-			vm.SetAssetFS(assetFS)
-		}
-		defer vm.Close()
-
-		result, err := vm.Run(a.InstallScript, luavm.InstallContext{
-			Asset: luavm.AssetInfo{
-				Path:   tmpPath,
-				Format: uf.Asset.Format,
-				Name:   uf.Asset.Name,
-				Size:   uf.Asset.Size,
-			},
-			Release: luavm.ReleaseInfo{
-				Version:     info.Latest,
-				Channel:     "",
-				Body:        info.LatestBody,
-				PublishedAt: info.LatestDate,
-			},
-		})
-		if err != nil {
-			cleanup()
-			return err
-		}
-		if result.ReplaceBinary != "" {
-			_ = result.ReplaceBinary // files-update does not replace running binary
-		}
+func (a *FilesUpdateApply) applyInstallScript(ctx context.Context, uf UpdateFile, info UpdateInfo, tmpPath string, cleanup func(), onProgress func(downloaded, total int64)) error {
+	assetFS, err := a.assetFS(uf.Asset.Format, tmpPath)
+	if err != nil {
 		cleanup()
-		return nil
+		return a.Log.Errorf("open asset fs: %v", err)
 	}
+	defer a.closeAssetFS(assetFS)
 
+	vm := luavm.NewVM(a.Log, a.BaseDir, a.FS, []string{uf.DestPath}, tmpPath)
+	vm.Progress = toProgressConfig("copy", onProgress)
+	if assetFS != nil {
+		vm.SetAssetFS(assetFS)
+	}
+	defer vm.Close()
+
+	result, err := vm.Run(a.InstallScript, luavm.InstallContext{
+		Asset: luavm.AssetInfo{
+			Path:   tmpPath,
+			Format: uf.Asset.Format,
+			Name:   uf.Asset.Name,
+			Size:   uf.Asset.Size,
+		},
+		Release: luavm.ReleaseInfo{
+			Version:     info.Latest,
+			Channel:     "",
+			Body:        info.LatestBody,
+			PublishedAt: info.LatestDate,
+		},
+	})
+	if err != nil {
+		cleanup()
+		return err
+	}
+	if result.ReplaceBinary != "" {
+		_ = result.ReplaceBinary // files-update does not replace running binary
+	}
+	cleanup()
+	return nil
+}
+
+func (a *FilesUpdateApply) applyDownloaded(uf UpdateFile, tmpFile fs.File, tmpPath string) error {
 	switch uf.Asset.Format {
 	case FormatRaw:
 		if err := tmpFile.Rename(filepath.Base(uf.DestPath)); err != nil {
-			cleanup()
+			_ = tmpFile.Remove()
 			return a.Log.Errorf("replace %q failed: %v", uf.DestPath, err)
 		}
 		return nil
 	case FormatZIP, FormatTarGz, FormatTarBz2:
 		assetFS, err := fs.NewArchiveFS(tmpPath, uf.Asset.Format)
 		if err != nil {
-			cleanup()
+			_ = tmpFile.Remove()
 			return a.Log.Errorf("open archive %q: %v", tmpPath, err)
 		}
 		if err := assetFS.Root().CopyTo(a.FS.Root().Subdir(uf.DestPath)); err != nil {
-			cleanup()
+			_ = tmpFile.Remove()
 			return a.Log.Errorf("extract archive %s to %q failed: %v", uf.Asset.Name, uf.DestPath, err)
 		}
-		cleanup()
+		_ = tmpFile.Remove()
 		return nil
 	default:
-		cleanup()
+		_ = tmpFile.Remove()
 		return a.Log.Errorf("unsupported asset format %q for %q", uf.Asset.Format, uf.Asset.Name)
 	}
 }

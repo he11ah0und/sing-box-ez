@@ -54,7 +54,6 @@ core:
     admin: Админ
     setcap: Setcap
     setcap_prompt: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
-  record_core_logs: Записывать логи ядра
 configs:
   title: Конфиги
   btn:
@@ -129,8 +128,17 @@ settings:
   startup:
     title: Запуск
     mode_label: Режим запуска по умолчанию
-    mode_embedded: Встроенный
-    mode_remote: Удалённый
+    mode_embed: embed
+    mode_remote: удалённый
+    mode_systemd: systemd
+    mode_openrc: openrc
+    mode_sysv: sysv
+    mode_windows: служба Windows
+    mode_systemd-user: systemd пользовательская
+    mode_dummy: dummy
+    mode_unix: remote
+    mode_tcp: remote
+    mode_npipe: remote
     show_dialog: Показывать диалог выбора режима при запуске
   plugins:
     title: Плагины
@@ -152,12 +160,30 @@ settings:
 startup:
   title: sing-box-ez
   subtitle: Выберите режим запуска
-  btn:
-    embedded: Запустить ядро встроенно
-    remote: Подключиться к удалённому
   remember: Запомнить выбор
+  continue: Продолжить
+  status_online: онлайн
+  status_offline: офлайн
+  mode_embed: embed
+  mode_remote: удалённый
+  mode_systemd: systemd
+  mode_openrc: openrc
+  mode_sysv: sysv
+  mode_windows: служба Windows
+  mode_systemd-user: systemd пользовательская
+  mode_dummy: dummy
+  remote_address_placeholder: TCP-адрес (например, 127.0.0.1:8080)
+  service_start: Запустить службу
+  service_stop: Остановить службу
+  mode_unix: remote
+  mode_tcp: remote
+  mode_npipe: remote
 log:
   title: Лог
+  tab:
+    app: Приложение
+    core: Ядро
+  empty: Нет записей
   btn:
     copy: Копировать всё
     clear: Очистить
