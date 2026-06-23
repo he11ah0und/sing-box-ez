@@ -6,7 +6,7 @@ GO := go
 GOPATH := $(shell go env GOPATH)
 GO_BIN := $(GOPATH)/bin
 
-BRANCH     := $(shell git describe --tags --exact-match 2>/dev/null || git branch --show-current 2>/dev/null || echo "dev")
+BRANCH     := $(shell git branch --show-current 2>/dev/null || git describe --tags --exact-match 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DEV    := $(shell git diff-index --quiet HEAD 2>/dev/null && echo "false" || echo "true")
@@ -259,12 +259,12 @@ build-nogui:
 # ---------------------------------------------------------------------------
 run: GUI=1
 run: build
-	$(OUTPUT)
+	$(OUTPUT) $(ARGS)
 
 run-nogui: GUI=0
 run-nogui: PLUGINS=0
 run-nogui: build
-	$(OUTPUT)
+	$(OUTPUT) $(ARGS)
 
 # ---------------------------------------------------------------------------
 # Clean

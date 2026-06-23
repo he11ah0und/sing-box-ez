@@ -4,13 +4,12 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"image/color"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	"sing-box-ez/internal/app"
+	apppkg "sing-box-ez/internal/app"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
@@ -18,6 +17,7 @@ import (
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/gio/pages"
+	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/tray"
 
 	gioapp "gioui.org/app"
@@ -33,7 +33,7 @@ import (
 
 // GUI holds the new Gio-based adaptive UI.
 type GUI struct {
-	app *app.App
+	app *apppkg.App
 	cfg *config.AppConfig
 
 	// Theme
@@ -72,12 +72,30 @@ type GUI struct {
 }
 
 // New creates a new Gio GUI instance.
-func New(app *app.App) *GUI {
-	cfg := app.Config
+func New(app *apppkg.App) *GUI {
+	cfg := app.Config.(*config.AppConfig)
 	th := material.NewTheme()
-	// Dark theme by default
-	th.Palette.Bg = color.NRGBA{R: 18, G: 18, B: 18, A: 255}
-	th.Palette.Fg = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+
+	if err := theme.Init(th, cfg.DataDir, apppkg.ThemesFS); err != nil {
+		// Log and continue with the material defaults if theme loading fails.
+		app.Logger.Root.Warnf("failed to load themes: %v", err)
+	} else {
+		themeName := cfg.MustGet("ui", "theme").String()
+		if themeName == "" {
+			themeName = "default"
+			_ = cfg.MustGet("ui", "theme").Update(themeName)
+		}
+		mode := theme.Mode(cfg.MustGet("ui", "theme_mode").String())
+		if mode == "" {
+			mode = theme.ModeSystem
+			_ = cfg.MustGet("ui", "theme_mode").Update(string(mode))
+		}
+		if err := theme.M.Apply(themeName, mode); err != nil {
+			app.Logger.Root.Warnf("failed to apply theme %q: %v", themeName, err)
+		} else {
+			_ = cfg.Save()
+		}
+	}
 
 	g := &GUI{
 		app: app,
@@ -136,7 +154,7 @@ func New(app *app.App) *GUI {
 	g.pluginsPage = pages.NewPluginsPage(th, g.ctrl.Controller)
 
 	primary := []pages.Page{mainPage, g.configsPage}
-	secondary := g.buildSecondaryPages(cfg.GetShowLogs())
+	secondary := g.buildSecondaryPages(cfg.MustGet("ui", "show_logs").Bool())
 
 	g.shell = NewShell(th, cfg, g.ctrl.Controller, primary, secondary)
 	g.shell.dialog = dialog
@@ -154,7 +172,7 @@ func (g *GUI) buildSecondaryPages(showLogs bool) []pages.Page {
 	if showLogs {
 		secondary = append(secondary, g.logPage)
 	}
-	if g.cfg.GetPluginsEnabled() {
+	if g.cfg.MustGet("plugins", "enabled").Bool() {
 		secondary = append(secondary, g.pluginsPage)
 	}
 	secondary = append(secondary, g.aboutPage)
@@ -275,13 +293,13 @@ func (g *GUI) showResetConfirm() {
 	}, nil)
 }
 
-// resetDataAndRestart removes config.json, profiles.json and the configs folder,
+// resetDataAndRestart removes config.yaml, profiles.yaml and the configs folder,
 // shows a confirmation dialog, and then requests a restart.
 func (g *GUI) resetDataAndRestart() {
 	dataDir := g.cfg.DataDir
 	paths := []string{
-		filepath.Join(dataDir, "config.json"),
-		filepath.Join(dataDir, "profiles.json"),
+		filepath.Join(dataDir, "config.yaml"),
+		filepath.Join(dataDir, "profiles.yaml"),
 		filepath.Join(dataDir, "configs"),
 	}
 	var errs []string
@@ -316,7 +334,6 @@ func (g *GUI) tryLoadEmojiFont() []font.FontFace {
 	return []font.FontFace{{Font: face.Font(), Face: face}}
 }
 
-
 func (g *GUI) runStartupUpdateChecks() {
 	g.checkSelfUpdateAtStartup(func() {
 		g.checkCoreUpdateAtStartup(nil)
@@ -324,7 +341,7 @@ func (g *GUI) runStartupUpdateChecks() {
 }
 
 func (g *GUI) checkSelfUpdateAtStartup(done func()) {
-	if !g.cfg.GetAutoCheckSelfUpdates() {
+	if !g.cfg.MustGet("updates", "auto_check_self").Bool() {
 		if done != nil {
 			done()
 		}
@@ -440,7 +457,7 @@ func (g *GUI) runSelfUpdateAtStartup(info *updater.UpdateInfo, done func()) {
 }
 
 func (g *GUI) checkCoreUpdateAtStartup(done func()) {
-	if !g.cfg.GetAutoCheckCoreUpdates() {
+	if !g.cfg.MustGet("updates", "auto_check_core").Bool() {
 		if done != nil {
 			done()
 		}

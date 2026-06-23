@@ -51,7 +51,7 @@ type UpdateInfo struct {
 	LatestDate   time.Time // published date of the latest release
 	AssetURL     string
 	AssetName    string
-	Asset        Asset       // full selected asset metadata (used by self-update)
+	Asset        Asset        // full selected asset metadata (used by self-update)
 	Files        []UpdateFile // auxiliary files to update (used by files-update)
 }
 

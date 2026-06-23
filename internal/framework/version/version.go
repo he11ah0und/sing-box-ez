@@ -13,7 +13,7 @@ var (
 	BuildOS       = "unknown"
 	BuildArch     = "unknown"
 	BuildGUI      = "unknown"
-	BuildBackend  = ""
+	BuildBackend  = "unknown"
 	BuildCompiler = "unknown"
 	BuildDev      = "true"
 	CommitDate    = "unknown"

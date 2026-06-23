@@ -144,6 +144,7 @@ func luaConfigList(cfg *config.AppConfig, parent string) lua.LGFunction {
 			L.SetField(item, "name", lua.LString(rec.Name))
 			L.SetField(item, "url", lua.LString(rec.URL))
 			L.SetField(item, "interval", lua.LNumber(rec.UpdateIntervalHours))
+			L.SetField(item, "auto_update", lua.LBool(rec.IsAutoUpdate()))
 			L.SetField(item, "last_update", lua.LString(rec.LastUpdate.Format(time.RFC3339)))
 			L.SetField(item, "next_update", lua.LString(rec.NextUpdate().Format(time.RFC3339)))
 			tbl.RawSetInt(i+1, item)
@@ -161,6 +162,7 @@ func luaConfigAdd(cfg *config.AppConfig, parent string) lua.LGFunction {
 		if interval <= 0 {
 			interval = 24
 		}
+		autoUpdate := L.OptBool(4, true)
 		if cfg.GetConfigByName(name) != nil {
 			L.Push(lua.LString("config name already exists"))
 			return 1
@@ -170,6 +172,7 @@ func luaConfigAdd(cfg *config.AppConfig, parent string) lua.LGFunction {
 			URL:                 url,
 			UpdateIntervalHours: interval,
 			Parent:              parent,
+			AutoUpdate:          &autoUpdate,
 		}
 		cfg.AddConfig(rec)
 		if err := cfg.Save(); err != nil {
@@ -194,12 +197,14 @@ func luaConfigUpdate(cfg *config.AppConfig, parent string) lua.LGFunction {
 			L.Push(lua.LString("config not found or not owned by this plugin"))
 			return 1
 		}
+		autoUpdate := L.OptBool(4, rec.IsAutoUpdate())
 		updated := config.ConfigRecord{
 			Name:                name,
 			URL:                 url,
 			UpdateIntervalHours: interval,
 			LastUpdate:          rec.LastUpdate,
 			Parent:              parent,
+			AutoUpdate:          &autoUpdate,
 		}
 		cfg.UpdateConfig(name, updated)
 		if err := cfg.Save(); err != nil {
@@ -262,6 +267,7 @@ func luaConfigGetActive(cfg *config.AppConfig, parent string) lua.LGFunction {
 		L.SetField(item, "name", lua.LString(rec.Name))
 		L.SetField(item, "url", lua.LString(rec.URL))
 		L.SetField(item, "interval", lua.LNumber(rec.UpdateIntervalHours))
+		L.SetField(item, "auto_update", lua.LBool(rec.IsAutoUpdate()))
 		L.SetField(item, "last_update", lua.LString(rec.LastUpdate.Format(time.RFC3339)))
 		L.SetField(item, "next_update", lua.LString(rec.NextUpdate().Format(time.RFC3339)))
 		L.Push(item)
@@ -282,7 +288,7 @@ func luaConfigDownload(cfg *config.AppConfig, parent string) lua.LGFunction {
 			L.Push(lua.LString("config has no URL"))
 			return 1
 		}
-		manager := core.NewManager(cfg.DataDir, fs.NewOSFileSystem(cfg.DataDir), nil, logger.NewLogger(0))
+		manager := core.NewManager(cfg.DataDir, fs.NewOS(cfg.DataDir), nil, logger.NewLogger(0))
 		if err := manager.DownloadConfigFor(name, rec.URL); err != nil {
 			L.Push(lua.LString(err.Error()))
 			return 1

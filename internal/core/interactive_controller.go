@@ -41,9 +41,9 @@ type InteractiveController struct {
 // NewInteractiveController creates an interactive controller wrapping an existing core controller.
 func NewInteractiveController(c *Controller) *InteractiveController {
 	cfg := c.Config()
-	if lang := cfg.GetLanguage(); lang == "" {
+	if lang := cfg.MustGet("ui", "language").String(); lang == "" {
 		lang = localengine.DetectSystemLanguage()
-		cfg.SetLanguage(lang)
+		cfg.MustGet("ui", "language").Update(lang)
 		_ = cfg.Save()
 		localengine.SetLanguage(lang)
 	} else {
@@ -155,12 +155,12 @@ func (ic *InteractiveController) Close() {
 func (ic *InteractiveController) configUpdateChecker() {
 	// Run an initial check right after startup so overdue configs are refreshed
 	// before the first interval elapses.
-	if ic.Controller.Config().GetAutoUpdateConfigs() {
+	if ic.Controller.Config().MustGet("updates", "auto_update_configs").Bool() {
 		ic.checkAllConfigs()
 	}
 
 	for {
-		interval := time.Duration(ic.Controller.Config().GetAutoUpdateConfigsIntervalHours()) * time.Hour
+		interval := time.Duration(ic.Controller.Config().MustGet("updates", "auto_update_configs_interval_hours").Int()) * time.Hour
 		if interval <= 0 {
 			interval = time.Hour
 		}
@@ -172,7 +172,7 @@ func (ic *InteractiveController) configUpdateChecker() {
 		if ic.isStopped() {
 			return
 		}
-		if !ic.Controller.Config().GetAutoUpdateConfigs() {
+		if !ic.Controller.Config().MustGet("updates", "auto_update_configs").Bool() {
 			continue
 		}
 		ic.checkAllConfigs()
@@ -208,7 +208,7 @@ func (ic *InteractiveController) checkAllConfigs() {
 		if ic.OnConfigUpdate != nil {
 			ic.OnConfigUpdate()
 		}
-		if ic.Controller.Config().GetAutoRestartOnConfigUpdate() && ic.Controller.IsRunning() {
+		if ic.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Bool() && ic.Controller.IsRunning() {
 			ic.Controller.Terminal().Infof("Active config updated, restarting core...")
 			if err := ic.Controller.Restart(); err != nil {
 				ic.Controller.Terminal().Errorf("Auto-restart failed: %v", err)
@@ -219,7 +219,7 @@ func (ic *InteractiveController) checkAllConfigs() {
 
 func (ic *InteractiveController) updateCheckLoop() {
 	for {
-		interval := time.Duration(ic.Controller.Config().GetBackgroundUpdateCheckIntervalHours()) * time.Hour
+		interval := time.Duration(ic.Controller.Config().MustGet("updates", "background_update_check_interval_hours").Int()) * time.Hour
 		if interval <= 0 {
 			interval = 24 * time.Hour
 		}

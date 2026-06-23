@@ -18,6 +18,7 @@ import (
 	"gioui.org/x/richtext"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/util/openurl"
+	"sing-box-ez/internal/gui/gio/theme"
 )
 
 // Dialog is a reusable modal dialog.
@@ -259,8 +260,8 @@ func (d *Dialog) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	// goroutines become visible without waiting for the next input event.
 	gtx.Execute(op.InvalidateCmd{})
 
-	// Draw semi-transparent black backdrop over the entire area.
-	backdrop := color.NRGBA{R: 0, G: 0, B: 0, A: 160}
+	// Draw semi-transparent backdrop over the entire area.
+	backdrop := theme.Current().Colors().Backdrop
 	paint.FillShape(gtx.Ops, backdrop, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
 	// Capture pointer events on the backdrop so they don't leak through to the UI below.

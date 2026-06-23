@@ -115,20 +115,21 @@ func (c *Client) Download(ctx context.Context, url string, w io.Writer) error {
 }
 
 // DownloadToFile downloads url and writes it to path using the given file system.
-func (c *Client) DownloadToFile(ctx context.Context, fsys fs.FileSystem, url, path string) error {
+func (c *Client) DownloadToFile(ctx context.Context, fsys fs.FS, url, path string) error {
 	c.Log.Infof("downloading %s → %s", url, path)
-	f, err := fsys.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0640)
+	dst := fsys.Root().File(path)
+	f, err := dst.OpenFile(os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0640)
 	if err != nil {
 		return c.Log.Errorf("create %q: %v", path, err)
 	}
 
 	if err := c.Download(ctx, url, f); err != nil {
 		_ = f.Close()
-		_ = fsys.Remove(path)
+		_ = dst.Remove()
 		return err
 	}
 	if err := f.Close(); err != nil {
-		_ = fsys.Remove(path)
+		_ = dst.Remove()
 		return c.Log.Errorf("close %q: %v", path, err)
 	}
 	c.Log.Infof("downloaded %s", path)

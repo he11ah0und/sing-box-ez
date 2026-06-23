@@ -2,7 +2,6 @@
 package lua
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,8 +22,8 @@ type VM struct {
 	L             *lua.LState
 	Log           *logger.LogTerminal
 	BaseDir       string
-	MainFS        frameworkfs.FileSystem
-	AssetFS       frameworkfs.FileSystem
+	MainFS        frameworkfs.FS
+	AssetFS       frameworkfs.FS
 	assetPath     string
 	AllowedWrites []string
 	Progress      *progress.Config
@@ -59,7 +58,7 @@ type InstallResult struct {
 }
 
 // NewVM creates a new Lua VM with the given sandbox settings.
-func NewVM(parent *logger.LogTerminal, baseDir string, mainFS frameworkfs.FileSystem, allowedWrites []string, assetPath string) *VM {
+func NewVM(parent *logger.LogTerminal, baseDir string, mainFS frameworkfs.FS, allowedWrites []string, assetPath string) *VM {
 	if baseDir == "" {
 		baseDir = "."
 	}
@@ -74,7 +73,7 @@ func NewVM(parent *logger.LogTerminal, baseDir string, mainFS frameworkfs.FileSy
 }
 
 // SetAssetFS overrides the read-only asset file system.
-func (vm *VM) SetAssetFS(fsys frameworkfs.FileSystem) {
+func (vm *VM) SetAssetFS(fsys frameworkfs.FS) {
 	vm.AssetFS = fsys
 }
 
@@ -265,6 +264,14 @@ func (vm *VM) checkWrite(path string) (string, error) {
 
 // --- fs functions ---
 
+func (vm *VM) fileAt(abs string) frameworkfs.File {
+	return vm.MainFS.Root().File(abs)
+}
+
+func (vm *VM) dirAt(abs string) frameworkfs.Directory {
+	return vm.MainFS.Root().Subdir(abs)
+}
+
 func (vm *VM) luaReadFile(L *lua.LState) int {
 	path := L.CheckString(1)
 	abs, err := vm.checkRead(path)
@@ -273,7 +280,7 @@ func (vm *VM) luaReadFile(L *lua.LState) int {
 		L.Push(lua.LString(err.Error()))
 		return 2
 	}
-	data, err := vm.MainFS.ReadFile(abs)
+	data, err := vm.fileAt(abs).Read()
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))
@@ -297,11 +304,11 @@ func (vm *VM) luaWriteFile(L *lua.LState) int {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
-	if err := vm.MainFS.MkdirAll(filepath.Dir(abs), 0750); err != nil {
+	if err := vm.dirAt(filepath.Dir(abs)).MkdirAll(0750); err != nil {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
-	if err := vm.MainFS.WriteFile(abs, []byte(data), mode); err != nil {
+	if err := vm.fileAt(abs).Write([]byte(data), mode); err != nil {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
@@ -316,7 +323,7 @@ func (vm *VM) luaMkdir(L *lua.LState) int {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
-	if err := vm.MainFS.MkdirAll(abs, 0750); err != nil {
+	if err := vm.dirAt(abs).MkdirAll(0750); err != nil {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
@@ -337,7 +344,9 @@ func (vm *VM) luaRename(L *lua.LState) int {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
-	if err := vm.MainFS.Rename(oldAbs, newAbs); err != nil {
+	oldFile := vm.fileAt(oldAbs)
+	newName := filepath.Base(newAbs)
+	if err := oldFile.Rename(newName); err != nil {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
@@ -352,7 +361,7 @@ func (vm *VM) luaRemove(L *lua.LState) int {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
-	if err := vm.MainFS.Remove(abs); err != nil {
+	if err := vm.fileAt(abs).Remove(); err != nil {
 		L.Push(lua.LString(err.Error()))
 		return 1
 	}
@@ -367,7 +376,7 @@ func (vm *VM) luaExists(L *lua.LState) int {
 		L.Push(lua.LBool(false))
 		return 1
 	}
-	L.Push(lua.LBool(vm.MainFS.Exists(abs)))
+	L.Push(lua.LBool(vm.fileAt(abs).Exists()))
 	return 1
 }
 
@@ -379,7 +388,7 @@ func (vm *VM) luaListDir(L *lua.LState) int {
 		L.Push(lua.LString(err.Error()))
 		return 2
 	}
-	entries, err := vm.MainFS.ReadDir(abs)
+	entries, err := vm.dirAt(abs).ReadDir()
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))
@@ -387,10 +396,11 @@ func (vm *VM) luaListDir(L *lua.LState) int {
 	}
 	tbl := L.NewTable()
 	for _, e := range entries {
-		info, _ := e.Info()
+		info, _ := e.Stat()
 		item := L.NewTable()
 		L.SetField(item, "name", lua.LString(e.Name()))
-		L.SetField(item, "is_dir", lua.LBool(e.IsDir()))
+		_, isDir := e.(frameworkfs.Directory)
+		L.SetField(item, "is_dir", lua.LBool(isDir))
 		if info != nil {
 			L.SetField(item, "size", lua.LNumber(info.Size()))
 			L.SetField(item, "mode", lua.LNumber(info.Mode().Perm()))
@@ -410,7 +420,7 @@ func (vm *VM) luaStat(L *lua.LState) int {
 		L.Push(lua.LString(err.Error()))
 		return 2
 	}
-	info, err := vm.MainFS.Stat(abs)
+	info, err := vm.fileAt(abs).Stat()
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))
@@ -429,7 +439,7 @@ func (vm *VM) luaStat(L *lua.LState) int {
 
 func (vm *VM) luaAssetListDir(L *lua.LState) int {
 	path := L.CheckString(1)
-	entries, err := vm.AssetFS.ReadDir(path)
+	entries, err := vm.AssetFS.Root().Subdir(path).ReadDir()
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))
@@ -437,10 +447,11 @@ func (vm *VM) luaAssetListDir(L *lua.LState) int {
 	}
 	tbl := L.NewTable()
 	for _, e := range entries {
-		info, _ := e.Info()
+		info, _ := e.Stat()
 		item := L.NewTable()
 		L.SetField(item, "name", lua.LString(e.Name()))
-		L.SetField(item, "is_dir", lua.LBool(e.IsDir()))
+		_, isDir := e.(frameworkfs.Directory)
+		L.SetField(item, "is_dir", lua.LBool(isDir))
 		if info != nil {
 			L.SetField(item, "size", lua.LNumber(info.Size()))
 			L.SetField(item, "mode", lua.LNumber(info.Mode().Perm()))
@@ -454,7 +465,7 @@ func (vm *VM) luaAssetListDir(L *lua.LState) int {
 
 func (vm *VM) luaAssetReadFile(L *lua.LState) int {
 	path := L.CheckString(1)
-	data, err := vm.AssetFS.ReadFile(path)
+	data, err := vm.AssetFS.Root().File(path).Read()
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))
@@ -467,13 +478,13 @@ func (vm *VM) luaAssetReadFile(L *lua.LState) int {
 
 func (vm *VM) luaAssetExists(L *lua.LState) int {
 	path := L.CheckString(1)
-	L.Push(lua.LBool(vm.AssetFS.Exists(path)))
+	L.Push(lua.LBool(vm.AssetFS.Root().File(path).Exists()))
 	return 1
 }
 
 func (vm *VM) luaAssetStat(L *lua.LState) int {
 	path := L.CheckString(1)
-	info, err := vm.AssetFS.Stat(path)
+	info, err := vm.AssetFS.Root().File(path).Stat()
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))
@@ -491,7 +502,7 @@ func (vm *VM) luaAssetStat(L *lua.LState) int {
 }
 
 func (vm *VM) luaCopy(L *lua.LState) int {
-	var srcFS frameworkfs.FileSystem
+	var srcFS frameworkfs.FS
 	var srcPath string
 
 	first := L.Get(1)
@@ -507,7 +518,7 @@ func (vm *VM) luaCopy(L *lua.LState) int {
 		}
 		ud := fsObj.(*lua.LUserData)
 		var ok bool
-		srcFS, ok = ud.Value.(frameworkfs.FileSystem)
+		srcFS, ok = ud.Value.(frameworkfs.FS)
 		if !ok {
 			L.Push(lua.LString("invalid fs object"))
 			return 1
@@ -519,21 +530,6 @@ func (vm *VM) luaCopy(L *lua.LState) int {
 	}
 
 	dstPath := L.CheckString(L.GetTop()) // last positional argument
-	// Options table is the argument before dst if there are 3 args.
-	var opts frameworkfs.CopyOptions
-	opts.Recursive = true
-	opts.PreserveMode = true
-	opts.Progress = vm.Progress
-
-	if L.GetTop() >= 3 && first.Type() == lua.LTString {
-		if tbl := L.Get(2); tbl.Type() == lua.LTTable {
-			vm.parseCopyOpts(tbl.(*lua.LTable), &opts)
-		}
-	} else if L.GetTop() >= 4 && first.Type() == lua.LTTable {
-		if tbl := L.Get(3); tbl.Type() == lua.LTTable {
-			vm.parseCopyOpts(tbl.(*lua.LTable), &opts)
-		}
-	}
 
 	dstAbs, err := vm.checkWrite(dstPath)
 	if err != nil {
@@ -549,21 +545,29 @@ func (vm *VM) luaCopy(L *lua.LState) int {
 		}
 	}
 
-	if err := frameworkfs.Copy(context.Background(), srcFS, vm.MainFS, srcPath, dstAbs, opts); err != nil {
-		L.Push(lua.LString(err.Error()))
+	srcFile := srcFS.Root().File(srcPath)
+	srcDir := srcFS.Root().Subdir(srcPath)
+	dstFile := vm.fileAt(dstAbs)
+	dstDir := vm.dirAt(dstAbs)
+
+	switch {
+	case srcFile.Exists():
+		if err := srcFile.CopyTo(dstFile); err != nil {
+			L.Push(lua.LString(err.Error()))
+			return 1
+		}
+	case srcDir.Exists():
+		if err := srcDir.CopyTo(dstDir); err != nil {
+			L.Push(lua.LString(err.Error()))
+			return 1
+		}
+	default:
+		L.Push(lua.LString("source not found: " + srcPath))
 		return 1
 	}
+
 	L.Push(lua.LNil)
 	return 1
-}
-
-func (vm *VM) parseCopyOpts(tbl *lua.LTable, opts *frameworkfs.CopyOptions) {
-	if v := tbl.RawGetString("recursive"); v.Type() == lua.LTBool {
-		opts.Recursive = bool(v.(lua.LBool))
-	}
-	if v := tbl.RawGetString("preserve_mode"); v.Type() == lua.LTBool {
-		opts.PreserveMode = bool(v.(lua.LBool))
-	}
 }
 
 // --- log functions ---
