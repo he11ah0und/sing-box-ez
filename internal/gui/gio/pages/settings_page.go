@@ -41,15 +41,18 @@ type SettingsPage struct {
 	origAutoCheckCore                 bool
 	origAutoUpdateConfigs             bool
 	origAutoRestartOnConfigUpdate     bool
+	origStartupMode                   string
+	origShowStartupDialog             bool
 	origLang                          string
 	origTheme                         string
 	origThemeMode                     string
 
 	// Pending (unsaved) selections.
-	pendingLang      string
-	pendingLogLevel  string
-	pendingTheme     string
-	pendingThemeMode string
+	pendingLang        string
+	pendingLogLevel    string
+	pendingTheme       string
+	pendingThemeMode   string
+	pendingStartupMode string
 
 	logLimitEditor                      widget.Editor
 	intervalEditor                      widget.Editor
@@ -61,7 +64,9 @@ type SettingsPage struct {
 	autoCheckCore                       widget.Bool
 	autoUpdateConfigs                   widget.Bool
 	autoRestartOnConfigUpdate           widget.Bool
+	showStartupDialog                   widget.Bool
 	logLevelDropdown                    *widgets.Dropdown
+	startupModeDropdown                 *widgets.Dropdown
 	langDropdown                        *widgets.Dropdown
 	themeDropdown                       *widgets.Dropdown
 	themeModeDropdown                   *widgets.Dropdown
@@ -114,6 +119,15 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 
 	p.origAutoRestartOnConfigUpdate = ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Bool()
 	p.autoRestartOnConfigUpdate.Value = p.origAutoRestartOnConfigUpdate
+
+	p.origStartupMode = ctrl.Controller.Config().MustGet("remote", "last_connection_mode").String()
+	if p.origStartupMode == "" {
+		p.origStartupMode = "embedded"
+	}
+	p.pendingStartupMode = p.origStartupMode
+
+	p.origShowStartupDialog = !ctrl.Controller.Config().MustGet("remote", "remember_connection_mode").Bool()
+	p.showStartupDialog.Value = p.origShowStartupDialog
 
 	p.origLang = ctrl.Controller.Config().MustGet("ui", "language").String()
 	p.pendingLang = p.origLang
@@ -199,6 +213,8 @@ func (p *SettingsPage) isDirty() bool {
 		p.autoCheckCore.Value != p.origAutoCheckCore ||
 		p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs ||
 		p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate ||
+		p.pendingStartupMode != p.origStartupMode ||
+		p.showStartupDialog.Value != p.origShowStartupDialog ||
 		p.pendingLang != p.origLang ||
 		p.pendingTheme != p.origTheme ||
 		p.pendingThemeMode != p.origThemeMode
@@ -245,6 +261,10 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 		p.origAutoUpdateConfigs = p.autoUpdateConfigs.Value
 		p.ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Update(p.autoRestartOnConfigUpdate.Value)
 		p.origAutoRestartOnConfigUpdate = p.autoRestartOnConfigUpdate.Value
+		p.ctrl.Controller.Config().MustGet("remote", "last_connection_mode").Update(p.pendingStartupMode)
+		p.origStartupMode = p.pendingStartupMode
+		p.ctrl.Controller.Config().MustGet("remote", "remember_connection_mode").Update(!p.showStartupDialog.Value)
+		p.origShowStartupDialog = p.showStartupDialog.Value
 		if p.pendingLang != p.origLang {
 			p.ctrl.Controller.Config().MustGet("ui", "language").Update(p.pendingLang)
 			localengine.SetLanguage(p.pendingLang)
@@ -281,6 +301,8 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 	autoCheckCoreDirty := p.autoCheckCore.Value != p.origAutoCheckCore
 	autoUpdateConfigsDirty := p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs
 	autoRestartDirty := p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate
+	startupModeDirty := p.pendingStartupMode != p.origStartupMode
+	showStartupDialogDirty := p.showStartupDialog.Value != p.origShowStartupDialog
 	langDirty := p.pendingLang != p.origLang
 	themeDirty := p.pendingTheme != p.origTheme
 	themeModeDirty := p.pendingThemeMode != p.origThemeMode
@@ -288,6 +310,10 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 
 	p.logLevelDropdown.SetValue(p.pendingLogLevel)
 	p.logLevelDropdown.SetLabel(localengine.T("settings", "log_level", "label"))
+	if p.startupModeDropdown != nil {
+		p.startupModeDropdown.SetValue(p.pendingStartupMode)
+		p.startupModeDropdown.SetLabel(localengine.T("settings", "startup", "mode_label"))
+	}
 	p.langDropdown.SetValue(p.pendingLang)
 	p.langDropdown.SetLabel(localengine.T("settings", "language", "title"))
 	if p.themeDropdown != nil {
@@ -413,6 +439,22 @@ func (p *SettingsPage) Children(gtx layout.Context) []layout.FlexChild {
 				label += " *"
 			}
 			return widgets.LabeledInput(gtx, p.th, label, &p.autoUpdateConfigsIntervalEditor, autoUpdateConfigsIntervalDirty)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(p.th, localengine.T("settings", "startup", "title")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.startupModeDropdown == nil {
+				return layout.Dimensions{}
+			}
+			return p.startupModeDropdown.Layout(gtx, startupModeDirty)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			label := localengine.T("settings", "startup", "show_dialog")
+			if showStartupDialogDirty {
+				label += " *"
+			}
+			return material.CheckBox(p.th, &p.showStartupDialog, label).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.H6(p.th, localengine.T("settings", "config", "title")).Layout(gtx)

@@ -68,6 +68,10 @@ type Config struct {
 	BuildUpdaters func(*App) []*updater.Manager
 	// RegisterCommands registers CLI commands on the engine.
 	RegisterCommands func(*cli.Engine[*App])
+	// ExtraGlobalFlags are registered before global flags are parsed. Use this
+	// for flags that must be available to all commands and be recognized before
+	// configuration is loaded.
+	ExtraGlobalFlags []cli.Flag
 	// RunGUI starts the GUI. It receives the fully constructed App and
 	// returns true if the GUI ran successfully. If nil and no CLI command
 	// was given, Run exits without error.
@@ -90,6 +94,9 @@ func NewApp(cfg Config) (*App, error) {
 		Type: cli.Path,
 		Desc: "Override default data directory",
 	})
+	for _, f := range cfg.ExtraGlobalFlags {
+		cliEngine.AddGlobalFlag(f)
+	}
 
 	globals, remaining, err := cliEngine.ParseGlobals(cfg.Args)
 	if err != nil {

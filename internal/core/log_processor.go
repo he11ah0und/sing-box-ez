@@ -28,6 +28,14 @@ type CoreLogProcessor struct {
 
 	// OnAutoRestart is an optional callback invoked when a fatal core error triggers auto-restart.
 	OnAutoRestart func()
+
+	subsMu      sync.RWMutex
+	subscribers []*LogSubscription
+}
+
+// LogSubscription is a handle returned by AddSubscriber and used to unsubscribe.
+type LogSubscription struct {
+	fn func(string)
 }
 
 // NewCoreLogProcessor creates a processor tied to the given manager, writer and logger root.
@@ -126,6 +134,35 @@ func (p *CoreLogProcessor) readLoop() {
 	}
 }
 
+func (p *CoreLogProcessor) AddSubscriber(fn func(string)) *LogSubscription {
+	p.subsMu.Lock()
+	defer p.subsMu.Unlock()
+	s := &LogSubscription{fn: fn}
+	p.subscribers = append(p.subscribers, s)
+	return s
+}
+
+func (p *CoreLogProcessor) RemoveSubscriber(s *LogSubscription) {
+	p.subsMu.Lock()
+	defer p.subsMu.Unlock()
+	for i, sub := range p.subscribers {
+		if sub == s {
+			p.subscribers = append(p.subscribers[:i], p.subscribers[i+1:]...)
+			return
+		}
+	}
+}
+
+func (p *CoreLogProcessor) notifySubscribers(line string) {
+	p.subsMu.RLock()
+	subs := make([]*LogSubscription, len(p.subscribers))
+	copy(subs, p.subscribers)
+	p.subsMu.RUnlock()
+	for _, sub := range subs {
+		sub.fn(line)
+	}
+}
+
 func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 	watch := p.cfg.MustGet("core", "watch_logs").Bool()
 	restart := p.cfg.MustGet("core", "auto_restart").Bool()
@@ -159,6 +196,7 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 		if watch {
 			p.terminal.Infof("%s", msg)
 		}
+		p.notifySubscribers(msg)
 	}
 }
 

@@ -126,6 +126,12 @@ settings:
     system: 跟随系统
     dark: 深色
     light: 浅色
+  startup:
+    title: 启动
+    mode_label: 默认启动模式
+    mode_embedded: 本地
+    mode_remote: 远程
+    show_dialog: 启动时显示模式选择对话框
   plugins:
     title: 插件
     enabled: 插件功能
@@ -143,6 +149,13 @@ settings:
     success_title: 数据已重置
     success_msg: 所有数据已重置。应用现在将重新启动。
   desktop_notifications: 桌面通知
+startup:
+  title: sing-box-ez
+  subtitle: 选择运行方式
+  btn:
+    embedded: 本地运行核心
+    remote: 连接到远程
+  remember: 记住我的选择
 log:
   title: 日志
   btn:

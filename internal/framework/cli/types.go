@@ -62,6 +62,11 @@ func (c *Context) Global(name string) Value {
 	return c.globals[name]
 }
 
+// Command returns the name of the command being executed.
+func (c *Context) Command() string {
+	return c.command
+}
+
 // Args returns a copy of all parsed positional arguments.
 func (c *Context) Args() map[string]Value {
 	out := make(map[string]Value, len(c.args))

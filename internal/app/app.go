@@ -10,6 +10,7 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework"
+	fwcli "sing-box-ez/internal/framework/cli"
 	fwconfig "sing-box-ez/internal/framework/config"
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/updater"
@@ -51,6 +52,13 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 		},
 		BuildUpdaters:    buildUpdaters,
 		RegisterCommands: cli.RegisterCommands,
+		ExtraGlobalFlags: []fwcli.Flag{
+			{
+				Name: "remote",
+				Desc: "Execute commands on a remote daemon (tcp://host:port, unix:///path, npipe://name, or auto)",
+				Type: fwcli.String,
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -138,4 +146,14 @@ func registerConfig(sheet *fwconfig.Sheet) {
 
 	sheet.Register([]string{"plugins", "enabled"}, fwconfig.TypeBool, false)
 	sheet.Register([]string{"plugins", "developer"}, fwconfig.TypeBool, false)
+
+	sheet.Register([]string{"service", "backend"}, fwconfig.TypeString, "embedded")
+	sheet.Register([]string{"service", "start_on_app_launch"}, fwconfig.TypeBool, false)
+	sheet.Register([]string{"service", "stop_on_app_exit"}, fwconfig.TypeBool, true)
+
+	sheet.Register([]string{"remote", "default_transport"}, fwconfig.TypeString, "auto")
+	sheet.Register([]string{"remote", "last_tcp_address"}, fwconfig.TypeString, "")
+	sheet.Register([]string{"remote", "last_connection_mode"}, fwconfig.TypeString, "embedded")
+	sheet.Register([]string{"remote", "remember_connection_mode"}, fwconfig.TypeBool, false)
+	sheet.Register([]string{"remote", "last_passphrase"}, fwconfig.TypeString, "")
 }
