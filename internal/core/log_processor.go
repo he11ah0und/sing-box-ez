@@ -127,8 +127,8 @@ func (p *CoreLogProcessor) readLoop() {
 }
 
 func (p *CoreLogProcessor) processCoreLogs(lines []string) {
-	watch := p.cfg.GetWatchCoreLogs()
-	restart := p.cfg.GetCoreAutoRestart()
+	watch := p.cfg.MustGet("core", "watch_logs").Bool()
+	restart := p.cfg.MustGet("core", "auto_restart").Bool()
 	if !watch && !restart {
 		return
 	}

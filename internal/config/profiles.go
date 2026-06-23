@@ -1,26 +1,47 @@
+// Package config holds the sing-box-ez application configuration.
 package config
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
+
+	"gopkg.in/yaml.v3"
+
+	"sing-box-ez/internal/framework/fs"
 )
 
 // Profiles holds the config list and active selection.
 type Profiles struct {
-	Configs    []ConfigRecord `json:"configs"`
-	ActiveName string         `json:"active_name"`
+	Configs    []ConfigRecord `yaml:"configs" json:"configs"`
+	ActiveName string         `yaml:"active_name" json:"active_name"`
 	mu         sync.RWMutex
 }
 
-// LoadProfiles loads profiles from profiles.json inside dataDir.
+// LoadProfiles loads profiles from profiles.yaml inside root.
 // If the file does not exist it returns an empty Profiles struct.
-func LoadProfiles(dataDir string) (*Profiles, error) {
-	data, err := os.ReadFile(filepath.Join(dataDir, "profiles.json"))
+// A legacy profiles.json file is automatically migrated to profiles.yaml.
+func LoadProfiles(root fs.Directory) (*Profiles, error) {
+	yamlFile := root.File("profiles.yaml")
+	jsonFile := root.File("profiles.json")
+
+	data, err := yamlFile.Read()
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
+			// Migrate legacy JSON profiles if present.
+			if legacy, readErr := jsonFile.Read(); readErr == nil && len(legacy) > 0 {
+				var p Profiles
+				if jerr := json.Unmarshal(legacy, &p); jerr == nil {
+					if p.Configs == nil {
+						p.Configs = []ConfigRecord{}
+					}
+					_ = jsonFile.Remove()
+					_ = p.Save(root)
+					return &p, nil
+				}
+			}
 			return &Profiles{Configs: []ConfigRecord{}}, nil
 		}
 		return nil, err
@@ -29,7 +50,7 @@ func LoadProfiles(dataDir string) (*Profiles, error) {
 		return &Profiles{Configs: []ConfigRecord{}}, nil
 	}
 	var p Profiles
-	if err := json.Unmarshal(data, &p); err != nil {
+	if err := yaml.Unmarshal(data, &p); err != nil {
 		return nil, err
 	}
 	if p.Configs == nil {
@@ -38,14 +59,25 @@ func LoadProfiles(dataDir string) (*Profiles, error) {
 	return &p, nil
 }
 
-func (p *Profiles) Save(dataDir string) error {
+// Save writes profiles to profiles.yaml inside root.
+func (p *Profiles) Save(root fs.Directory) error {
 	p.mu.RLock()
-	data, err := json.MarshalIndent(p, "", "  ")
+	p.normalizeAutoUpdate()
+	data, err := yaml.Marshal(p)
 	p.mu.RUnlock()
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dataDir, "profiles.json"), data, 0600)
+	return root.File("profiles.yaml").AtomicWrite(data, 0600)
+}
+
+func (p *Profiles) normalizeAutoUpdate() {
+	for i := range p.Configs {
+		if p.Configs[i].AutoUpdate == nil {
+			enabled := true
+			p.Configs[i].AutoUpdate = &enabled
+		}
+	}
 }
 
 func (p *Profiles) GetConfigs() []ConfigRecord {

@@ -167,9 +167,9 @@ func TestGitHubBackendToReleaseVersionFallback(t *testing.T) {
 	b := &GitHubBackend{}
 
 	tests := []struct {
-		name    string
-		raw     ghRelease
-		wantVer string
+		name     string
+		raw      ghRelease
+		wantVer  string
 		wantName string
 	}{
 		{

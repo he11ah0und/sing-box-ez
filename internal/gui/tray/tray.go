@@ -27,12 +27,12 @@ type Tray struct {
 
 	log *logger.LogTerminal
 
-	show     func()
-	minimize func()
-	quit     func()
+	show      func()
+	minimize  func()
+	quit      func()
 	isRunning func() bool
-	onStart  func()
-	onStop   func()
+	onStart   func()
+	onStop    func()
 }
 
 // New creates a tray icon controller. The supplied callbacks are invoked from

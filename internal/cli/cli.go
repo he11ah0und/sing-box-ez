@@ -3,12 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,6 +14,8 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/framework"
+	fwcli "sing-box-ez/internal/framework/cli"
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
@@ -23,71 +23,42 @@ import (
 	"sing-box-ez/internal/plugins"
 )
 
-// cmdDef describes a CLI command.
-type cmdDef struct {
-	desc string
-	fn   func(*config.AppConfig, []string) error
-}
-
-var commands = map[string]cmdDef{
-	"start":        {"Start sing-box with auto-update", cmdStart},
-	"stop":         {"Stop running sing-box", cmdStop},
-	"update":       {"Download latest config", cmdUpdate},
-	"download":     {"Download latest sing-box core", cmdDownload},
-	"status":       {"Show running status", cmdStatus},
-	"setcap":       {"Apply CAP_NET_ADMIN capability (Linux CLI, uses sudo)", cmdSetcap},
-	"docs":         {"Generate plugin API docs (mkdocs markdown)", cmdDocs},
-	"defs":         {"Generate VS Code Lua definitions (EmmyLua)", cmdDefs},
-	"template":     {"Generate plugin template <name> [client|server|both]", cmdTemplate},
-	"install":      {"Install plugin from URL <url>", cmdInstall},
-	"version":      {"Show version and repository info", cmdVersion},
-	"update-check": {"Check for app and core updates", cmdUpdateCheck},
-	"self-update":  {"Update this application to latest release", cmdSelfUpdate},
-}
-
-// PrintHelp writes auto-generated help to w.
-func PrintHelp(w io.Writer) {
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  sing-box-ez [options] <command>")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Options:")
-	fmt.Fprintln(w, "  --data-dir <path>  Override default data directory")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Commands:")
-
-	names := make([]string, 0, len(commands))
-	for name := range commands {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		fmt.Fprintf(w, "  %-9s %s\n", name, commands[name].desc)
-	}
-}
-
 const (
 	defaultGitHubOwner = "he11ah0und"
 	defaultGitHubRepo  = "sing-box-ez"
 )
 
-func defaultDataDir() string {
-	switch runtime.GOOS {
-	case "windows":
-		appData := os.Getenv("APPDATA")
-		if appData == "" {
-			appData = os.Getenv("LOCALAPPDATA")
-		}
-		if appData == "" {
-			appData = os.TempDir()
-		}
-		return filepath.Join(appData, "sing-box-ez")
-	default:
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "."
-		}
-		return filepath.Join(home, ".sing-box-ez")
+// RegisterCommands registers sing-box-ez CLI commands on the framework CLI engine.
+func RegisterCommands(cli *fwcli.Engine[*framework.App]) {
+	cli.SetBeforeExec(func(app *framework.App) error {
+		ensureUpdater()
+		return nil
+	})
+
+	cli.Register("start", "Start sing-box with auto-update", wrap(cmdStart))
+	cli.Register("stop", "Stop running sing-box", wrap(cmdStop))
+	cli.Register("update", "Download latest config", wrap(cmdUpdate))
+	cli.Register("download", "Download latest sing-box core", wrap(cmdDownload))
+	cli.Register("status", "Show running status", wrap(cmdStatus))
+	cli.Register("setcap", "Apply CAP_NET_ADMIN capability (Linux CLI, uses sudo)", wrap(cmdSetcap))
+	cli.Register("docs", "Generate plugin API docs (mkdocs markdown)", wrap(cmdDocs))
+	cli.Register("defs", "Generate VS Code Lua definitions (EmmyLua)", wrap(cmdDefs))
+	cli.Register("template", "Generate plugin template", wrap(cmdTemplate),
+		fwcli.Arg{Name: "name", Type: fwcli.String, Desc: "Plugin name"},
+		fwcli.Arg{Name: "type", Type: fwcli.String, Optional: true, Default: fwcli.StringValue("client"), Desc: "Template type (client, server, both)"},
+	)
+	cli.Register("install", "Install plugin from URL", wrap(cmdInstall),
+		fwcli.Arg{Name: "url", Type: fwcli.String, Desc: "Plugin package URL (zip or tar.gz)"},
+	)
+	cli.Register("version", "Show version and repository info", wrap(cmdVersion))
+	cli.Register("update-check", "Check for app and core updates", wrap(cmdUpdateCheck))
+	cli.Register("self-update", "Update this application to latest release", wrap(cmdSelfUpdate))
+}
+
+func wrap(fn func(*config.AppConfig, *fwcli.Context) error) fwcli.CommandFunc[*framework.App] {
+	return func(app *framework.App, ctx *fwcli.Context) error {
+		cfg := app.Config.(*config.AppConfig)
+		return fn(cfg, ctx)
 	}
 }
 
@@ -110,7 +81,7 @@ func hasCachedConfig(dataDir, name string) bool {
 
 func newCoreManager(dataDir string) *core.Manager {
 	log := logger.NewLogger(0)
-	return core.NewManager(dataDir, fs.NewOSFileSystem(dataDir), nil, log)
+	return core.NewManager(dataDir, fs.NewOS(dataDir), nil, log)
 }
 
 // ensureUpdater installs default updater managers when none are configured.
@@ -146,33 +117,7 @@ func downloadLatestCore(dataDir string, onProgress func(d, t int64)) (string, er
 	return m.DownloadCore(onProgress)
 }
 
-func Run(args []string, dataDir string) error {
-	if len(args) < 1 {
-		PrintHelp(os.Stderr)
-		return fmt.Errorf("")
-	}
-
-	cmd, ok := commands[args[0]]
-	if !ok {
-		PrintHelp(os.Stderr)
-		return fmt.Errorf("unknown command: %s", args[0])
-	}
-
-	if dataDir == "" {
-		dataDir = defaultDataDir()
-	}
-
-	cfg, err := config.Load(dataDir)
-	if err != nil {
-		return err
-	}
-
-	ensureUpdater()
-
-	return cmd.fn(cfg, args[1:])
-}
-
-func cmdStart(cfg *config.AppConfig, _ []string) error {
+func cmdStart(cfg *config.AppConfig, _ *fwcli.Context) error {
 	dataDir := cfg.DataDir
 	if !coreExists(dataDir) {
 		fmt.Println("Core not found, downloading latest...")
@@ -193,7 +138,7 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 
 	active := cfg.GetActiveConfig()
 	if active == nil || active.URL == "" {
-		return fmt.Errorf("no active config URL set, use GUI or edit config.json")
+		return fmt.Errorf("no active config URL set, use GUI or edit profiles.yaml")
 	}
 
 	if active.ShouldUpdate() || !hasCachedConfig(dataDir, active.Name) {
@@ -216,7 +161,7 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 	m := newCoreManager(dataDir)
 	m.SetConfigURL(active.URL)
 	m.SetConfigName(active.Name)
-	m.SetElevated(cfg.RunAsAdmin)
+	m.SetElevated(cfg.MustGet("privileges", "run_as_admin").Bool())
 
 	if err := m.Start(); err != nil {
 		return fmt.Errorf("start failed: %w", err)
@@ -241,7 +186,7 @@ func cmdStart(cfg *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdStop(cfg *config.AppConfig, _ []string) error {
+func cmdStop(cfg *config.AppConfig, _ *fwcli.Context) error {
 	dataDir := cfg.DataDir
 	data, err := os.ReadFile(filepath.Join(dataDir, ".pid"))
 	if err != nil {
@@ -252,7 +197,7 @@ func cmdStop(cfg *config.AppConfig, _ []string) error {
 		return fmt.Errorf("invalid pid file")
 	}
 
-	elevated := cfg.RunAsAdmin
+	elevated := cfg.MustGet("privileges", "run_as_admin").Bool()
 	if core.HasNetAdminCapability(coreBinaryPath(dataDir)) {
 		elevated = false
 	}
@@ -266,7 +211,7 @@ func cmdStop(cfg *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdUpdate(cfg *config.AppConfig, _ []string) error {
+func cmdUpdate(cfg *config.AppConfig, _ *fwcli.Context) error {
 	dataDir := cfg.DataDir
 	active := cfg.GetActiveConfig()
 	if active == nil || active.URL == "" {
@@ -285,7 +230,7 @@ func cmdUpdate(cfg *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdDownload(cfg *config.AppConfig, _ []string) error {
+func cmdDownload(cfg *config.AppConfig, _ *fwcli.Context) error {
 	ver, err := latestCoreVersion(cfg.DataDir)
 	if err != nil {
 		return fmt.Errorf("failed to check latest version: %w", err)
@@ -304,7 +249,7 @@ func cmdDownload(cfg *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdStatus(cfg *config.AppConfig, _ []string) error {
+func cmdStatus(cfg *config.AppConfig, _ *fwcli.Context) error {
 	dataDir := cfg.DataDir
 	data, err := os.ReadFile(filepath.Join(dataDir, ".pid"))
 	if err != nil {
@@ -321,7 +266,7 @@ func cmdStatus(cfg *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdSetcap(cfg *config.AppConfig, _ []string) error {
+func cmdSetcap(cfg *config.AppConfig, _ *fwcli.Context) error {
 	corePath := coreBinaryPath(cfg.DataDir)
 	if _, err := os.Stat(corePath); err != nil {
 		return fmt.Errorf("core not found at %s", corePath)
@@ -335,7 +280,7 @@ func cmdSetcap(cfg *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdDocs(cfg *config.AppConfig, _ []string) error {
+func cmdDocs(cfg *config.AppConfig, _ *fwcli.Context) error {
 	outDir := filepath.Join(cfg.DataDir, plugins.DocsDir())
 	fmt.Println("Generating plugin API docs to:", outDir)
 	if err := plugins.GenerateDocs(outDir); err != nil {
@@ -351,7 +296,7 @@ func cmdDocs(cfg *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdDefs(cfg *config.AppConfig, _ []string) error {
+func cmdDefs(cfg *config.AppConfig, _ *fwcli.Context) error {
 	outDir := filepath.Join(cfg.DataDir, plugins.DefsDir())
 	fmt.Println("Generating VS Code Lua definitions to:", outDir)
 	if err := plugins.GenerateLuaDefs(outDir); err != nil {
@@ -373,15 +318,9 @@ func cmdDefs(cfg *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdTemplate(cfg *config.AppConfig, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("usage: sing-box-ez template <name> [client|server|both]")
-	}
-	name := args[0]
-	rel := "client"
-	if len(args) > 1 {
-		rel = args[1]
-	}
+func cmdTemplate(cfg *config.AppConfig, ctx *fwcli.Context) error {
+	name := fwcli.AsString(ctx.Arg("name"))
+	rel := fwcli.AsString(ctx.Arg("type"))
 	outDir := filepath.Join(cfg.DataDir, "plugins", name)
 	if err := plugins.GeneratePluginTemplate(outDir, name, rel); err != nil {
 		return err
@@ -390,11 +329,8 @@ func cmdTemplate(cfg *config.AppConfig, args []string) error {
 	return nil
 }
 
-func cmdInstall(cfg *config.AppConfig, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("usage: sing-box-ez install <url>")
-	}
-	url := args[0]
+func cmdInstall(cfg *config.AppConfig, ctx *fwcli.Context) error {
+	url := fwcli.AsString(ctx.Arg("url"))
 	fmt.Println("Installing plugin from:", url)
 	mf, err := plugins.InstallFromURL(url)
 	if err != nil {
@@ -404,13 +340,13 @@ func cmdInstall(cfg *config.AppConfig, args []string) error {
 	return nil
 }
 
-func cmdVersion(_ *config.AppConfig, _ []string) error {
+func cmdVersion(_ *config.AppConfig, _ *fwcli.Context) error {
 	fmt.Println("sing-box-ez", version.Info())
 	fmt.Println("Repository:", "https://github.com/he11ah0und/sing-box-ez")
 	return nil
 }
 
-func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
+func cmdUpdateCheck(_ *config.AppConfig, _ *fwcli.Context) error {
 	fmt.Println("Checking for updates...")
 	fmt.Println()
 
@@ -430,7 +366,7 @@ func cmdUpdateCheck(_ *config.AppConfig, _ []string) error {
 	return nil
 }
 
-func cmdSelfUpdate(_ *config.AppConfig, _ []string) error {
+func cmdSelfUpdate(_ *config.AppConfig, _ *fwcli.Context) error {
 	fmt.Println("Checking for application update...")
 	info, err := updater.CheckUpdate(version.Branch)
 	if err != nil {

@@ -52,7 +52,7 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 	if active != nil {
 		manager.SetConfigName(active.Name)
 	}
-	manager.SetElevated(cfg.RunAsAdmin)
+	manager.SetElevated(cfg.MustGet("privileges", "run_as_admin").Bool())
 
 	logWriter := NewCoreLogWriter()
 	manager.SetLogOutput(logWriter)
@@ -220,8 +220,7 @@ func (c *Controller) UpdateConfigNow(name, url string) error {
 // ---------- Core binary ----------
 
 func (c *Controller) CoreExists() bool {
-	_, err := c.fwApp.FS.Stat(c.manager.coreBinary())
-	return err == nil
+	return c.fwApp.FS.Root().File(c.manager.coreBinary()).Exists()
 }
 
 func (c *Controller) GetInstalledCoreVersion() (string, error) {
@@ -266,8 +265,7 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 }
 
 func (c *Controller) HasCachedConfig(name string) bool {
-	_, err := c.fwApp.FS.Stat(c.manager.cachedConfig(name))
-	return err == nil
+	return c.fwApp.FS.Root().File(c.manager.cachedConfig(name)).Exists()
 }
 
 func (c *Controller) DownloadConfigFor(name, url string) error {
@@ -432,7 +430,7 @@ func (c *Controller) RestartAsAdmin() error {
 }
 
 func (c *Controller) SetRunAsAdmin(checked bool) error {
-	c.cfg.SetRunAsAdmin(checked)
+	c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
 	c.manager.SetElevated(checked)
 	if err := c.cfg.Save(); err != nil {
 		return c.terminal.Errorf("Failed to save admin setting: %v", err)
@@ -464,14 +462,14 @@ func (c *Controller) OpenDataDir() error {
 }
 
 func (c *Controller) SetLogLimit(v int) {
-	c.cfg.SetLogLimit(v)
+	c.cfg.MustGet("log", "limit").Update(v)
 	_ = c.cfg.Save()
 	c.fwApp.Logger.SetLimit(v)
 	c.terminal.Infof("Log limit set to %d", v)
 }
 
 func (c *Controller) SetDefaultInterval(h int) {
-	c.cfg.SetDefaultUpdateInterval(h)
+	c.cfg.MustGet("updates", "default_interval_hours").Update(h)
 	_ = c.cfg.Save()
 	c.terminal.Infof("Default interval set to %dh", h)
 }
