@@ -25,10 +25,14 @@ import (
 	"gioui.org/font/gofont"
 	"gioui.org/font/opentype"
 	"gioui.org/io/system"
+	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 )
 
 // GUI holds the new Gio-based adaptive UI.
@@ -54,8 +58,17 @@ type GUI struct {
 	// Interactive controller (GUI adapter around the core controller)
 	ctrl *core.InteractiveController
 
+	// Remote page used in remote mode.
+	remotePage *pages.RemotePage
+
+	// Operating mode: "embedded" or "remote".
+	mode string
+
 	// Dialog reference for startup sequences
 	dialog *Dialog
+
+	// startupDone is closed when the user has chosen the startup mode.
+	startupDone chan struct{}
 
 	// Page references used for programmatic navigation/highlighting.
 	corePage    *pages.CorePage
@@ -98,10 +111,12 @@ func New(app *apppkg.App) *GUI {
 	}
 
 	g := &GUI{
-		app: app,
-		cfg: cfg,
-		th:  th,
-		log: app.Logger.Root.Allocate("gui"),
+		app:         app,
+		cfg:         cfg,
+		th:          th,
+		log:         app.Logger.Root.Allocate("gui"),
+		mode:        "embedded",
+		startupDone: make(chan struct{}),
 	}
 	g.log.Infof("initialized")
 
@@ -112,52 +127,8 @@ func New(app *apppkg.App) *GUI {
 	}
 	th.Shaper = text.NewShaper(text.WithCollection(collection))
 
-	// Initialize interactive controller wrapping the shared core controller.
-	g.ctrl = core.NewInteractiveController(app.Controller)
-	g.ctrl.OnStatusChange = func(running bool) {
-		if g.tray != nil {
-			g.tray.Refresh()
-		}
-	}
-	g.ctrl.OnUpdateCheckDue = func() {
-		g.runStartupUpdateChecks()
-	}
-	g.ctrl.OnCoreMissing = func() {
-		g.shell.NavigateTo("core")
-		g.corePage.HighlightUpdateBlock()
-	}
-	g.ctrl.OnConfigMissing = func() {
-		g.shell.NavigateTo("configs")
-		g.configsPage.ShowAddDialog()
-	}
-
 	dialog := NewDialog()
 	g.dialog = dialog
-
-	g.aboutPage = pages.NewAboutPage(th, g.ctrl, dialog)
-	mainPage := pages.NewMainPage(th, g.ctrl, dialog)
-	g.logPage = pages.NewLogPage(th, g.ctrl.Controller)
-
-	g.settingsPage = pages.NewSettingsPage(th, g.ctrl, dialog)
-	g.settingsPage.OnLanguageChange = func() {
-		g.shell.RebuildNav()
-	}
-	g.settingsPage.OnResetRequested = func() {
-		g.showResetConfirm()
-	}
-	g.settingsPage.OnShowLogsChange = func(show bool) {
-		g.rebuildSecondaryPages(show)
-	}
-
-	g.configsPage = pages.NewConfigsPage(th, g.ctrl, dialog)
-	g.corePage = pages.NewCorePage(th, g.ctrl, dialog)
-	g.pluginsPage = pages.NewPluginsPage(th, g.ctrl.Controller)
-
-	primary := []pages.Page{mainPage, g.configsPage}
-	secondary := g.buildSecondaryPages(cfg.MustGet("ui", "show_logs").Bool())
-
-	g.shell = NewShell(th, cfg, g.ctrl.Controller, primary, secondary)
-	g.shell.dialog = dialog
 
 	return g
 }
@@ -197,33 +168,20 @@ func (g *GUI) Run() {
 		mainWindowTitle = windowTitle
 		g.win = w
 
-		g.tray = tray.New(
-			g.log,
-			func() {
-				g.log.Debugf("tray: show requested")
-				if err := showMainWindow(w); err != nil {
-					g.log.Warnf("tray show failed: %v", err)
-				}
-			},
-			func() {
-				g.log.Debugf("tray: minimize requested")
-				if err := hideMainWindow(w); err != nil {
-					g.log.Warnf("tray hide failed: %v", err)
-				}
-			},
-			func() {
-				g.log.Debugf("tray: quit requested")
-				w.Perform(system.ActionClose)
-			},
-			func() bool { return g.ctrl.Controller.IsRunning() },
-			func() { go g.ctrl.StartService() },
-			func() { go g.ctrl.StopService() },
-		)
-		if err := g.tray.Start(); err != nil {
-			g.log.Warnf("failed to start tray: %v", err)
+		if g.cfg.MustGet("remote", "remember_connection_mode").Bool() {
+			g.mode = g.cfg.MustGet("remote", "last_connection_mode").String()
+			if g.mode != "embedded" && g.mode != "remote" {
+				g.mode = "embedded"
+			}
+			close(g.startupDone)
 		} else {
-			g.log.Infof("tray started")
-			g.tray.Refresh()
+			g.showStartupDialog(w)
+		}
+
+		if g.mode == "remote" {
+			g.buildRemoteUI(w)
+		} else {
+			g.buildEmbeddedUI(w)
 		}
 
 		var ops op.Ops
@@ -250,12 +208,157 @@ func (g *GUI) Run() {
 	}()
 
 	g.log.Infof("entering Gio main loop")
-	go g.runStartupUpdateChecks()
 	gioapp.Main()
 
 	if g.restart {
 		g.doRestart()
 	}
+}
+
+func (g *GUI) showStartupDialog(w *gioapp.Window) {
+	var ops op.Ops
+	var embeddedBtn, remoteBtn widget.Clickable
+	var rememberCh widget.Bool
+
+	for {
+		switch e := w.Event().(type) {
+		case gioapp.DestroyEvent:
+			os.Exit(0)
+		case gioapp.FrameEvent:
+			gtx := gioapp.NewContext(&ops, e)
+
+			if embeddedBtn.Clicked(gtx) {
+				g.mode = "embedded"
+				_ = g.cfg.MustGet("remote", "remember_connection_mode").Update(rememberCh.Value)
+				_ = g.cfg.MustGet("remote", "last_connection_mode").Update("embedded")
+				_ = g.cfg.Save()
+				close(g.startupDone)
+				return
+			}
+			if remoteBtn.Clicked(gtx) {
+				g.mode = "remote"
+				_ = g.cfg.MustGet("remote", "remember_connection_mode").Update(rememberCh.Value)
+				_ = g.cfg.MustGet("remote", "last_connection_mode").Update("remote")
+				_ = g.cfg.Save()
+				close(g.startupDone)
+				return
+			}
+
+			colors := theme.Current().Colors()
+			paint.Fill(gtx.Ops, colors.Bg)
+
+			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				maxWidth := gtx.Dp(unit.Dp(360))
+				if gtx.Constraints.Max.X < maxWidth {
+					maxWidth = gtx.Constraints.Max.X - gtx.Dp(unit.Dp(32))
+				}
+				cardGtx := gtx
+				cardGtx.Constraints.Min.X = 0
+				cardGtx.Constraints.Max.X = maxWidth
+				return component.Surface(g.th).Layout(cardGtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(unit.Dp(24)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+							layout.Rigid(material.H5(g.th, localengine.T("startup", "title")).Layout),
+							layout.Rigid(layout.Spacer{Height: 16}.Layout),
+							layout.Rigid(material.Body1(g.th, localengine.T("startup", "subtitle")).Layout),
+							layout.Rigid(layout.Spacer{Height: 16}.Layout),
+							layout.Rigid(material.Button(g.th, &embeddedBtn, localengine.T("startup", "btn", "embedded")).Layout),
+							layout.Rigid(layout.Spacer{Height: 8}.Layout),
+							layout.Rigid(material.Button(g.th, &remoteBtn, localengine.T("startup", "btn", "remote")).Layout),
+							layout.Rigid(layout.Spacer{Height: 16}.Layout),
+							layout.Rigid(material.CheckBox(g.th, &rememberCh, localengine.T("startup", "remember")).Layout),
+						)
+					})
+				})
+			})
+
+			e.Frame(gtx.Ops)
+		}
+	}
+}
+
+func (g *GUI) buildEmbeddedUI(w *gioapp.Window) {
+	g.ctrl = core.NewInteractiveController(g.app.Controller)
+	g.ctrl.OnStatusChange = func(running bool) {
+		if g.tray != nil {
+			g.tray.Refresh()
+		}
+	}
+	g.ctrl.OnUpdateCheckDue = func() {
+		g.runStartupUpdateChecks()
+	}
+	g.ctrl.OnCoreMissing = func() {
+		g.shell.NavigateTo("core")
+		g.corePage.HighlightUpdateBlock()
+	}
+	g.ctrl.OnConfigMissing = func() {
+		g.shell.NavigateTo("configs")
+		g.configsPage.ShowAddDialog()
+	}
+
+	g.aboutPage = pages.NewAboutPage(g.th, g.ctrl, g.dialog)
+	mainPage := pages.NewMainPage(g.th, g.ctrl, g.dialog)
+	g.logPage = pages.NewLogPage(g.th, g.ctrl.Controller)
+
+	g.settingsPage = pages.NewSettingsPage(g.th, g.ctrl, g.dialog)
+	g.settingsPage.OnLanguageChange = func() {
+		g.shell.RebuildNav()
+	}
+	g.settingsPage.OnResetRequested = func() {
+		g.showResetConfirm()
+	}
+	g.settingsPage.OnShowLogsChange = func(show bool) {
+		g.rebuildSecondaryPages(show)
+	}
+
+	g.configsPage = pages.NewConfigsPage(g.th, g.ctrl, g.dialog)
+	g.corePage = pages.NewCorePage(g.th, g.ctrl, g.dialog)
+	g.pluginsPage = pages.NewPluginsPage(g.th, g.ctrl.Controller)
+
+	primary := []pages.Page{mainPage, g.configsPage}
+	secondary := g.buildSecondaryPages(g.cfg.MustGet("ui", "show_logs").Bool())
+
+	g.shell = NewShell(g.th, g.cfg, g.ctrl.Controller, primary, secondary)
+	g.shell.dialog = g.dialog
+
+	g.tray = tray.New(
+		g.log,
+		func() {
+			g.log.Debugf("tray: show requested")
+			if err := showMainWindow(w); err != nil {
+				g.log.Warnf("tray show failed: %v", err)
+			}
+		},
+		func() {
+			g.log.Debugf("tray: minimize requested")
+			if err := hideMainWindow(w); err != nil {
+				g.log.Warnf("tray hide failed: %v", err)
+			}
+		},
+		func() {
+			g.log.Debugf("tray: quit requested")
+			w.Perform(system.ActionClose)
+		},
+		func() bool { return g.ctrl.Controller.IsRunning() },
+		func() { go g.ctrl.StartService() },
+		func() { go g.ctrl.StopService() },
+	)
+	if err := g.tray.Start(); err != nil {
+		g.log.Warnf("failed to start tray: %v", err)
+	} else {
+		g.log.Infof("tray started")
+		g.tray.Refresh()
+	}
+
+	go g.runStartupUpdateChecks()
+}
+
+func (g *GUI) buildRemoteUI(w *gioapp.Window) {
+	g.remotePage = pages.NewRemotePage(g.th, g.cfg)
+	g.remotePage.SetAddress(g.cfg.MustGet("remote", "last_tcp_address").String())
+
+	g.shell = NewShell(g.th, g.cfg, nil, []pages.Page{g.remotePage}, nil)
+	g.shell.dialog = g.dialog
 }
 
 // RequestRestart stops the current app services and replaces the process with

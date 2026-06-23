@@ -121,6 +121,12 @@ settings:
     system: System
     dark: Dark
     light: Light
+  startup:
+    title: Startup
+    mode_label: Default startup mode
+    mode_embedded: Embedded
+    mode_remote: Remote
+    show_dialog: Show mode selection dialog at startup
   plugins:
     title: Plugins
     enabled: Plugins feature
@@ -138,6 +144,13 @@ settings:
     success_title: Data reset
     success_msg: All data has been reset. The application will restart now.
   desktop_notifications: Desktop notifications
+startup:
+  title: sing-box-ez
+  subtitle: Choose how to run
+  btn:
+    embedded: Run core embedded
+    remote: Connect to remote
+  remember: Remember my choice
 log:
   title: Log
   btn:

@@ -126,6 +126,12 @@ settings:
     system: Системная
     dark: Тёмная
     light: Светлая
+  startup:
+    title: Запуск
+    mode_label: Режим запуска по умолчанию
+    mode_embedded: Встроенный
+    mode_remote: Удалённый
+    show_dialog: Показывать диалог выбора режима при запуске
   plugins:
     title: Плагины
     enabled: Функция плагинов
@@ -143,6 +149,13 @@ settings:
     success_title: Данные сброшены
     success_msg: Все данные сброшены. Приложение будет перезапущено.
   desktop_notifications: Уведомления на рабочий стол
+startup:
+  title: sing-box-ez
+  subtitle: Выберите режим запуска
+  btn:
+    embedded: Запустить ядро встроенно
+    remote: Подключиться к удалённому
+  remember: Запомнить выбор
 log:
   title: Лог
   btn:
