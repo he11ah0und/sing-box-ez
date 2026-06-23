@@ -14,6 +14,7 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/svcman"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
@@ -22,7 +23,6 @@ import (
 	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
 	"sing-box-ez/internal/gui/tray"
-	"sing-box-ez/internal/remote"
 
 	"gio.tools/icons"
 	gioapp "gioui.org/app"
@@ -701,17 +701,13 @@ func (g *GUI) buildRemoteUI(w *gioapp.Window) {
 }
 
 func (g *GUI) connectRemotePage(addr string) {
-	transport, err := remote.ParseAddress(addr)
+	transport, err := rpc.ParseAddress(addr)
 	if err != nil {
 		g.log.Warnf("invalid remote address %q: %v", addr, err)
 		return
 	}
-	client, err := remote.Dial(transport)
-	if err != nil {
-		g.log.Warnf("failed to connect to remote %q: %v", addr, err)
-		return
-	}
-	g.remotePage.SetClient(client)
+	backend := rpc.NewRemoteBackend(transport)
+	g.remotePage.SetBackend(backend)
 }
 
 // RequestRestart stops the current app services and replaces the process with

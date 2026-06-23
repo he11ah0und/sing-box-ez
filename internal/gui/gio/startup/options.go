@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/svcman"
 	"sing-box-ez/internal/framework/svcman/factory"
-	"sing-box-ez/internal/remote"
 )
 
 // OptionKind classifies a startup option.
@@ -111,19 +111,19 @@ func probeTransportTCP(addr string) bool {
 	if addr == "" {
 		return false
 	}
-	t, err := remote.ParseAddress(addr)
+	t, err := rpc.ParseAddress(addr)
 	if err != nil {
 		return false
 	}
 	done := make(chan bool, 1)
 	go func() {
-		c, err := remote.Dial(t)
+		c, err := t.Dial()
 		if err != nil {
 			done <- false
 			return
 		}
-		defer c.Close()
-		done <- c.Ping() == nil
+		_ = c.Close()
+		done <- true
 	}()
 	select {
 	case <-time.After(1500 * time.Millisecond):

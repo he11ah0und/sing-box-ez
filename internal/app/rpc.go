@@ -91,6 +91,10 @@ func (a *App) registerRPC(registry *rpc.Registry) {
 		return rpc.Empty{}, a.Controller.UpdateConfigNow(req.Name, req.URL)
 	})
 
+	registry.Register("log", "core_lines", func(ctx context.Context, _ rpc.Empty) ([]string, error) {
+		return a.Controller.GetCoreLogLines(), nil
+	})
+
 	registry.Register("app", "shutdown", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		a.Controller.Close()
 		return rpc.Empty{}, nil
