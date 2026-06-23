@@ -71,7 +71,7 @@ func (p *MainPage) handleInteractions(gtx layout.Context) {
 		p.openConfigPicker()
 	}
 	if p.mainBtn.Clicked(gtx) {
-		if p.ctrl.Controller.IsRunning() {
+		if p.ctrl.Backend().IsRunning() {
 			go p.onStop()
 		} else {
 			go p.onStart()
@@ -83,14 +83,14 @@ func (p *MainPage) handleInteractions(gtx layout.Context) {
 }
 
 func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
-	running := p.ctrl.Controller.IsRunning()
+	running := p.ctrl.Backend().IsRunning()
 	mainLabel := localengine.T("main", "btn", "start")
 	if running {
 		mainLabel = localengine.T("main", "btn", "stop")
 	}
 
 	configText := localengine.T("main", "active", "none")
-	if active := p.ctrl.Controller.Config().GetActiveConfig(); active != nil {
+	if active := p.ctrl.Backend().GetActiveConfig(); active != nil {
 		configText = localengine.T("main", "active", "prefix") + active.Name
 	}
 
@@ -125,7 +125,7 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *MainPage) openConfigPicker() {
-	configs := p.ctrl.Controller.Config().GetConfigs()
+	configs := p.ctrl.Backend().GetConfigs()
 	btns := make([]widget.Clickable, len(configs))
 
 	p.dialog.ShowCustom(localengine.T("main", "active", "prefix"), func(gtx layout.Context) layout.Dimensions {
@@ -141,7 +141,7 @@ func (p *MainPage) openConfigPicker() {
 		for i, cfg := range configs {
 			idx := i
 			label := cfg.Name
-			active := p.ctrl.Controller.Config().GetActiveConfig()
+			active := p.ctrl.Backend().GetActiveConfig()
 			if active != nil && cfg.Name == active.Name {
 				label = "> " + cfg.Name
 			}
@@ -154,7 +154,7 @@ func (p *MainPage) openConfigPicker() {
 }
 
 func (p *MainPage) activateConfigAndMaybeRestart(name string) {
-	active := p.ctrl.Controller.Config().GetActiveConfig()
+	active := p.ctrl.Backend().GetActiveConfig()
 	if active != nil && active.Name == name {
 		return
 	}
@@ -162,13 +162,13 @@ func (p *MainPage) activateConfigAndMaybeRestart(name string) {
 	p.processing = true
 	defer func() { p.processing = false }()
 
-	if err := p.ctrl.Controller.ActivateConfig(name); err != nil {
-		p.ctrl.Controller.Terminal().Infof("Failed to activate config: %v", err)
+	if err := p.ctrl.Backend().ActivateConfig(name); err != nil {
+		p.ctrl.Backend().Terminal().Infof("Failed to activate config: %v", err)
 		return
 	}
-	if p.ctrl.Controller.IsRunning() {
-		if err := p.ctrl.Controller.Restart(); err != nil {
-			p.ctrl.Controller.Terminal().Infof("Failed to restart: %v", err)
+	if p.ctrl.Backend().IsRunning() {
+		if err := p.ctrl.Backend().Restart(); err != nil {
+			p.ctrl.Backend().Terminal().Infof("Failed to restart: %v", err)
 		}
 	}
 }
@@ -258,8 +258,8 @@ func (p *MainPage) onRestart() {
 	p.processing = true
 	go func() {
 		defer func() { p.processing = false }()
-		if err := p.ctrl.Controller.Restart(); err != nil {
-			p.ctrl.Controller.Terminal().Infof("Failed to restart: %v", err)
+		if err := p.ctrl.Backend().Restart(); err != nil {
+			p.ctrl.Backend().Terminal().Infof("Failed to restart: %v", err)
 			return
 		}
 	}()

@@ -88,6 +88,21 @@ func (c *Controller) Config() *config.AppConfig {
 	return c.cfg
 }
 
+// GetConfigs returns all configured profiles.
+func (c *Controller) GetConfigs() []config.ConfigRecord {
+	return c.cfg.GetConfigs()
+}
+
+// GetActiveConfig returns the currently active profile.
+func (c *Controller) GetActiveConfig() *config.ConfigRecord {
+	return c.cfg.GetActiveConfig()
+}
+
+// GetActiveName returns the name of the active profile.
+func (c *Controller) GetActiveName() string {
+	return c.cfg.GetActiveName()
+}
+
 // Framework returns the framework app.
 func (c *Controller) Framework() *framework.App {
 	return c.fwApp
@@ -485,4 +500,13 @@ func (c *Controller) SetDefaultInterval(h int) {
 	c.cfg.MustGet("updates", "default_interval_hours").Update(h)
 	_ = c.cfg.Save()
 	c.terminal.Infof("Default interval set to %dh", h)
+}
+
+func (c *Controller) SetAutoRestart(checked bool) error {
+	c.cfg.MustGet("core", "auto_restart").Update(checked)
+	if err := c.cfg.Save(); err != nil {
+		return c.terminal.Errorf("Failed to save auto-restart setting: %v", err)
+	}
+	c.terminal.Infof("Auto-restart: %v", checked)
+	return nil
 }

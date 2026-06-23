@@ -13,11 +13,11 @@ import (
 // PluginsPage is a placeholder for the plugins screen.
 type PluginsPage struct {
 	th   *material.Theme
-	ctrl *core.Controller
+	ctrl core.Backend
 }
 
 // NewPluginsPage creates a new plugins page.
-func NewPluginsPage(th *material.Theme, ctrl *core.Controller) *PluginsPage {
+func NewPluginsPage(th *material.Theme, ctrl core.Backend) *PluginsPage {
 	return &PluginsPage{th: th, ctrl: ctrl}
 }
 
