@@ -1,12 +1,16 @@
 package pages
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"gio.tools/icons"
+	apppkg "sing-box-ez/internal/app"
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/remote"
+	"sing-box-ez/internal/framework/rpc"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
@@ -15,14 +19,17 @@ import (
 
 // RemotePage is a minimal control surface for a remote sing-box-ez daemon.
 type RemotePage struct {
-	th         *material.Theme
-	cfg        *config.AppConfig
-	client     *remote.Client
-	status     remote.CoreStatusRes
+	th      *material.Theme
+	cfg     *config.AppConfig
+	backend rpc.Backend
+
+	mu         sync.Mutex
+	status     apppkg.CoreStatusRes
 	logLines   []string
 	connected  bool
 	address    string
 	passphrase string
+	stopPoll   chan struct{}
 
 	connectBtn    widget.Clickable
 	disconnectBtn widget.Clickable
@@ -56,24 +63,33 @@ func (p *RemotePage) SetAddress(addr string) {
 	p.addrEd.SetText(addr)
 }
 
-// SetClient connects the page to a remote client.
-func (p *RemotePage) SetClient(client *remote.Client) {
-	p.client = client
-	p.connected = client != nil
-	if client != nil {
-		client.SetOnLog(func(line string) {
-			p.logLines = append(p.logLines, line)
-			if len(p.logLines) > 500 {
-				p.logLines = p.logLines[len(p.logLines)-500:]
-			}
-		})
-		_ = p.refreshStatus()
+// SetBackend connects the page to a remote RPC backend.
+func (p *RemotePage) SetBackend(backend rpc.Backend) {
+	p.mu.Lock()
+	p.backend = backend
+	p.connected = backend != nil
+	if p.stopPoll != nil {
+		close(p.stopPoll)
 	}
+	p.stopPoll = nil
+	if backend != nil {
+		p.stopPoll = make(chan struct{})
+		go p.pollLogs()
+		_ = p.refreshStatusLocked()
+	}
+	p.mu.Unlock()
 }
 
 // Layout renders the remote control UI.
 func (p *RemotePage) Layout(gtx layout.Context) layout.Dimensions {
 	p.handleInteractions(gtx)
+
+	p.mu.Lock()
+	connected := p.connected
+	status := p.status
+	logLines := make([]string, len(p.logLines))
+	copy(logLines, p.logLines)
+	p.mu.Unlock()
 
 	return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -82,8 +98,8 @@ func (p *RemotePage) Layout(gtx layout.Context) layout.Dimensions {
 			}),
 			layout.Rigid(layout.Spacer{Height: 16}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if p.connected {
-					return p.layoutConnected(gtx)
+				if connected {
+					return p.layoutConnected(gtx, status, logLines)
 				}
 				return p.layoutConnect(gtx)
 			}),
@@ -101,14 +117,19 @@ func (p *RemotePage) layoutConnect(gtx layout.Context) layout.Dimensions {
 	)
 }
 
-func (p *RemotePage) layoutConnected(gtx layout.Context) layout.Dimensions {
-	status := "not running"
-	if p.status.Running {
-		status = fmt.Sprintf("running (PID %d)", p.status.PID)
+func (p *RemotePage) layoutConnected(gtx layout.Context, status apppkg.CoreStatusRes, logLines []string) layout.Dimensions {
+	statusText := "not running"
+	if status.Running {
+		statusText = fmt.Sprintf("running (PID %d)", status.PID)
+	}
+
+	var lines string
+	for _, l := range logLines {
+		lines += l + "\n"
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(material.Body1(p.th, "Status: "+status).Layout),
+		layout.Rigid(material.Body1(p.th, "Status: "+statusText).Layout),
 		layout.Rigid(layout.Spacer{Height: 8}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
@@ -123,11 +144,6 @@ func (p *RemotePage) layoutConnected(gtx layout.Context) layout.Dimensions {
 		layout.Rigid(material.Button(p.th, &p.disconnectBtn, "Disconnect").Layout),
 		layout.Rigid(layout.Spacer{Height: 16}.Layout),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			// Render last log lines.
-			var lines string
-			for _, l := range p.logLines {
-				lines += l + "\n"
-			}
 			return material.Body1(p.th, lines).Layout(gtx)
 		}),
 	)
@@ -139,48 +155,84 @@ func (p *RemotePage) handleInteractions(gtx layout.Context) {
 		p.passphrase = p.passEd.Text()
 		// TODO: passphrase encryption is not yet implemented.
 		_ = p.passphrase
-		transport, err := remote.ParseAddress(p.address)
+		transport, err := rpc.ParseAddress(p.address)
 		if err == nil {
-			client, err := remote.Dial(transport)
-			if err == nil {
-				p.SetClient(client)
-				if p.cfg != nil {
-					if strings.HasPrefix(p.address, "tcp://") {
-						_ = p.cfg.MustGet("remote", "last_tcp_address").Update(p.address)
-					}
-					_ = p.cfg.MustGet("remote", "last_passphrase").Update(p.passphrase)
-					_ = p.cfg.Save()
+			p.SetBackend(rpc.NewRemoteBackend(transport))
+			if p.cfg != nil {
+				if strings.HasPrefix(p.address, "tcp://") {
+					_ = p.cfg.MustGet("remote", "last_tcp_address").Update(p.address)
 				}
+				_ = p.cfg.MustGet("remote", "last_passphrase").Update(p.passphrase)
+				_ = p.cfg.Save()
 			}
 		}
 	}
-	if p.disconnectBtn.Clicked(gtx) && p.client != nil {
-		_ = p.client.Close()
-		p.client = nil
-		p.connected = false
+	if p.disconnectBtn.Clicked(gtx) {
+		p.SetBackend(nil)
 	}
-	if p.startBtn.Clicked(gtx) && p.client != nil {
-		_ = p.client.CoreStart()
+	if p.startBtn.Clicked(gtx) {
+		p.call("core", "start", rpc.Empty{})
 		_ = p.refreshStatus()
 	}
-	if p.stopBtn.Clicked(gtx) && p.client != nil {
-		_ = p.client.CoreStop()
+	if p.stopBtn.Clicked(gtx) {
+		p.call("core", "stop", rpc.Empty{})
 		_ = p.refreshStatus()
 	}
-	if p.restartBtn.Clicked(gtx) && p.client != nil {
-		_ = p.client.CoreRestart()
+	if p.restartBtn.Clicked(gtx) {
+		p.call("core", "restart", rpc.Empty{})
 		_ = p.refreshStatus()
 	}
 }
 
+func (p *RemotePage) call(namespace, method string, args any) {
+	p.mu.Lock()
+	backend := p.backend
+	p.mu.Unlock()
+	if backend == nil {
+		return
+	}
+	_ = backend.Call(context.Background(), namespace, method, args, nil)
+}
+
 func (p *RemotePage) refreshStatus() error {
-	if p.client == nil {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.refreshStatusLocked()
+}
+
+func (p *RemotePage) refreshStatusLocked() error {
+	if p.backend == nil {
 		return nil
 	}
-	status, err := p.client.CoreStatus()
-	if err != nil {
+	var status apppkg.CoreStatusRes
+	if err := p.backend.Call(context.Background(), "core", "status", rpc.Empty{}, &status); err != nil {
 		return err
 	}
 	p.status = status
 	return nil
+}
+
+func (p *RemotePage) pollLogs() {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-p.stopPoll:
+			return
+		case <-ticker.C:
+			p.mu.Lock()
+			backend := p.backend
+			p.mu.Unlock()
+			if backend == nil {
+				continue
+			}
+			var lines []string
+			if err := backend.Call(context.Background(), "log", "core_lines", rpc.Empty{}, &lines); err != nil {
+				continue
+			}
+			p.mu.Lock()
+			p.logLines = lines
+			p.mu.Unlock()
+		}
+	}
 }

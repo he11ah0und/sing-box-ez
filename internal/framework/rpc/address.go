@@ -1,4 +1,4 @@
-package remote
+package rpc
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"sing-box-ez/internal/framework/ipc/unixsocket"
 )
 
-// ParseAddress converts a remote address string into an IPC transport.
+// ParseAddress converts an address string into an IPC transport.
 // Supported forms:
 //   - "auto"                      -> platform default (unix socket / named pipe)
 //   - "unix:///path/to/socket"    -> Unix domain socket

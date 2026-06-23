@@ -19,7 +19,7 @@ type echoResp struct {
 func TestServerClientRoundTrip(t *testing.T) {
 	reg := NewRegistry()
 	if err := reg.Register("test", "echo", func(ctx context.Context, req echoReq) (echoResp, error) {
-		return echoResp{Message: req.Message}, nil
+		return echoResp(req), nil
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}

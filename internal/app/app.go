@@ -18,7 +18,6 @@ import (
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
-	"sing-box-ez/internal/remote"
 )
 
 //go:embed locales/*.yaml
@@ -101,7 +100,7 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 	if v, ok := fwApp.CLI.GlobalValue("remote"); ok {
 		addr := fwcli.AsString(v)
 		if addr != "" {
-			transport, err := remote.ParseAddress(addr)
+			transport, err := rpc.ParseAddress(addr)
 			if err != nil {
 				return nil, err
 			}
@@ -119,7 +118,7 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 // Run executes the CLI command, runs the RPC daemon with --host, or starts the GUI.
 func (a *App) Run() {
 	if a.host != "" {
-		transport, err := remote.ParseAddress(a.host)
+		transport, err := rpc.ParseAddress(a.host)
 		if err != nil {
 			a.Logger.Root.Errorf("invalid --host address: %v", err)
 			os.Exit(1)
