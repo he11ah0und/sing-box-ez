@@ -85,46 +85,46 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 		dialog: dialog,
 	}
 
-	p.origLogLimit = fmt.Sprintf("%d", ctrl.Controller.Config().MustGet("log", "limit").Int())
+	p.origLogLimit = fmt.Sprintf("%d", ctrl.Backend().Config().MustGet("log", "limit").Int())
 	p.logLimitEditor.SingleLine = true
 	p.logLimitEditor.Filter = "0123456789"
 	p.logLimitEditor.SetText(p.origLogLimit)
 
-	p.origInterval = fmt.Sprintf("%d", ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int())
+	p.origInterval = fmt.Sprintf("%d", ctrl.Backend().Config().MustGet("updates", "default_interval_hours").Int())
 	p.intervalEditor.SingleLine = true
 	p.intervalEditor.Filter = "0123456789"
 	p.intervalEditor.SetText(p.origInterval)
 
-	p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", ctrl.Controller.Config().MustGet("updates", "auto_update_configs_interval_hours").Int())
+	p.origAutoUpdateConfigsInterval = fmt.Sprintf("%d", ctrl.Backend().Config().MustGet("updates", "auto_update_configs_interval_hours").Int())
 	p.autoUpdateConfigsIntervalEditor.SingleLine = true
 	p.autoUpdateConfigsIntervalEditor.Filter = "0123456789"
 	p.autoUpdateConfigsIntervalEditor.SetText(p.origAutoUpdateConfigsInterval)
 
-	p.origBackgroundUpdateCheckInterval = fmt.Sprintf("%d", ctrl.Controller.Config().MustGet("updates", "background_update_check_interval_hours").Int())
+	p.origBackgroundUpdateCheckInterval = fmt.Sprintf("%d", ctrl.Backend().Config().MustGet("updates", "background_update_check_interval_hours").Int())
 	p.backgroundUpdateCheckIntervalEditor.SingleLine = true
 	p.backgroundUpdateCheckIntervalEditor.Filter = "0123456789"
 	p.backgroundUpdateCheckIntervalEditor.SetText(p.origBackgroundUpdateCheckInterval)
 
-	p.origShowLogs = ctrl.Controller.Config().MustGet("ui", "show_logs").Bool()
+	p.origShowLogs = ctrl.Backend().Config().MustGet("ui", "show_logs").Bool()
 	p.showLogs.Value = p.origShowLogs
 
-	p.origDesktopNotif = ctrl.Controller.Config().MustGet("ui", "desktop_notifications").Bool()
+	p.origDesktopNotif = ctrl.Backend().Config().MustGet("ui", "desktop_notifications").Bool()
 	p.desktopNotif.Value = p.origDesktopNotif
 
-	p.origAutoCheckSelf = ctrl.Controller.Config().MustGet("updates", "auto_check_self").Bool()
+	p.origAutoCheckSelf = ctrl.Backend().Config().MustGet("updates", "auto_check_self").Bool()
 	p.autoCheckSelf.Value = p.origAutoCheckSelf
 
-	p.origAutoCheckCore = ctrl.Controller.Config().MustGet("updates", "auto_check_core").Bool()
+	p.origAutoCheckCore = ctrl.Backend().Config().MustGet("updates", "auto_check_core").Bool()
 	p.autoCheckCore.Value = p.origAutoCheckCore
 
-	p.origAutoUpdateConfigs = ctrl.Controller.Config().MustGet("updates", "auto_update_configs").Bool()
+	p.origAutoUpdateConfigs = ctrl.Backend().Config().MustGet("updates", "auto_update_configs").Bool()
 	p.autoUpdateConfigs.Value = p.origAutoUpdateConfigs
 
-	p.origAutoRestartOnConfigUpdate = ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Bool()
+	p.origAutoRestartOnConfigUpdate = ctrl.Backend().Config().MustGet("updates", "auto_restart_on_config_update").Bool()
 	p.autoRestartOnConfigUpdate.Value = p.origAutoRestartOnConfigUpdate
 
-	p.startupOptions = startup.Discover(ctrl.Controller.Config())
-	p.origStartupMode = ctrl.Controller.Config().MustGet("remote", "last_connection_mode").String()
+	p.startupOptions = startup.Discover(ctrl.Backend().Config())
+	p.origStartupMode = ctrl.Backend().Config().MustGet("remote", "last_connection_mode").String()
 	if p.origStartupMode == "" || p.origStartupMode == "embedded" {
 		p.origStartupMode = "embed"
 	}
@@ -133,22 +133,22 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 	}
 	p.pendingStartupMode = p.origStartupMode
 
-	p.origShowStartupDialog = !ctrl.Controller.Config().MustGet("remote", "remember_connection_mode").Bool()
+	p.origShowStartupDialog = !ctrl.Backend().Config().MustGet("remote", "remember_connection_mode").Bool()
 	p.showStartupDialog.Value = p.origShowStartupDialog
 
-	p.origLang = ctrl.Controller.Config().MustGet("ui", "language").String()
+	p.origLang = ctrl.Backend().Config().MustGet("ui", "language").String()
 	p.pendingLang = p.origLang
 
-	p.origLogLevel = ctrl.Controller.Config().MustGet("log", "level").String()
+	p.origLogLevel = ctrl.Backend().Config().MustGet("log", "level").String()
 	p.pendingLogLevel = p.origLogLevel
 
-	p.origTheme = ctrl.Controller.Config().MustGet("ui", "theme").String()
+	p.origTheme = ctrl.Backend().Config().MustGet("ui", "theme").String()
 	if p.origTheme == "" {
 		p.origTheme = "default"
 	}
 	p.pendingTheme = p.origTheme
 
-	p.origThemeMode = ctrl.Controller.Config().MustGet("ui", "theme_mode").String()
+	p.origThemeMode = ctrl.Backend().Config().MustGet("ui", "theme_mode").String()
 	if p.origThemeMode == "" {
 		p.origThemeMode = "system"
 	}
@@ -341,47 +341,47 @@ func (p *SettingsPage) updateDropdowns() {
 }
 
 func (p *SettingsPage) applySettings(d *settingsDirty) {
-	p.applyIntField(d.logLimit, &p.logLimitEditor, &p.origLogLimit, 0, func(v int) { p.ctrl.Controller.SetLogLimit(v) })
-	p.applyIntField(d.interval, &p.intervalEditor, &p.origInterval, 1, func(v int) { p.ctrl.Controller.SetDefaultInterval(v) })
+	p.applyIntField(d.logLimit, &p.logLimitEditor, &p.origLogLimit, 0, func(v int) { p.ctrl.Backend().SetLogLimit(v) })
+	p.applyIntField(d.interval, &p.intervalEditor, &p.origInterval, 1, func(v int) { p.ctrl.Backend().SetDefaultInterval(v) })
 	p.applyIntField(d.backgroundUpdateCheckInterval, &p.backgroundUpdateCheckIntervalEditor, &p.origBackgroundUpdateCheckInterval, 1, func(v int) {
-		p.ctrl.Controller.Config().MustGet("updates", "background_update_check_interval_hours").Update(v)
+		p.ctrl.Backend().Config().MustGet("updates", "background_update_check_interval_hours").Update(v)
 	})
 	p.applyIntField(d.autoUpdateConfigsInterval, &p.autoUpdateConfigsIntervalEditor, &p.origAutoUpdateConfigsInterval, 1, func(v int) {
-		p.ctrl.Controller.Config().MustGet("updates", "auto_update_configs_interval_hours").Update(v)
+		p.ctrl.Backend().Config().MustGet("updates", "auto_update_configs_interval_hours").Update(v)
 	})
 
-	p.ctrl.Controller.Config().MustGet("ui", "show_logs").Update(p.showLogs.Value)
+	p.ctrl.Backend().Config().MustGet("ui", "show_logs").Update(p.showLogs.Value)
 	if p.OnShowLogsChange != nil {
 		p.OnShowLogsChange(p.showLogs.Value)
 	}
 	p.origShowLogs = p.showLogs.Value
 
-	p.ctrl.Controller.Config().MustGet("log", "level").Update(p.pendingLogLevel)
+	p.ctrl.Backend().Config().MustGet("log", "level").Update(p.pendingLogLevel)
 	p.origLogLevel = p.pendingLogLevel
 
-	p.ctrl.Controller.Config().MustGet("ui", "desktop_notifications").Update(p.desktopNotif.Value)
+	p.ctrl.Backend().Config().MustGet("ui", "desktop_notifications").Update(p.desktopNotif.Value)
 	p.origDesktopNotif = p.desktopNotif.Value
 
-	p.ctrl.Controller.Config().MustGet("updates", "auto_check_self").Update(p.autoCheckSelf.Value)
+	p.ctrl.Backend().Config().MustGet("updates", "auto_check_self").Update(p.autoCheckSelf.Value)
 	p.origAutoCheckSelf = p.autoCheckSelf.Value
 
-	p.ctrl.Controller.Config().MustGet("updates", "auto_check_core").Update(p.autoCheckCore.Value)
+	p.ctrl.Backend().Config().MustGet("updates", "auto_check_core").Update(p.autoCheckCore.Value)
 	p.origAutoCheckCore = p.autoCheckCore.Value
 
-	p.ctrl.Controller.Config().MustGet("updates", "auto_update_configs").Update(p.autoUpdateConfigs.Value)
+	p.ctrl.Backend().Config().MustGet("updates", "auto_update_configs").Update(p.autoUpdateConfigs.Value)
 	p.origAutoUpdateConfigs = p.autoUpdateConfigs.Value
 
-	p.ctrl.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Update(p.autoRestartOnConfigUpdate.Value)
+	p.ctrl.Backend().Config().MustGet("updates", "auto_restart_on_config_update").Update(p.autoRestartOnConfigUpdate.Value)
 	p.origAutoRestartOnConfigUpdate = p.autoRestartOnConfigUpdate.Value
 
-	p.ctrl.Controller.Config().MustGet("remote", "last_connection_mode").Update(p.pendingStartupMode)
+	p.ctrl.Backend().Config().MustGet("remote", "last_connection_mode").Update(p.pendingStartupMode)
 	p.origStartupMode = p.pendingStartupMode
 
-	p.ctrl.Controller.Config().MustGet("remote", "remember_connection_mode").Update(!p.showStartupDialog.Value)
+	p.ctrl.Backend().Config().MustGet("remote", "remember_connection_mode").Update(!p.showStartupDialog.Value)
 	p.origShowStartupDialog = p.showStartupDialog.Value
 
 	if d.lang {
-		p.ctrl.Controller.Config().MustGet("ui", "language").Update(p.pendingLang)
+		p.ctrl.Backend().Config().MustGet("ui", "language").Update(p.pendingLang)
 		localengine.SetLanguage(p.pendingLang)
 		p.origLang = p.pendingLang
 		if p.OnLanguageChange != nil {
@@ -396,15 +396,15 @@ func (p *SettingsPage) applySettings(d *settingsDirty) {
 				mode = theme.ModeSystem
 			}
 			if err := theme.M.Apply(p.pendingTheme, mode); err == nil {
-				_ = p.ctrl.Controller.Config().MustGet("ui", "theme").Update(p.pendingTheme)
-				_ = p.ctrl.Controller.Config().MustGet("ui", "theme_mode").Update(string(mode))
+				_ = p.ctrl.Backend().Config().MustGet("ui", "theme").Update(p.pendingTheme)
+				_ = p.ctrl.Backend().Config().MustGet("ui", "theme_mode").Update(string(mode))
 				p.origTheme = p.pendingTheme
 				p.origThemeMode = p.pendingThemeMode
 			}
 		}
 	}
 
-	_ = p.ctrl.Controller.Config().Save()
+	_ = p.ctrl.Backend().Config().Save()
 }
 
 func (p *SettingsPage) applyIntField(dirty bool, ed *widget.Editor, orig *string, min int, apply func(int)) {

@@ -34,7 +34,7 @@ const (
 // LogPage renders the log viewer with separate App and Core log tabs.
 type LogPage struct {
 	th   *material.Theme
-	ctrl *core.Controller
+	ctrl core.Backend
 
 	copyBtn  widget.Clickable
 	clearBtn widget.Clickable
@@ -48,7 +48,7 @@ type LogPage struct {
 }
 
 // NewLogPage creates a new log page.
-func NewLogPage(th *material.Theme, ctrl *core.Controller) *LogPage {
+func NewLogPage(th *material.Theme, ctrl core.Backend) *LogPage {
 	p := &LogPage{
 		th:       th,
 		ctrl:     ctrl,

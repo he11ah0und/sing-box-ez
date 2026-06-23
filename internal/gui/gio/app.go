@@ -67,11 +67,8 @@ type GUI struct {
 	// System tray integration
 	tray *tray.Tray
 
-	// Interactive controller (GUI adapter around the core controller)
+	// Interactive controller (GUI adapter around the core backend)
 	ctrl *core.InteractiveController
-
-	// Remote page used in remote mode.
-	remotePage *pages.RemotePage
 
 	// Operating mode: "embed", "service", or "remote".
 	mode string
@@ -603,15 +600,40 @@ func (g *GUI) buildModeUI(w *gioapp.Window) {
 
 func (g *GUI) buildEmbedUI(w *gioapp.Window) {
 	g.ctrl = core.NewInteractiveController(g.app.Controller)
-	g.finishBuildLocalUI(w)
+	g.finishBuildUI(w)
 }
 
 func (g *GUI) buildServiceUI(w *gioapp.Window) {
 	g.ctrl = core.NewInteractiveControllerWithManager(g.app.Controller, g.serviceManager)
-	g.finishBuildLocalUI(w)
+	g.finishBuildUI(w)
 }
 
-func (g *GUI) finishBuildLocalUI(w *gioapp.Window) {
+func (g *GUI) buildRemoteUI(w *gioapp.Window) {
+	addr := g.remoteAddr
+	if addr == "" {
+		addr = g.cfg.MustGet("remote", "last_tcp_address").String()
+	}
+
+	var backend core.Backend
+	if addr != "" {
+		transport, err := rpc.ParseAddress(addr)
+		if err != nil {
+			g.log.Warnf("invalid remote address %q: %v", addr, err)
+		} else {
+			backend = core.NewRemoteController(rpc.NewRemoteBackend(transport), g.cfg, g.app.Logger.Root.Allocate("remote"))
+		}
+	}
+	if backend == nil {
+		// Fall back to the local controller so the UI still loads; operations will
+		// behave like local embed mode if no remote address was supplied.
+		backend = g.app.Controller
+	}
+
+	g.ctrl = core.NewInteractiveController(backend)
+	g.finishBuildUI(w)
+}
+
+func (g *GUI) finishBuildUI(w *gioapp.Window) {
 	g.ctrl.OnStatusChange = func(running bool) {
 		if g.tray != nil {
 			g.tray.Refresh()
@@ -631,7 +653,7 @@ func (g *GUI) finishBuildLocalUI(w *gioapp.Window) {
 
 	g.aboutPage = pages.NewAboutPage(g.th, g.ctrl, g.dialog)
 	mainPage := pages.NewMainPage(g.th, g.ctrl, g.dialog)
-	g.logPage = pages.NewLogPage(g.th, g.ctrl.Controller)
+	g.logPage = pages.NewLogPage(g.th, g.ctrl.Backend())
 
 	g.settingsPage = pages.NewSettingsPage(g.th, g.ctrl, g.dialog)
 	g.settingsPage.OnLanguageChange = func() {
@@ -646,12 +668,12 @@ func (g *GUI) finishBuildLocalUI(w *gioapp.Window) {
 
 	g.configsPage = pages.NewConfigsPage(g.th, g.ctrl, g.dialog)
 	g.corePage = pages.NewCorePage(g.th, g.ctrl, g.dialog)
-	g.pluginsPage = pages.NewPluginsPage(g.th, g.ctrl.Controller)
+	g.pluginsPage = pages.NewPluginsPage(g.th, g.ctrl.Backend())
 
 	primary := []pages.Page{mainPage, g.configsPage}
 	secondary := g.buildSecondaryPages(g.cfg.MustGet("ui", "show_logs").Bool())
 
-	g.shell = NewShell(g.th, g.cfg, g.ctrl.Controller, primary, secondary)
+	g.shell = NewShell(g.th, g.cfg, primary, secondary)
 	g.shell.dialog = g.dialog
 
 	g.tray = tray.New(
@@ -672,7 +694,7 @@ func (g *GUI) finishBuildLocalUI(w *gioapp.Window) {
 			g.log.Debugf("tray: quit requested")
 			w.Perform(system.ActionClose)
 		},
-		func() bool { return g.ctrl.Controller.IsRunning() },
+		func() bool { return g.ctrl.Backend().IsRunning() },
 		func() { go g.ctrl.StartService() },
 		func() { go g.ctrl.StopService() },
 	)
@@ -683,31 +705,6 @@ func (g *GUI) finishBuildLocalUI(w *gioapp.Window) {
 		g.tray.Refresh()
 	}
 
-}
-
-func (g *GUI) buildRemoteUI(w *gioapp.Window) {
-	g.remotePage = pages.NewRemotePage(g.th, g.cfg)
-	addr := g.remoteAddr
-	if addr == "" {
-		addr = g.cfg.MustGet("remote", "last_tcp_address").String()
-	}
-	if addr != "" {
-		g.remotePage.SetAddress(addr)
-		go g.connectRemotePage(addr)
-	}
-
-	g.shell = NewShell(g.th, g.cfg, nil, []pages.Page{g.remotePage}, nil)
-	g.shell.dialog = g.dialog
-}
-
-func (g *GUI) connectRemotePage(addr string) {
-	transport, err := rpc.ParseAddress(addr)
-	if err != nil {
-		g.log.Warnf("invalid remote address %q: %v", addr, err)
-		return
-	}
-	backend := rpc.NewRemoteBackend(transport)
-	g.remotePage.SetBackend(backend)
 }
 
 // RequestRestart stops the current app services and replaces the process with
@@ -910,6 +907,15 @@ func (g *GUI) runSelfUpdateAtStartup(info *updater.UpdateInfo, done func()) {
 	}()
 }
 
+// coreBackend returns the active core backend, preferring the interactive controller
+// when it has already been built.
+func (g *GUI) coreBackend() core.Backend {
+	if g.ctrl != nil {
+		return g.ctrl.Backend()
+	}
+	return g.app.Controller
+}
+
 func (g *GUI) checkCoreUpdateAtStartup(done func()) {
 	if !g.cfg.MustGet("updates", "auto_check_core").Bool() {
 		if done != nil {
@@ -920,8 +926,9 @@ func (g *GUI) checkCoreUpdateAtStartup(done func()) {
 
 	g.dialog.ShowLoading(localengine.T("core", "update", "checking"))
 	go func() {
-		current, _ := g.app.Controller.GetInstalledCoreVersion()
-		latest, err := g.app.Controller.GetLatestCoreVersion()
+		backend := g.coreBackend()
+		current, _ := backend.GetInstalledCoreVersion()
+		latest, err := backend.GetLatestCoreVersion()
 		g.dialog.HideLoading()
 		if err != nil {
 			g.log.Warnf("startup core-update check failed: %v", err)
@@ -962,7 +969,7 @@ func (g *GUI) runCoreUpdateAtStartup(done func()) {
 		return progress
 	})
 	go func() {
-		_, err := g.app.Controller.DownloadCoreWithProgress(func(downloaded, total int64) {
+		_, err := g.coreBackend().DownloadCoreWithProgress(func(downloaded, total int64) {
 			mu.Lock()
 			defer mu.Unlock()
 			if total > 0 {
