@@ -144,6 +144,7 @@ settings:
   config_update:
     title: 配置更新
     auto: 后台自动更新配置
+    hash_mismatch: 当缓存的远程配置哈希与存储不一致时自动更新
     auto_restart: 活动配置更新时自动重启核心
     interval: 自动更新检查间隔（小时）
     background_interval: 后台配置更新检查间隔（小时）

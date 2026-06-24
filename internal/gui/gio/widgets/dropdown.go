@@ -292,15 +292,21 @@ func (d *Dropdown) layoutDialog(gtx layout.Context) layout.Dimensions {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Clickable(gtx, &d.itemBtns[idx], func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					selected := opt == d.value
+					hovered := d.itemBtns[idx].Hovered() || d.itemBtns[idx].Pressed()
 					bg := colors.Surface
-					if opt == d.value {
-						bg = colors.SurfaceVariant
+					if selected {
+						bg = colors.Primary
 					}
-					if d.itemBtns[idx].Hovered() || d.itemBtns[idx].Pressed() {
+					if hovered {
 						bg = colors.Hover
 					}
 					return BorderedCard(gtx, color.NRGBA{}, bg, unit.Dp(0), unit.Dp(0), unit.Dp(10), func(gtx layout.Context) layout.Dimensions {
-						return material.Body2(d.th, d.formatValue(opt)).Layout(gtx)
+						lbl := material.Body2(d.th, d.formatValue(opt))
+						if selected && !hovered {
+							lbl.Color = colors.OnPrimary
+						}
+						return lbl.Layout(gtx)
 					})
 				})
 			}))

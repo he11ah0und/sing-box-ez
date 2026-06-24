@@ -200,6 +200,7 @@ func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"updates", "auto_check_core"}, fwconfig.TypeBool, true)
 	sheet.Register([]string{"updates", "auto_update_configs"}, fwconfig.TypeBool, true)
 	sheet.Register([]string{"updates", "auto_update_configs_interval_hours"}, fwconfig.TypeInt, 1)
+	sheet.Register([]string{"updates", "auto_update_on_hash_mismatch"}, fwconfig.TypeBool, true)
 	sheet.Register([]string{"updates", "auto_restart_on_config_update"}, fwconfig.TypeBool, true)
 	sheet.Register([]string{"updates", "background_update_check_interval_hours"}, fwconfig.TypeInt, 2)
 	sheet.Register([]string{"updates", "default_interval_hours"}, fwconfig.TypeInt, 24)
