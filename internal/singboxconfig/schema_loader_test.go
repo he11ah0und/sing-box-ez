@@ -46,7 +46,7 @@ func TestBuildDictionary(t *testing.T) {
 		"log.level",
 		"dns.servers[]",
 		"dns.rules[].action",
-		"route.rules[].sniff",
+		"route.rules[].action",
 		"experimental.clash_api.store_mode",
 		"inbounds[].type",
 		"outbounds[].override_address",

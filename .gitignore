@@ -13,3 +13,7 @@ sing-box-ez-data/
 
 # Agent-specific instructions (local to the session)
 AGENTS.md
+
+# Generator scratch output
+/schema-gen
+/schema-generated.yaml

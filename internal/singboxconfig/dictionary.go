@@ -65,12 +65,13 @@ func nodeToFieldInfo(path string, node *SchemaNode) (*FieldInfo, error) {
 		return nil, fmt.Errorf("%s: since: %w", path, err)
 	}
 	info := &FieldInfo{
-		Path:        path,
-		Since:       since,
-		Replacement: node.Replacement,
-		RenameTo:    node.RenameTo,
-		Type:        node.Type,
-		LegacyHint:  node.LegacyHint,
+		Path:                 path,
+		Since:                since,
+		Replacement:          node.Replacement,
+		RenameTo:             node.RenameTo,
+		Type:                 node.Type,
+		LegacyHint:           node.LegacyHint,
+		AdditionalProperties: node.AdditionalProperties,
 	}
 	if node.Deprecated != "" {
 		v, err := ParseVersion(node.Deprecated)

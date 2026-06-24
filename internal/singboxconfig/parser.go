@@ -102,7 +102,7 @@ func (p *ConfigParser) Parse(data []byte) (*Config, error) {
 	}
 
 	cfg := &Config{raw: raw}
-	p.walkObject("", loadedSchema.Fields, raw)
+	p.walkObject("", loadedSchema.Fields, false, raw)
 
 	// Semantic checks not expressible by field metadata.
 	p.validateLegacyDNSServerAddress(raw)
@@ -124,7 +124,7 @@ func (p *ConfigParser) addError(d DeprecatedField) {
 	p.result.Errors = append(p.result.Errors, d)
 }
 
-func (p *ConfigParser) walkObject(path string, schemaFields map[string]*SchemaNode, raw map[string]json.RawMessage) {
+func (p *ConfigParser) walkObject(path string, schemaFields map[string]*SchemaNode, additionalProperties bool, raw map[string]json.RawMessage) {
 	for key, val := range raw {
 		childPath := key
 		if path != "" {
@@ -132,6 +132,9 @@ func (p *ConfigParser) walkObject(path string, schemaFields map[string]*SchemaNo
 		}
 		node, ok := schemaFields[key]
 		if !ok {
+			if additionalProperties {
+				continue
+			}
 			p.addError(DeprecatedField{
 				Path:        childPath,
 				Replacement: "unknown field",
@@ -151,7 +154,7 @@ func (p *ConfigParser) walkValue(path string, node *SchemaNode, raw json.RawMess
 			return
 		}
 		fields := p.resolveObjectFields(node, obj)
-		p.walkObject(path, fields, obj)
+		p.walkObject(path, fields, node.AdditionalProperties, obj)
 	case "array":
 		var arr []json.RawMessage
 		if err := json.Unmarshal(raw, &arr); err != nil {
@@ -181,10 +184,18 @@ func (p *ConfigParser) resolveObjectFields(node *SchemaNode, obj map[string]json
 		_ = json.Unmarshal(discriminatorRaw, &discriminator)
 	}
 
-	matched := false
+	// Always merge the default variant first so common fields are available,
+	// then override with the matching typed variant.
 	for _, variant := range node.OneOf {
 		if len(variant.When) == 0 {
-			// Default variant: only merge if no explicit variant matched.
+			for k, v := range variant.Fields {
+				fields[k] = v
+			}
+			break
+		}
+	}
+	for _, variant := range node.OneOf {
+		if len(variant.When) == 0 {
 			continue
 		}
 		match := true
@@ -203,18 +214,7 @@ func (p *ConfigParser) resolveObjectFields(node *SchemaNode, obj map[string]json
 			for k, v := range variant.Fields {
 				fields[k] = v
 			}
-			matched = true
 			break
-		}
-	}
-	if !matched {
-		for _, variant := range node.OneOf {
-			if len(variant.When) == 0 {
-				for k, v := range variant.Fields {
-					fields[k] = v
-				}
-				break
-			}
 		}
 	}
 	return fields

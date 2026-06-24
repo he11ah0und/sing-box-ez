@@ -45,6 +45,7 @@ type Backend interface {
 	SetLogLimit(v int)
 	SetDefaultInterval(h int)
 	SetAutoRestart(checked bool) error
+	SetCoreLogOverride(o LogOverride) error
 
 	GetCoreLogLines() []string
 	GetCoreLogCleanLines() []string
