@@ -115,6 +115,31 @@ func TestDisabledReturnsDefault(t *testing.T) {
 	}
 }
 
+func TestUnknownKeysNotSaved(t *testing.T) {
+	s := NewSheet(SheetOptions{})
+	s.Register([]string{"known"}, TypeString, "value")
+
+	data := []byte(`
+known: changed
+unknown: should-be-dropped
+`)
+	if err := s.LoadYAML(data); err != nil {
+		t.Fatalf("LoadYAML failed: %v", err)
+	}
+
+	saved, err := s.SaveYAML()
+	if err != nil {
+		t.Fatalf("SaveYAML failed: %v", err)
+	}
+	out := string(saved)
+	if !strings.Contains(out, "known") {
+		t.Errorf("known key missing from YAML: %s", out)
+	}
+	if strings.Contains(out, "unknown") {
+		t.Errorf("unknown key saved to YAML: %s", out)
+	}
+}
+
 func TestDisabledCount(t *testing.T) {
 	s := NewSheet(SheetOptions{})
 	s.Register([]string{"a"}, TypeBool, false)

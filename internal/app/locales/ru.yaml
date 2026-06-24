@@ -55,6 +55,9 @@ core:
     admin: Админ
     setcap: Setcap
     setcap_prompt: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
+  log:
+    title: Лог ядра
+    level: Уровень лога
 configs:
   title: Конфиги
   btn:
