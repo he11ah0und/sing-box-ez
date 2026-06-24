@@ -33,6 +33,9 @@ type CorePage struct {
 
 	autoRestart widget.Bool
 
+	logLevel   *widgets.Dropdown
+	savedLevel string
+
 	highlightEnd time.Time
 
 	restartAdminBtn widget.Clickable
@@ -53,6 +56,7 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 		dialog: dialog,
 	}
 	p.autoRestart.Value = ctrl.Backend().Config().MustGet("core", "auto_restart").Bool()
+	p.initLogOverride()
 
 	p.privilegeState = ctrl.Backend().GetPrivilegeTabState()
 
@@ -110,6 +114,35 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	})
 
 	return p
+}
+
+func (p *CorePage) initLogOverride() {
+	cfg := p.ctrl.Backend().Config()
+	p.savedLevel = cfg.MustGet("core", "log", "level").String()
+	if p.savedLevel == "" {
+		p.savedLevel = "error"
+	}
+
+	levels := []string{"debug", "info", "warn", "error"}
+	p.logLevel = widgets.NewDropdown(
+		p.th, p.dialog,
+		localengine.T("core", "log", "level"),
+		p.savedLevel,
+		levels,
+		func(level string) string { return localengine.T("settings", "log_level", level) },
+		func(level string) { p.saveLogLevel() },
+	)
+}
+
+func (p *CorePage) saveLogLevel() {
+	level := p.logLevel.Value()
+	if level == p.savedLevel {
+		return
+	}
+	if err := p.ctrl.Backend().SetCoreLogOverride(core.LogOverride{Level: level}); err != nil {
+		return
+	}
+	p.savedLevel = level
 }
 
 func (p *CorePage) layoutHighlightedUpdate(gtx layout.Context) layout.Dimensions {
@@ -176,6 +209,15 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.separator(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(p.th, localengine.T("core", "log", "title")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.logLevel.Layout(gtx, false)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.separator(gtx)

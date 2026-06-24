@@ -50,6 +50,9 @@ core:
     admin: Admin
     setcap: Setcap
     setcap_prompt: setcap is not applied to the core binary. Apply it now to enable TUN without root?
+  log:
+    title: Core log
+    level: Log level
 configs:
   title: Configs
   btn:

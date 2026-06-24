@@ -183,6 +183,8 @@ func buildUpdaters(app *framework.App) []*updater.Manager {
 func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, true)
 
+	sheet.Register([]string{"core", "log", "level"}, fwconfig.TypeString, "error")
+
 	sheet.Register([]string{"log", "level"}, fwconfig.TypeString, "info")
 	sheet.Register([]string{"log", "limit"}, fwconfig.TypeInt, 100)
 

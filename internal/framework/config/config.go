@@ -382,6 +382,10 @@ func (s *Sheet) saveNode(n *node, tree map[string]any) {
 			continue
 		}
 		if len(child.children) == 0 {
+			// Skip untyped leaf nodes that were created for unknown keys.
+			if child.typ == "" {
+				continue
+			}
 			if child.value != nil {
 				tree[name] = child.value
 			} else if child.defaultValue != nil {
