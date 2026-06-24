@@ -35,6 +35,8 @@ type ConfigRecord struct {
 	// AutoUpdate controls whether the config is updated automatically.
 	// nil means "enabled" for backward compatibility.
 	AutoUpdate *bool `json:"auto_update" yaml:"auto_update"`
+	// Hash is the SHA-256 hex digest of the last known config content.
+	Hash string `json:"hash" yaml:"hash"`
 }
 
 // IsAutoUpdate reports whether automatic updates are enabled for this record.

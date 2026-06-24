@@ -31,6 +31,7 @@ type ConfigRecordMsg struct {
 	LastUpdateUnix      int64  `msgpack:"last_update_unix"`
 	Parent              string `msgpack:"parent"`
 	AutoUpdate          *bool  `msgpack:"auto_update,omitempty"`
+	Hash                string `msgpack:"hash,omitempty"`
 }
 
 // ConfigListRes is the response for config/list.
@@ -156,6 +157,9 @@ func (a *App) registerRPC(registry *rpc.Registry) {
 	registry.Register("config", "has_cached", func(ctx context.Context, req rpc.StringValue) (rpc.BoolValue, error) {
 		return rpc.BoolValue{Value: a.Controller.HasCachedConfig(req.Value)}, nil
 	})
+	registry.Register("config", "hash_mismatch", func(ctx context.Context, req rpc.StringValue) (rpc.BoolValue, error) {
+		return rpc.BoolValue{Value: a.Controller.IsConfigHashMismatch(req.Value)}, nil
+	})
 	registry.Register("config", "delete", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.DeleteConfig(req.Value)
 	})
@@ -234,6 +238,7 @@ func configRecordToMsg(rec config.ConfigRecord) ConfigRecordMsg {
 		LastUpdateUnix:      last,
 		Parent:              rec.Parent,
 		AutoUpdate:          rec.AutoUpdate,
+		Hash:                rec.Hash,
 	}
 }
 
@@ -250,6 +255,7 @@ func msgToConfigRecord(msg ConfigRecordMsg) config.ConfigRecord {
 		LastUpdate:          last,
 		Parent:              msg.Parent,
 		AutoUpdate:          msg.AutoUpdate,
+		Hash:                msg.Hash,
 	}
 }
 

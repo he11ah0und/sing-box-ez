@@ -280,6 +280,15 @@ func (r *RemoteController) SetCoreLogOverride(o LogOverride) error {
 	return r.call("core", "set_log_override", o, nil)
 }
 
+// IsConfigHashMismatch forwards the hash check to the remote side.
+func (r *RemoteController) IsConfigHashMismatch(name string) bool {
+	var res rpc.BoolValue
+	if err := r.call("config", "hash_mismatch", rpc.StringValue{Value: name}, &res); err != nil {
+		return false
+	}
+	return res.Value
+}
+
 // GetCoreLogLines returns raw core log lines from the remote side.
 func (r *RemoteController) GetCoreLogLines() []string {
 	var res []string

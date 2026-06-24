@@ -47,6 +47,8 @@ type Backend interface {
 	SetAutoRestart(checked bool) error
 	SetCoreLogOverride(o LogOverride) error
 
+	IsConfigHashMismatch(name string) bool
+
 	GetCoreLogLines() []string
 	GetCoreLogCleanLines() []string
 	GetLogLines() []string

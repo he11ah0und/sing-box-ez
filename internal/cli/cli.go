@@ -158,12 +158,14 @@ func cmdStart(cfg *config.AppConfig, _ *fwcli.Context) error {
 		m := newCoreManager(dataDir)
 		m.SetConfigName(active.Name)
 		m.SetConfigURL(active.URL)
-		if err := m.UpdateConfig(); err != nil {
+		data, err := m.UpdateConfig()
+		if err != nil {
 			if !hasCachedConfig(dataDir, active.Name) {
 				return fmt.Errorf("config download failed: %w", err)
 			}
 			fmt.Println("Using existing local config")
 		} else {
+			active.Hash = config.HashConfig(data)
 			cfg.SetLastUpdateFor(active.Name, time.Now())
 			_ = cfg.Save()
 			fmt.Println("Config updated")
@@ -236,9 +238,11 @@ func cmdUpdate(cfg *config.AppConfig, _ *fwcli.Context) error {
 	m := newCoreManager(dataDir)
 	m.SetConfigName(active.Name)
 	m.SetConfigURL(active.URL)
-	if err := m.UpdateConfig(); err != nil {
+	data, err := m.UpdateConfig()
+	if err != nil {
 		return err
 	}
+	active.Hash = config.HashConfig(data)
 	cfg.SetLastUpdateFor(active.Name, time.Now())
 	_ = cfg.Save()
 	fmt.Println("Config updated")

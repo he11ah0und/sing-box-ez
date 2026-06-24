@@ -183,18 +183,26 @@ func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
 		return active, nil
 	}
 
-	if active.ShouldUpdate() || !c.HasCachedConfig(active.Name) {
+	if active.ShouldUpdate() || !c.HasCachedConfig(active.Name) || c.IsConfigHashMismatch(active.Name) {
 		c.fwApp.Logger.Log("Updating config...")
-		if err := c.manager.UpdateConfig(); err != nil {
+		data, err := c.manager.UpdateConfig()
+		if err != nil {
 			c.fwApp.Logger.Log("Config download issue: " + err.Error())
 			if !c.HasCachedConfig(active.Name) {
 				return nil, errors.New("no config available")
 			}
 			c.fwApp.Logger.Log("Using existing config")
 		} else {
+			c.saveConfigHash(active.Name, data)
 			c.cfg.SetLastUpdateFor(active.Name, time.Now())
 			_ = c.cfg.Save()
 			c.fwApp.Logger.Log("Config updated")
+		}
+	}
+
+	if active.Hash == "" && c.HasCachedConfig(active.Name) {
+		if data, err := c.manager.ReadConfigByName(active.Name); err == nil {
+			c.saveConfigHash(active.Name, data)
 		}
 	}
 
@@ -272,7 +280,8 @@ func (c *Controller) SetElevated(v bool) {
 }
 
 func (c *Controller) UpdateConfig() error {
-	return c.manager.UpdateConfig()
+	_, err := c.manager.UpdateConfig()
+	return err
 }
 
 func (c *Controller) UpdateConfigNow(name, url string) error {
@@ -341,7 +350,43 @@ func (c *Controller) HasCachedConfig(name string) bool {
 }
 
 func (c *Controller) DownloadConfigFor(name, url string) error {
-	return c.manager.DownloadConfigFor(name, url)
+	data, err := c.manager.DownloadConfigFor(name, url)
+	if err != nil {
+		return err
+	}
+	c.saveConfigHash(name, data)
+	return nil
+}
+
+func (c *Controller) saveConfigHash(name string, data []byte) {
+	rec := c.cfg.GetConfigByName(name)
+	if rec == nil {
+		return
+	}
+	hash := config.HashConfig(data)
+	if rec.Hash == hash {
+		return
+	}
+	rec.Hash = hash
+	c.cfg.UpdateConfig(name, *rec)
+	_ = c.cfg.Save()
+}
+
+// IsConfigHashMismatch reports whether the cached config content differs from
+// the hash stored in the profile. If no hash is stored, it returns false.
+func (c *Controller) IsConfigHashMismatch(name string) bool {
+	rec := c.cfg.GetConfigByName(name)
+	if rec == nil {
+		return false
+	}
+	if rec.Hash == "" || !c.HasCachedConfig(name) {
+		return false
+	}
+	data, err := c.manager.ReadConfigByName(name)
+	if err != nil {
+		return false
+	}
+	return rec.Hash != config.HashConfig(data)
 }
 
 func (c *Controller) AddConfig(rec config.ConfigRecord) error {
@@ -361,6 +406,7 @@ func (c *Controller) AddConfig(rec config.ConfigRecord) error {
 		if err := c.manager.CreateLocalConfig(rec.Name); err != nil {
 			return c.terminal.Errorf("failed to create local config: %v", err)
 		}
+		rec.Hash = config.HashConfig([]byte("{}"))
 	}
 	c.cfg.AddConfig(rec)
 	if c.cfg.GetActiveName() == "" {
@@ -379,6 +425,10 @@ func (c *Controller) EditConfig(oldName string, rec config.ConfigRecord) error {
 	}
 	if !rec.IsLocal() && rec.URL == "" {
 		return c.terminal.Errorf("URL is required for remote configs")
+	}
+	oldRec := c.cfg.GetConfigByName(oldName)
+	if oldRec != nil {
+		rec.Hash = oldRec.Hash
 	}
 	if rec.Name != oldName {
 		if c.cfg.GetConfigByName(rec.Name) != nil {

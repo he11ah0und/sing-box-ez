@@ -289,10 +289,13 @@ func luaConfigDownload(cfg *config.AppConfig, parent string) lua.LGFunction {
 			return 1
 		}
 		manager := core.NewManager(cfg.DataDir, fs.NewOS(cfg.DataDir), nil, logger.NewLogger(0))
-		if err := manager.DownloadConfigFor(name, rec.URL); err != nil {
+		data, err := manager.DownloadConfigFor(name, rec.URL)
+		if err != nil {
 			L.Push(lua.LString(err.Error()))
 			return 1
 		}
+		rec.Hash = config.HashConfig(data)
+		cfg.UpdateConfig(name, *rec)
 		cfg.SetLastUpdateFor(name, time.Now())
 		_ = cfg.Save()
 		L.Push(lua.LNil)
