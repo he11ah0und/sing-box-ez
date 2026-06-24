@@ -2,16 +2,21 @@
 package app
 
 import (
+	"context"
 	"embed"
 	"fmt"
+	"os"
+	"os/signal"
 	"runtime"
 
 	"sing-box-ez/internal/cli"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework"
+	fwcli "sing-box-ez/internal/framework/cli"
 	fwconfig "sing-box-ez/internal/framework/config"
 	"sing-box-ez/internal/framework/fs"
+	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
 )
 
@@ -30,8 +35,10 @@ type App struct {
 	*framework.App
 	Profiles    *config.Profiles
 	Controller  *core.Controller
+	Backend     rpc.Backend
 	SelfUpdater *updater.Manager
 	CoreUpdater *updater.Manager
+	host        string
 	runGUI      func(*App) bool
 }
 
@@ -51,6 +58,18 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 		},
 		BuildUpdaters:    buildUpdaters,
 		RegisterCommands: cli.RegisterCommands,
+		ExtraGlobalFlags: []fwcli.Flag{
+			{
+				Name: "remote",
+				Desc: "Execute commands on a remote daemon (tcp://host:port, unix:///path, npipe://name, or auto)",
+				Type: fwcli.String,
+			},
+			{
+				Name: "host",
+				Desc: "Run as an RPC daemon on the given IPC address (tcp://host:port, unix:///path, npipe://name, or auto)",
+				Type: fwcli.String,
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -70,7 +89,55 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 		return app.runGUI(app)
 	})
 
+	// Read global flags that influence operating mode.
+	if v, ok := fwApp.CLI.GlobalValue("host"); ok {
+		app.host = fwcli.AsString(v)
+	}
+
+	registry := rpc.NewRegistry()
+	app.registerRPC(registry)
+
+	if v, ok := fwApp.CLI.GlobalValue("remote"); ok {
+		addr := fwcli.AsString(v)
+		if addr != "" {
+			transport, err := rpc.ParseAddress(addr)
+			if err != nil {
+				return nil, err
+			}
+			app.Backend = rpc.NewRemoteBackend(transport)
+		}
+	}
+	if app.Backend == nil {
+		app.Backend = rpc.NewLocalBackend(registry)
+	}
+	app.App.Backend = app.Backend
+
 	return app, nil
+}
+
+// Run executes the CLI command, runs the RPC daemon with --host, or starts the GUI.
+func (a *App) Run() {
+	if a.host != "" {
+		transport, err := rpc.ParseAddress(a.host)
+		if err != nil {
+			a.Logger.Root.Errorf("invalid --host address: %v", err)
+			os.Exit(1)
+		}
+		registry := rpc.NewRegistry()
+		a.registerRPC(registry)
+		server := rpc.NewServer(registry, transport)
+		a.Logger.Root.Infof("RPC server listening on %s", transport.Addr())
+
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer cancel()
+		if err := server.Run(ctx); err != nil {
+			a.Logger.Root.Errorf("RPC server error: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	a.App.Run()
 }
 
 func loadInstallScript(name string) []byte {
@@ -115,7 +182,6 @@ func buildUpdaters(app *framework.App) []*updater.Manager {
 // registerConfig defines the sing-box-ez configuration schema.
 func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"core", "watch_logs"}, fwconfig.TypeBool, true)
 
 	sheet.Register([]string{"log", "level"}, fwconfig.TypeString, "info")
 	sheet.Register([]string{"log", "limit"}, fwconfig.TypeInt, 100)
@@ -136,6 +202,16 @@ func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"updates", "background_update_check_interval_hours"}, fwconfig.TypeInt, 2)
 	sheet.Register([]string{"updates", "default_interval_hours"}, fwconfig.TypeInt, 24)
 
-	sheet.Register([]string{"plugins", "enabled"}, fwconfig.TypeBool, false)
-	sheet.Register([]string{"plugins", "developer"}, fwconfig.TypeBool, false)
+	sheet.Register([]string{"plugins", "enabled"}, fwconfig.TypeBool, false, fwconfig.WithDisabled(true))
+	sheet.Register([]string{"plugins", "developer"}, fwconfig.TypeBool, false, fwconfig.WithDisabled(true))
+
+	sheet.Register([]string{"service", "backend"}, fwconfig.TypeString, "embedded")
+	sheet.Register([]string{"service", "start_on_app_launch"}, fwconfig.TypeBool, false)
+	sheet.Register([]string{"service", "stop_on_app_exit"}, fwconfig.TypeBool, true, fwconfig.WithDisabled(true))
+
+	sheet.Register([]string{"remote", "default_transport"}, fwconfig.TypeString, "auto", fwconfig.WithDisabled(true))
+	sheet.Register([]string{"remote", "last_tcp_address"}, fwconfig.TypeString, "", fwconfig.WithDisabled(true))
+	sheet.Register([]string{"remote", "last_connection_mode"}, fwconfig.TypeString, "embedded", fwconfig.WithDisabled(true))
+	sheet.Register([]string{"remote", "remember_connection_mode"}, fwconfig.TypeBool, true, fwconfig.WithDisabled(true))
+	sheet.Register([]string{"remote", "last_passphrase"}, fwconfig.TypeString, "", fwconfig.WithDisabled(true))
 }

@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"strings"
 	"time"
 
 	"gio.tools/icons"
 	"gioui.org/font"
+	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -23,6 +25,7 @@ import (
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
+	"sing-box-ez/internal/singboxconfig"
 )
 
 // ConfigsPage renders the configs management screen as vertical cards.
@@ -53,7 +56,7 @@ func NewConfigsPage(th *material.Theme, ctrl *core.InteractiveController, dialog
 }
 
 func (p *ConfigsPage) refreshConfigs() {
-	p.configs = p.ctrl.Controller.Config().GetConfigs()
+	p.configs = p.ctrl.Backend().GetConfigs()
 }
 
 // Tag returns the page tag.
@@ -92,7 +95,7 @@ func (p *ConfigsPage) Children(gtx layout.Context) []layout.FlexChild {
 
 	p.refreshConfigs()
 
-	// Handle card clicks — single click opens edit dialog
+	// Handle card clicks — single click opens edit dialog.
 	for i := range p.configs {
 		rec := p.configs[i]
 		click, ok := p.cardClicks[rec.Name]
@@ -113,7 +116,7 @@ func (p *ConfigsPage) Children(gtx layout.Context) []layout.FlexChild {
 						return material.Button(p.th, &p.addBtn, localengine.T("configs", "btn", "add")).Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+						return widgets.HSpace(gtx, unit.Dp(8))
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Button(p.th, &p.updateAllBtn, localengine.T("configs", "btn", "update_all")).Layout(gtx)
@@ -127,75 +130,107 @@ func (p *ConfigsPage) Children(gtx layout.Context) []layout.FlexChild {
 				if index >= len(p.configs) {
 					return layout.Dimensions{}
 				}
-				return p.layoutConfigCard(gtx, p.configs[index])
+				return p.layoutConfigCard(gtx, index)
 			})
 		}),
 	}
 }
 
-func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigRecord) layout.Dimensions {
-	isCached := p.ctrl.Controller.HasCachedConfig(rec.Name) && !rec.LastUpdate.IsZero()
-	isActive := rec.Name == p.ctrl.Controller.Config().GetActiveName()
-	autoUpdate := rec.IsAutoUpdate()
-	click := p.cardClicks[rec.Name]
-
-	colors := theme.Current().Colors()
-	var bg color.NRGBA
+func (p *ConfigsPage) cardBackground(isCached, autoUpdate bool, colors theme.Palette) color.NRGBA {
 	switch {
 	case autoUpdate && isCached:
-		bg = colors.CardCached
+		return colors.CardCached
 	case autoUpdate && !isCached:
-		bg = colors.CardUncached
+		return colors.CardUncached
 	case isCached:
 		if colors.CardCachedNoAutoUpdate.A != 0 {
-			bg = colors.CardCachedNoAutoUpdate
-		} else {
-			bg = colors.CardCached
+			return colors.CardCachedNoAutoUpdate
 		}
+		return colors.CardCached
 	default:
 		if colors.CardUncachedNoAutoUpdate.A != 0 {
-			bg = colors.CardUncachedNoAutoUpdate
-		} else {
-			bg = colors.CardUncached
+			return colors.CardUncachedNoAutoUpdate
 		}
+		return colors.CardUncached
+	}
+}
+
+func (p *ConfigsPage) formatConfigSource(rec config.ConfigRecord) string {
+	src := rec.Parent
+	if src == "" || src == "user" {
+		return localengine.T("configs", "table", "user")
+	}
+	if len(src) > 3 && src[:3] == "pl-" {
+		return src[3:]
+	}
+	return src
+}
+
+func (p *ConfigsPage) formatConfigMeta(rec config.ConfigRecord) string {
+	src := p.formatConfigSource(rec)
+	parts := []string{
+		fmt.Sprintf("%s: %s", localengine.T("configs", "table", "last_update"), p.formatLastUpdate(rec.LastUpdate.Time)),
+	}
+	if !rec.IsLocal() && rec.IsAutoUpdate() {
+		parts = append(parts, fmt.Sprintf("%s: %s", localengine.T("configs", "table", "next_update"), p.formatNextUpdate(rec.NextUpdate())))
+	}
+	parts = append(parts, fmt.Sprintf("%s: %s", localengine.T("configs", "table", "source"), src))
+	return strings.Join(parts, "  •  ")
+}
+
+func (p *ConfigsPage) layoutConfigCardHeader(gtx layout.Context, rec config.ConfigRecord, nameColor color.NRGBA) layout.Dimensions {
+	isLocal := rec.IsLocal()
+	colors := theme.Current().Colors()
+	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceEnd, Alignment: layout.Middle}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(p.th, rec.Name)
+			lbl.Font.Weight = font.Bold
+			lbl.Color = nameColor
+			return lbl.Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if !isLocal {
+				return layout.Dimensions{}
+			}
+			badge := material.Body2(p.th, localengine.T("configs", "badge", "local"))
+			badge.Color = colors.Fg
+			return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, badge.Layout)
+		}),
+	)
+}
+
+func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, idx int) layout.Dimensions {
+	rec := p.configs[idx]
+	isCached := p.ctrl.Backend().HasCachedConfig(rec.Name)
+	if !rec.IsLocal() {
+		isCached = isCached && !rec.LastUpdate.IsZero()
+	}
+	isActive := rec.Name == p.ctrl.Backend().GetActiveName()
+
+	click, ok := p.cardClicks[rec.Name]
+	if !ok {
+		click = new(widget.Clickable)
+		p.cardClicks[rec.Name] = click
+	}
+
+	colors := theme.Current().Colors()
+	bg := p.cardBackground(isCached, rec.IsAutoUpdate(), colors)
+
+	nameColor := p.th.Palette.Fg
+	if isActive {
+		nameColor = colors.Fg
 	}
 
 	return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			macro := op.Record(gtx.Ops)
 			dims := layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				src := rec.Parent
-				if src == "" || src == "user" {
-					src = localengine.T("configs", "table", "user")
-				} else if len(src) > 3 && src[:3] == "pl-" {
-					src = src[3:]
-				}
-
-				parts := []string{
-					fmt.Sprintf("%s: %s", localengine.T("configs", "table", "last_update"), p.formatLastUpdate(rec.LastUpdate.Time)),
-				}
-				if autoUpdate {
-					parts = append(parts, fmt.Sprintf("%s: %s", localengine.T("configs", "table", "next_update"), p.formatNextUpdate(rec.NextUpdate())))
-				}
-				parts = append(parts, fmt.Sprintf("%s: %s", localengine.T("configs", "table", "source"), src))
-
-				meta := strings.Join(parts, "  •  ")
-
-				nameColor := p.th.Palette.Fg
-				if isActive {
-					nameColor = colors.Fg
-				}
-
 				return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body1(p.th, rec.Name)
-						lbl.Font.Weight = font.Bold
-						lbl.Color = nameColor
-						return lbl.Layout(gtx)
+						return p.layoutConfigCardHeader(gtx, rec, nameColor)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body2(p.th, meta)
-						return lbl.Layout(gtx)
+						return material.Body2(p.th, p.formatConfigMeta(rec)).Layout(gtx)
 					}),
 				)
 			})
@@ -207,6 +242,7 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, rec config.ConfigReco
 			paint.PaintOp{}.Add(gtx.Ops)
 
 			call.Add(gtx.Ops)
+
 			return dims
 		})
 	})
@@ -226,59 +262,361 @@ func (p *ConfigsPage) formatNextUpdate(t time.Time) string {
 	return version.HumanDurationFrom(time.Until(t), true)
 }
 
+func (p *ConfigsPage) layoutTypeSelector(gtx layout.Context, enum *widget.Enum) layout.Dimensions {
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Body2(p.th, localengine.T("configs", "dialog", "type")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(4))}}
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.RadioButton(p.th, enum, config.ConfigTypeRemote, localengine.T("configs", "dialog", "type_remote")).Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return widgets.HSpace(gtx, unit.Dp(16))
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.RadioButton(p.th, enum, config.ConfigTypeLocal, localengine.T("configs", "dialog", "type_local")).Layout(gtx)
+				}),
+			)
+		}),
+	)
+}
+
 func (p *ConfigsPage) openAddDialog() {
 	var nameEd widget.Editor
 	var urlEd widget.Editor
 	var periodEd widget.Editor
 	var autoUpdate widget.Bool
+	var typeSel widget.Enum
 	nameEd.SingleLine = true
 	urlEd.SingleLine = true
 	periodEd.SingleLine = true
-	periodEd.SetText(fmt.Sprintf("%d", p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()))
+	periodEd.SetText(fmt.Sprintf("%d", p.ctrl.Backend().Config().MustGet("updates", "default_interval_hours").Int()))
 	autoUpdate.Value = true
+	typeSel.Value = config.ConfigTypeRemote
 
 	var saveBtn widget.Clickable
 
 	p.dialog.ShowCustom(localengine.T("configs", "dialog", "title"), func(gtx layout.Context) layout.Dimensions {
 		if saveBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
-			hours := p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()
+			hours := p.ctrl.Backend().Config().MustGet("updates", "default_interval_hours").Int()
 			fmt.Sscanf(periodEd.Text(), "%d", &hours)
 			if hours <= 0 {
-				hours = p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()
+				hours = p.ctrl.Backend().Config().MustGet("updates", "default_interval_hours").Int()
+			}
+			url := urlEd.Text()
+			if typeSel.Value == config.ConfigTypeLocal {
+				url = ""
 			}
 			rec := config.ConfigRecord{
 				Name:                nameEd.Text(),
-				URL:                 urlEd.Text(),
+				URL:                 url,
+				Type:                typeSel.Value,
 				UpdateIntervalHours: hours,
 				Parent:              "user",
 				AutoUpdate:          &autoUpdate.Value,
 			}
 			go func() {
-				if err := p.ctrl.Controller.AddConfig(rec); err == nil {
+				if err := p.ctrl.Backend().AddConfig(rec); err == nil {
 					p.refreshConfigs()
 				}
 			}()
 		}
 
-		return widgets.DialogSpacedList(gtx,
+		children := []layout.FlexChild{
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return p.layoutTypeSelector(gtx, &typeSel)
+			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), &nameEd, false)
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.CheckBox(p.th, &autoUpdate, localengine.T("configs", "dialog", "auto_update")).Layout(gtx)
-			}),
+		}
+		if typeSel.Value == config.ConfigTypeRemote {
+			children = append(children,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.CheckBox(p.th, &autoUpdate, localengine.T("configs", "dialog", "auto_update")).Layout(gtx)
+				}),
+			)
+		}
+		children = append(children,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Button(p.th, &saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
 			}),
 		)
+
+		return widgets.DialogSpacedList(gtx, children...)
 	})
+}
+
+func (p *ConfigsPage) editRecordFromEditors(old config.ConfigRecord, nameEd, urlEd, periodEd *widget.Editor, autoUpdate *widget.Bool) config.ConfigRecord {
+	hours := old.UpdateIntervalHours
+	fmt.Sscanf(periodEd.Text(), "%d", &hours)
+	if hours <= 0 {
+		hours = p.ctrl.Backend().Config().MustGet("updates", "default_interval_hours").Int()
+	}
+	return config.ConfigRecord{
+		Name:                nameEd.Text(),
+		URL:                 urlEd.Text(),
+		Type:                old.Type,
+		UpdateIntervalHours: hours,
+		Parent:              old.Parent,
+		LastUpdate:          old.LastUpdate,
+		AutoUpdate:          &autoUpdate.Value,
+	}
+}
+
+func (p *ConfigsPage) layoutEditTypeLabel(typeLabel string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Body2(p.th, localengine.T("configs", "dialog", "type")).Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: image.Point{Y: gtx.Dp(unit.Dp(4))}}
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Body1(p.th, typeLabel).Layout(gtx)
+			}),
+		)
+	}
+}
+
+func (p *ConfigsPage) layoutEditLocalButtons(openBtn, validateBtn, openDirBtn *widget.Clickable) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, openBtn, localengine.T("configs", "dialog", "btn", "open")).Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return widgets.HSpace(gtx, unit.Dp(8))
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, validateBtn, localengine.T("configs", "dialog", "btn", "validate")).Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return widgets.HSpace(gtx, unit.Dp(8))
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, openDirBtn, localengine.T("configs", "dialog", "btn", "open_dir")).Layout(gtx)
+			}),
+		)
+	})
+}
+
+func (p *ConfigsPage) layoutEditMissingLocal(createBtn *widget.Clickable) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				lbl := material.Body2(p.th, localengine.T("configs", "dialog", "file_missing"))
+				lbl.Color = theme.Current().Colors().Error
+				return lbl.Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return widgets.HSpace(gtx, unit.Dp(8))
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, createBtn, localengine.T("configs", "dialog", "btn", "create")).Layout(gtx)
+			}),
+		)
+	})
+}
+
+func (p *ConfigsPage) layoutEditOpenDirButton(openDirBtn *widget.Clickable) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, openDirBtn, localengine.T("configs", "dialog", "btn", "open_dir")).Layout(gtx)
+			}),
+		)
+	})
+}
+
+func (p *ConfigsPage) layoutEditRemoteButtons(validateBtn, openDirBtn *widget.Clickable) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, validateBtn, localengine.T("configs", "dialog", "btn", "validate")).Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return widgets.HSpace(gtx, unit.Dp(8))
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, openDirBtn, localengine.T("configs", "dialog", "btn", "open_dir")).Layout(gtx)
+			}),
+		)
+	})
+}
+
+func (p *ConfigsPage) layoutEditRemoteFields(urlEd, periodEd *widget.Editor, autoUpdate *widget.Bool) []layout.FlexChild {
+	return []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), urlEd, false)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), periodEd, false)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.CheckBox(p.th, autoUpdate, localengine.T("configs", "dialog", "auto_update")).Layout(gtx)
+		}),
+	}
+}
+
+func (p *ConfigsPage) layoutEditButtonRow(isLocal bool, saveBtn, updateNowBtn, deleteBtn *widget.Clickable) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		btns := []layout.FlexChild{
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
+			}),
+		}
+		if !isLocal {
+			btns = append(btns,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return widgets.HSpace(gtx, unit.Dp(8))
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, updateNowBtn, localengine.T("configs", "dialog", "btn", "update_now")).Layout(gtx)
+				}),
+			)
+		}
+		btns = append(btns,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return widgets.HSpace(gtx, unit.Dp(8))
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return material.Button(p.th, deleteBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)
+			}),
+		)
+		return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx, btns...)
+	})
+}
+
+func (p *ConfigsPage) showValidationResult(result singboxconfig.ValidationResult) {
+	var copyBtn widget.Clickable
+	p.dialog.ShowCustom(localengine.T("configs", "dialog", "validation_result"), func(gtx layout.Context) layout.Dimensions {
+		if copyBtn.Clicked(gtx) {
+			gtx.Execute(clipboard.WriteCmd{
+				Type: "text/plain",
+				Data: io.NopCloser(strings.NewReader(p.formatValidationResult(result))),
+			})
+		}
+		return p.layoutValidationResult(gtx, result, &copyBtn)
+	})
+}
+
+func (p *ConfigsPage) formatValidationResult(result singboxconfig.ValidationResult) string {
+	var sb strings.Builder
+	if len(result.Errors) > 0 {
+		sb.WriteString(fmt.Sprintf(localengine.T("validation", "errors_title"), len(result.Errors)))
+		sb.WriteString("\n")
+		for _, e := range result.Errors {
+			sb.WriteString("- ")
+			sb.WriteString(p.formatDeprecatedField(e, true))
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n")
+	}
+	if len(result.Warnings) > 0 {
+		sb.WriteString(fmt.Sprintf(localengine.T("validation", "warnings_title"), len(result.Warnings)))
+		sb.WriteString("\n")
+		for _, w := range result.Warnings {
+			sb.WriteString("- ")
+			sb.WriteString(p.formatDeprecatedField(w, false))
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n")
+	}
+	if len(result.Errors) == 0 && len(result.Warnings) == 0 {
+		sb.WriteString(localengine.T("validation", "ok"))
+	}
+	return sb.String()
+}
+
+func (p *ConfigsPage) formatDeprecatedField(f singboxconfig.DeprecatedField, isError bool) string {
+	if isError {
+		return fmt.Sprintf(localengine.T("validation", "item", "removed"), f.Removed, f.Path, f.Replacement)
+	}
+	if f.Removed != "" {
+		return fmt.Sprintf(localengine.T("validation", "item", "deprecated"), f.Deprecated, f.Removed, f.Path, f.Replacement)
+	}
+	return fmt.Sprintf(localengine.T("validation", "item", "deprecated_no_removal"), f.Deprecated, f.Path, f.Replacement)
+}
+
+func (p *ConfigsPage) layoutValidationResult(gtx layout.Context, result singboxconfig.ValidationResult, copyBtn *widget.Clickable) layout.Dimensions {
+	colors := theme.Current().Colors()
+	children := []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.layoutValidationSummary(gtx, result, colors)
+		}),
+	}
+	if len(result.Errors) > 0 {
+		title := fmt.Sprintf(localengine.T("validation", "errors_title"), len(result.Errors))
+		children = append(children, p.layoutValidationSection(title, result.Errors, colors.Error, true)...)
+	}
+	if len(result.Warnings) > 0 {
+		title := fmt.Sprintf(localengine.T("validation", "warnings_title"), len(result.Warnings))
+		children = append(children, p.layoutValidationSection(title, result.Warnings, colors.Warning, false)...)
+	}
+	if len(result.Errors) == 0 && len(result.Warnings) == 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(p.th, localengine.T("validation", "ok"))
+			lbl.Color = colors.Success
+			return lbl.Layout(gtx)
+		}))
+	}
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.Button(p.th, copyBtn, localengine.T("configs", "dialog", "btn", "copy")).Layout(gtx)
+	}))
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+}
+
+func (p *ConfigsPage) layoutValidationSummary(gtx layout.Context, result singboxconfig.ValidationResult, colors theme.Palette) layout.Dimensions {
+	var msg string
+	var c color.NRGBA
+	switch {
+	case len(result.Errors) > 0:
+		msg = fmt.Sprintf(localengine.T("validation", "summary_errors"), len(result.Errors), len(result.Warnings))
+		c = colors.Error
+	case len(result.Warnings) > 0:
+		msg = fmt.Sprintf(localengine.T("validation", "summary_warnings"), len(result.Warnings))
+		c = colors.Warning
+	default:
+		msg = localengine.T("validation", "ok")
+		c = colors.Success
+	}
+	lbl := material.Body1(p.th, msg)
+	lbl.Color = c
+	lbl.Font.Weight = font.Bold
+	return lbl.Layout(gtx)
+}
+
+func (p *ConfigsPage) layoutValidationSection(title string, items []singboxconfig.DeprecatedField, titleColor color.NRGBA, isError bool) []layout.FlexChild {
+	children := []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(p.th, title)
+			lbl.Color = titleColor
+			lbl.Font.Weight = font.Bold
+			return lbl.Layout(gtx)
+		}),
+	}
+	for _, it := range items {
+		it := it
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body2(p.th, "• "+p.formatDeprecatedField(it, isError))
+			return lbl.Layout(gtx)
+		}))
+	}
+	return children
 }
 
 func (p *ConfigsPage) openEditDialog(idx int) {
@@ -286,6 +624,7 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 		return
 	}
 	old := p.configs[idx]
+	isLocal := old.IsLocal()
 
 	var nameEd widget.Editor
 	var urlEd widget.Editor
@@ -302,93 +641,146 @@ func (p *ConfigsPage) openEditDialog(idx int) {
 	var saveBtn widget.Clickable
 	var deleteBtn widget.Clickable
 	var updateNowBtn widget.Clickable
+	var openBtn widget.Clickable
+	var validateBtn widget.Clickable
+	var openDirBtn widget.Clickable
+	var createBtn widget.Clickable
+
+	typeLabel := localengine.T("configs", "dialog", "type_remote")
+	if isLocal {
+		typeLabel = localengine.T("configs", "dialog", "type_local")
+	}
 
 	p.dialog.ShowCustom(localengine.T("configs", "dialog", "title"), func(gtx layout.Context) layout.Dimensions {
-		if saveBtn.Clicked(gtx) {
-			p.dialog.HideCustom()
-			hours := old.UpdateIntervalHours
-			fmt.Sscanf(periodEd.Text(), "%d", &hours)
-			if hours <= 0 {
-				hours = p.ctrl.Controller.Config().MustGet("updates", "default_interval_hours").Int()
+		hasCache := p.ctrl.Backend().HasCachedConfig(old.Name)
+
+		p.handleEditDialogClicks(gtx, old, &nameEd, &urlEd, &periodEd, &autoUpdate,
+			&saveBtn, &deleteBtn, &updateNowBtn, &openBtn, &validateBtn, &openDirBtn, &createBtn,
+			isLocal, hasCache)
+
+		children := p.editDialogChildren(&nameEd, &urlEd, &periodEd, &autoUpdate,
+			&saveBtn, &updateNowBtn, &deleteBtn, &openBtn, &validateBtn, &openDirBtn, &createBtn,
+			typeLabel, isLocal, hasCache)
+		return widgets.DialogSpacedList(gtx, children...)
+	})
+}
+
+func (p *ConfigsPage) handleEditDialogClicks(gtx layout.Context, old config.ConfigRecord,
+	nameEd, urlEd, periodEd *widget.Editor, autoUpdate *widget.Bool,
+	saveBtn, deleteBtn, updateNowBtn, openBtn, validateBtn, openDirBtn, createBtn *widget.Clickable,
+	isLocal, hasCache bool) {
+	if saveBtn.Clicked(gtx) {
+		p.dialog.HideCustom()
+		rec := p.editRecordFromEditors(old, nameEd, urlEd, periodEd, autoUpdate)
+		go func() {
+			if err := p.ctrl.Backend().EditConfig(old.Name, rec); err == nil {
+				p.refreshConfigs()
 			}
-			rec := config.ConfigRecord{
-				Name:                nameEd.Text(),
-				URL:                 urlEd.Text(),
-				UpdateIntervalHours: hours,
-				Parent:              old.Parent,
-				LastUpdate:          old.LastUpdate,
-				AutoUpdate:          &autoUpdate.Value,
-			}
+		}()
+	}
+	if deleteBtn.Clicked(gtx) {
+		p.dialog.HideCustom()
+		p.onDelete(old.Name)
+	}
+	if openDirBtn.Clicked(gtx) {
+		go func() {
+			_ = p.ctrl.Backend().OpenConfigDir(old.Name)
+		}()
+	}
+	if isLocal {
+		p.handleLocalEditDialogClicks(gtx, old, openBtn, validateBtn, createBtn, hasCache)
+	} else {
+		p.handleRemoteEditDialogClicks(gtx, old, urlEd, updateNowBtn, validateBtn)
+	}
+}
+
+func (p *ConfigsPage) handleLocalEditDialogClicks(gtx layout.Context, old config.ConfigRecord,
+	openBtn, validateBtn, createBtn *widget.Clickable, hasCache bool) {
+	if !hasCache {
+		if createBtn.Clicked(gtx) {
 			go func() {
-				if err := p.ctrl.Controller.EditConfig(old.Name, rec); err == nil {
+				if err := p.ctrl.Backend().RecreateLocalConfig(old.Name); err == nil {
 					p.refreshConfigs()
 				}
 			}()
 		}
-		if deleteBtn.Clicked(gtx) {
-			p.dialog.HideCustom()
-			p.onDelete(old.Name)
-		}
-		if updateNowBtn.Clicked(gtx) {
-			p.dialog.HideCustom()
-			go func() {
-				p.dialog.ShowLoading(localengine.T("progress", "updating_configs"))
-				_ = p.ctrl.Controller.UpdateConfigNow(old.Name, urlEd.Text())
-				p.dialog.HideLoading()
-				p.refreshConfigs()
-			}()
-		}
+		return
+	}
+	if openBtn.Clicked(gtx) {
+		go func() {
+			_ = p.ctrl.Backend().OpenConfigFile(old.Name)
+		}()
+	}
+	if validateBtn.Clicked(gtx) {
+		go func() {
+			res, err := p.ctrl.Backend().ValidateConfig(old.Name)
+			if err != nil {
+				p.dialog.Show(localengine.T("configs", "dialog", "validation_error"), err.Error())
+				return
+			}
+			p.showValidationResult(res)
+		}()
+	}
+}
 
-		return widgets.DialogSpacedList(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), &nameEd, false)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "url"), &urlEd, false)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "period"), &periodEd, false)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.CheckBox(p.th, &autoUpdate, localengine.T("configs", "dialog", "auto_update")).Layout(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceStart, Alignment: layout.Middle}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &saveBtn, localengine.T("configs", "dialog", "btn", "save")).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &updateNowBtn, localengine.T("configs", "dialog", "btn", "update_now")).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &deleteBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)
-					}),
-				)
-			}),
-		)
-	})
+func (p *ConfigsPage) handleRemoteEditDialogClicks(gtx layout.Context, old config.ConfigRecord,
+	urlEd *widget.Editor, updateNowBtn, validateBtn *widget.Clickable) {
+	if updateNowBtn.Clicked(gtx) {
+		p.dialog.HideCustom()
+		go func() {
+			p.dialog.ShowLoading(localengine.T("progress", "updating_configs"))
+			_ = p.ctrl.Backend().UpdateConfigNow(old.Name, urlEd.Text())
+			p.dialog.HideLoading()
+			p.refreshConfigs()
+		}()
+	}
+	if validateBtn.Clicked(gtx) {
+		go func() {
+			res, err := p.ctrl.Backend().ValidateConfig(old.Name)
+			if err != nil {
+				p.dialog.Show(localengine.T("configs", "dialog", "validation_error"), err.Error())
+				return
+			}
+			p.showValidationResult(res)
+		}()
+	}
+}
+
+func (p *ConfigsPage) editDialogChildren(nameEd, urlEd, periodEd *widget.Editor, autoUpdate *widget.Bool,
+	saveBtn, updateNowBtn, deleteBtn, openBtn, validateBtn, openDirBtn, createBtn *widget.Clickable,
+	typeLabel string, isLocal, hasCache bool) []layout.FlexChild {
+	children := []layout.FlexChild{
+		layout.Rigid(p.layoutEditTypeLabel(typeLabel)),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return widgets.LabeledInput(gtx, p.th, localengine.T("configs", "dialog", "name"), nameEd, false)
+		}),
+	}
+	if isLocal {
+		if hasCache {
+			children = append(children, p.layoutEditLocalButtons(openBtn, validateBtn, openDirBtn))
+		} else {
+			children = append(children, p.layoutEditMissingLocal(createBtn))
+		}
+	} else {
+		children = append(children, p.layoutEditRemoteFields(urlEd, periodEd, autoUpdate)...)
+		if hasCache {
+			children = append(children, p.layoutEditRemoteButtons(validateBtn, openDirBtn))
+		}
+	}
+	children = append(children, p.layoutEditButtonRow(isLocal, saveBtn, updateNowBtn, deleteBtn))
+	return children
 }
 
 func (p *ConfigsPage) onDelete(name string) {
 	var confirmBtn widget.Clickable
-	var cancelBtn widget.Clickable
 
 	p.dialog.ShowCustom(localengine.T("configs", "dialog", "delete_title"), func(gtx layout.Context) layout.Dimensions {
 		if confirmBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			go func() {
-				_ = p.ctrl.Controller.DeleteConfig(name)
+				_ = p.ctrl.Backend().DeleteConfig(name)
 				p.refreshConfigs()
 			}()
-		}
-		if cancelBtn.Clicked(gtx) {
-			p.dialog.HideCustom()
 		}
 
 		return widgets.DialogSpacedList(gtx,
@@ -396,16 +788,7 @@ func (p *ConfigsPage) onDelete(name string) {
 				return material.Body2(p.th, localengine.T("configs", "dialog", "delete_msg")+" \""+name+"\"?").Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &confirmBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &cancelBtn, localengine.T("configs", "dialog", "btn", "cancel")).Layout(gtx)
-						})
-					}),
-				)
+				return material.Button(p.th, &confirmBtn, localengine.T("configs", "dialog", "btn", "delete")).Layout(gtx)
 			}),
 		)
 	})
@@ -413,7 +796,7 @@ func (p *ConfigsPage) onDelete(name string) {
 
 func (p *ConfigsPage) onUpdateAll() {
 	p.dialog.ShowLoading(localengine.T("progress", "updating_configs"))
-	_, _, err := p.ctrl.Controller.UpdateAllConfigs(nil)
+	_, _, err := p.ctrl.Backend().UpdateAllConfigs(nil)
 	p.dialog.HideLoading()
 	if err == nil {
 		p.refreshConfigs()

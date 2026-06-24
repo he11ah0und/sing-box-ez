@@ -7,13 +7,22 @@ import (
 
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/framework/svcman"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
 )
 
-// InteractiveController wraps Controller with GUI-specific callbacks and background loops.
+// InteractiveController wraps Backend with GUI-specific callbacks and background loops.
 type InteractiveController struct {
+	// backend is the core backend used for all operations.
+	backend Backend
+
+	// Controller is the local controller, set only when running in local/embed/service mode.
 	Controller *Controller
+
+	// serviceManager controls the core lifecycle. In embed mode it is nil and the
+	// backend is used directly; in service mode it points to a system service manager.
+	serviceManager svcman.Manager
 
 	// UI callbacks (optional, invoked when state changes)
 	OnStatusChange    func(running bool)
@@ -38,9 +47,16 @@ type InteractiveController struct {
 	stopMu  sync.Mutex
 }
 
-// NewInteractiveController creates an interactive controller wrapping an existing core controller.
-func NewInteractiveController(c *Controller) *InteractiveController {
-	cfg := c.Config()
+// NewInteractiveController creates an interactive controller wrapping a backend.
+func NewInteractiveController(b Backend) *InteractiveController {
+	return NewInteractiveControllerWithManager(b, nil)
+}
+
+// NewInteractiveControllerWithManager creates an interactive controller that
+// uses the provided service manager. If manager is nil, backend.Start/Stop are
+// used directly.
+func NewInteractiveControllerWithManager(b Backend, manager svcman.Manager) *InteractiveController {
+	cfg := b.Config()
 	if lang := cfg.MustGet("ui", "language").String(); lang == "" {
 		lang = localengine.DetectSystemLanguage()
 		cfg.MustGet("ui", "language").Update(lang)
@@ -51,12 +67,16 @@ func NewInteractiveController(c *Controller) *InteractiveController {
 	}
 
 	ic := &InteractiveController{
-		Controller: c,
+		backend:        b,
+		serviceManager: manager,
 	}
 
-	ic.Controller.LogProcessor().OnAutoRestart = func() {
-		if ic.OnAutoRestart != nil {
-			ic.OnAutoRestart()
+	if c, ok := b.(*Controller); ok {
+		ic.Controller = c
+		c.LogProcessor().OnAutoRestart = func() {
+			if ic.OnAutoRestart != nil {
+				ic.OnAutoRestart()
+			}
 		}
 	}
 
@@ -69,20 +89,32 @@ func NewInteractiveController(c *Controller) *InteractiveController {
 
 // Log logs a message and optionally invokes the OnLog callback.
 func (ic *InteractiveController) Log(msg string) {
-	ic.Controller.Terminal().Infof("%s", msg)
+	ic.backend.Terminal().Infof("%s", msg)
 	if ic.OnLog != nil {
 		ic.OnLog(msg)
 	}
 }
 
+// Backend returns the core backend used by the interactive controller.
+func (ic *InteractiveController) Backend() Backend {
+	return ic.backend
+}
+
 // App returns the framework application container.
 func (ic *InteractiveController) App() *framework.App {
+	if ic.Controller == nil {
+		return nil
+	}
 	return ic.Controller.Framework()
 }
 
 // SelfUpdater returns the updater manager used for the application binary.
 func (ic *InteractiveController) SelfUpdater() *updater.Manager {
-	for _, m := range ic.Controller.Framework().Updaters {
+	app := ic.App()
+	if app == nil {
+		return nil
+	}
+	for _, m := range app.Updaters {
 		if m.Name == "updater" {
 			return m
 		}
@@ -108,8 +140,8 @@ func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 // StartService prepares the active config and starts the core. It mirrors the
 // main page start button action so other UI surfaces (e.g. tray) can reuse it.
 func (ic *InteractiveController) StartService() error {
-	if _, err := ic.Controller.PrepareConfig(); err != nil {
-		ic.Controller.Terminal().Infof("%s", err.Error())
+	if _, err := ic.backend.PrepareConfig(); err != nil {
+		ic.backend.Terminal().Infof("%s", err.Error())
 		switch {
 		case errors.Is(err, ErrCoreMissing):
 			if ic.OnCoreMissing != nil {
@@ -122,8 +154,17 @@ func (ic *InteractiveController) StartService() error {
 		}
 		return err
 	}
-	if err := ic.Controller.Start(); err != nil {
-		ic.Controller.Terminal().Infof("Failed to start: %v", err)
+
+	if ic.serviceManager != nil {
+		if err := ic.serviceManager.Start(); err != nil {
+			ic.backend.Terminal().Infof("Failed to start: %v", err)
+			return err
+		}
+		return nil
+	}
+
+	if err := ic.backend.Start(); err != nil {
+		ic.backend.Terminal().Infof("Failed to start: %v", err)
 		return err
 	}
 	return nil
@@ -131,8 +172,16 @@ func (ic *InteractiveController) StartService() error {
 
 // StopService stops the core. It mirrors the main page stop button action.
 func (ic *InteractiveController) StopService() error {
-	if err := ic.Controller.Stop(); err != nil {
-		ic.Controller.Terminal().Infof("Failed to stop: %v", err)
+	if ic.serviceManager != nil {
+		if err := ic.serviceManager.Stop(); err != nil {
+			ic.backend.Terminal().Infof("Failed to stop: %v", err)
+			return err
+		}
+		return nil
+	}
+
+	if err := ic.backend.Stop(); err != nil {
+		ic.backend.Terminal().Infof("Failed to stop: %v", err)
 		return err
 	}
 	return nil
@@ -149,30 +198,30 @@ func (ic *InteractiveController) Close() {
 	ic.stopMu.Lock()
 	ic.stopped = true
 	ic.stopMu.Unlock()
-	ic.Controller.Close()
+	if ic.Controller != nil {
+		ic.Controller.Close()
+	}
 }
 
 func (ic *InteractiveController) configUpdateChecker() {
 	// Run an initial check right after startup so overdue configs are refreshed
 	// before the first interval elapses.
-	if ic.Controller.Config().MustGet("updates", "auto_update_configs").Bool() {
+	if ic.backend.Config().MustGet("updates", "auto_update_configs").Bool() {
 		ic.checkAllConfigs()
 	}
 
 	for {
-		interval := time.Duration(ic.Controller.Config().MustGet("updates", "auto_update_configs_interval_hours").Int()) * time.Hour
+		interval := time.Duration(ic.backend.Config().MustGet("updates", "auto_update_configs_interval_hours").Int()) * time.Hour
 		if interval <= 0 {
 			interval = time.Hour
 		}
 
-		select {
-		case <-time.After(interval):
-		}
+		time.Sleep(interval)
 
 		if ic.isStopped() {
 			return
 		}
-		if !ic.Controller.Config().MustGet("updates", "auto_update_configs").Bool() {
+		if !ic.backend.Config().MustGet("updates", "auto_update_configs").Bool() {
 			continue
 		}
 		ic.checkAllConfigs()
@@ -180,23 +229,26 @@ func (ic *InteractiveController) configUpdateChecker() {
 }
 
 func (ic *InteractiveController) checkAllConfigs() {
-	configs := ic.Controller.Config().GetConfigs()
+	configs := ic.backend.GetConfigs()
 	if len(configs) == 0 {
 		return
 	}
 
-	active := ic.Controller.Config().GetActiveConfig()
+	active := ic.backend.GetActiveConfig()
 	activeUpdated := false
 
 	for i := range configs {
 		cfg := &configs[i]
+		if cfg.IsLocal() {
+			continue
+		}
 		if !cfg.ShouldUpdate() {
 			continue
 		}
 
-		ic.Controller.Terminal().Infof("Auto-updating config: %s", cfg.Name)
-		if err := ic.Controller.UpdateConfigNow(cfg.Name, cfg.URL); err != nil {
-			ic.Controller.Terminal().Errorf("Auto-update failed for %s: %v", cfg.Name, err)
+		ic.backend.Terminal().Infof("Auto-updating config: %s", cfg.Name)
+		if err := ic.backend.UpdateConfigNow(cfg.Name, cfg.URL); err != nil {
+			ic.backend.Terminal().Errorf("Auto-update failed for %s: %v", cfg.Name, err)
 			continue
 		}
 		if active != nil && cfg.Name == active.Name {
@@ -208,10 +260,10 @@ func (ic *InteractiveController) checkAllConfigs() {
 		if ic.OnConfigUpdate != nil {
 			ic.OnConfigUpdate()
 		}
-		if ic.Controller.Config().MustGet("updates", "auto_restart_on_config_update").Bool() && ic.Controller.IsRunning() {
-			ic.Controller.Terminal().Infof("Active config updated, restarting core...")
-			if err := ic.Controller.Restart(); err != nil {
-				ic.Controller.Terminal().Errorf("Auto-restart failed: %v", err)
+		if ic.backend.Config().MustGet("updates", "auto_restart_on_config_update").Bool() && ic.backend.IsRunning() {
+			ic.backend.Terminal().Infof("Active config updated, restarting core...")
+			if err := ic.backend.Restart(); err != nil {
+				ic.backend.Terminal().Errorf("Auto-restart failed: %v", err)
 			}
 		}
 	}
@@ -219,14 +271,12 @@ func (ic *InteractiveController) checkAllConfigs() {
 
 func (ic *InteractiveController) updateCheckLoop() {
 	for {
-		interval := time.Duration(ic.Controller.Config().MustGet("updates", "background_update_check_interval_hours").Int()) * time.Hour
+		interval := time.Duration(ic.backend.Config().MustGet("updates", "background_update_check_interval_hours").Int()) * time.Hour
 		if interval <= 0 {
 			interval = 24 * time.Hour
 		}
 
-		select {
-		case <-time.After(interval):
-		}
+		time.Sleep(interval)
 
 		if ic.isStopped() {
 			return
@@ -245,7 +295,7 @@ func (ic *InteractiveController) statusChecker() {
 		if ic.isStopped() {
 			return
 		}
-		running := ic.Controller.IsRunning()
+		running := ic.backend.IsRunning()
 		if running != lastRunning {
 			lastRunning = running
 			if ic.OnStatusChange != nil {

@@ -14,6 +14,7 @@ import (
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
 )
 
@@ -27,6 +28,7 @@ type App struct {
 	BaseDir  string
 	Config   config.Config
 	CLI      *cli.Engine[*App]
+	Backend  rpc.Backend
 
 	// Root is the data directory. ConfigsDir/PluginsDir/DocsDir are
 	// pre-created subdirectories with enforced permissions.
@@ -68,6 +70,10 @@ type Config struct {
 	BuildUpdaters func(*App) []*updater.Manager
 	// RegisterCommands registers CLI commands on the engine.
 	RegisterCommands func(*cli.Engine[*App])
+	// ExtraGlobalFlags are registered before global flags are parsed. Use this
+	// for flags that must be available to all commands and be recognized before
+	// configuration is loaded.
+	ExtraGlobalFlags []cli.Flag
 	// RunGUI starts the GUI. It receives the fully constructed App and
 	// returns true if the GUI ran successfully. If nil and no CLI command
 	// was given, Run exits without error.
@@ -82,18 +88,20 @@ func ensureSubdir(root fs.Directory, name string, perm os.FileMode) (fs.Director
 	return d, nil
 }
 
-// NewApp creates a new framework App with the given configuration.
-func NewApp(cfg Config) (*App, error) {
-	cliEngine := cli.New[*App]()
-	cliEngine.AddGlobalFlag(cli.Flag{
+func parseDataDir(args []string, extraFlags []cli.Flag, defaultFn func() string) (string, []string, *cli.Engine[*App], error) {
+	engine := cli.New[*App]()
+	engine.AddGlobalFlag(cli.Flag{
 		Name: "data-dir",
 		Type: cli.Path,
 		Desc: "Override default data directory",
 	})
+	for _, f := range extraFlags {
+		engine.AddGlobalFlag(f)
+	}
 
-	globals, remaining, err := cliEngine.ParseGlobals(cfg.Args)
+	globals, remaining, err := engine.ParseGlobals(args)
 	if err != nil {
-		return nil, fmt.Errorf("parse global flags: %w", err)
+		return "", nil, nil, fmt.Errorf("parse global flags: %w", err)
 	}
 
 	dataDir := ""
@@ -101,11 +109,21 @@ func NewApp(cfg Config) (*App, error) {
 		dataDir = cli.AsString(v)
 	}
 	if dataDir == "" {
-		if cfg.DefaultDataDir == nil {
-			return nil, fmt.Errorf("DefaultDataDir is required")
+		if defaultFn == nil {
+			return "", nil, nil, fmt.Errorf("DefaultDataDir is required")
 		}
-		dataDir = cfg.DefaultDataDir()
+		dataDir = defaultFn()
 	}
+	return dataDir, remaining, engine, nil
+}
+
+// NewApp creates a new framework App with the given configuration.
+func NewApp(cfg Config) (*App, error) {
+	dataDir, remaining, cliEngine, err := parseDataDir(cfg.Args, cfg.ExtraGlobalFlags, cfg.DefaultDataDir)
+	if err != nil {
+		return nil, err
+	}
+
 	tmpLog := logger.NewLogger(1000)
 	tmpFS := fs.NewOSWithLog(dataDir, tmpLog.Root)
 	tmpRoot := tmpFS.Root()
@@ -128,17 +146,12 @@ func NewApp(cfg Config) (*App, error) {
 		limit = cfg.GetLoggerLimit(conf)
 	}
 	log := logger.NewLogger(limit)
+	sheet.SetLogger(log.Root)
+	sheet.DebugDisabledCount()
 	appFS := fs.NewOSWithLog(dataDir, log.Root)
 	root := appFS.Root()
-	configsDir, err := ensureSubdir(root, "configs", 0750)
-	if err != nil {
-		return nil, err
-	}
-	pluginsDir, err := ensureSubdir(root, "plugins", 0750)
-	if err != nil {
-		return nil, err
-	}
-	docsDir, err := ensureSubdir(root, "docs", 0750)
+
+	configsDir, pluginsDir, docsDir, err := setupDirectories(root)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +190,22 @@ func NewApp(cfg Config) (*App, error) {
 	}
 
 	return app, nil
+}
+
+func setupDirectories(root fs.Directory) (fs.Directory, fs.Directory, fs.Directory, error) {
+	configsDir, err := ensureSubdir(root, "configs", 0750)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	pluginsDir, err := ensureSubdir(root, "plugins", 0750)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	docsDir, err := ensureSubdir(root, "docs", 0750)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return configsDir, pluginsDir, docsDir, nil
 }
 
 // Run executes the CLI command if arguments remain, otherwise starts the GUI.

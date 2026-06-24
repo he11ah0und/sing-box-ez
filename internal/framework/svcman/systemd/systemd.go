@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sing-box-ez/internal/svcman"
+	"sing-box-ez/internal/framework/svcman"
 	"strings"
 )
 

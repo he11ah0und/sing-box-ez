@@ -3,7 +3,7 @@
 package ipc
 
 import (
-	"sing-box-ez/internal/ipc/namedpipe"
+	"sing-box-ez/internal/framework/ipc/namedpipe"
 )
 
 func defaultTransport() (Transport, error) {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sing-box-ez/internal/svcman"
+	"sing-box-ez/internal/framework/svcman"
 	"strconv"
 	"sync"
 )

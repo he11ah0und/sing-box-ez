@@ -7,7 +7,7 @@ package windows
 import (
 	"fmt"
 	"os/exec"
-	"sing-box-ez/internal/svcman"
+	"sing-box-ez/internal/framework/svcman"
 	"strings"
 )
 

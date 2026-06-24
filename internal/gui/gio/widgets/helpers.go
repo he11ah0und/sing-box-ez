@@ -2,9 +2,14 @@ package widgets
 
 import (
 	"image"
+	"image/color"
 
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
+	"gioui.org/widget"
+	"gioui.org/widget/material"
 )
 
 // Standard spacing values used across Gio UI pages and dialogs.
@@ -15,9 +20,14 @@ const (
 	DialogSpacing = unit.Dp(12)
 )
 
+// HSpace returns a horizontal spacer with the given width.
+func HSpace(gtx layout.Context, w unit.Dp) layout.Dimensions {
+	return layout.Dimensions{Size: image.Point{X: gtx.Dp(w), Y: 0}}
+}
+
 // VSpace returns a vertical spacer with the given height.
-func VSpace(gtx layout.Context, height unit.Dp) layout.Dimensions {
-	return layout.Dimensions{Size: image.Point{Y: gtx.Dp(height)}}
+func VSpace(gtx layout.Context, h unit.Dp) layout.Dimensions {
+	return layout.Dimensions{Size: image.Point{X: 0, Y: gtx.Dp(h)}}
 }
 
 // PageSpacer returns a standard vertical spacer for page content.
@@ -58,4 +68,25 @@ func DialogSpacedList(gtx layout.Context, children ...layout.FlexChild) layout.D
 		spaced = append(spaced, c)
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, spaced...)
+}
+
+// Button is a small wrapper around material.Button for consistent sizing.
+func Button(th *material.Theme, btn *widget.Clickable, label string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return material.Button(th, btn, label).Layout(gtx)
+	}
+}
+
+// BorderedCard draws a rounded rectangle with a border and background color,
+// then lays out content inside it with a uniform inset.
+func BorderedCard(gtx layout.Context, border, bg color.NRGBA, borderWidth, radius, inset unit.Dp, content layout.Widget) layout.Dimensions {
+	return widget.Border{
+		Color:        border,
+		Width:        borderWidth,
+		CornerRadius: radius,
+	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+		paint.Fill(gtx.Ops, bg)
+		return layout.UniformInset(inset).Layout(gtx, content)
+	})
 }
