@@ -286,6 +286,28 @@ func (m *Manager) DownloadConfigFor(name, url string) error {
 	return m.net.DownloadToFile(context.Background(), m.fsys, url, path)
 }
 
+// CreateLocalConfig creates an empty local config file for the given name.
+func (m *Manager) CreateLocalConfig(name string) error {
+	path := m.cachedConfig(name)
+	if err := m.fsys.Root().Subdir("configs").MkdirAll(0750); err != nil {
+		return err
+	}
+	return m.fsys.Root().File(path).AtomicWrite([]byte("{}"), 0640)
+}
+
+// RenameConfigFile renames a cached config file when a config is renamed.
+func (m *Manager) RenameConfigFile(oldName, newName string) error {
+	oldPath := m.cachedConfig(oldName)
+	newPath := m.cachedConfig(newName)
+	if !m.fsys.Root().File(oldPath).Exists() {
+		return nil
+	}
+	if m.fsys.Root().File(newPath).Exists() {
+		return nil
+	}
+	return m.fsys.Root().File(oldPath).Rename(filepath.Base(newPath))
+}
+
 func (m *Manager) CheckCoreUpdate(ctx context.Context) (*updater.UpdateInfo, error) {
 	if m.updater == nil {
 		return nil, fmt.Errorf("core updater not configured")

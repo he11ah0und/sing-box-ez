@@ -127,9 +127,9 @@ func (d *Dialog) ShowConfirmMarkdown(title, body string, onConfirm func(), onDis
 	d.onDismiss = onDismiss
 }
 
-// ShowCustom displays a dialog with arbitrary widget content and a Cancel button.
+// ShowCustom displays a dialog with arbitrary widget content and a Close button.
 func (d *Dialog) ShowCustom(title string, body layout.Widget) {
-	d.closeLabel = localengine.T("dialog", "btn", "cancel")
+	d.closeLabel = localengine.T("dialog", "btn", "close")
 	d.confirmLabel = ""
 	d.cancelLabel = ""
 	d.onConfirm = nil

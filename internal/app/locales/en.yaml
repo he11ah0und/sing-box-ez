@@ -69,20 +69,47 @@ configs:
     now: now
     'yes': 'yes'
     'no': 'no'
+  badge:
+    local: local
   dialog:
     title: Config
     name: Name
     url: URL
+    type: Type
+    type_remote: Remote
+    type_local: Local
     period: Period (hours)
     auto_update: Auto-update
+    validation_result: Validation result
+    validation_error: Validation failed
+    file_missing: Config file missing
     btn:
       save: Save
       update_now: Update now
       delete: Delete
-      cancel: Cancel
+      open: Open
+      validate: Validate
+      open_dir: Open location
+      create: Create again
+      copy: Copy
     delete_title: Delete
     delete_msg: Delete config
+validation:
+  ok: No deprecated or removed fields detected.
+  summary_errors: Found %d critical errors and %d warnings.
+  summary_warnings: Found %d warnings.
+  errors_title: Errors (%d)
+  warnings_title: Warnings (%d)
+  item:
+    removed: 'Removed in %s: %s. Replacement: %s'
+    deprecated: 'Deprecated in %s, removed in %s: %s. Replacement: %s'
+    deprecated_no_removal: 'Deprecated in %s: %s. Replacement: %s'
 settings:
+  tab:
+    interface: Interface
+    configs: Configs
+    core: Core
+    system: System
   logging:
     title: Logging
   update_check:
@@ -109,6 +136,7 @@ settings:
     auto: Auto-update configs in background
     auto_restart: Auto-restart core when active config updates
     interval: Auto-update check interval (hours)
+    background_interval: Background config update check interval (hours)
   default_interval:
     label: 'Default update interval (hours):'
   language:
@@ -225,6 +253,7 @@ about:
     close: Close
 dialog:
   btn:
+    close: Close
     cancel: Cancel
     confirm: Confirm
     update: Update

@@ -8,6 +8,7 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/rpc"
+	"sing-box-ez/internal/singboxconfig"
 )
 
 // RemoteController implements Backend by forwarding calls to a remote RPC backend.
@@ -229,6 +230,36 @@ func (r *RemoteController) OpenDataDir() error {
 	return errors.New("open data dir is not available in remote mode")
 }
 
+// OpenConfigFile opens the remote config file via the RPC backend.
+func (r *RemoteController) OpenConfigFile(name string) error {
+	if err := r.call("config", "open_file", rpc.StringValue{Value: name}, nil); err != nil {
+		return errors.New("open config file is not available in remote mode")
+	}
+	return nil
+}
+
+// ValidateConfig validates the remote config via the RPC backend.
+func (r *RemoteController) ValidateConfig(name string) (singboxconfig.ValidationResult, error) {
+	var res singboxconfig.ValidationResult
+	if err := r.call("config", "validate", rpc.StringValue{Value: name}, &res); err != nil {
+		return singboxconfig.ValidationResult{}, err
+	}
+	return res, nil
+}
+
+// OpenConfigDir opens the remote config directory via the RPC backend.
+func (r *RemoteController) OpenConfigDir(name string) error {
+	if err := r.call("config", "open_dir", rpc.StringValue{Value: name}, nil); err != nil {
+		return errors.New("open config directory is not available in remote mode")
+	}
+	return nil
+}
+
+// RecreateLocalConfig is not available for remote controllers.
+func (r *RemoteController) RecreateLocalConfig(name string) error {
+	return errors.New("recreate local config is not available in remote mode")
+}
+
 // SetLogLimit forwards the log limit to the remote side.
 func (r *RemoteController) SetLogLimit(v int) {
 	_ = r.call("app", "set_log_limit", rpc.IntValue{Value: v}, nil)
@@ -304,6 +335,7 @@ type coreDownloadRes struct {
 type configRecordMsg struct {
 	Name                string `msgpack:"name"`
 	URL                 string `msgpack:"url"`
+	Type                string `msgpack:"type"`
 	UpdateIntervalHours int    `msgpack:"update_interval_hours"`
 	LastUpdateUnix      int64  `msgpack:"last_update_unix"`
 	Parent              string `msgpack:"parent"`
@@ -356,6 +388,7 @@ func configRecordToMsg(rec config.ConfigRecord) configRecordMsg {
 	return configRecordMsg{
 		Name:                rec.Name,
 		URL:                 rec.URL,
+		Type:                rec.Type,
 		UpdateIntervalHours: rec.UpdateIntervalHours,
 		LastUpdateUnix:      last,
 		Parent:              rec.Parent,
@@ -371,6 +404,7 @@ func msgToConfigRecord(msg configRecordMsg) config.ConfigRecord {
 	return config.ConfigRecord{
 		Name:                msg.Name,
 		URL:                 msg.URL,
+		Type:                msg.Type,
 		UpdateIntervalHours: msg.UpdateIntervalHours,
 		LastUpdate:          last,
 		Parent:              msg.Parent,
