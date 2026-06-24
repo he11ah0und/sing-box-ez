@@ -15,4 +15,5 @@ type DialogProvider interface {
 	ShowCustom(title string, content layout.Widget)
 	ShowCustomNoCancel(title string, content layout.Widget)
 	HideCustom()
+	Visible() bool
 }

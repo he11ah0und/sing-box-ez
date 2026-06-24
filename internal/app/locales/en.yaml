@@ -14,6 +14,7 @@ main:
     running: 'Status: running'
   active:
     none: 'Active config: (none)'
+    label: 'Active config'
     prefix: 'Active config: '
   'no':
     config: No config selected — select one in the Configs tab

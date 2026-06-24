@@ -25,7 +25,6 @@ type MainPage struct {
 	th   *material.Theme
 	ctrl *core.InteractiveController
 
-	configBtn  widget.Clickable
 	mainBtn    widget.Clickable
 	restartBtn widget.Clickable
 
@@ -33,17 +32,28 @@ type MainPage struct {
 	spinAngle  float32
 	spinTime   time.Time
 
+	configDropdown *widgets.Dropdown
+
 	// Dialog provider is supplied by the shell.
 	dialog widgets.DialogProvider
 }
 
 // NewMainPage creates a new main page.
 func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog widgets.DialogProvider) *MainPage {
-	return &MainPage{
+	p := &MainPage{
 		th:     th,
 		ctrl:   ctrl,
 		dialog: dialog,
 	}
+	p.configDropdown = widgets.NewDropdown(
+		th, dialog,
+		localengine.T("main", "active", "label"),
+		"",
+		[]string{},
+		nil,
+		func(s string) { go p.activateConfigAndMaybeRestart(s) },
+	)
+	return p
 }
 
 // Tag returns the page tag.
@@ -67,9 +77,6 @@ func (p *MainPage) handleInteractions(gtx layout.Context) {
 	if p.processing {
 		return
 	}
-	if p.configBtn.Clicked(gtx) {
-		p.openConfigPicker()
-	}
 	if p.mainBtn.Clicked(gtx) {
 		if p.ctrl.Backend().IsRunning() {
 			go p.onStop()
@@ -89,9 +96,8 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 		mainLabel = localengine.T("main", "btn", "stop")
 	}
 
-	configText := localengine.T("main", "active", "none")
-	if active := p.ctrl.Backend().GetActiveConfig(); active != nil {
-		configText = localengine.T("main", "active", "prefix") + active.Name
+	if !p.dialog.Visible() {
+		p.syncConfigDropdown()
 	}
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
@@ -100,9 +106,7 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Button(p.th, &p.configBtn, configText).Layout(gtx)
-				}),
+				layout.Flexed(1, layout.Spacer{}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						if p.processing {
@@ -119,38 +123,27 @@ func (p *MainPage) layoutMainContent(gtx layout.Context) layout.Dimensions {
 						return material.Button(p.th, &p.restartBtn, localengine.T("main", "btn", "restart")).Layout(gtx)
 					})
 				}),
+				layout.Flexed(1, layout.Spacer{}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return p.configDropdown.Layout(gtx, false)
+				}),
 			)
 		}),
 	)
 }
 
-func (p *MainPage) openConfigPicker() {
+func (p *MainPage) syncConfigDropdown() {
 	configs := p.ctrl.Backend().GetConfigs()
-	btns := make([]widget.Clickable, len(configs))
-
-	p.dialog.ShowCustom(localengine.T("main", "active", "prefix"), func(gtx layout.Context) layout.Dimensions {
-		for i := range configs {
-			if btns[i].Clicked(gtx) {
-				p.dialog.HideCustom()
-				name := configs[i].Name
-				go p.activateConfigAndMaybeRestart(name)
-			}
-		}
-
-		children := []layout.FlexChild{}
-		for i, cfg := range configs {
-			idx := i
-			label := cfg.Name
-			active := p.ctrl.Backend().GetActiveConfig()
-			if active != nil && cfg.Name == active.Name {
-				label = "> " + cfg.Name
-			}
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &btns[idx], label).Layout(gtx)
-			}))
-		}
-		return widgets.DialogSpacedList(gtx, children...)
-	})
+	names := make([]string, len(configs))
+	for i, cfg := range configs {
+		names[i] = cfg.Name
+	}
+	activeName := ""
+	if active := p.ctrl.Backend().GetActiveConfig(); active != nil {
+		activeName = active.Name
+	}
+	p.configDropdown.SetOptions(names, nil, nil)
+	p.configDropdown.SetValue(activeName)
 }
 
 func (p *MainPage) activateConfigAndMaybeRestart(name string) {
