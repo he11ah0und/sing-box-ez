@@ -198,7 +198,12 @@ func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
 }
 
 func (c *Controller) Start() error {
-	if err := c.manager.Start(); err != nil {
+	data, err := c.manager.ReadConfig()
+	if err != nil {
+		return err
+	}
+	// TODO: apply transform/override pipeline here before starting core.
+	if err := c.manager.StartWithConfig(data); err != nil {
 		return err
 	}
 	c.fwApp.Logger.Log("Sing-box started")
@@ -215,7 +220,21 @@ func (c *Controller) Stop() error {
 
 func (c *Controller) Restart() error {
 	c.fwApp.Logger.Log("Restarting...")
-	if err := c.manager.Restart(); err != nil {
+	data, err := c.manager.ReadConfig()
+	if err != nil {
+		return err
+	}
+	// TODO: apply transform/override pipeline here before starting core.
+	if err := c.manager.Stop(); err != nil {
+		return err
+	}
+	for range 100 {
+		if !c.manager.IsRunning() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if err := c.manager.StartWithConfig(data); err != nil {
 		return err
 	}
 	c.fwApp.Logger.Log("Sing-box restarted")
