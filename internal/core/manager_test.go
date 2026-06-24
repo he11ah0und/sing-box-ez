@@ -71,6 +71,43 @@ func TestManagerLifecycle(t *testing.T) {
 	_ = m.Stop()
 }
 
+func TestManagerCreateLocalConfig(t *testing.T) {
+	baseDir := t.TempDir()
+	log := logger.NewLogger(100)
+	m := NewManager(baseDir, fs.NewOS(baseDir), nil, log)
+
+	if err := m.CreateLocalConfig("local"); err != nil {
+		t.Fatalf("CreateLocalConfig failed: %v", err)
+	}
+	path := filepath.Join(baseDir, "configs", "local.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read local config: %v", err)
+	}
+	if string(data) != "{}" {
+		t.Fatalf("unexpected local config content: %s", string(data))
+	}
+}
+
+func TestManagerRenameConfigFile(t *testing.T) {
+	baseDir := t.TempDir()
+	log := logger.NewLogger(100)
+	m := NewManager(baseDir, fs.NewOS(baseDir), nil, log)
+
+	if err := m.CreateLocalConfig("old"); err != nil {
+		t.Fatalf("CreateLocalConfig failed: %v", err)
+	}
+	if err := m.RenameConfigFile("old", "new"); err != nil {
+		t.Fatalf("RenameConfigFile failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, "configs", "old.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected old config file to be removed")
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, "configs", "new.json")); err != nil {
+		t.Fatalf("expected new config file to exist: %v", err)
+	}
+}
+
 func TestManagerRestartWaitsForProcessExit(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("test uses a shell script; skipping on windows")

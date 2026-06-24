@@ -3,7 +3,6 @@ package pages
 import (
 	"context"
 	"fmt"
-	"image"
 	"sync"
 
 	"gio.tools/icons"
@@ -156,12 +155,12 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 			urlStr = "https://github.com/he11ah0und/sing-box-ez/releases/latest"
 		}
 		if err := openurl.OpenURL(urlStr); err != nil {
-			p.ctrl.Controller.Terminal().Infof("Failed to open release notes: %v", err)
+			p.ctrl.Backend().Terminal().Infof("Failed to open release notes: %v", err)
 		}
 	}
 	if p.openDataBtn.Clicked(gtx) {
-		if err := p.ctrl.Controller.OpenDataDir(); err != nil {
-			p.ctrl.Controller.Terminal().Infof("Failed to open data folder: %v", err)
+		if err := p.ctrl.Backend().OpenDataDir(); err != nil {
+			p.ctrl.Backend().Terminal().Infof("Failed to open data folder: %v", err)
 		}
 	}
 	if p.switchBranchBtn.Clicked(gtx) {
@@ -169,7 +168,7 @@ func (p *AboutPage) handleInteractions(gtx layout.Context) {
 	}
 	if p.openRepoBtn.Clicked(gtx) {
 		if err := openurl.OpenURL("https://github.com/he11ah0und/sing-box-ez"); err != nil {
-			p.ctrl.Controller.Terminal().Infof("Failed to open repo: %v", err)
+			p.ctrl.Backend().Terminal().Infof("Failed to open repo: %v", err)
 		}
 	}
 }
@@ -214,7 +213,7 @@ func (p *AboutPage) Children(gtx layout.Context) []layout.FlexChild {
 					return material.Button(p.th, &p.releaseNotesBtn, localengine.T("about", "btn", "release_notes")).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(8)), Y: 0}}
+					return widgets.HSpace(gtx, unit.Dp(8))
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return material.Button(p.th, &p.openReleaseNotesBtn, localengine.T("about", "btn", "open_release_notes")).Layout(gtx)
@@ -287,7 +286,7 @@ func (p *AboutPage) logUpdater(format string, args ...interface{}) {
 	if u := p.ctrl.SelfUpdater(); u != nil {
 		u.Log.Infof(msg)
 	} else {
-		p.ctrl.Controller.Terminal().Infof(msg)
+		p.ctrl.Backend().Terminal().Infof(msg)
 	}
 }
 

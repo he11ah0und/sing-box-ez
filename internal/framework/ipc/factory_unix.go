@@ -3,7 +3,7 @@
 package ipc
 
 import (
-	"sing-box-ez/internal/ipc/unixsocket"
+	"sing-box-ez/internal/framework/ipc/unixsocket"
 )
 
 func defaultTransport() (Transport, error) {

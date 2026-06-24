@@ -32,7 +32,6 @@ type CorePage struct {
 	coreUpdate *widgets.UpdateCheck
 
 	autoRestart widget.Bool
-	watchLogs   widget.Bool
 
 	highlightEnd time.Time
 
@@ -53,10 +52,9 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 		ctrl:   ctrl,
 		dialog: dialog,
 	}
-	p.autoRestart.Value = ctrl.Controller.Config().MustGet("core", "auto_restart").Bool()
-	p.watchLogs.Value = ctrl.Controller.Config().MustGet("core", "watch_logs").Bool()
+	p.autoRestart.Value = ctrl.Backend().Config().MustGet("core", "auto_restart").Bool()
 
-	p.privilegeState = ctrl.Controller.GetPrivilegeTabState()
+	p.privilegeState = ctrl.Backend().GetPrivilegeTabState()
 
 	// Default privilege mode: admin, unless setcap is already detected.
 	p.privilegeMode = "admin"
@@ -65,7 +63,7 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	}
 
 	current := ""
-	if ver, err := ctrl.Controller.GetInstalledCoreVersion(); err == nil {
+	if ver, err := ctrl.Backend().GetInstalledCoreVersion(); err == nil {
 		current = normalizeCoreVersion(ver)
 	}
 
@@ -74,11 +72,11 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 		current,
 		localengine.T("core", "btn", "download"),
 		func(ctx context.Context) (widgets.UpdateCheckInfo, error) {
-			current, err := ctrl.Controller.GetInstalledCoreVersion()
+			current, err := ctrl.Backend().GetInstalledCoreVersion()
 			if err != nil {
 				current = ""
 			}
-			latest, err := ctrl.Controller.GetLatestCoreVersion()
+			latest, err := ctrl.Backend().GetLatestCoreVersion()
 			if err != nil {
 				return widgets.UpdateCheckInfo{}, err
 			}
@@ -91,7 +89,7 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 			}, nil
 		},
 		func(ctx context.Context, onProgress func(downloaded, total int64)) error {
-			_, err := ctrl.Controller.DownloadCoreWithProgress(onProgress)
+			_, err := ctrl.Backend().DownloadCoreWithProgress(onProgress)
 			return err
 		},
 	)
@@ -158,7 +156,7 @@ func (p *CorePage) Layout(gtx layout.Context) layout.Dimensions {
 func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 	if p.restartAdminBtn.Clicked(gtx) {
 		go func() {
-			_ = p.ctrl.Controller.RestartAsAdmin()
+			_ = p.ctrl.Backend().RestartAsAdmin()
 		}()
 	}
 	if p.privilegePickerBtn.Clicked(gtx) {
@@ -166,12 +164,7 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 	}
 
 	if changed := p.autoRestart.Update(gtx); changed {
-		p.ctrl.Controller.Config().MustGet("core", "auto_restart").Update(p.autoRestart.Value)
-		_ = p.ctrl.Controller.Config().Save()
-	}
-	if changed := p.watchLogs.Update(gtx); changed {
-		p.ctrl.Controller.Config().MustGet("core", "watch_logs").Update(p.watchLogs.Value)
-		_ = p.ctrl.Controller.Config().Save()
+		_ = p.ctrl.Backend().SetAutoRestart(p.autoRestart.Value)
 	}
 
 	return []layout.FlexChild{
@@ -180,9 +173,6 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutHighlightedUpdate(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.CheckBox(p.th, &p.watchLogs, localengine.T("core", "record_core_logs")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)
@@ -288,40 +278,36 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 	}
 
 	if mode == "admin" {
-		_ = p.ctrl.Controller.SetRunAsAdmin(true)
+		_ = p.ctrl.Backend().SetRunAsAdmin(true)
 		p.privilegeMode = "admin"
-		p.privilegeState = p.ctrl.Controller.GetPrivilegeTabState()
+		p.privilegeState = p.ctrl.Backend().GetPrivilegeTabState()
 		return
 	}
 
 	// Switching to setcap
 	if p.privilegeState.HasSetcap {
-		_ = p.ctrl.Controller.SetRunAsAdmin(false)
+		_ = p.ctrl.Backend().SetRunAsAdmin(false)
 		p.privilegeMode = "setcap"
-		p.privilegeState = p.ctrl.Controller.GetPrivilegeTabState()
+		p.privilegeState = p.ctrl.Backend().GetPrivilegeTabState()
 		return
 	}
 
 	// setcap not applied — show confirmation dialog
 	var applyBtn widget.Clickable
-	var cancelBtn widget.Clickable
 
 	p.dialog.ShowCustom(localengine.T("core", "btn", "apply_setcap"), func(gtx layout.Context) layout.Dimensions {
 		if applyBtn.Clicked(gtx) {
 			p.dialog.HideCustom()
 			go func() {
 				p.dialog.ShowLoading(localengine.T("progress", "applying_setcap"))
-				err := p.ctrl.Controller.ApplySetcap()
+				err := p.ctrl.Backend().ApplySetcap()
 				p.dialog.HideLoading()
 				if err == nil {
-					_ = p.ctrl.Controller.SetRunAsAdmin(false)
+					_ = p.ctrl.Backend().SetRunAsAdmin(false)
 					p.privilegeMode = "setcap"
-					p.privilegeState = p.ctrl.Controller.GetPrivilegeTabState()
+					p.privilegeState = p.ctrl.Backend().GetPrivilegeTabState()
 				}
 			}()
-		}
-		if cancelBtn.Clicked(gtx) {
-			p.dialog.HideCustom()
 		}
 
 		return widgets.DialogSpacedList(gtx,
@@ -329,16 +315,7 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 				return material.Body2(p.th, localengine.T("core", "mode", "setcap_prompt")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &applyBtn, localengine.T("core", "btn", "apply")).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &cancelBtn, localengine.T("dialog", "btn", "cancel")).Layout(gtx)
-						})
-					}),
-				)
+				return material.Button(p.th, &applyBtn, localengine.T("core", "btn", "apply")).Layout(gtx)
 			}),
 		)
 	})

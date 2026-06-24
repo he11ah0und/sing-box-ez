@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,6 +16,8 @@ import (
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/framework/util/openfile"
+	"sing-box-ez/internal/singboxconfig"
 )
 
 // Sentinel errors returned by PrepareConfig so callers can react specifically.
@@ -88,6 +91,21 @@ func (c *Controller) Config() *config.AppConfig {
 	return c.cfg
 }
 
+// GetConfigs returns all configured profiles.
+func (c *Controller) GetConfigs() []config.ConfigRecord {
+	return c.cfg.GetConfigs()
+}
+
+// GetActiveConfig returns the currently active profile.
+func (c *Controller) GetActiveConfig() *config.ConfigRecord {
+	return c.cfg.GetActiveConfig()
+}
+
+// GetActiveName returns the name of the active profile.
+func (c *Controller) GetActiveName() string {
+	return c.cfg.GetActiveName()
+}
+
 // Framework returns the framework app.
 func (c *Controller) Framework() *framework.App {
 	return c.fwApp
@@ -126,6 +144,18 @@ func (c *Controller) ClearLogs() {
 	c.fwApp.Logger.Clear()
 }
 
+func (c *Controller) GetCoreLogLines() []string {
+	return c.processor.LogBuffer().GetLines()
+}
+
+func (c *Controller) GetCoreLogCleanLines() []string {
+	return c.processor.LogBuffer().GetCleanLines()
+}
+
+func (c *Controller) ClearCoreLogs() {
+	c.processor.LogBuffer().Clear()
+}
+
 // ---------- Core lifecycle ----------
 
 func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
@@ -139,6 +169,15 @@ func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
 	}
 	c.manager.SetConfigURL(active.URL)
 	c.manager.SetConfigName(active.Name)
+
+	if active.IsLocal() {
+		if !c.HasCachedConfig(active.Name) {
+			if err := c.manager.CreateLocalConfig(active.Name); err != nil {
+				return nil, c.terminal.Errorf("failed to create local config: %v", err)
+			}
+		}
+		return active, nil
+	}
 
 	if active.ShouldUpdate() || !c.HasCachedConfig(active.Name) {
 		c.fwApp.Logger.Log("Updating config...")
@@ -208,6 +247,10 @@ func (c *Controller) UpdateConfig() error {
 }
 
 func (c *Controller) UpdateConfigNow(name, url string) error {
+	rec := c.cfg.GetConfigByName(name)
+	if rec != nil && rec.IsLocal() {
+		return c.terminal.Errorf("Local config %q cannot be updated from a URL", name)
+	}
 	if err := c.DownloadConfigFor(name, url); err != nil {
 		return c.terminal.Errorf("Update failed: %v", err)
 	}
@@ -273,11 +316,22 @@ func (c *Controller) DownloadConfigFor(name, url string) error {
 }
 
 func (c *Controller) AddConfig(rec config.ConfigRecord) error {
-	if rec.Name == "" || rec.URL == "" {
-		return c.terminal.Errorf("Name and URL are required")
+	if rec.Name == "" {
+		return c.terminal.Errorf("Name is required")
+	}
+	if !rec.IsLocal() && rec.URL == "" {
+		return c.terminal.Errorf("URL is required for remote configs")
 	}
 	if c.cfg.GetConfigByName(rec.Name) != nil {
 		return c.terminal.Errorf("Config with this name already exists")
+	}
+	if rec.IsLocal() {
+		if rec.Type == "" {
+			rec.Type = config.ConfigTypeLocal
+		}
+		if err := c.manager.CreateLocalConfig(rec.Name); err != nil {
+			return c.terminal.Errorf("failed to create local config: %v", err)
+		}
 	}
 	c.cfg.AddConfig(rec)
 	if c.cfg.GetActiveName() == "" {
@@ -291,12 +345,18 @@ func (c *Controller) AddConfig(rec config.ConfigRecord) error {
 }
 
 func (c *Controller) EditConfig(oldName string, rec config.ConfigRecord) error {
-	if rec.Name == "" || rec.URL == "" {
-		return c.terminal.Errorf("Name and URL are required")
+	if rec.Name == "" {
+		return c.terminal.Errorf("Name is required")
+	}
+	if !rec.IsLocal() && rec.URL == "" {
+		return c.terminal.Errorf("URL is required for remote configs")
 	}
 	if rec.Name != oldName {
 		if c.cfg.GetConfigByName(rec.Name) != nil {
 			return c.terminal.Errorf("Config with name %q already exists", rec.Name)
+		}
+		if rec.IsLocal() {
+			_ = c.manager.RenameConfigFile(oldName, rec.Name)
 		}
 		c.cfg.RenameConfig(oldName, rec.Name)
 	}
@@ -326,7 +386,13 @@ func (c *Controller) ActivateConfig(name string) error {
 		return fmt.Errorf("config not found")
 	}
 	if !c.HasCachedConfig(name) {
-		return c.terminal.Errorf("No cached config for: %s", name)
+		if rec.IsLocal() {
+			if err := c.manager.CreateLocalConfig(name); err != nil {
+				return c.terminal.Errorf("failed to create local config: %v", err)
+			}
+		} else {
+			return c.terminal.Errorf("No cached config for: %s", name)
+		}
 	}
 	c.cfg.SetActiveName(name)
 	_ = c.cfg.Save()
@@ -340,7 +406,7 @@ func (c *Controller) UpdateAllConfigs(progress func(done, total int)) (int, int,
 	configs := c.cfg.GetConfigs()
 	total := 0
 	for _, rec := range configs {
-		if rec.URL != "" {
+		if !rec.IsLocal() {
 			total++
 		}
 	}
@@ -350,7 +416,7 @@ func (c *Controller) UpdateAllConfigs(progress func(done, total int)) (int, int,
 	}
 	updated := 0
 	for _, rec := range configs {
-		if rec.URL == "" {
+		if rec.IsLocal() {
 			continue
 		}
 		c.terminal.Infof("Updating config: " + rec.Name + "...")
@@ -368,6 +434,62 @@ func (c *Controller) UpdateAllConfigs(progress func(done, total int)) (int, int,
 	_ = c.cfg.Save()
 	c.terminal.Infof("Update all finished (%d/%d)", updated, total)
 	return updated, total, nil
+}
+
+// OpenConfigFile opens the cached config file in the platform default editor.
+func (c *Controller) OpenConfigFile(name string) error {
+	if !c.HasCachedConfig(name) {
+		return c.terminal.Errorf("Config file not found: %s", name)
+	}
+	path := c.manager.cachedConfig(name)
+	c.terminal.Infof("Opening config file: %s", path)
+	return openfile.OpenPath(path)
+}
+
+// ValidateConfig reads the cached config and runs a deprecation/validation check.
+func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult, error) {
+	if !c.HasCachedConfig(name) {
+		return singboxconfig.ValidationResult{}, c.terminal.Errorf("Config file not found: %s", name)
+	}
+	path := c.manager.cachedConfig(name)
+	data, err := c.fwApp.FS.Root().File(path).Read()
+	if err != nil {
+		return singboxconfig.ValidationResult{}, c.terminal.Errorf("failed to read config file: %v", err)
+	}
+	parser := singboxconfig.NewConfigParser()
+	if _, err := parser.Parse(data); err != nil {
+		result := parser.Result()
+		return result, err
+	}
+	result := parser.Result()
+	return result, nil
+}
+
+// OpenConfigDir opens the directory containing the cached config file.
+func (c *Controller) OpenConfigDir(name string) error {
+	if !c.HasCachedConfig(name) {
+		return c.terminal.Errorf("Config file not found: %s", name)
+	}
+	path := c.manager.cachedConfig(name)
+	dir := filepath.Dir(path)
+	c.terminal.Infof("Opening config directory: %s", dir)
+	return openfile.OpenPath(dir)
+}
+
+// RecreateLocalConfig recreates the local config file if it is missing.
+func (c *Controller) RecreateLocalConfig(name string) error {
+	rec := c.cfg.GetConfigByName(name)
+	if rec == nil {
+		return fmt.Errorf("config not found")
+	}
+	if !rec.IsLocal() {
+		return c.terminal.Errorf("Only local configs can be recreated")
+	}
+	if err := c.manager.CreateLocalConfig(name); err != nil {
+		return c.terminal.Errorf("failed to recreate local config: %v", err)
+	}
+	c.terminal.Infof("Recreated local config: %s", name)
+	return nil
 }
 
 // ---------- Privileges ----------
@@ -465,6 +587,7 @@ func (c *Controller) SetLogLimit(v int) {
 	c.cfg.MustGet("log", "limit").Update(v)
 	_ = c.cfg.Save()
 	c.fwApp.Logger.SetLimit(v)
+	c.processor.LogBuffer().SetLimit(v)
 	c.terminal.Infof("Log limit set to %d", v)
 }
 
@@ -472,4 +595,13 @@ func (c *Controller) SetDefaultInterval(h int) {
 	c.cfg.MustGet("updates", "default_interval_hours").Update(h)
 	_ = c.cfg.Save()
 	c.terminal.Infof("Default interval set to %dh", h)
+}
+
+func (c *Controller) SetAutoRestart(checked bool) error {
+	c.cfg.MustGet("core", "auto_restart").Update(checked)
+	if err := c.cfg.Save(); err != nil {
+		return c.terminal.Errorf("Failed to save auto-restart setting: %v", err)
+	}
+	c.terminal.Infof("Auto-restart: %v", checked)
+	return nil
 }

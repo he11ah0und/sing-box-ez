@@ -54,7 +54,6 @@ core:
     admin: 管理员
     setcap: Setcap
     setcap_prompt: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
-  record_core_logs: 记录核心日志
 configs:
   title: 配置
   btn:
@@ -75,20 +74,47 @@ configs:
     now: 现在
     'yes': 是
     'no': 否
+  badge:
+    local: 本地
   dialog:
     title: 配置
     name: 名称
     url: URL
+    type: 类型
+    type_remote: 远程
+    type_local: 本地
     period: 周期（小时）
     auto_update: 自动更新
+    validation_result: 验证结果
+    validation_error: 验证失败
+    file_missing: 配置文件缺失
     btn:
       save: 保存
       update_now: 立即更新
       delete: 删除
-      cancel: 取消
+      open: 打开
+      validate: 验证
+      open_dir: 打开位置
+      create: 重新创建
+      copy: 复制
     delete_title: 删除
     delete_msg: 删除配置
+validation:
+  ok: 未检测到已弃用或已删除的字段。
+  summary_errors: 发现 %d 个严重错误和 %d 个警告。
+  summary_warnings: 发现 %d 个警告。
+  errors_title: 错误 (%d)
+  warnings_title: 警告 (%d)
+  item:
+    removed: '在 %s 中已删除：%s。替代方案：%s'
+    deprecated: '自 %s 起已弃用，将在 %s 中删除：%s。替代方案：%s'
+    deprecated_no_removal: '自 %s 起已弃用：%s。替代方案：%s'
 settings:
+  tab:
+    interface: 界面
+    configs: 配置
+    core: 核心
+    system: 系统
   logging:
     title: 日志
   log_limit:
@@ -115,6 +141,7 @@ settings:
     auto: 后台自动更新配置
     auto_restart: 活动配置更新时自动重启核心
     interval: 自动更新检查间隔（小时）
+    background_interval: 后台配置更新检查间隔（小时）
   default_interval:
     label: 默认更新间隔（小时）：
   language:
@@ -126,6 +153,21 @@ settings:
     system: 跟随系统
     dark: 深色
     light: 浅色
+  startup:
+    title: 启动
+    mode_label: 默认启动模式
+    mode_embed: embed
+    mode_remote: 远程
+    mode_systemd: systemd
+    mode_openrc: openrc
+    mode_sysv: sysv
+    mode_windows: Windows 服务
+    mode_systemd-user: systemd 用户
+    mode_dummy: dummy
+    mode_unix: remote
+    mode_tcp: remote
+    mode_npipe: remote
+    show_dialog: 启动时显示模式选择对话框
   plugins:
     title: 插件
     enabled: 插件功能
@@ -143,8 +185,33 @@ settings:
     success_title: 数据已重置
     success_msg: 所有数据已重置。应用现在将重新启动。
   desktop_notifications: 桌面通知
+startup:
+  title: sing-box-ez
+  subtitle: 选择运行方式
+  remember: 记住我的选择
+  continue: 继续
+  status_online: 在线
+  status_offline: 离线
+  mode_embed: embed
+  mode_remote: 远程
+  mode_systemd: systemd
+  mode_openrc: openrc
+  mode_sysv: sysv
+  mode_windows: Windows 服务
+  mode_systemd-user: systemd 用户
+  mode_dummy: dummy
+  remote_address_placeholder: TCP 地址（例如 127.0.0.1:8080）
+  service_start: 启动服务
+  service_stop: 停止服务
+  mode_unix: remote
+  mode_tcp: remote
+  mode_npipe: remote
 log:
   title: 日志
+  tab:
+    app: 应用
+    core: 核心
+  empty: 没有日志条目
   btn:
     copy: 复制全部
     clear: 清空
@@ -191,6 +258,7 @@ about:
     close: 关闭
 dialog:
   btn:
+    close: 关闭
     cancel: 取消
     confirm: 确认
     update: 更新

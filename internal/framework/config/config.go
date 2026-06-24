@@ -41,11 +41,23 @@ func (c *Cell) Update(v any) error {
 	if c == nil || c.node == nil {
 		return fmt.Errorf("cannot update nil cell")
 	}
+	if c.node.disabled {
+		return fmt.Errorf("cell %s is disabled", c.node.pathString())
+	}
 	if err := validateType(c.node.typ, v); err != nil {
 		return fmt.Errorf("cell %s: %w", c.node.pathString(), err)
 	}
 	c.node.value = v
 	return nil
+}
+
+// IsDisabled reports whether the cell is disabled. Disabled cells always use
+// their default value and cannot be updated or persisted.
+func (c *Cell) IsDisabled() bool {
+	if c == nil || c.node == nil {
+		return false
+	}
+	return c.node.disabled
 }
 
 // Bool returns the cell value as bool.
@@ -116,6 +128,18 @@ type SheetOptions struct {
 	OnMissing OnMissing
 }
 
+// Option modifies a cell during registration.
+type Option func(*node)
+
+// WithDisabled marks the cell as disabled. A disabled cell is ignored during
+// YAML load/save and cannot be updated at runtime; it always behaves as its
+// default value.
+func WithDisabled(disabled bool) Option {
+	return func(n *node) {
+		n.disabled = disabled
+	}
+}
+
 // Sheet is a tree of typed configuration cells.
 type Sheet struct {
 	root      *node
@@ -129,6 +153,7 @@ type node struct {
 	value        any
 	defaultValue any
 	children     map[string]*node
+	disabled     bool
 }
 
 func (n *node) pathString() string {
@@ -150,7 +175,7 @@ func NewSheet(opts SheetOptions) *Sheet {
 }
 
 // Register adds a typed cell to the schema at the given path.
-func (s *Sheet) Register(path []string, typ Type, defaultValue any) *Cell {
+func (s *Sheet) Register(path []string, typ Type, defaultValue any, opts ...Option) *Cell {
 	if len(path) == 0 {
 		return nil
 	}
@@ -162,6 +187,9 @@ func (s *Sheet) Register(path []string, typ Type, defaultValue any) *Cell {
 	n.defaultValue = defaultValue
 	if n.value == nil {
 		n.value = defaultValue
+	}
+	for _, opt := range opts {
+		opt(n)
 	}
 	return &Cell{node: n}
 }
@@ -249,11 +277,17 @@ func (s *Sheet) LoadYAML(data []byte) error {
 func (s *Sheet) loadTree(tree map[string]any, path []string) {
 	for key, value := range tree {
 		currentPath := append(path, key)
+		n := s.findNode(currentPath)
+		if n != nil && n.disabled {
+			if s.log != nil {
+				s.log.Warnf("config path %v is disabled, ignoring value from file", currentPath)
+			}
+			continue
+		}
 		switch v := value.(type) {
 		case map[string]any:
 			s.loadTree(v, currentPath)
 		default:
-			n := s.findNode(currentPath)
 			if n == nil {
 				if s.log != nil {
 					s.log.Warnf("config path %v not defined in schema", currentPath)
@@ -276,6 +310,62 @@ func (s *Sheet) loadTree(tree map[string]any, path []string) {
 	}
 }
 
+// DisabledCount returns the number of disabled leaf cells in the sheet.
+func (s *Sheet) DisabledCount() int {
+	if s == nil || s.root == nil {
+		return 0
+	}
+	return disabledCount(s.root)
+}
+
+// SetLogger replaces the sheet's logger. It can be used after the sheet is
+// created to switch from a temporary bootstrap logger to the application logger.
+func (s *Sheet) SetLogger(log *logger.LogTerminal) {
+	if s == nil {
+		return
+	}
+	s.log = log
+}
+
+// DebugDisabledCount logs the number of disabled cells at debug level. It is a
+// no-op if the sheet has no logger.
+func (s *Sheet) DebugDisabledCount() {
+	if s == nil || s.log == nil {
+		return
+	}
+	if count := s.DisabledCount(); count > 0 {
+		s.log.Debugf("config: %d cells are disabled", count)
+	}
+}
+
+func disabledCount(n *node) int {
+	if n == nil {
+		return 0
+	}
+	if n.disabled {
+		return leafCount(n)
+	}
+	count := 0
+	for _, child := range n.children {
+		count += disabledCount(child)
+	}
+	return count
+}
+
+func leafCount(n *node) int {
+	if n == nil {
+		return 0
+	}
+	if len(n.children) == 0 {
+		return 1
+	}
+	total := 0
+	for _, child := range n.children {
+		total += leafCount(child)
+	}
+	return total
+}
+
 // SaveYAML serialises all registered cells to YAML.
 func (s *Sheet) SaveYAML() ([]byte, error) {
 	tree := make(map[string]any)
@@ -288,6 +378,9 @@ func (s *Sheet) saveNode(n *node, tree map[string]any) {
 		return
 	}
 	for name, child := range n.children {
+		if child.disabled {
+			continue
+		}
 		if len(child.children) == 0 {
 			if child.value != nil {
 				tree[name] = child.value

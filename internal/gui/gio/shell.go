@@ -13,7 +13,6 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/gui/gio/pages"
 	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
@@ -23,9 +22,8 @@ import (
 //   - Mobile (<600dp): Bottom Nav (Main, Configs, Menu) + Menu page with secondary items.
 //   - Tablet/Desktop (>=600dp): Static side rail with all items, no bottom nav.
 type Shell struct {
-	th   *material.Theme
-	cfg  *config.AppConfig
-	ctrl *core.Controller
+	th  *material.Theme
+	cfg *config.AppConfig
 
 	primary   []pages.Page
 	secondary []pages.Page
@@ -64,11 +62,10 @@ type Shell struct {
 }
 
 // NewShell creates the adaptive shell.
-func NewShell(th *material.Theme, cfg *config.AppConfig, ctrl *core.Controller, primary, secondary []pages.Page) *Shell {
+func NewShell(th *material.Theme, cfg *config.AppConfig, primary, secondary []pages.Page) *Shell {
 	s := &Shell{
 		th:              th,
 		cfg:             cfg,
-		ctrl:            ctrl,
 		primary:         primary,
 		secondary:       secondary,
 		dialog:          NewDialog(),
@@ -333,7 +330,7 @@ func (s *Shell) navItem(gtx layout.Context, label string, icon *widget.Icon, btn
 						})
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(12)), Y: 0}}
+						return widgets.HSpace(gtx, unit.Dp(12))
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						lbl := material.Body1(s.th, label)

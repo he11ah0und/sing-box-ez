@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sing-box-ez/internal/svcman"
+	"sing-box-ez/internal/framework/svcman"
 	"strings"
 )
 
@@ -86,10 +86,6 @@ func (m *Manager) Status() (svcman.Status, error) {
 }
 
 func buildScript(name string, opts svcman.InstallOptions) string {
-	execLine := opts.ExecPath
-	if len(opts.Args) > 0 {
-		execLine += " " + strings.Join(opts.Args, " ")
-	}
 	return fmt.Sprintf(`#!/sbin/openrc-run
 
 description="%s"

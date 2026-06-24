@@ -54,7 +54,6 @@ core:
     admin: Админ
     setcap: Setcap
     setcap_prompt: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
-  record_core_logs: Записывать логи ядра
 configs:
   title: Конфиги
   btn:
@@ -75,20 +74,47 @@ configs:
     now: сейчас
     'yes': да
     'no': нет
+  badge:
+    local: локальный
   dialog:
     title: Конфиг
     name: Название
     url: URL
+    type: Тип
+    type_remote: Удалённый
+    type_local: Локальный
     period: Период (часов)
     auto_update: Автообновление
+    validation_result: Результат проверки
+    validation_error: Ошибка проверки
+    file_missing: Файл конфига отсутствует
     btn:
       save: Сохранить
       update_now: Обновить сейчас
       delete: Удалить
-      cancel: Отмена
+      open: Открыть
+      validate: Проверить
+      open_dir: Открыть расположение
+      create: Создать заново
+      copy: Копировать
     delete_title: Удаление
     delete_msg: Удалить конфиг
+validation:
+  ok: Устаревших или удалённых полей не найдено.
+  summary_errors: Найдено %d критических ошибок и %d предупреждений.
+  summary_warnings: Найдено %d предупреждений.
+  errors_title: Ошибки (%d)
+  warnings_title: Предупреждения (%d)
+  item:
+    removed: 'Удалено в %s: %s. Замена: %s'
+    deprecated: 'Устарело с %s, удалят в %s: %s. Замена: %s'
+    deprecated_no_removal: 'Устарело с %s: %s. Замена: %s'
 settings:
+  tab:
+    interface: Интерфейс
+    configs: Конфиги
+    core: Ядро
+    system: Система
   logging:
     title: Логирование
   log_limit:
@@ -115,6 +141,7 @@ settings:
     auto: Автообновление конфигов в фоне
     auto_restart: Авто-перезапуск ядра при обновлении активного конфига
     interval: Интервал проверки обновлений конфигов (часов)
+    background_interval: Интервал фоновой проверки обновлений конфигов (часов)
   default_interval:
     label: 'Интервал обновления по умолчанию (часов):'
   language:
@@ -126,6 +153,21 @@ settings:
     system: Системная
     dark: Тёмная
     light: Светлая
+  startup:
+    title: Запуск
+    mode_label: Режим запуска по умолчанию
+    mode_embed: embed
+    mode_remote: удалённый
+    mode_systemd: systemd
+    mode_openrc: openrc
+    mode_sysv: sysv
+    mode_windows: служба Windows
+    mode_systemd-user: systemd пользовательская
+    mode_dummy: dummy
+    mode_unix: remote
+    mode_tcp: remote
+    mode_npipe: remote
+    show_dialog: Показывать диалог выбора режима при запуске
   plugins:
     title: Плагины
     enabled: Функция плагинов
@@ -143,8 +185,33 @@ settings:
     success_title: Данные сброшены
     success_msg: Все данные сброшены. Приложение будет перезапущено.
   desktop_notifications: Уведомления на рабочий стол
+startup:
+  title: sing-box-ez
+  subtitle: Выберите режим запуска
+  remember: Запомнить выбор
+  continue: Продолжить
+  status_online: онлайн
+  status_offline: офлайн
+  mode_embed: embed
+  mode_remote: удалённый
+  mode_systemd: systemd
+  mode_openrc: openrc
+  mode_sysv: sysv
+  mode_windows: служба Windows
+  mode_systemd-user: systemd пользовательская
+  mode_dummy: dummy
+  remote_address_placeholder: TCP-адрес (например, 127.0.0.1:8080)
+  service_start: Запустить службу
+  service_stop: Остановить службу
+  mode_unix: remote
+  mode_tcp: remote
+  mode_npipe: remote
 log:
   title: Лог
+  tab:
+    app: Приложение
+    core: Ядро
+  empty: Нет записей
   btn:
     copy: Копировать всё
     clear: Очистить
@@ -191,6 +258,7 @@ about:
     close: Закрыть
 dialog:
   btn:
+    close: Закрыть
     cancel: Отмена
     confirm: Подтвердить
     update: Обновить

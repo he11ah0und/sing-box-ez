@@ -87,7 +87,7 @@ func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info Upda
 
 		result, err := vm.Run(a.InstallScript, a.installContext(info, tmp))
 		if err != nil {
-			_ = a.FS.Root().File(tmp).Remove()
+			_ = os.Remove(tmp)
 			return err
 		}
 		if result.ReplaceBinary != "" {
@@ -96,7 +96,7 @@ func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info Upda
 	}
 
 	if err := platform.replace(exe, tmp); err != nil {
-		_ = a.FS.Root().File(tmp).Remove()
+		_ = os.Remove(tmp)
 		return fmt.Errorf("replace binary failed: %w", err)
 	}
 
@@ -184,8 +184,7 @@ func findBinaryInDir(dir fs.Directory, tmpDir, name string) (string, error) {
 }
 
 func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source, asset Asset, path string, onProgress func(downloaded, total int64)) error {
-	dst := a.FS.Root().File(path)
-	f, err := dst.OpenFile(os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
 		return a.Log.Errorf("cannot create %q: %v", path, err)
 	}
@@ -195,7 +194,7 @@ func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source
 		downloadErr = closeErr
 	}
 	if downloadErr != nil {
-		_ = dst.Remove()
+		_ = os.Remove(path)
 		return fmt.Errorf("download failed: %w", downloadErr)
 	}
 	return nil

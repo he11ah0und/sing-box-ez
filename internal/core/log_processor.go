@@ -10,35 +10,50 @@ import (
 )
 
 // CoreLogProcessor reads stdout/stderr lines from a running core process,
-// optionally mirrors them into the application log, and handles fatal-error
-// auto-restart logic.
+// stores them in a dedicated CoreLogBuffer, and handles fatal-error auto-restart
+// logic.
 type CoreLogProcessor struct {
-	cfg      *config.AppConfig
-	manager  *Manager
-	writer   *CoreLogWriter
-	terminal *logger.LogTerminal
-	started  bool
-	startMu  sync.Mutex
-	ticker   *time.Ticker
-	stopCh   chan struct{}
-	wg       sync.WaitGroup
+	cfg       *config.AppConfig
+	manager   *Manager
+	writer    *CoreLogWriter
+	terminal  *logger.LogTerminal
+	logBuffer *CoreLogBuffer
+	started   bool
+	startMu   sync.Mutex
+	ticker    *time.Ticker
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
 
 	lastAutoRestart time.Time
 	autoRestartMu   sync.Mutex
 
 	// OnAutoRestart is an optional callback invoked when a fatal core error triggers auto-restart.
 	OnAutoRestart func()
+
+	subsMu      sync.RWMutex
+	subscribers []*LogSubscription
+}
+
+// LogSubscription is a handle returned by AddSubscriber and used to unsubscribe.
+type LogSubscription struct {
+	fn func(string)
 }
 
 // NewCoreLogProcessor creates a processor tied to the given manager, writer and logger root.
 func NewCoreLogProcessor(cfg *config.AppConfig, manager *Manager, writer *CoreLogWriter, root *logger.LogTerminal) *CoreLogProcessor {
 	return &CoreLogProcessor{
-		cfg:      cfg,
-		manager:  manager,
-		writer:   writer,
-		terminal: root.Allocate("core"),
-		stopCh:   make(chan struct{}),
+		cfg:       cfg,
+		manager:   manager,
+		writer:    writer,
+		terminal:  root.Allocate("core"),
+		logBuffer: NewCoreLogBuffer(cfg.Int("log", "limit")),
+		stopCh:    make(chan struct{}),
 	}
+}
+
+// LogBuffer returns the dedicated core log buffer.
+func (p *CoreLogProcessor) LogBuffer() *CoreLogBuffer {
+	return p.logBuffer
 }
 
 // Start begins reading core process logs in a background goroutine.
@@ -126,18 +141,44 @@ func (p *CoreLogProcessor) readLoop() {
 	}
 }
 
-func (p *CoreLogProcessor) processCoreLogs(lines []string) {
-	watch := p.cfg.MustGet("core", "watch_logs").Bool()
-	restart := p.cfg.MustGet("core", "auto_restart").Bool()
-	if !watch && !restart {
-		return
+func (p *CoreLogProcessor) AddSubscriber(fn func(string)) *LogSubscription {
+	p.subsMu.Lock()
+	defer p.subsMu.Unlock()
+	s := &LogSubscription{fn: fn}
+	p.subscribers = append(p.subscribers, s)
+	return s
+}
+
+func (p *CoreLogProcessor) RemoveSubscriber(s *LogSubscription) {
+	p.subsMu.Lock()
+	defer p.subsMu.Unlock()
+	for i, sub := range p.subscribers {
+		if sub == s {
+			p.subscribers = append(p.subscribers[:i], p.subscribers[i+1:]...)
+			return
+		}
 	}
+}
+
+func (p *CoreLogProcessor) notifySubscribers(line string) {
+	p.subsMu.RLock()
+	subs := make([]*LogSubscription, len(p.subscribers))
+	copy(subs, p.subscribers)
+	p.subsMu.RUnlock()
+	for _, sub := range subs {
+		sub.fn(line)
+	}
+}
+
+func (p *CoreLogProcessor) processCoreLogs(lines []string) {
+	restart := p.cfg.MustGet("core", "auto_restart").Bool()
 
 	for _, msg := range lines {
 		msg = strings.TrimSpace(msg)
 		if msg == "" {
 			continue
 		}
+		p.logBuffer.Add(msg)
 		if restart && isCoreFatalError(msg) {
 			p.autoRestartMu.Lock()
 			if time.Since(p.lastAutoRestart) > 30*time.Second {
@@ -156,9 +197,7 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 				p.autoRestartMu.Unlock()
 			}
 		}
-		if watch {
-			p.terminal.Infof("%s", msg)
-		}
+		p.notifySubscribers(msg)
 	}
 }
 

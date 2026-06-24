@@ -163,7 +163,7 @@ func newTarFS(path string, gz bool) (FS, error) {
 }
 
 func (fsys *archiveFS) Root() Directory {
-	return &archiveDirectory{node: archiveNode{fs: fsys, path: ""}}
+	return &archiveDirectory{archiveNode{fs: fsys, path: ""}}
 }
 
 func (fsys *archiveFS) addEntry(name string, e *archiveEntry) {
@@ -237,7 +237,7 @@ func (n *archiveNode) Parent() Directory {
 	if p == "" && n.path == "" {
 		return nil
 	}
-	return &archiveDirectory{node: archiveNode{fs: n.fs, path: p}}
+	return &archiveDirectory{archiveNode{fs: n.fs, path: p}}
 }
 
 func (n *archiveNode) Rename(newName string) error { return n.fs.readOnly("rename") }
@@ -246,60 +246,47 @@ func (n *archiveNode) Remove() error                { return n.fs.readOnly("remo
 func (n *archiveNode) Chmod(perm os.FileMode) error { return n.fs.readOnly("chmod") }
 
 type archiveDirectory struct {
-	node archiveNode
+	archiveNode
 }
-
-func (d *archiveDirectory) Name() string { return d.node.Name() }
-func (d *archiveDirectory) Path() string { return d.node.Path() }
-func (d *archiveDirectory) Exists() bool { return d.node.Exists() }
-func (d *archiveDirectory) Stat() (os.FileInfo, error) {
-	return d.node.Stat()
-}
-func (d *archiveDirectory) Parent() Directory { return d.node.Parent() }
-func (d *archiveDirectory) Rename(newName string) error {
-	return d.node.Rename(newName)
-}
-func (d *archiveDirectory) Remove() error                { return d.node.Remove() }
-func (d *archiveDirectory) Chmod(perm os.FileMode) error { return d.node.Chmod(perm) }
 
 func (d *archiveDirectory) File(name string) File {
-	p, _ := joinChild(d.node.path, name)
-	return &archiveFile{node: archiveNode{fs: d.node.fs, path: p}}
+	p, _ := joinChild(d.path, name)
+	return &archiveFile{archiveNode{fs: d.fs, path: p}}
 }
 
 func (d *archiveDirectory) Subdir(name string) Directory {
-	p, _ := joinChild(d.node.path, name)
-	return &archiveDirectory{node: archiveNode{fs: d.node.fs, path: p}}
+	p, _ := joinChild(d.path, name)
+	return &archiveDirectory{archiveNode{fs: d.fs, path: p}}
 }
 
 func (d *archiveDirectory) ReadDir() ([]Entry, error) {
-	name := d.node.archivePath()
-	entries, ok := d.node.fs.dirs[name]
+	name := d.archivePath()
+	entries, ok := d.fs.dirs[name]
 	if !ok {
-		return nil, fmt.Errorf("directory not found: %s", d.node.path)
+		return nil, fmt.Errorf("directory not found: %s", d.path)
 	}
 	sort.Slice(entries, func(i, j int) bool {
 		return baseName(entries[i].name) < baseName(entries[j].name)
 	})
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
-		childPath, err := joinChild(d.node.path, baseName(e.name))
+		childPath, err := joinChild(d.path, baseName(e.name))
 		if err != nil {
 			continue
 		}
-		node := archiveNode{fs: d.node.fs, path: childPath}
+		node := archiveNode{fs: d.fs, path: childPath}
 		if e.isDir {
-			out = append(out, &archiveDirectory{node: node})
+			out = append(out, &archiveDirectory{node})
 		} else {
-			out = append(out, &archiveFile{node: node})
+			out = append(out, &archiveFile{node})
 		}
 	}
 	return out, nil
 }
 
-func (d *archiveDirectory) MkdirAll(perm os.FileMode) error { return d.node.fs.readOnly("mkdir") }
+func (d *archiveDirectory) MkdirAll(perm os.FileMode) error { return d.fs.readOnly("mkdir") }
 
-func (d *archiveDirectory) RemoveAll() error { return d.node.fs.readOnly("remove all") }
+func (d *archiveDirectory) RemoveAll() error { return d.fs.readOnly("remove all") }
 
 func (d *archiveDirectory) CopyTo(dst Directory) error {
 	if err := dst.MkdirAll(0750); err != nil {
@@ -328,21 +315,12 @@ func (d *archiveDirectory) Ensure(perm os.FileMode) error {
 	if d.Exists() {
 		return nil
 	}
-	return d.node.fs.readOnly("ensure dir")
+	return d.fs.readOnly("ensure dir")
 }
 
 type archiveFile struct {
-	node archiveNode
+	archiveNode
 }
-
-func (f *archiveFile) Name() string                 { return f.node.Name() }
-func (f *archiveFile) Path() string                 { return f.node.Path() }
-func (f *archiveFile) Exists() bool                 { return f.node.Exists() }
-func (f *archiveFile) Stat() (os.FileInfo, error)   { return f.node.Stat() }
-func (f *archiveFile) Parent() Directory            { return f.node.Parent() }
-func (f *archiveFile) Rename(newName string) error  { return f.node.Rename(newName) }
-func (f *archiveFile) Remove() error                { return f.node.Remove() }
-func (f *archiveFile) Chmod(perm os.FileMode) error { return f.node.Chmod(perm) }
 
 func (f *archiveFile) Read() ([]byte, error) {
 	file, err := f.Open()
@@ -353,33 +331,33 @@ func (f *archiveFile) Read() ([]byte, error) {
 	return io.ReadAll(file)
 }
 
-func (f *archiveFile) Write(data []byte, perm os.FileMode) error { return f.node.fs.readOnly("write") }
+func (f *archiveFile) Write(data []byte, perm os.FileMode) error { return f.fs.readOnly("write") }
 
 func (f *archiveFile) Open() (*os.File, error) {
-	raw, err := f.node.raw()
+	raw, err := f.raw()
 	if err != nil {
 		return nil, err
 	}
 	if raw.isDir {
-		return nil, fmt.Errorf("is a directory: %s", f.node.path)
+		return nil, fmt.Errorf("is a directory: %s", f.path)
 	}
 
 	var r io.Reader
-	switch f.node.fs.format {
+	switch f.fs.format {
 	case "zip":
 		rc, err := raw.zipFile.Open()
 		if err != nil {
-			return nil, fmt.Errorf("open zip entry %q: %w", f.node.path, err)
+			return nil, fmt.Errorf("open zip entry %q: %w", f.path, err)
 		}
 		defer rc.Close()
 		r = rc
 	case "tar", "tar.gz":
-		r, err = f.node.fs.openTarEntry(raw.tarOffset, raw.size)
+		r, err = f.fs.openTarEntry(raw.tarOffset, raw.size)
 		if err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("unsupported archive format %q", f.node.fs.format)
+		return nil, fmt.Errorf("unsupported archive format %q", f.fs.format)
 	}
 
 	tmp, err := os.CreateTemp("", "archivefs-*")
@@ -389,7 +367,7 @@ func (f *archiveFile) Open() (*os.File, error) {
 	if _, err := io.Copy(tmp, r); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmp.Name())
-		return nil, fmt.Errorf("read archive entry %q: %w", f.node.path, err)
+		return nil, fmt.Errorf("read archive entry %q: %w", f.path, err)
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 		_ = tmp.Close()
@@ -407,7 +385,7 @@ func (f *archiveFile) OpenFile(flag int, perm os.FileMode) (*os.File, error) {
 }
 
 func (f *archiveFile) AtomicWrite(data []byte, perm os.FileMode) error {
-	return f.node.fs.readOnly("atomic write")
+	return f.fs.readOnly("atomic write")
 }
 
 func (f *archiveFile) CopyTo(dst File) error {
@@ -437,7 +415,7 @@ func (f *archiveFile) CopyTo(dst File) error {
 	defer dstFile.Close()
 
 	if _, err := io.Copy(dstFile, src); err != nil {
-		return fmt.Errorf("copy %q → %q: %w", f.node.path, dst.Path(), err)
+		return fmt.Errorf("copy %q → %q: %w", f.path, dst.Path(), err)
 	}
 	return nil
 }
