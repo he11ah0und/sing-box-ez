@@ -6,8 +6,8 @@ import (
 )
 
 func TestTransformRemovesField(t *testing.T) {
-	input := []byte(`{"dns":{"independent_cache":true}}`)
-	out, err := Transform(input, "1.10.0", "1.16.0")
+	input := []byte(`{"route":{"geoip":{}}}`)
+	out, err := Transform(input, "1.7.0", "1.13.13")
 	if err != nil {
 		t.Fatalf("Transform: %v", err)
 	}
@@ -15,9 +15,9 @@ func TestTransformRemovesField(t *testing.T) {
 	if err := json.Unmarshal(out, &cfg); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	dns := cfg["dns"].(map[string]any)
-	if _, ok := dns["independent_cache"]; ok {
-		t.Fatal("expected independent_cache to be removed")
+	route := cfg["route"].(map[string]any)
+	if _, ok := route["geoip"]; ok {
+		t.Fatal("expected geoip to be removed")
 	}
 }
 
@@ -42,8 +42,8 @@ func TestTransformRenamesField(t *testing.T) {
 }
 
 func TestTransformKeepsFieldWhenTargetOlder(t *testing.T) {
-	input := []byte(`{"dns":{"independent_cache":true}}`)
-	out, err := Transform(input, "1.10.0", "1.10.0")
+	input := []byte(`{"route":{"geoip":{}}}`)
+	out, err := Transform(input, "1.7.0", "1.7.0")
 	if err != nil {
 		t.Fatalf("Transform: %v", err)
 	}
@@ -51,8 +51,8 @@ func TestTransformKeepsFieldWhenTargetOlder(t *testing.T) {
 	if err := json.Unmarshal(out, &cfg); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	dns := cfg["dns"].(map[string]any)
-	if _, ok := dns["independent_cache"]; !ok {
-		t.Fatal("expected independent_cache to be kept for same version")
+	route := cfg["route"].(map[string]any)
+	if _, ok := route["geoip"]; !ok {
+		t.Fatal("expected geoip to be kept for same version")
 	}
 }

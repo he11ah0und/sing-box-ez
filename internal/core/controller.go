@@ -66,7 +66,7 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 
 	privileges := NewPrivilegeController(cfg, manager, terminal)
 
-	return &Controller{
+	c := &Controller{
 		cfg:        cfg,
 		fwApp:      fwApp,
 		manager:    manager,
@@ -74,6 +74,10 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 		terminal:   terminal,
 		privileges: privileges,
 	}
+	c.manager.SetConfigTransform(func(data []byte) ([]byte, error) {
+		return c.applyLogOverride(data)
+	})
+	return c
 }
 
 // Close shuts down the controller.
@@ -202,7 +206,10 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return err
 	}
-	// TODO: apply transform/override pipeline here before starting core.
+	data, err = c.applyLogOverride(data)
+	if err != nil {
+		return err
+	}
 	if err := c.manager.StartWithConfig(data); err != nil {
 		return err
 	}
@@ -224,7 +231,10 @@ func (c *Controller) Restart() error {
 	if err != nil {
 		return err
 	}
-	// TODO: apply transform/override pipeline here before starting core.
+	data, err = c.applyLogOverride(data)
+	if err != nil {
+		return err
+	}
 	if err := c.manager.Stop(); err != nil {
 		return err
 	}
@@ -465,7 +475,8 @@ func (c *Controller) OpenConfigFile(name string) error {
 	return openfile.OpenPath(path)
 }
 
-// ValidateConfig reads the cached config and runs a deprecation/validation check.
+// ValidateConfig reads the cached config and runs a deprecation/validation check
+// against the installed sing-box core version.
 func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult, error) {
 	if !c.HasCachedConfig(name) {
 		return singboxconfig.ValidationResult{}, c.terminal.Errorf("Config file not found: %s", name)
@@ -475,7 +486,22 @@ func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult
 	if err != nil {
 		return singboxconfig.ValidationResult{}, c.terminal.Errorf("failed to read config file: %v", err)
 	}
-	parser := singboxconfig.NewConfigParser()
+	data, err = c.applyLogOverride(data)
+	if err != nil {
+		return singboxconfig.ValidationResult{}, err
+	}
+
+	var parser *singboxconfig.ConfigParser
+	if version, err := c.GetInstalledCoreVersion(); err == nil && version != "" {
+		parser, err = singboxconfig.NewConfigParserForVersion(version)
+		if err != nil {
+			c.terminal.Warnf("Invalid core version %q, using latest schema: %v", version, err)
+			parser = singboxconfig.NewConfigParser()
+		}
+	} else {
+		parser = singboxconfig.NewConfigParser()
+	}
+
 	if _, err := parser.Parse(data); err != nil {
 		result := parser.Result()
 		return result, err

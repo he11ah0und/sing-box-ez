@@ -124,6 +124,9 @@ func (a *App) registerRPC(registry *rpc.Registry) {
 	registry.Register("core", "set_auto_restart", func(ctx context.Context, req rpc.BoolValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.SetAutoRestart(req.Value)
 	})
+	registry.Register("core", "set_log_override", func(ctx context.Context, req core.LogOverride) (rpc.Empty, error) {
+		return rpc.Empty{}, a.Controller.SetCoreLogOverride(req)
+	})
 	registry.Register("core", "apply_setcap", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.ApplySetcap()
 	})

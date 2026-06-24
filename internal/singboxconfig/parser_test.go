@@ -35,8 +35,8 @@ func TestParserDetectsUnknownField(t *testing.T) {
 
 func TestParserDetectsRemovedField(t *testing.T) {
 	cfg := map[string]any{
-		"dns": map[string]any{
-			"independent_cache": true,
+		"route": map[string]any{
+			"geoip": map[string]any{},
 		},
 	}
 	data, _ := json.Marshal(cfg)
@@ -48,16 +48,16 @@ func TestParserDetectsRemovedField(t *testing.T) {
 	if len(res.Errors) == 0 {
 		t.Fatalf("expected removed field error")
 	}
-	if res.Errors[0].Path != "dns.independent_cache" {
+	if res.Errors[0].Path != "route.geoip" {
 		t.Fatalf("unexpected error: %+v", res.Errors[0])
 	}
 }
 
 func TestParserDetectsDeprecatedField(t *testing.T) {
 	cfg := map[string]any{
-		"experimental": map[string]any{
-			"clash_api": map[string]any{
-				"store_mode": true,
+		"dns": map[string]any{
+			"servers": []any{
+				map[string]any{"type": "local", "domain_strategy": "ipv4_only"},
 			},
 		},
 	}
@@ -70,19 +70,19 @@ func TestParserDetectsDeprecatedField(t *testing.T) {
 	if len(res.Warnings) == 0 {
 		t.Fatalf("expected deprecated field warning")
 	}
-	if res.Warnings[0].Path != "experimental.clash_api.store_mode" {
+	if res.Warnings[0].Path != "dns.servers[0].domain_strategy" {
 		t.Fatalf("unexpected warning: %+v", res.Warnings[0])
 	}
 }
 
 func TestParserTargetVersionSkipsFutureDeprecation(t *testing.T) {
 	cfg := map[string]any{
-		"dns": map[string]any{
-			"independent_cache": true,
+		"route": map[string]any{
+			"geoip": map[string]any{},
 		},
 	}
 	data, _ := json.Marshal(cfg)
-	p, err := NewConfigParserForVersion("1.10.0")
+	p, err := NewConfigParserForVersion("1.7.0")
 	if err != nil {
 		t.Fatalf("NewConfigParserForVersion: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestParserTargetVersionSkipsFutureDeprecation(t *testing.T) {
 	}
 	res := p.Result()
 	if len(res.Errors) > 0 || len(res.Warnings) > 0 {
-		t.Fatalf("expected no issues for version 1.10.0, got %+v", res)
+		t.Fatalf("expected no issues for version 1.7.0, got %+v", res)
 	}
 }
 

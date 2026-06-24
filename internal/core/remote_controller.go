@@ -275,6 +275,11 @@ func (r *RemoteController) SetAutoRestart(checked bool) error {
 	return r.call("core", "set_auto_restart", rpc.BoolValue{Value: checked}, nil)
 }
 
+// SetCoreLogOverride forwards the core log override settings to the remote side.
+func (r *RemoteController) SetCoreLogOverride(o LogOverride) error {
+	return r.call("core", "set_log_override", o, nil)
+}
+
 // GetCoreLogLines returns raw core log lines from the remote side.
 func (r *RemoteController) GetCoreLogLines() []string {
 	var res []string

@@ -23,16 +23,17 @@ import (
 
 // Manager manages the sing-box core process and its artifacts.
 type Manager struct {
-	mu             sync.Mutex
-	cmd            *exec.Cmd
-	cancel         context.CancelFunc
-	running        bool
-	waitDone       chan struct{}
-	configURL      string
-	configName     string
-	tempConfigPath string
-	elevated       bool
-	logOutput      io.Writer
+	mu              sync.Mutex
+	cmd             *exec.Cmd
+	cancel          context.CancelFunc
+	running         bool
+	waitDone        chan struct{}
+	configURL       string
+	configName      string
+	tempConfigPath  string
+	elevated        bool
+	logOutput       io.Writer
+	configTransform func([]byte) ([]byte, error)
 
 	baseDir string
 	fsys    fs.FS
@@ -92,6 +93,14 @@ func (m *Manager) SetLogOutput(w io.Writer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.logOutput = w
+}
+
+// SetConfigTransform sets a function that transforms config bytes before they
+// are passed to the core process.
+func (m *Manager) SetConfigTransform(fn func([]byte) ([]byte, error)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.configTransform = fn
 }
 
 func (m *Manager) absPath(p string) (string, error) {
@@ -156,6 +165,15 @@ func (m *Manager) Start() error {
 	data, err := m.ReadConfig()
 	if err != nil {
 		return err
+	}
+	m.mu.Lock()
+	transform := m.configTransform
+	m.mu.Unlock()
+	if transform != nil {
+		data, err = transform(data)
+		if err != nil {
+			return err
+		}
 	}
 	return m.StartWithConfig(data)
 }

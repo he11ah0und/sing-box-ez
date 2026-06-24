@@ -28,6 +28,9 @@ import (
 	"sing-box-ez/internal/singboxconfig"
 )
 
+// dialogMaxBodyHeight limits the height of scrollable dialog content.
+const dialogMaxBodyHeight = unit.Dp(420)
+
 // ConfigsPage renders the configs management screen as vertical cards.
 type ConfigsPage struct {
 	th     *material.Theme
@@ -40,7 +43,8 @@ type ConfigsPage struct {
 	addBtn       widget.Clickable
 	updateAllBtn widget.Clickable
 
-	list widget.List
+	list           widget.List
+	validationList widget.List
 }
 
 // NewConfigsPage creates a new configs page.
@@ -554,10 +558,10 @@ func (p *ConfigsPage) formatDeprecatedField(f singboxconfig.DeprecatedField, isE
 
 func (p *ConfigsPage) layoutValidationResult(gtx layout.Context, result singboxconfig.ValidationResult, copyBtn *widget.Clickable) layout.Dimensions {
 	colors := theme.Current().Colors()
-	children := []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	children := []layout.Widget{
+		func(gtx layout.Context) layout.Dimensions {
 			return p.layoutValidationSummary(gtx, result, colors)
-		}),
+		},
 	}
 	if len(result.Errors) > 0 {
 		title := fmt.Sprintf(localengine.T("validation", "errors_title"), len(result.Errors))
@@ -568,16 +572,30 @@ func (p *ConfigsPage) layoutValidationResult(gtx layout.Context, result singboxc
 		children = append(children, p.layoutValidationSection(title, result.Warnings, colors.Warning, false)...)
 	}
 	if len(result.Errors) == 0 && len(result.Warnings) == 0 {
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		children = append(children, func(gtx layout.Context) layout.Dimensions {
 			lbl := material.Body1(p.th, localengine.T("validation", "ok"))
 			lbl.Color = colors.Success
 			return lbl.Layout(gtx)
-		}))
+		})
 	}
-	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	children = append(children, func(gtx layout.Context) layout.Dimensions {
 		return material.Button(p.th, copyBtn, localengine.T("configs", "dialog", "btn", "copy")).Layout(gtx)
-	}))
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	})
+
+	p.validationList.Axis = layout.Vertical
+	list := material.List(p.th, &p.validationList)
+	list.AnchorStrategy = material.Overlay
+
+	maxH := gtx.Dp(dialogMaxBodyHeight)
+	if gtx.Constraints.Max.Y > maxH {
+		gtx.Constraints.Max.Y = maxH
+	}
+	if gtx.Constraints.Min.Y > gtx.Constraints.Max.Y {
+		gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+	}
+	return list.Layout(gtx, len(children), func(gtx layout.Context, i int) layout.Dimensions {
+		return children[i](gtx)
+	})
 }
 
 func (p *ConfigsPage) layoutValidationSummary(gtx layout.Context, result singboxconfig.ValidationResult, colors theme.Palette) layout.Dimensions {
@@ -600,21 +618,21 @@ func (p *ConfigsPage) layoutValidationSummary(gtx layout.Context, result singbox
 	return lbl.Layout(gtx)
 }
 
-func (p *ConfigsPage) layoutValidationSection(title string, items []singboxconfig.DeprecatedField, titleColor color.NRGBA, isError bool) []layout.FlexChild {
-	children := []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+func (p *ConfigsPage) layoutValidationSection(title string, items []singboxconfig.DeprecatedField, titleColor color.NRGBA, isError bool) []layout.Widget {
+	children := []layout.Widget{
+		func(gtx layout.Context) layout.Dimensions {
 			lbl := material.Body1(p.th, title)
 			lbl.Color = titleColor
 			lbl.Font.Weight = font.Bold
 			return lbl.Layout(gtx)
-		}),
+		},
 	}
 	for _, it := range items {
 		it := it
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		children = append(children, func(gtx layout.Context) layout.Dimensions {
 			lbl := material.Body2(p.th, "• "+p.formatDeprecatedField(it, isError))
 			return lbl.Layout(gtx)
-		}))
+		})
 	}
 	return children
 }
