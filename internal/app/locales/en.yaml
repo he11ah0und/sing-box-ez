@@ -139,6 +139,7 @@ settings:
   config_update:
     title: Config Updates
     auto: Auto-update configs in background
+    hash_mismatch: Auto-update cached remote config when hash differs from stored
     auto_restart: Auto-restart core when active config updates
     interval: Auto-update check interval (hours)
     background_interval: Background config update check interval (hours)

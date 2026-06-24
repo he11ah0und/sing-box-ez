@@ -84,6 +84,17 @@ func hasCachedConfig(dataDir, name string) bool {
 	return err == nil
 }
 
+func configHashMismatch(dataDir string, rec *config.ConfigRecord) bool {
+	if rec.IsLocal() || rec.Hash == "" {
+		return false
+	}
+	data, err := os.ReadFile(filepath.Join(dataDir, "configs", rec.Name+".json"))
+	if err != nil {
+		return false
+	}
+	return config.HashConfig(data) != rec.Hash
+}
+
 func newCoreManager(dataDir string) *core.Manager {
 	log := logger.NewLogger(0)
 	return core.NewManager(dataDir, fs.NewOS(dataDir), nil, log)
@@ -153,7 +164,7 @@ func cmdStart(cfg *config.AppConfig, _ *fwcli.Context) error {
 				return fmt.Errorf("failed to create local config: %w", err)
 			}
 		}
-	} else if active.ShouldUpdate() || !hasCachedConfig(dataDir, active.Name) {
+	} else if active.ShouldUpdate() || !hasCachedConfig(dataDir, active.Name) || (cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool() && configHashMismatch(dataDir, active)) {
 		fmt.Println("Updating config...")
 		m := newCoreManager(dataDir)
 		m.SetConfigName(active.Name)

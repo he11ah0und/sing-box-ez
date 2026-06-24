@@ -183,7 +183,7 @@ func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
 		return active, nil
 	}
 
-	if active.ShouldUpdate() || !c.HasCachedConfig(active.Name) || c.IsConfigHashMismatch(active.Name) {
+	if active.ShouldUpdate() || !c.HasCachedConfig(active.Name) || (c.cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool() && c.IsConfigHashMismatch(active.Name)) {
 		c.fwApp.Logger.Log("Updating config...")
 		data, err := c.manager.UpdateConfig()
 		if err != nil {

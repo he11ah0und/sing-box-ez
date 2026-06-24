@@ -49,6 +49,7 @@ type SettingsPage struct {
 	origAutoCheckSelf                 bool
 	origAutoCheckCore                 bool
 	origAutoUpdateConfigs             bool
+	origAutoUpdateOnHashMismatch      bool
 	origAutoRestartOnConfigUpdate     bool
 	origStartupMode                   string
 	origShowStartupDialog             bool
@@ -83,6 +84,7 @@ type SettingsPage struct {
 	autoCheckSelf                       widget.Bool
 	autoCheckCore                       widget.Bool
 	autoUpdateConfigs                   widget.Bool
+	autoUpdateOnHashMismatch            widget.Bool
 	autoRestartOnConfigUpdate           widget.Bool
 	showStartupDialog                   widget.Bool
 	logLevelDropdown                    *widgets.Dropdown
@@ -138,6 +140,9 @@ func NewSettingsPage(th *material.Theme, ctrl *core.InteractiveController, dialo
 
 	p.origAutoUpdateConfigs = ctrl.Backend().Config().MustGet("updates", "auto_update_configs").Bool()
 	p.autoUpdateConfigs.Value = p.origAutoUpdateConfigs
+
+	p.origAutoUpdateOnHashMismatch = ctrl.Backend().Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool()
+	p.autoUpdateOnHashMismatch.Value = p.origAutoUpdateOnHashMismatch
 
 	p.origAutoRestartOnConfigUpdate = ctrl.Backend().Config().MustGet("updates", "auto_restart_on_config_update").Bool()
 	p.autoRestartOnConfigUpdate.Value = p.origAutoRestartOnConfigUpdate
@@ -295,6 +300,7 @@ type settingsDirty struct {
 	autoCheckSelf                 bool
 	autoCheckCore                 bool
 	autoUpdateConfigs             bool
+	autoUpdateOnHashMismatch      bool
 	autoRestart                   bool
 	startupMode                   bool
 	showStartupDialog             bool
@@ -312,7 +318,7 @@ func (d settingsDirty) numericDirty() bool {
 }
 
 func (d settingsDirty) boolDirty() bool {
-	return d.showLogs || d.desktopNotif || d.autoCheckSelf || d.autoCheckCore || d.autoUpdateConfigs || d.autoRestart || d.showStartupDialog
+	return d.showLogs || d.desktopNotif || d.autoCheckSelf || d.autoCheckCore || d.autoUpdateConfigs || d.autoUpdateOnHashMismatch || d.autoRestart || d.showStartupDialog
 }
 
 func (d settingsDirty) choiceDirty() bool {
@@ -331,6 +337,7 @@ func (p *SettingsPage) dirtyFlags() settingsDirty {
 		autoCheckSelf:                 p.autoCheckSelf.Value != p.origAutoCheckSelf,
 		autoCheckCore:                 p.autoCheckCore.Value != p.origAutoCheckCore,
 		autoUpdateConfigs:             p.autoUpdateConfigs.Value != p.origAutoUpdateConfigs,
+		autoUpdateOnHashMismatch:      p.autoUpdateOnHashMismatch.Value != p.origAutoUpdateOnHashMismatch,
 		autoRestart:                   p.autoRestartOnConfigUpdate.Value != p.origAutoRestartOnConfigUpdate,
 		startupMode:                   p.pendingStartupMode != p.origStartupMode,
 		showStartupDialog:             p.showStartupDialog.Value != p.origShowStartupDialog,
@@ -408,6 +415,11 @@ func (p *SettingsPage) applySettings(d *settingsDirty) {
 	if p.isEnabled("updates", "auto_update_configs") {
 		p.ctrl.Backend().Config().MustGet("updates", "auto_update_configs").Update(p.autoUpdateConfigs.Value)
 		p.origAutoUpdateConfigs = p.autoUpdateConfigs.Value
+	}
+
+	if p.isEnabled("updates", "auto_update_on_hash_mismatch") {
+		p.ctrl.Backend().Config().MustGet("updates", "auto_update_on_hash_mismatch").Update(p.autoUpdateOnHashMismatch.Value)
+		p.origAutoUpdateOnHashMismatch = p.autoUpdateOnHashMismatch.Value
 	}
 
 	if p.isEnabled("updates", "auto_restart_on_config_update") {
@@ -621,12 +633,17 @@ func (p *SettingsPage) interfaceTabFields(d *settingsDirty) []layout.FlexChild {
 func (p *SettingsPage) configsTabFields(d *settingsDirty) []layout.FlexChild {
 	var fields []func(layout.Context) layout.Dimensions
 
-	if p.isEnabled("updates", "auto_update_configs") || p.isEnabled("updates", "auto_restart_on_config_update") ||
+	if p.isEnabled("updates", "auto_update_configs") || p.isEnabled("updates", "auto_update_on_hash_mismatch") || p.isEnabled("updates", "auto_restart_on_config_update") ||
 		p.isEnabled("updates", "auto_update_configs_interval_hours") || p.isEnabled("updates", "background_update_check_interval_hours") {
 		fields = append(fields, p.section(localengine.T("settings", "config_update", "title")))
 		if p.isEnabled("updates", "auto_update_configs") {
 			fields = append(fields, func(gtx layout.Context) layout.Dimensions {
 				return p.checkBox(gtx, &p.autoUpdateConfigs, localengine.T("settings", "config_update", "auto"), d.autoUpdateConfigs)
+			})
+		}
+		if p.isEnabled("updates", "auto_update_on_hash_mismatch") {
+			fields = append(fields, func(gtx layout.Context) layout.Dimensions {
+				return p.checkBox(gtx, &p.autoUpdateOnHashMismatch, localengine.T("settings", "config_update", "hash_mismatch"), d.autoUpdateOnHashMismatch)
 			})
 		}
 		if p.isEnabled("updates", "auto_restart_on_config_update") {

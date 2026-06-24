@@ -206,7 +206,8 @@ func (ic *InteractiveController) Close() {
 func (ic *InteractiveController) configUpdateChecker() {
 	// Run an initial check right after startup so overdue configs are refreshed
 	// before the first interval elapses.
-	if ic.backend.Config().MustGet("updates", "auto_update_configs").Bool() {
+	if ic.backend.Config().MustGet("updates", "auto_update_configs").Bool() ||
+		ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool() {
 		ic.checkAllConfigs()
 	}
 
@@ -221,7 +222,8 @@ func (ic *InteractiveController) configUpdateChecker() {
 		if ic.isStopped() {
 			return
 		}
-		if !ic.backend.Config().MustGet("updates", "auto_update_configs").Bool() {
+		if !ic.backend.Config().MustGet("updates", "auto_update_configs").Bool() &&
+			!ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool() {
 			continue
 		}
 		ic.checkAllConfigs()
@@ -237,12 +239,17 @@ func (ic *InteractiveController) checkAllConfigs() {
 	active := ic.backend.GetActiveConfig()
 	activeUpdated := false
 
+	autoUpdateConfigs := ic.backend.Config().MustGet("updates", "auto_update_configs").Bool()
+	autoUpdateOnHashMismatch := ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool()
+
 	for i := range configs {
 		cfg := &configs[i]
 		if cfg.IsLocal() {
 			continue
 		}
-		if !cfg.ShouldUpdate() && !ic.backend.IsConfigHashMismatch(cfg.Name) {
+		needsUpdate := autoUpdateConfigs && cfg.ShouldUpdate()
+		needsHashUpdate := autoUpdateOnHashMismatch && ic.backend.IsConfigHashMismatch(cfg.Name)
+		if !needsUpdate && !needsHashUpdate {
 			continue
 		}
 
