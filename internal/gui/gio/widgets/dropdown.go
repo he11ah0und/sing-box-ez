@@ -15,10 +15,12 @@ import (
 )
 
 // Dropdown renders a label with a dropdown field underneath.
-// The dropdown expands inline when clicked, showing selectable options.
-// When there are many options it adds a search box and paginates the list.
+// Clicking the field opens a modal dialog with selectable options, matching
+// the startup mode selector behaviour. When there are many options it adds a
+// search box and paginates the list inside the dialog.
 type Dropdown struct {
 	th          *material.Theme
+	dialog      DialogProvider
 	label       string
 	value       string
 	options     []string
@@ -26,7 +28,6 @@ type Dropdown struct {
 	onChange    func(string)
 
 	trigger  widget.Clickable
-	expanded bool
 	itemBtns []widget.Clickable
 
 	searchEd          widget.Editor
@@ -43,8 +44,8 @@ type Dropdown struct {
 }
 
 // NewDropdown creates a dropdown widget.
-// dialog is kept for backward compatibility but is no longer used; the dropdown
-// now expands inline instead of opening a modal dialog.
+// Clicking the field opens a modal dialog with selectable options, matching
+// the startup mode selector behaviour.
 // formatValue may be nil; in that case the raw option value is shown.
 func NewDropdown(
 	th *material.Theme,
@@ -59,6 +60,7 @@ func NewDropdown(
 	}
 	d := &Dropdown{
 		th:                th,
+		dialog:            dialog,
 		label:             label,
 		value:             value,
 		options:           options,
@@ -135,37 +137,12 @@ func (d *Dropdown) resizeItemBtns() {
 // Value returns the current value.
 func (d *Dropdown) Value() string { return d.value }
 
-// Layout draws the label + dropdown. Set dirty=true to append a '*' marker.
+// Layout draws the label + dropdown trigger. Set dirty=true to append a '*' marker.
 func (d *Dropdown) Layout(gtx layout.Context, dirty bool) layout.Dimensions {
 	colors := theme.Current().Colors()
 
-	if d.trigger.Clicked(gtx) {
-		d.expanded = !d.expanded
-	}
-
-	if d.expanded {
-		if text := d.searchEd.Text(); text != d.searchText {
-			d.searchText = text
-			d.page = 0
-		}
-		indices := d.paginatedIndices()
-		for _, idx := range indices {
-			if idx < len(d.itemBtns) && d.itemBtns[idx].Clicked(gtx) {
-				d.value = d.options[idx]
-				d.expanded = false
-				d.searchText = ""
-				d.searchEd.SetText("")
-				if d.onChange != nil {
-					d.onChange(d.options[idx])
-				}
-			}
-		}
-		if d.prevBtn.Clicked(gtx) && d.page > 0 {
-			d.page--
-		}
-		if d.nextBtn.Clicked(gtx) && d.page < d.totalPages()-1 {
-			d.page++
-		}
+	if d.trigger.Clicked(gtx) && d.dialog != nil && !d.dialog.Visible() {
+		d.showDialog()
 	}
 
 	label := d.label
@@ -184,17 +161,6 @@ func (d *Dropdown) Layout(gtx layout.Context, dirty bool) layout.Dimensions {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return d.layoutTrigger(gtx, btnLabel, colors)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if !d.expanded {
-				return layout.Dimensions{}
-			}
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return d.layoutMenu(gtx, colors)
-				}),
-			)
 		}),
 	)
 }
@@ -253,66 +219,99 @@ func (d *Dropdown) layoutTrigger(gtx layout.Context, label string, colors theme.
 					return material.Body1(d.th, label).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					ic := icons.NavigationArrowDropDown
-					if d.expanded {
-						ic = icons.NavigationArrowDropUp
-					}
-					return ic.Layout(gtx, colors.Fg)
+					return icons.NavigationArrowDropDown.Layout(gtx, colors.Fg)
 				}),
 			)
 		})
 	})
 }
 
-func (d *Dropdown) layoutMenu(gtx layout.Context, colors theme.Palette) layout.Dimensions {
-	gtx.Constraints.Min.X = gtx.Constraints.Max.X
-	return BorderedCard(gtx, colors.Border, colors.Surface, unit.Dp(1), unit.Dp(4), unit.Dp(0), func(gtx layout.Context) layout.Dimensions {
-		indices := d.paginatedIndices()
-		showSearch := d.searchThreshold >= 0 && len(d.options) > d.searchThreshold
-		showPagination := len(d.filteredIndices()) > d.pageSize
+func (d *Dropdown) showDialog() {
+	d.searchText = ""
+	d.searchEd.SetText("")
+	d.page = 0
+	d.resizeItemBtns()
 
-		children := make([]layout.FlexChild, 0, len(indices)+2)
-		if showSearch {
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(d.th, &d.searchEd, d.searchPlaceholder).Layout(gtx)
-				})
-			}))
-		}
-		if len(indices) == 0 {
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Body2(d.th, "No results").Layout(gtx)
-				})
-			}))
-		} else {
-			for _, idx := range indices {
-				idx := idx
-				opt := d.options[idx]
-				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Clickable(gtx, &d.itemBtns[idx], func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Min.X = gtx.Constraints.Max.X
-						bg := colors.Surface
-						if opt == d.value {
-							bg = colors.SurfaceVariant
-						}
-						if d.itemBtns[idx].Hovered() || d.itemBtns[idx].Pressed() {
-							bg = colors.Hover
-						}
-						return BorderedCard(gtx, color.NRGBA{}, bg, unit.Dp(0), unit.Dp(0), unit.Dp(10), func(gtx layout.Context) layout.Dimensions {
-							return material.Body2(d.th, d.formatValue(opt)).Layout(gtx)
-						})
-					})
-				}))
+	title := d.label
+	if title == "" {
+		title = "Select"
+	}
+	d.dialog.ShowCustom(title, func(gtx layout.Context) layout.Dimensions {
+		return d.layoutDialog(gtx)
+	})
+}
+
+func (d *Dropdown) layoutDialog(gtx layout.Context) layout.Dimensions {
+	colors := theme.Current().Colors()
+
+	if text := d.searchEd.Text(); text != d.searchText {
+		d.searchText = text
+		d.page = 0
+	}
+	indices := d.paginatedIndices()
+	for _, idx := range indices {
+		if idx < len(d.itemBtns) && d.itemBtns[idx].Clicked(gtx) {
+			d.value = d.options[idx]
+			d.searchText = ""
+			d.searchEd.SetText("")
+			d.page = 0
+			d.dialog.HideCustom()
+			if d.onChange != nil {
+				d.onChange(d.options[idx])
 			}
 		}
-		if showPagination {
+	}
+	if d.prevBtn.Clicked(gtx) && d.page > 0 {
+		d.page--
+	}
+	if d.nextBtn.Clicked(gtx) && d.page < d.totalPages()-1 {
+		d.page++
+	}
+
+	showSearch := d.searchThreshold >= 0 && len(d.options) > d.searchThreshold
+	showPagination := len(d.filteredIndices()) > d.pageSize
+
+	children := make([]layout.FlexChild, 0, len(indices)+2)
+	if showSearch {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(8)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Editor(d.th, &d.searchEd, d.searchPlaceholder).Layout(gtx)
+			})
+		}))
+	}
+	if len(indices) == 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return material.Body2(d.th, "No results").Layout(gtx)
+			})
+		}))
+	} else {
+		for _, idx := range indices {
+			idx := idx
+			opt := d.options[idx]
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return d.layoutPagination(gtx, colors)
+				return material.Clickable(gtx, &d.itemBtns[idx], func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					bg := colors.Surface
+					if opt == d.value {
+						bg = colors.SurfaceVariant
+					}
+					if d.itemBtns[idx].Hovered() || d.itemBtns[idx].Pressed() {
+						bg = colors.Hover
+					}
+					return BorderedCard(gtx, color.NRGBA{}, bg, unit.Dp(0), unit.Dp(0), unit.Dp(10), func(gtx layout.Context) layout.Dimensions {
+						return material.Body2(d.th, d.formatValue(opt)).Layout(gtx)
+					})
+				})
 			}))
 		}
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-	})
+	}
+	if showPagination {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return d.layoutPagination(gtx, colors)
+		}))
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
 func (d *Dropdown) layoutPagination(gtx layout.Context, colors theme.Palette) layout.Dimensions {
