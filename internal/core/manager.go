@@ -23,15 +23,16 @@ import (
 
 // Manager manages the sing-box core process and its artifacts.
 type Manager struct {
-	mu         sync.Mutex
-	cmd        *exec.Cmd
-	cancel     context.CancelFunc
-	running    bool
-	waitDone   chan struct{}
-	configURL  string
-	configName string
-	elevated   bool
-	logOutput  io.Writer
+	mu             sync.Mutex
+	cmd            *exec.Cmd
+	cancel         context.CancelFunc
+	running        bool
+	waitDone       chan struct{}
+	configURL      string
+	configName     string
+	tempConfigPath string
+	elevated       bool
+	logOutput      io.Writer
 
 	baseDir string
 	fsys    fs.FS
@@ -100,53 +101,70 @@ func (m *Manager) absPath(p string) (string, error) {
 	return filepath.Abs(p)
 }
 
-func (m *Manager) buildCommand(ctx context.Context, corePath, configPath string) (*exec.Cmd, error) {
+func (m *Manager) buildCommand(ctx context.Context, corePath, configArg string) (*exec.Cmd, error) {
 	if !m.elevated {
-		// #nosec G204 — corePath and configPath are internal managed paths.
-		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
+		// #nosec G204 — corePath and configArg are internal managed values.
+		return exec.CommandContext(ctx, corePath, "run", "-c", configArg), nil
 	}
 
 	switch runtime.GOOS {
 	case "linux":
 		if HasNetAdminCapability(corePath) {
-			// #nosec G204 — corePath and configPath are internal managed paths.
-			return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
+			// #nosec G204 — corePath and configArg are internal managed values.
+			return exec.CommandContext(ctx, corePath, "run", "-c", configArg), nil
 		}
 		absCore, err := m.absPath(corePath)
 		if err != nil {
 			return nil, fmt.Errorf("resolve core path: %w", err)
 		}
-		absConfig, err := m.absPath(configPath)
-		if err != nil {
-			return nil, fmt.Errorf("resolve config path: %w", err)
-		}
-		// #nosec G204 — pkexec is a system binary; absCore/absConfig are resolved internal paths.
-		return exec.CommandContext(ctx, "pkexec", absCore, "run", "-c", absConfig), nil
+		// #nosec G204 — pkexec is a system binary; absCore is a resolved internal path.
+		return exec.CommandContext(ctx, "pkexec", absCore, "run", "-c", configArg), nil
 	case "darwin":
 		absCore, err := m.absPath(corePath)
 		if err != nil {
 			return nil, fmt.Errorf("resolve core path: %w", err)
 		}
-		absConfig, err := m.absPath(configPath)
-		if err != nil {
-			return nil, fmt.Errorf("resolve config path: %w", err)
-		}
-		script := fmt.Sprintf(`do shell script %s with administrator privileges`, strconv.Quote(absCore+" run -c "+absConfig))
+		script := fmt.Sprintf(`do shell script %s with administrator privileges`, strconv.Quote(absCore+" run -c "+configArg))
 		// #nosec G204 — osascript is a system binary; script is built from resolved internal paths.
 		return exec.CommandContext(ctx, "osascript", "-e", script), nil
 	case "windows":
 		if m.elevated && !IsAdmin() {
 			return nil, fmt.Errorf("administrator privileges required: please run sing-box-ez as administrator")
 		}
-		// #nosec G204 — corePath and configPath are internal managed paths.
-		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
+		// #nosec G204 — corePath and configArg are internal managed values.
+		return exec.CommandContext(ctx, corePath, "run", "-c", configArg), nil
 	default:
-		// #nosec G204 — corePath and configPath are internal managed paths.
-		return exec.CommandContext(ctx, corePath, "run", "-c", configPath), nil
+		// #nosec G204 — corePath and configArg are internal managed values.
+		return exec.CommandContext(ctx, corePath, "run", "-c", configArg), nil
 	}
 }
 
+// ReadConfig reads the cached config bytes for the currently selected config name.
+func (m *Manager) ReadConfig() ([]byte, error) {
+	if m.configName == "" {
+		return nil, fmt.Errorf("no config name set")
+	}
+	configPath := m.cachedConfig(m.configName)
+	data, err := m.fsys.Root().File(configPath).Read()
+	if err != nil {
+		return nil, fmt.Errorf("read config %s: %w", configPath, err)
+	}
+	return data, nil
+}
+
 func (m *Manager) Start() error {
+	data, err := m.ReadConfig()
+	if err != nil {
+		return err
+	}
+	return m.StartWithConfig(data)
+}
+
+// StartWithConfig starts the core process with the provided config bytes.
+// The config is passed through stdin (sing-box run -c stdin) except on
+// elevated macOS, where a temporary file is used because osascript cannot
+// forward stdin to the privileged child process.
+func (m *Manager) StartWithConfig(data []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.running {
@@ -161,22 +179,29 @@ func (m *Manager) Start() error {
 		return fmt.Errorf("sing-box core not found at %s", corePath)
 	}
 
-	if m.configName == "" {
-		return fmt.Errorf("no config name set")
-	}
-	configPath := m.cachedConfig(m.configName)
-	if _, err := m.fsys.Root().File(configPath).Stat(); err != nil {
-		return fmt.Errorf("config not found at %s", configPath)
+	configArg := "stdin"
+	var stdin io.Reader = bytes.NewReader(data)
+	if runtime.GOOS == "darwin" && m.elevated {
+		tmpPath, err := m.writeTempConfig(data)
+		if err != nil {
+			return fmt.Errorf("write temp config: %w", err)
+		}
+		m.tempConfigPath = tmpPath
+		configArg = tmpPath
+		stdin = nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cmd, err := m.buildCommand(ctx, corePath, configPath)
+	cmd, err := m.buildCommand(ctx, corePath, configArg)
 	if err != nil {
 		cancel()
 		return err
 	}
 	m.cmd = cmd
 	setProcessGroup(m.cmd)
+	if stdin != nil {
+		m.cmd.Stdin = stdin
+	}
 	if m.logOutput != nil {
 		m.cmd.Stdout = m.logOutput
 		m.cmd.Stderr = m.logOutput
@@ -208,6 +233,18 @@ func (m *Manager) Start() error {
 	return nil
 }
 
+func (m *Manager) writeTempConfig(data []byte) (string, error) {
+	tmpDir := filepath.Join(m.baseDir, "configs", ".tmp")
+	if err := m.fsys.Root().Subdir(tmpDir).MkdirAll(0750); err != nil {
+		return "", err
+	}
+	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("stdin-%d.json", os.Getpid()))
+	if err := m.fsys.Root().File(tmpFile).AtomicWrite(data, 0640); err != nil {
+		return "", err
+	}
+	return tmpFile, nil
+}
+
 func (m *Manager) Stop() error {
 	m.mu.Lock()
 	if !m.running {
@@ -233,6 +270,8 @@ func (m *Manager) Stop() error {
 	if m.cancel != nil {
 		m.cancel()
 	}
+	tmpPath := m.tempConfigPath
+	m.tempConfigPath = ""
 	m.mu.Unlock()
 
 	if done != nil {
@@ -240,6 +279,9 @@ func (m *Manager) Stop() error {
 		case <-done:
 		case <-time.After(10 * time.Second):
 		}
+	}
+	if tmpPath != "" {
+		_ = m.fsys.Root().File(tmpPath).Remove()
 	}
 	return killErr
 }

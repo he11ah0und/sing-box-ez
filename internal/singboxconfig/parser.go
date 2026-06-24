@@ -3,10 +3,24 @@
 package singboxconfig
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
 )
+
+//go:embed schema.yaml
+var schemaYAML []byte
+
+var loadedSchema *Schema
+
+func init() {
+	var err error
+	loadedSchema, err = LoadSchema(strings.NewReader(string(schemaYAML)))
+	if err != nil {
+		panic(fmt.Sprintf("singboxconfig: failed to load embedded schema: %v", err))
+	}
+}
 
 // DeprecatedField describes a deprecated or removed configuration field.
 type DeprecatedField struct {
@@ -59,14 +73,25 @@ func (r *ValidationResult) String() string {
 	return sb.String()
 }
 
-// ConfigParser парсер и валидатор конфига sing-box
+// ConfigParser parses and validates sing-box configs.
 type ConfigParser struct {
 	result ValidationResult
+	target Version
 }
 
-// NewConfigParser создаёт новый парсер
+// NewConfigParser creates a parser that validates against the latest known sing-box version.
 func NewConfigParser() *ConfigParser {
-	return &ConfigParser{}
+	latest, _ := ParseVersion(loadedSchema.SingboxLatest)
+	return &ConfigParser{target: latest}
+}
+
+// NewConfigParserForVersion creates a parser that validates against a specific sing-box version.
+func NewConfigParserForVersion(v string) (*ConfigParser, error) {
+	latest, err := ParseVersion(v)
+	if err != nil {
+		return nil, fmt.Errorf("target version: %w", err)
+	}
+	return &ConfigParser{target: latest}, nil
 }
 
 // Parse разбирает JSON и проверяет deprecated поля
@@ -77,39 +102,11 @@ func (p *ConfigParser) Parse(data []byte) (*Config, error) {
 	}
 
 	cfg := &Config{raw: raw}
+	p.walkObject("", loadedSchema.Fields, raw)
 
-	// Валидация корневых секций
-	p.validateRoot(raw)
-
-	// Валидация experimental
-	if v, ok := raw["experimental"]; ok {
-		p.validateExperimental(v)
-	}
-
-	// Валидация DNS
-	if v, ok := raw["dns"]; ok {
-		p.validateDNS(v)
-	}
-
-	// Валидация route
-	if v, ok := raw["route"]; ok {
-		p.validateRoute(v)
-	}
-
-	// Валидация inbounds
-	if v, ok := raw["inbounds"]; ok {
-		p.validateInbounds(v)
-	}
-
-	// Валидация outbounds
-	if v, ok := raw["outbounds"]; ok {
-		p.validateOutbounds(v)
-	}
-
-	// Валидация cache_file
-	if v, ok := raw["cache_file"]; ok {
-		p.validateCacheFile(v)
-	}
+	// Semantic checks not expressible by field metadata.
+	p.validateLegacyDNSServerAddress(raw)
+	p.validateImplicitHTTPClient(raw)
 
 	return cfg, nil
 }
@@ -119,15 +116,131 @@ func (p *ConfigParser) Result() ValidationResult {
 	return p.result
 }
 
-// --- внутренние валидаторы ---
+func (p *ConfigParser) addWarn(d DeprecatedField) {
+	p.result.Warnings = append(p.result.Warnings, d)
+}
 
-func (p *ConfigParser) validateRoot(raw map[string]json.RawMessage) {
-	p.validateLegacyDNSServerAddress(raw)
-	p.validateImplicitHTTPClient(raw)
+func (p *ConfigParser) addError(d DeprecatedField) {
+	p.result.Errors = append(p.result.Errors, d)
+}
+
+func (p *ConfigParser) walkObject(path string, schemaFields map[string]*SchemaNode, raw map[string]json.RawMessage) {
+	for key, val := range raw {
+		childPath := key
+		if path != "" {
+			childPath = path + "." + key
+		}
+		node, ok := schemaFields[key]
+		if !ok {
+			p.addError(DeprecatedField{
+				Path:        childPath,
+				Replacement: "unknown field",
+			})
+			continue
+		}
+		p.checkNode(childPath, node)
+		p.walkValue(childPath, node, val)
+	}
+}
+
+func (p *ConfigParser) walkValue(path string, node *SchemaNode, raw json.RawMessage) {
+	switch node.Type {
+	case "object":
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			return
+		}
+		fields := p.resolveObjectFields(node, obj)
+		p.walkObject(path, fields, obj)
+	case "array":
+		var arr []json.RawMessage
+		if err := json.Unmarshal(raw, &arr); err != nil {
+			return
+		}
+		if node.Items == nil {
+			return
+		}
+		for i, item := range arr {
+			itemPath := fmt.Sprintf("%s[%d]", path, i)
+			p.walkValue(itemPath, node.Items, item)
+		}
+	}
+}
+
+func (p *ConfigParser) resolveObjectFields(node *SchemaNode, obj map[string]json.RawMessage) map[string]*SchemaNode {
+	fields := make(map[string]*SchemaNode)
+	for k, v := range node.Children {
+		fields[k] = v
+	}
+	if node.OneOfBy == "" || len(node.OneOf) == 0 {
+		return fields
+	}
+
+	discriminator := ""
+	if discriminatorRaw, ok := obj[node.OneOfBy]; ok {
+		_ = json.Unmarshal(discriminatorRaw, &discriminator)
+	}
+
+	matched := false
+	for _, variant := range node.OneOf {
+		if len(variant.When) == 0 {
+			// Default variant: only merge if no explicit variant matched.
+			continue
+		}
+		match := true
+		for k, want := range variant.When {
+			if k != node.OneOfBy {
+				// Only single-field discriminator supported for now.
+				match = false
+				break
+			}
+			if discriminator != want {
+				match = false
+				break
+			}
+		}
+		if match {
+			for k, v := range variant.Fields {
+				fields[k] = v
+			}
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		for _, variant := range node.OneOf {
+			if len(variant.When) == 0 {
+				for k, v := range variant.Fields {
+					fields[k] = v
+				}
+				break
+			}
+		}
+	}
+	return fields
+}
+
+func (p *ConfigParser) checkNode(path string, node *SchemaNode) {
+	if !node.RemovedV.Equal(Version{}) && node.RemovedV.LessOrEqual(p.target) {
+		p.addError(DeprecatedField{
+			Path:        path,
+			Deprecated:  node.Deprecated,
+			Removed:     node.Removed,
+			Replacement: node.Replacement,
+		})
+		return
+	}
+	if !node.DeprecatedV.Equal(Version{}) && node.DeprecatedV.LessOrEqual(p.target) {
+		p.addWarn(DeprecatedField{
+			Path:        path,
+			Deprecated:  node.Deprecated,
+			Removed:     node.Removed,
+			Replacement: node.Replacement,
+		})
+	}
 }
 
 func (p *ConfigParser) validateLegacyDNSServerAddress(raw map[string]json.RawMessage) {
-	// Проверяем legacy DNS server format по наличию строкового address в dns.servers
 	dnsRaw, ok := raw["dns"]
 	if !ok {
 		return
@@ -157,7 +270,7 @@ func (p *ConfigParser) validateLegacyDNSServerAddress(raw map[string]json.RawMes
 		if err := json.Unmarshal(addr, &addrStr); err != nil {
 			continue
 		}
-		// Это legacy формат: address как строка
+		_ = addrStr
 		p.addError(DeprecatedField{
 			Path:        fmt.Sprintf("dns.servers[%d].address", i),
 			Deprecated:  "1.12.0",
@@ -168,8 +281,6 @@ func (p *ConfigParser) validateLegacyDNSServerAddress(raw map[string]json.RawMes
 }
 
 func (p *ConfigParser) validateImplicitHTTPClient(raw map[string]json.RawMessage) {
-	// Проверяем implicit HTTP client (deprecated 1.14.0)
-	// Если есть remote rule-sets но нет http_clients
 	routeRaw, ok := raw["route"]
 	if !ok {
 		return
@@ -217,363 +328,12 @@ func (p *ConfigParser) hasRemoteRuleSet(routeObj map[string]json.RawMessage) boo
 	return false
 }
 
-func (p *ConfigParser) validateExperimental(raw json.RawMessage) {
-	var exp map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &exp); err != nil {
-		return
-	}
-	if clashRaw, ok := exp["clash_api"]; ok {
-		var clash map[string]json.RawMessage
-		if err := json.Unmarshal(clashRaw, &clash); err != nil {
-			return
-		}
-		checkDeprecated := func(field, deprecated, removed, replacement string) {
-			if _, ok := clash[field]; ok {
-				p.addWarn(DeprecatedField{
-					Path:        "experimental.clash_api." + field,
-					Deprecated:  deprecated,
-					Removed:     removed,
-					Replacement: replacement,
-				})
-			}
-		}
-		checkDeprecated("store_mode", "1.8.0", "", "cache_file.enabled")
-		checkDeprecated("store_selected", "1.8.0", "", "cache_file.enabled")
-		checkDeprecated("store_fakeip", "1.8.0", "", "cache_file.store_fakeip")
-		checkDeprecated("cache_file", "1.8.0", "", "cache_file.enabled / cache_file.path")
-		checkDeprecated("cache_id", "1.8.0", "", "cache_file.cache_id")
-	}
-}
-
-func (p *ConfigParser) validateDNS(raw json.RawMessage) {
-	var dns map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &dns); err != nil {
-		return
-	}
-	if _, ok := dns["independent_cache"]; ok {
-		p.addWarn(DeprecatedField{
-			Path:        "dns.independent_cache",
-			Deprecated:  "1.14.0",
-			Removed:     "1.16.0",
-			Replacement: "(always enabled by default, no longer needed)",
-		})
-	}
-	rulesRaw, ok := dns["rules"]
-	if !ok {
-		return
-	}
-	var rules []map[string]json.RawMessage
-	if err := json.Unmarshal(rulesRaw, &rules); err != nil {
-		return
-	}
-	for i, rule := range rules {
-		p.validateDNSRule(rule, i)
-	}
-}
-
-func (p *ConfigParser) validateDNSRule(rule map[string]json.RawMessage, i int) {
-	// outbound (deprecated 1.12.0, removed 1.14.0)
-	if _, ok := rule["outbound"]; ok {
-		p.addError(DeprecatedField{
-			Path:        fmt.Sprintf("dns.rules[%d].outbound", i),
-			Deprecated:  "1.12.0",
-			Removed:     "1.14.0",
-			Replacement: "domain_resolver in dial fields or route.default_domain_resolver",
-		})
-	}
-	// strategy (deprecated 1.14.0, removed 1.16.0)
-	if _, ok := rule["strategy"]; ok {
-		p.addWarn(DeprecatedField{
-			Path:        fmt.Sprintf("dns.rules[%d].strategy", i),
-			Deprecated:  "1.14.0",
-			Removed:     "1.16.0",
-			Replacement: "use server strategy or route action",
-		})
-	}
-	// rule_set_ip_cidr_accept_empty (deprecated 1.14.0, removed 1.16.0)
-	if _, ok := rule["rule_set_ip_cidr_accept_empty"]; ok {
-		p.addWarn(DeprecatedField{
-			Path:        fmt.Sprintf("dns.rules[%d].rule_set_ip_cidr_accept_empty", i),
-			Deprecated:  "1.14.0",
-			Removed:     "1.16.0",
-			Replacement: "use match_response",
-		})
-	}
-	// geoip / geosite (deprecated 1.8.0, removed 1.12.0)
-	if _, ok := rule["geoip"]; ok {
-		p.addError(DeprecatedField{
-			Path:        fmt.Sprintf("dns.rules[%d].geoip", i),
-			Deprecated:  "1.8.0",
-			Removed:     "1.12.0",
-			Replacement: "rule-set",
-		})
-	}
-	if _, ok := rule["geosite"]; ok {
-		p.addError(DeprecatedField{
-			Path:        fmt.Sprintf("dns.rules[%d].geosite", i),
-			Deprecated:  "1.8.0",
-			Removed:     "1.12.0",
-			Replacement: "rule-set",
-		})
-	}
-	// Legacy Address Filter Fields (ip_cidr, ip_is_private без match_response)
-	p.validateDNSAddressFilter(rule, i)
-}
-
-func (p *ConfigParser) validateDNSAddressFilter(rule map[string]json.RawMessage, i int) {
-	hasMatchResponse := false
-	if mr, ok := rule["match_response"]; ok {
-		var mrBool bool
-		if err := json.Unmarshal(mr, &mrBool); err == nil && mrBool {
-			hasMatchResponse = true
-		}
-	}
-	if hasMatchResponse {
-		return
-	}
-	if _, ok := rule["ip_cidr"]; ok {
-		p.addWarn(DeprecatedField{
-			Path:        fmt.Sprintf("dns.rules[%d].ip_cidr", i),
-			Deprecated:  "1.14.0",
-			Removed:     "1.16.0",
-			Replacement: "match_response + ip_cidr",
-		})
-	}
-	if _, ok := rule["ip_is_private"]; ok {
-		p.addWarn(DeprecatedField{
-			Path:        fmt.Sprintf("dns.rules[%d].ip_is_private", i),
-			Deprecated:  "1.14.0",
-			Removed:     "1.16.0",
-			Replacement: "match_response + ip_is_private",
-		})
-	}
-}
-
-func (p *ConfigParser) validateRoute(raw json.RawMessage) {
-	var route map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &route); err != nil {
-		return
-	}
-	if rulesRaw, ok := route["rules"]; ok {
-		var rules []map[string]json.RawMessage
-		if err := json.Unmarshal(rulesRaw, &rules); err != nil {
-			return
-		}
-		for i, rule := range rules {
-			if _, ok := rule["geoip"]; ok {
-				p.addError(DeprecatedField{
-					Path:        fmt.Sprintf("route.rules[%d].geoip", i),
-					Deprecated:  "1.8.0",
-					Removed:     "1.12.0",
-					Replacement: "rule-set",
-				})
-			}
-			if _, ok := rule["geosite"]; ok {
-				p.addError(DeprecatedField{
-					Path:        fmt.Sprintf("route.rules[%d].geosite", i),
-					Deprecated:  "1.8.0",
-					Removed:     "1.12.0",
-					Replacement: "rule-set",
-				})
-			}
-			if _, ok := rule["rule_set_ipcidr_match_source"]; ok {
-				p.addError(DeprecatedField{
-					Path:        fmt.Sprintf("route.rules[%d].rule_set_ipcidr_match_source", i),
-					Deprecated:  "1.10.0",
-					Removed:     "1.11.0",
-					Replacement: "rule_set_ip_cidr_match_source",
-				})
-			}
-			// inbound legacy fields на уровне route rules (sniff, domain_strategy)
-			if _, ok := rule["sniff"]; ok {
-				p.addError(DeprecatedField{
-					Path:        fmt.Sprintf("route.rules[%d].sniff", i),
-					Deprecated:  "1.11.0",
-					Removed:     "1.13.0",
-					Replacement: "rule action sniff",
-				})
-			}
-		}
-	}
-	if rsRaw, ok := route["rule_set"]; ok {
-		var ruleSets []map[string]json.RawMessage
-		if err := json.Unmarshal(rsRaw, &ruleSets); err != nil {
-			return
-		}
-		for i, rs := range ruleSets {
-			if _, ok := rs["download_detour"]; ok {
-				p.addWarn(DeprecatedField{
-					Path:        fmt.Sprintf("route.rule_set[%d].download_detour", i),
-					Deprecated:  "1.14.0",
-					Removed:     "1.16.0",
-					Replacement: "http_client",
-				})
-			}
-		}
-	}
-}
-
-func (p *ConfigParser) validateInbounds(raw json.RawMessage) {
-	var inbounds []map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &inbounds); err != nil {
-		return
-	}
-	for i, in := range inbounds {
-		var inType string
-		if t, ok := in["type"]; ok {
-			json.Unmarshal(t, &inType)
-		}
-		if inType == "tun" {
-			check := func(field, deprecated, removed, replacement string) {
-				if _, ok := in[field]; ok {
-					p.addError(DeprecatedField{
-						Path:        fmt.Sprintf("inbounds[%d].%s", i, field),
-						Deprecated:  deprecated,
-						Removed:     removed,
-						Replacement: replacement,
-					})
-				}
-			}
-			check("inet4_address", "1.10.0", "1.12.0", "address")
-			check("inet6_address", "1.10.0", "1.12.0", "address")
-			check("inet4_route_address", "1.10.0", "1.11.0", "route_address")
-			check("inet6_route_address", "1.10.0", "1.11.0", "route_address")
-			check("inet4_route_exclude_address", "1.10.0", "1.11.0", "route_exclude_address")
-			check("inet6_route_exclude_address", "1.10.0", "1.11.0", "route_exclude_address")
-			check("gso", "1.11.0", "1.13.0", "(removed, no replacement)")
-		}
-		// Legacy inbound fields (sniff, domain_strategy на уровне inbound)
-		if _, ok := in["sniff"]; ok {
-			p.addError(DeprecatedField{
-				Path:        fmt.Sprintf("inbounds[%d].sniff", i),
-				Deprecated:  "1.11.0",
-				Removed:     "1.13.0",
-				Replacement: "rule action sniff",
-			})
-		}
-		if _, ok := in["domain_strategy"]; ok {
-			p.addError(DeprecatedField{
-				Path:        fmt.Sprintf("inbounds[%d].domain_strategy", i),
-				Deprecated:  "1.11.0",
-				Removed:     "1.13.0",
-				Replacement: "rule action domain_resolver",
-			})
-		}
-	}
-}
-
-func (p *ConfigParser) validateOutbounds(raw json.RawMessage) {
-	var outbounds []map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &outbounds); err != nil {
-		return
-	}
-	for i, out := range outbounds {
-		var outType string
-		if t, ok := out["type"]; ok {
-			json.Unmarshal(t, &outType)
-		}
-		switch outType {
-		case "block":
-			p.addError(DeprecatedField{
-				Path:        fmt.Sprintf("outbounds[%d].type=block", i),
-				Deprecated:  "1.11.0",
-				Removed:     "1.13.0",
-				Replacement: "rule action reject",
-			})
-		case "dns":
-			p.addError(DeprecatedField{
-				Path:        fmt.Sprintf("outbounds[%d].type=dns", i),
-				Deprecated:  "1.11.0",
-				Removed:     "1.13.0",
-				Replacement: "rule action hijack-dns",
-			})
-		case "wireguard":
-			p.addError(DeprecatedField{
-				Path:        fmt.Sprintf("outbounds[%d].type=wireguard", i),
-				Deprecated:  "1.11.0",
-				Removed:     "1.13.0",
-				Replacement: "endpoint (wireguard)",
-			})
-		case "direct":
-			if _, ok := out["override_address"]; ok {
-				p.addError(DeprecatedField{
-					Path:        fmt.Sprintf("outbounds[%d].override_address", i),
-					Deprecated:  "1.11.0",
-					Removed:     "1.13.0",
-					Replacement: "rule action override_address",
-				})
-			}
-			if _, ok := out["override_port"]; ok {
-				p.addError(DeprecatedField{
-					Path:        fmt.Sprintf("outbounds[%d].override_port", i),
-					Deprecated:  "1.11.0",
-					Removed:     "1.13.0",
-					Replacement: "rule action override_port",
-				})
-			}
-		}
-		// TLS inline ACME и legacy ECH
-		if tlsRaw, ok := out["tls"]; ok {
-			var tls map[string]json.RawMessage
-			if err := json.Unmarshal(tlsRaw, &tls); err == nil {
-				if _, ok := tls["acme"]; ok {
-					p.addWarn(DeprecatedField{
-						Path:        fmt.Sprintf("outbounds[%d].tls.acme", i),
-						Deprecated:  "1.14.0",
-						Removed:     "1.16.0",
-						Replacement: "certificate provider (acme)",
-					})
-				}
-				if _, ok := tls["pq_signature_schemes_enabled"]; ok {
-					p.addError(DeprecatedField{
-						Path:        fmt.Sprintf("outbounds[%d].tls.pq_signature_schemes_enabled", i),
-						Deprecated:  "1.12.0",
-						Removed:     "1.13.0",
-						Replacement: "(removed, stdlib ECH)",
-					})
-				}
-				if _, ok := tls["dynamic_record_sizing_disabled"]; ok {
-					p.addError(DeprecatedField{
-						Path:        fmt.Sprintf("outbounds[%d].tls.dynamic_record_sizing_disabled", i),
-						Deprecated:  "1.12.0",
-						Removed:     "1.13.0",
-						Replacement: "(removed, unrelated to ECH)",
-					})
-				}
-			}
-		}
-	}
-}
-
-func (p *ConfigParser) validateCacheFile(raw json.RawMessage) {
-	var cf map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &cf); err != nil {
-		return
-	}
-	if _, ok := cf["store_rdrc"]; ok {
-		p.addWarn(DeprecatedField{
-			Path:        "cache_file.store_rdrc",
-			Deprecated:  "1.14.0",
-			Removed:     "1.16.0",
-			Replacement: "(removed, always enabled)",
-		})
-	}
-}
-
-func (p *ConfigParser) addWarn(d DeprecatedField) {
-	p.result.Warnings = append(p.result.Warnings, d)
-}
-
-func (p *ConfigParser) addError(d DeprecatedField) {
-	p.result.Errors = append(p.result.Errors, d)
-}
-
-// Config представляет распарсенный конфиг (обёртка над raw JSON)
+// Config represents a parsed config (wrapper around raw JSON).
 type Config struct {
 	raw map[string]json.RawMessage
 }
 
-// Raw возвращает raw JSON map
+// Raw returns the raw JSON map.
 func (c *Config) Raw() map[string]json.RawMessage {
 	return c.raw
 }

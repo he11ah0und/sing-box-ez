@@ -1,0 +1,1225 @@
+version: "1.0.0"
+singbox_latest: "1.16.0"
+fields:
+  log:
+    since: "1.0.0"
+    type: object
+    children:
+      disabled:
+        since: "1.0.0"
+        type: boolean
+      level:
+        since: "1.0.0"
+        type: string
+      output:
+        since: "1.0.0"
+        type: string
+      timestamp:
+        since: "1.0.0"
+        type: boolean
+
+  ntp:
+    since: "1.0.0"
+    type: object
+    children:
+      enabled:
+        since: "1.0.0"
+        type: boolean
+      server:
+        since: "1.0.0"
+        type: string
+      server_port:
+        since: "1.0.0"
+        type: integer
+      interval:
+        since: "1.0.0"
+        type: string
+      detour:
+        since: "1.0.0"
+        type: string
+
+  certificate:
+    since: "1.12.0"
+    type: object
+    children:
+      store:
+        since: "1.12.0"
+        type: string
+      certificate:
+        since: "1.0.0"
+        type: string
+      certificate_path:
+        since: "1.0.0"
+        type: string
+      certificate_directory_path:
+        since: "1.0.0"
+        type: string
+
+  dns:
+    since: "1.0.0"
+    type: object
+    children:
+      servers:
+        since: "1.0.0"
+        type: array
+        items:
+          type: object
+          one_of_by: type
+          one_of:
+            - when: {type: ""}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                address:
+                  since: "1.0.0"
+                  type: string
+                  legacy_hint: legacy_dns_address
+                address_resolver:
+                  since: "1.0.0"
+                  type: string
+                address_strategy:
+                  since: "1.0.0"
+                  type: string
+                strategy:
+                  since: "1.0.0"
+                  type: string
+                detour:
+                  since: "1.0.0"
+                  type: string
+                client_subnet:
+                  since: "1.0.0"
+                  type: string
+            - when: {type: "local"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                detour:
+                  since: "1.0.0"
+                  type: string
+            - when: {type: "hosts"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                path:
+                  since: "1.0.0"
+                  type: string
+                predefined:
+                  since: "1.0.0"
+                  type: any
+            - when: {type: "tcp"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                server:
+                  since: "1.0.0"
+                  type: string
+                server_port:
+                  since: "1.0.0"
+                  type: integer
+            - when: {type: "udp"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                server:
+                  since: "1.0.0"
+                  type: string
+                server_port:
+                  since: "1.0.0"
+                  type: integer
+            - when: {type: "tls"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                server:
+                  since: "1.0.0"
+                  type: string
+                server_port:
+                  since: "1.0.0"
+                  type: integer
+                tls:
+                  since: "1.0.0"
+                  type: object
+            - when: {type: "quic"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                server:
+                  since: "1.0.0"
+                  type: string
+                server_port:
+                  since: "1.0.0"
+                  type: integer
+                tls:
+                  since: "1.0.0"
+                  type: object
+            - when: {type: "https"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                server:
+                  since: "1.0.0"
+                  type: string
+                server_port:
+                  since: "1.0.0"
+                  type: integer
+                path:
+                  since: "1.0.0"
+                  type: string
+                headers:
+                  since: "1.0.0"
+                  type: object
+                tls:
+                  since: "1.0.0"
+                  type: object
+            - when: {type: "h3"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                server:
+                  since: "1.0.0"
+                  type: string
+                server_port:
+                  since: "1.0.0"
+                  type: integer
+                path:
+                  since: "1.0.0"
+                  type: string
+                headers:
+                  since: "1.0.0"
+                  type: object
+                tls:
+                  since: "1.0.0"
+                  type: object
+            - when: {type: "dhcp"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                interface:
+                  since: "1.0.0"
+                  type: string
+            - when: {type: "fakeip"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                inet4_range:
+                  since: "1.0.0"
+                  type: string
+                inet6_range:
+                  since: "1.0.0"
+                  type: string
+            - when: {type: "tailscale"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                endpoint:
+                  since: "1.0.0"
+                  type: string
+                accept_default_resolvers:
+                  since: "1.0.0"
+                  type: boolean
+            - when: {type: "resolved"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                tag:
+                  since: "1.0.0"
+                  type: string
+                service:
+                  since: "1.0.0"
+                  type: string
+                accept_default_resolvers:
+                  since: "1.0.0"
+                  type: boolean
+
+      rules:
+        since: "1.0.0"
+        type: array
+        items:
+          type: object
+          one_of_by: type
+          one_of:
+            - when: {}
+              fields:
+                inbound:
+                  since: "1.0.0"
+                  type: string
+                ip_version:
+                  since: "1.0.0"
+                  type: integer
+                query_type:
+                  since: "1.0.0"
+                  type: any
+                network:
+                  since: "1.0.0"
+                  type: string
+                auth_user:
+                  since: "1.0.0"
+                  type: string
+                protocol:
+                  since: "1.0.0"
+                  type: string
+                domain:
+                  since: "1.0.0"
+                  type: string
+                domain_suffix:
+                  since: "1.0.0"
+                  type: string
+                domain_keyword:
+                  since: "1.0.0"
+                  type: string
+                domain_regex:
+                  since: "1.0.0"
+                  type: string
+                geosite:
+                  since: "1.0.0"
+                  deprecated: "1.8.0"
+                  removed: "1.12.0"
+                  replacement: rule-set
+                  type: string
+                source_geoip:
+                  since: "1.0.0"
+                  deprecated: "1.8.0"
+                  removed: "1.12.0"
+                  replacement: rule-set
+                  type: string
+                source_ip_cidr:
+                  since: "1.0.0"
+                  type: string
+                source_ip_is_private:
+                  since: "1.8.0"
+                  type: boolean
+                ip_cidr:
+                  since: "1.9.0"
+                  type: string
+                ip_is_private:
+                  since: "1.9.0"
+                  type: boolean
+                ip_accept_any:
+                  since: "1.12.0"
+                  type: boolean
+                source_port:
+                  since: "1.0.0"
+                  type: any
+                source_port_range:
+                  since: "1.0.0"
+                  type: string
+                port:
+                  since: "1.0.0"
+                  type: any
+                port_range:
+                  since: "1.0.0"
+                  type: string
+                process_name:
+                  since: "1.0.0"
+                  type: string
+                process_path:
+                  since: "1.0.0"
+                  type: string
+                process_path_regex:
+                  since: "1.10.0"
+                  type: string
+                package_name:
+                  since: "1.0.0"
+                  type: string
+                user:
+                  since: "1.0.0"
+                  type: string
+                user_id:
+                  since: "1.0.0"
+                  type: any
+                clash_mode:
+                  since: "1.0.0"
+                  type: string
+                network_type:
+                  since: "1.11.0"
+                  type: string
+                network_is_expensive:
+                  since: "1.11.0"
+                  type: boolean
+                network_is_constrained:
+                  since: "1.11.0"
+                  type: boolean
+                wifi_ssid:
+                  since: "1.0.0"
+                  type: string
+                wifi_bssid:
+                  since: "1.0.0"
+                  type: string
+                rule_set:
+                  since: "1.8.0"
+                  type: string
+                rule_set_ipcidr_match_source:
+                  since: "1.9.0"
+                  deprecated: "1.10.0"
+                  removed: "1.11.0"
+                  replacement: rule_set_ip_cidr_match_source
+                  rename_to: rule_set_ip_cidr_match_source
+                  type: boolean
+                rule_set_ip_cidr_match_source:
+                  since: "1.10.0"
+                  type: boolean
+                rule_set_ip_cidr_accept_empty:
+                  since: "1.10.0"
+                  deprecated: "1.14.0"
+                  removed: "1.16.0"
+                  replacement: match_response
+                  type: boolean
+                invert:
+                  since: "1.0.0"
+                  type: boolean
+                outbound:
+                  since: "1.0.0"
+                  deprecated: "1.12.0"
+                  removed: "1.14.0"
+                  replacement: domain_resolver in dial fields or route.default_domain_resolver
+                  type: string
+                action:
+                  since: "1.0.0"
+                  type: string
+                server:
+                  since: "1.0.0"
+                  deprecated: "1.11.0"
+                  removed: "1.14.0"
+                  replacement: DNS Rule Action
+                  type: string
+                strategy:
+                  since: "1.0.0"
+                  deprecated: "1.14.0"
+                  removed: "1.16.0"
+                  replacement: use server strategy or route action
+                  type: string
+                disable_cache:
+                  since: "1.0.0"
+                  deprecated: "1.11.0"
+                  removed: "1.14.0"
+                  replacement: DNS Rule Action
+                  type: boolean
+                rewrite_ttl:
+                  since: "1.0.0"
+                  deprecated: "1.11.0"
+                  removed: "1.14.0"
+                  replacement: DNS Rule Action
+                  type: integer
+                client_subnet:
+                  since: "1.0.0"
+                  deprecated: "1.11.0"
+                  removed: "1.14.0"
+                  replacement: DNS Rule Action
+                  type: string
+                method:
+                  since: "1.0.0"
+                  type: string
+                no_drop:
+                  since: "1.0.0"
+                  type: boolean
+                rcode:
+                  since: "1.12.0"
+                  type: string
+                answer:
+                  since: "1.12.0"
+                  type: string
+                ns:
+                  since: "1.12.0"
+                  type: string
+                extra:
+                  since: "1.12.0"
+                  type: string
+                match_response:
+                  since: "1.14.0"
+                  type: boolean
+            - when: {type: "logical"}
+              fields:
+                type:
+                  since: "1.0.0"
+                  type: string
+                mode:
+                  since: "1.0.0"
+                  type: string
+                rules:
+                  since: "1.0.0"
+                  type: array
+                  items:
+                    type: object
+                action:
+                  since: "1.0.0"
+                  type: string
+                server:
+                  since: "1.0.0"
+                  deprecated: "1.11.0"
+                  removed: "1.14.0"
+                  replacement: DNS Rule Action
+                  type: string
+                strategy:
+                  since: "1.0.0"
+                  deprecated: "1.14.0"
+                  removed: "1.16.0"
+                  replacement: use server strategy or route action
+                  type: string
+                disable_cache:
+                  since: "1.0.0"
+                  deprecated: "1.11.0"
+                  removed: "1.14.0"
+                  replacement: DNS Rule Action
+                  type: boolean
+                rewrite_ttl:
+                  since: "1.0.0"
+                  deprecated: "1.11.0"
+                  removed: "1.14.0"
+                  replacement: DNS Rule Action
+                  type: integer
+                client_subnet:
+                  since: "1.0.0"
+                  deprecated: "1.11.0"
+                  removed: "1.14.0"
+                  replacement: DNS Rule Action
+                  type: string
+
+      final:
+        since: "1.0.0"
+        type: string
+      strategy:
+        since: "1.0.0"
+        type: string
+      disable_cache:
+        since: "1.0.0"
+        type: boolean
+      disable_expire:
+        since: "1.0.0"
+        type: boolean
+      independent_cache:
+        since: "1.0.0"
+        deprecated: "1.14.0"
+        removed: "1.16.0"
+        replacement: "(always enabled by default, no longer needed)"
+        type: boolean
+      cache_capacity:
+        since: "1.0.0"
+        type: integer
+      reverse_mapping:
+        since: "1.0.0"
+        type: boolean
+      client_subnet:
+        since: "1.0.0"
+        type: string
+      fakeip:
+        since: "1.0.0"
+        type: object
+        children:
+          enabled:
+            since: "1.0.0"
+            type: boolean
+          inet4_range:
+            since: "1.0.0"
+            type: string
+          inet6_range:
+            since: "1.0.0"
+            type: string
+
+  route:
+    since: "1.0.0"
+    type: object
+    children:
+      rules:
+        since: "1.0.0"
+        type: array
+        items:
+          type: object
+          children:
+            inbound:
+              since: "1.0.0"
+              type: string
+            ip_version:
+              since: "1.0.0"
+              type: integer
+            network:
+              since: "1.0.0"
+              type: string
+            auth_user:
+              since: "1.0.0"
+              type: string
+            protocol:
+              since: "1.0.0"
+              type: string
+            domain:
+              since: "1.0.0"
+              type: string
+            domain_suffix:
+              since: "1.0.0"
+              type: string
+            domain_keyword:
+              since: "1.0.0"
+              type: string
+            domain_regex:
+              since: "1.0.0"
+              type: string
+            geosite:
+              since: "1.0.0"
+              deprecated: "1.8.0"
+              removed: "1.12.0"
+              replacement: rule-set
+              type: string
+            source_geoip:
+              since: "1.0.0"
+              deprecated: "1.8.0"
+              removed: "1.12.0"
+              replacement: rule-set
+              type: string
+            source_ip_cidr:
+              since: "1.0.0"
+              type: string
+            source_ip_is_private:
+              since: "1.8.0"
+              type: boolean
+            ip_cidr:
+              since: "1.9.0"
+              type: string
+            ip_is_private:
+              since: "1.9.0"
+              type: boolean
+            ip_accept_any:
+              since: "1.12.0"
+              type: boolean
+            source_port:
+              since: "1.0.0"
+              type: any
+            source_port_range:
+              since: "1.0.0"
+              type: string
+            port:
+              since: "1.0.0"
+              type: any
+            port_range:
+              since: "1.0.0"
+              type: string
+            process_name:
+              since: "1.0.0"
+              type: string
+            process_path:
+              since: "1.0.0"
+              type: string
+            process_path_regex:
+              since: "1.10.0"
+              type: string
+            package_name:
+              since: "1.0.0"
+              type: string
+            user:
+              since: "1.0.0"
+              type: string
+            user_id:
+              since: "1.0.0"
+              type: any
+            clash_mode:
+              since: "1.0.0"
+              type: string
+            network_type:
+              since: "1.11.0"
+              type: string
+            network_is_expensive:
+              since: "1.11.0"
+              type: boolean
+            network_is_constrained:
+              since: "1.11.0"
+              type: boolean
+            wifi_ssid:
+              since: "1.0.0"
+              type: string
+            wifi_bssid:
+              since: "1.0.0"
+              type: string
+            rule_set:
+              since: "1.8.0"
+              type: string
+            rule_set_ipcidr_match_source:
+              since: "1.9.0"
+              deprecated: "1.10.0"
+              removed: "1.11.0"
+              replacement: rule_set_ip_cidr_match_source
+              rename_to: rule_set_ip_cidr_match_source
+              type: boolean
+            rule_set_ip_cidr_match_source:
+              since: "1.10.0"
+              type: boolean
+            rule_set_ip_cidr_accept_empty:
+              since: "1.10.0"
+              deprecated: "1.14.0"
+              removed: "1.16.0"
+              replacement: match_response
+              type: boolean
+            invert:
+              since: "1.0.0"
+              type: boolean
+            outbound:
+              since: "1.0.0"
+              type: string
+            action:
+              since: "1.0.0"
+              type: string
+            route_options:
+              since: "1.0.0"
+              type: object
+            server:
+              since: "1.0.0"
+              type: string
+            sniff:
+              since: "1.0.0"
+              deprecated: "1.11.0"
+              removed: "1.13.0"
+              replacement: rule action sniff
+              type: boolean
+            domain_resolver:
+              since: "1.0.0"
+              type: object
+      rule_set:
+        since: "1.8.0"
+        type: array
+        items:
+          type: object
+          one_of_by: type
+          one_of:
+            - when: {}
+              fields:
+                type:
+                  since: "1.8.0"
+                  type: string
+                tag:
+                  since: "1.8.0"
+                  type: string
+                format:
+                  since: "1.8.0"
+                  type: string
+                path:
+                  since: "1.8.0"
+                  type: string
+            - when: {type: "remote"}
+              fields:
+                type:
+                  since: "1.8.0"
+                  type: string
+                tag:
+                  since: "1.8.0"
+                  type: string
+                format:
+                  since: "1.8.0"
+                  type: string
+                url:
+                  since: "1.8.0"
+                  type: string
+                download_detour:
+                  since: "1.8.0"
+                  deprecated: "1.14.0"
+                  removed: "1.16.0"
+                  replacement: http_client
+                  type: string
+                http_client:
+                  since: "1.14.0"
+                  type: string
+                update_interval:
+                  since: "1.8.0"
+                  type: string
+      default_domain_resolver:
+        since: "1.0.0"
+        type: object
+      default_interface:
+        since: "1.0.0"
+        type: string
+      default_mark:
+        since: "1.0.0"
+        type: integer
+      default_network_type:
+        since: "1.0.0"
+        type: string
+      final:
+        since: "1.0.0"
+        type: string
+      auto_detect_interface:
+        since: "1.0.0"
+        type: boolean
+      override_android_vpn:
+        since: "1.0.0"
+        type: boolean
+      default_tun:
+        since: "1.0.0"
+        type: object
+      geoip:
+        since: "1.0.0"
+        deprecated: "1.8.0"
+        removed: "1.12.0"
+        replacement: rule-set
+        type: object
+      geosite:
+        since: "1.0.0"
+        deprecated: "1.8.0"
+        removed: "1.12.0"
+        replacement: rule-set
+        type: object
+
+  inbounds:
+    since: "1.0.0"
+    type: array
+    items:
+      type: object
+      one_of_by: type
+      one_of:
+        - when: {}
+          fields:
+            type:
+              since: "1.0.0"
+              type: string
+            tag:
+              since: "1.0.0"
+              type: string
+            listen:
+              since: "1.0.0"
+              type: string
+            listen_port:
+              since: "1.0.0"
+              type: integer
+            tcp_fast_open:
+              since: "1.0.0"
+              type: boolean
+            tcp_multi_path:
+              since: "1.0.0"
+              type: boolean
+            udp_fragment:
+              since: "1.0.0"
+              type: boolean
+            sniff:
+              since: "1.0.0"
+              deprecated: "1.11.0"
+              removed: "1.13.0"
+              replacement: rule action sniff
+              type: boolean
+            sniff_override_destination:
+              since: "1.0.0"
+              type: boolean
+            sniff_timeout:
+              since: "1.0.0"
+              type: string
+            domain_strategy:
+              since: "1.0.0"
+              deprecated: "1.11.0"
+              removed: "1.13.0"
+              replacement: rule action domain_resolver
+              type: string
+            domain_resolver:
+              since: "1.0.0"
+              type: object
+        - when: {type: "tun"}
+          fields:
+            interface_name:
+              since: "1.0.0"
+              type: string
+            inet4_address:
+              since: "1.0.0"
+              deprecated: "1.10.0"
+              removed: "1.12.0"
+              replacement: address
+              type: string
+            inet6_address:
+              since: "1.0.0"
+              deprecated: "1.10.0"
+              removed: "1.12.0"
+              replacement: address
+              type: string
+            address:
+              since: "1.10.0"
+              type: string
+            inet4_route_address:
+              since: "1.0.0"
+              deprecated: "1.10.0"
+              removed: "1.11.0"
+              replacement: route_address
+              type: string
+            inet6_route_address:
+              since: "1.0.0"
+              deprecated: "1.10.0"
+              removed: "1.11.0"
+              replacement: route_address
+              type: string
+            route_address:
+              since: "1.10.0"
+              type: string
+            inet4_route_exclude_address:
+              since: "1.0.0"
+              deprecated: "1.10.0"
+              removed: "1.11.0"
+              replacement: route_exclude_address
+              type: string
+            inet6_route_exclude_address:
+              since: "1.0.0"
+              deprecated: "1.10.0"
+              removed: "1.11.0"
+              replacement: route_exclude_address
+              type: string
+            route_exclude_address:
+              since: "1.10.0"
+              type: string
+            gso:
+              since: "1.0.0"
+              deprecated: "1.11.0"
+              removed: "1.13.0"
+              replacement: "(removed, no replacement)"
+              type: boolean
+            mtu:
+              since: "1.0.0"
+              type: integer
+            auto_route:
+              since: "1.0.0"
+              type: boolean
+            strict_route:
+              since: "1.0.0"
+              type: boolean
+            endpoint_independent_nat:
+              since: "1.0.0"
+              type: boolean
+            stack:
+              since: "1.0.0"
+              type: string
+            include_interface:
+              since: "1.0.0"
+              type: string
+            exclude_interface:
+              since: "1.0.0"
+              type: string
+            include_uid:
+              since: "1.0.0"
+              type: any
+            exclude_uid:
+              since: "1.0.0"
+              type: any
+            include_android_user:
+              since: "1.0.0"
+              type: integer
+            exclude_android_user:
+              since: "1.0.0"
+              type: integer
+            include_package:
+              since: "1.0.0"
+              type: string
+            exclude_package:
+              since: "1.0.0"
+              type: string
+
+  outbounds:
+    since: "1.0.0"
+    type: array
+    items:
+      type: object
+      one_of_by: type
+      one_of:
+        - when: {}
+          fields:
+            type:
+              since: "1.0.0"
+              type: string
+            tag:
+              since: "1.0.0"
+              type: string
+            detour:
+              since: "1.0.0"
+              type: string
+            bind_interface:
+              since: "1.0.0"
+              type: string
+            inet4_bind_address:
+              since: "1.0.0"
+              type: string
+            inet6_bind_address:
+              since: "1.0.0"
+              type: string
+            routing_mark:
+              since: "1.0.0"
+              type: any
+            reuse_addr:
+              since: "1.0.0"
+              type: boolean
+            netns:
+              since: "1.0.0"
+              type: string
+            connect_timeout:
+              since: "1.0.0"
+              type: string
+            tcp_fast_open:
+              since: "1.0.0"
+              type: boolean
+            tcp_multi_path:
+              since: "1.0.0"
+              type: boolean
+            udp_fragment:
+              since: "1.0.0"
+              type: boolean
+            domain_resolver:
+              since: "1.0.0"
+              type: string
+            network_strategy:
+              since: "1.0.0"
+              type: string
+            network_type:
+              since: "1.0.0"
+              type: string
+            fallback_network_type:
+              since: "1.0.0"
+              type: string
+            fallback_delay:
+              since: "1.0.0"
+              type: string
+            domain_strategy:
+              since: "1.0.0"
+              deprecated: "1.0.0"
+              type: string
+        - when: {type: "direct"}
+          fields:
+            override_address:
+              since: "1.0.0"
+              deprecated: "1.11.0"
+              removed: "1.13.0"
+              replacement: rule action override_address
+              type: string
+            override_port:
+              since: "1.0.0"
+              deprecated: "1.11.0"
+              removed: "1.13.0"
+              replacement: rule action override_port
+              type: integer
+        - when: {type: "block"}
+          fields: {}
+        - when: {type: "dns"}
+          fields: {}
+        - when: {type: "wireguard"}
+          fields: {}
+        - when: {type: "shadowsocks"}
+          fields:
+            server:
+              since: "1.0.0"
+              type: string
+            server_port:
+              since: "1.0.0"
+              type: integer
+            method:
+              since: "1.0.0"
+              type: string
+            password:
+              since: "1.0.0"
+              type: string
+            plugin:
+              since: "1.0.0"
+              type: string
+            plugin_opts:
+              since: "1.0.0"
+              type: string
+            network:
+              since: "1.0.0"
+              type: string
+            udp_over_tcp:
+              since: "1.0.0"
+              type: boolean
+            multiplex:
+              since: "1.0.0"
+              type: object
+            tls:
+              since: "1.0.0"
+              type: object
+
+  endpoints:
+    since: "1.0.0"
+    type: array
+    items:
+      type: object
+      one_of_by: type
+      one_of:
+        - when: {}
+          fields:
+            type:
+              since: "1.0.0"
+              type: string
+            tag:
+              since: "1.0.0"
+              type: string
+
+  services:
+    since: "1.0.0"
+    type: array
+    items:
+      type: object
+
+  experimental:
+    since: "1.0.0"
+    type: object
+    children:
+      cache_file:
+        since: "1.0.0"
+        type: object
+        children:
+          enabled:
+            since: "1.0.0"
+            type: boolean
+          path:
+            since: "1.0.0"
+            type: string
+          cache_id:
+            since: "1.0.0"
+            type: string
+          store_fakeip:
+            since: "1.0.0"
+            type: boolean
+          store_rdrc:
+            since: "1.9.0"
+            deprecated: "1.14.0"
+            removed: "1.16.0"
+            replacement: "(removed, always enabled)"
+            type: boolean
+          rdrc_timeout:
+            since: "1.9.0"
+            type: string
+      clash_api:
+        since: "1.0.0"
+        type: object
+        children:
+          external_controller:
+            since: "1.0.0"
+            type: string
+          external_ui:
+            since: "1.0.0"
+            type: string
+          external_ui_download_url:
+            since: "1.0.0"
+            type: string
+          external_ui_download_detour:
+            since: "1.0.0"
+            type: string
+          secret:
+            since: "1.0.0"
+            type: string
+          default_mode:
+            since: "1.0.0"
+            type: string
+          access_control_allow_origin:
+            since: "1.10.0"
+            type: string
+          access_control_allow_private_network:
+            since: "1.10.0"
+            type: boolean
+          store_mode:
+            since: "1.0.0"
+            deprecated: "1.8.0"
+            replacement: cache_file.enabled
+            type: boolean
+          store_selected:
+            since: "1.0.0"
+            deprecated: "1.8.0"
+            replacement: cache_file.enabled
+            type: boolean
+          store_fakeip:
+            since: "1.0.0"
+            deprecated: "1.8.0"
+            replacement: cache_file.store_fakeip
+            type: boolean
+          cache_file:
+            since: "1.0.0"
+            deprecated: "1.8.0"
+            replacement: cache_file.enabled / cache_file.path
+            type: string
+          cache_id:
+            since: "1.0.0"
+            deprecated: "1.8.0"
+            replacement: cache_file.cache_id
+            type: string
+      v2ray_api:
+        since: "1.0.0"
+        type: object
+        children:
+          listen:
+            since: "1.0.0"
+            type: string
+          stats:
+            since: "1.0.0"
+            type: object
+            children:
+              enabled:
+                since: "1.0.0"
+                type: boolean
+              inbounds:
+                since: "1.0.0"
+                type: string
+              outbounds:
+                since: "1.0.0"
+                type: string
+              users:
+                since: "1.0.0"
+                type: string
+
+  cache_file:
+    since: "1.0.0"
+    deprecated: "1.8.0"
+    removed: "1.10.0"
+    replacement: experimental.cache_file
+    type: object
+    children:
+      enabled:
+        since: "1.0.0"
+        type: boolean
+      path:
+        since: "1.0.0"
+        type: string
+      cache_id:
+        since: "1.0.0"
+        type: string
+      store_fakeip:
+        since: "1.0.0"
+        type: boolean
+      store_rdrc:
+        since: "1.9.0"
+        type: boolean
+      rdrc_timeout:
+        since: "1.9.0"
+        type: string
