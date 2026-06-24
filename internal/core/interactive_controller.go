@@ -239,6 +239,9 @@ func (ic *InteractiveController) checkAllConfigs() {
 
 	for i := range configs {
 		cfg := &configs[i]
+		if cfg.IsLocal() {
+			continue
+		}
 		if !cfg.ShouldUpdate() {
 			continue
 		}

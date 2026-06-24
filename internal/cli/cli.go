@@ -142,11 +142,18 @@ func cmdStart(cfg *config.AppConfig, _ *fwcli.Context) error {
 	}
 
 	active := cfg.GetActiveConfig()
-	if active == nil || active.URL == "" {
-		return fmt.Errorf("no active config URL set, use GUI or edit profiles.yaml")
+	if active == nil {
+		return fmt.Errorf("no active config set, use GUI or edit profiles.yaml")
 	}
 
-	if active.ShouldUpdate() || !hasCachedConfig(dataDir, active.Name) {
+	if active.IsLocal() {
+		if !hasCachedConfig(dataDir, active.Name) {
+			m := newCoreManager(dataDir)
+			if err := m.CreateLocalConfig(active.Name); err != nil {
+				return fmt.Errorf("failed to create local config: %w", err)
+			}
+		}
+	} else if active.ShouldUpdate() || !hasCachedConfig(dataDir, active.Name) {
 		fmt.Println("Updating config...")
 		m := newCoreManager(dataDir)
 		m.SetConfigName(active.Name)
@@ -219,8 +226,11 @@ func cmdStop(cfg *config.AppConfig, _ *fwcli.Context) error {
 func cmdUpdate(cfg *config.AppConfig, _ *fwcli.Context) error {
 	dataDir := cfg.DataDir
 	active := cfg.GetActiveConfig()
-	if active == nil || active.URL == "" {
-		return fmt.Errorf("no active config URL set")
+	if active == nil {
+		return fmt.Errorf("no active config set")
+	}
+	if active.IsLocal() {
+		return fmt.Errorf("local config cannot be updated from a URL")
 	}
 	fmt.Println("Downloading config...")
 	m := newCoreManager(dataDir)

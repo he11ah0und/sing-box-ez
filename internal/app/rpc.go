@@ -8,6 +8,7 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/rpc"
+	"sing-box-ez/internal/singboxconfig"
 )
 
 // CoreStatusRes is the response for core/status.
@@ -25,6 +26,7 @@ type CoreDownloadRes struct {
 type ConfigRecordMsg struct {
 	Name                string `msgpack:"name"`
 	URL                 string `msgpack:"url"`
+	Type                string `msgpack:"type"`
 	UpdateIntervalHours int    `msgpack:"update_interval_hours"`
 	LastUpdateUnix      int64  `msgpack:"last_update_unix"`
 	Parent              string `msgpack:"parent"`
@@ -164,6 +166,18 @@ func (a *App) registerRPC(registry *rpc.Registry) {
 		updated, total, err := a.Controller.UpdateAllConfigs(nil)
 		return UpdateAllRes{Updated: updated, Total: total}, err
 	})
+	registry.Register("config", "validate", func(ctx context.Context, req rpc.StringValue) (singboxconfig.ValidationResult, error) {
+		return a.Controller.ValidateConfig(req.Value)
+	})
+	registry.Register("config", "open_file", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
+		return rpc.Empty{}, a.Controller.OpenConfigFile(req.Value)
+	})
+	registry.Register("config", "open_dir", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
+		return rpc.Empty{}, a.Controller.OpenConfigDir(req.Value)
+	})
+	registry.Register("config", "recreate_local", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
+		return rpc.Empty{}, a.Controller.RecreateLocalConfig(req.Value)
+	})
 
 	registry.Register("log", "core_lines", func(ctx context.Context, _ rpc.Empty) ([]string, error) {
 		return a.Controller.GetCoreLogLines(), nil
@@ -212,6 +226,7 @@ func configRecordToMsg(rec config.ConfigRecord) ConfigRecordMsg {
 	return ConfigRecordMsg{
 		Name:                rec.Name,
 		URL:                 rec.URL,
+		Type:                rec.Type,
 		UpdateIntervalHours: rec.UpdateIntervalHours,
 		LastUpdateUnix:      last,
 		Parent:              rec.Parent,
@@ -227,6 +242,7 @@ func msgToConfigRecord(msg ConfigRecordMsg) config.ConfigRecord {
 	return config.ConfigRecord{
 		Name:                msg.Name,
 		URL:                 msg.URL,
+		Type:                msg.Type,
 		UpdateIntervalHours: msg.UpdateIntervalHours,
 		LastUpdate:          last,
 		Parent:              msg.Parent,

@@ -202,16 +202,16 @@ func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"updates", "background_update_check_interval_hours"}, fwconfig.TypeInt, 2)
 	sheet.Register([]string{"updates", "default_interval_hours"}, fwconfig.TypeInt, 24)
 
-	sheet.Register([]string{"plugins", "enabled"}, fwconfig.TypeBool, false)
-	sheet.Register([]string{"plugins", "developer"}, fwconfig.TypeBool, false)
+	sheet.Register([]string{"plugins", "enabled"}, fwconfig.TypeBool, false, fwconfig.WithDisabled(true))
+	sheet.Register([]string{"plugins", "developer"}, fwconfig.TypeBool, false, fwconfig.WithDisabled(true))
 
 	sheet.Register([]string{"service", "backend"}, fwconfig.TypeString, "embedded")
 	sheet.Register([]string{"service", "start_on_app_launch"}, fwconfig.TypeBool, false)
-	sheet.Register([]string{"service", "stop_on_app_exit"}, fwconfig.TypeBool, true)
+	sheet.Register([]string{"service", "stop_on_app_exit"}, fwconfig.TypeBool, true, fwconfig.WithDisabled(true))
 
-	sheet.Register([]string{"remote", "default_transport"}, fwconfig.TypeString, "auto")
-	sheet.Register([]string{"remote", "last_tcp_address"}, fwconfig.TypeString, "")
-	sheet.Register([]string{"remote", "last_connection_mode"}, fwconfig.TypeString, "embedded")
-	sheet.Register([]string{"remote", "remember_connection_mode"}, fwconfig.TypeBool, false)
-	sheet.Register([]string{"remote", "last_passphrase"}, fwconfig.TypeString, "")
+	sheet.Register([]string{"remote", "default_transport"}, fwconfig.TypeString, "auto", fwconfig.WithDisabled(true))
+	sheet.Register([]string{"remote", "last_tcp_address"}, fwconfig.TypeString, "", fwconfig.WithDisabled(true))
+	sheet.Register([]string{"remote", "last_connection_mode"}, fwconfig.TypeString, "embedded", fwconfig.WithDisabled(true))
+	sheet.Register([]string{"remote", "remember_connection_mode"}, fwconfig.TypeBool, true, fwconfig.WithDisabled(true))
+	sheet.Register([]string{"remote", "last_passphrase"}, fwconfig.TypeString, "", fwconfig.WithDisabled(true))
 }

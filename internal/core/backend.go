@@ -3,6 +3,7 @@ package core
 import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/framework/logger"
+	"sing-box-ez/internal/singboxconfig"
 )
 
 // Backend is the unified abstraction used by GUI pages and InteractiveController.
@@ -25,6 +26,10 @@ type Backend interface {
 	UpdateConfigNow(name, url string) error
 	UpdateAllConfigs(progress func(done, total int)) (int, int, error)
 	HasCachedConfig(name string) bool
+	OpenConfigFile(name string) error
+	OpenConfigDir(name string) error
+	RecreateLocalConfig(name string) error
+	ValidateConfig(name string) (singboxconfig.ValidationResult, error)
 
 	GetInstalledCoreVersion() (string, error)
 	GetLatestCoreVersion() (string, error)

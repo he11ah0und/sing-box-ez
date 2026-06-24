@@ -294,7 +294,6 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 
 	// setcap not applied — show confirmation dialog
 	var applyBtn widget.Clickable
-	var cancelBtn widget.Clickable
 
 	p.dialog.ShowCustom(localengine.T("core", "btn", "apply_setcap"), func(gtx layout.Context) layout.Dimensions {
 		if applyBtn.Clicked(gtx) {
@@ -310,25 +309,13 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 				}
 			}()
 		}
-		if cancelBtn.Clicked(gtx) {
-			p.dialog.HideCustom()
-		}
 
 		return widgets.DialogSpacedList(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Body2(p.th, localengine.T("core", "mode", "setcap_prompt")).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return material.Button(p.th, &applyBtn, localengine.T("core", "btn", "apply")).Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return material.Button(p.th, &cancelBtn, localengine.T("dialog", "btn", "cancel")).Layout(gtx)
-						})
-					}),
-				)
+				return material.Button(p.th, &applyBtn, localengine.T("core", "btn", "apply")).Layout(gtx)
 			}),
 		)
 	})

@@ -152,7 +152,6 @@ func New(app *apppkg.App) *GUI {
 // current settings (log visibility and plugin support).
 func (g *GUI) buildSecondaryPages(showLogs bool) []pages.Page {
 	secondary := []pages.Page{
-		g.corePage,
 		g.settingsPage,
 	}
 	if showLogs {
@@ -643,7 +642,8 @@ func (g *GUI) finishBuildUI(w *gioapp.Window) {
 		g.runStartupUpdateChecks(nil)
 	}
 	g.ctrl.OnCoreMissing = func() {
-		g.shell.NavigateTo("core")
+		g.shell.NavigateTo("settings")
+		g.settingsPage.SelectCoreTab()
 		g.corePage.HighlightUpdateBlock()
 	}
 	g.ctrl.OnConfigMissing = func() {
@@ -655,7 +655,11 @@ func (g *GUI) finishBuildUI(w *gioapp.Window) {
 	mainPage := pages.NewMainPage(g.th, g.ctrl, g.dialog)
 	g.logPage = pages.NewLogPage(g.th, g.ctrl.Backend())
 
-	g.settingsPage = pages.NewSettingsPage(g.th, g.ctrl, g.dialog)
+	g.corePage = pages.NewCorePage(g.th, g.ctrl, g.dialog)
+	g.configsPage = pages.NewConfigsPage(g.th, g.ctrl, g.dialog)
+	g.pluginsPage = pages.NewPluginsPage(g.th, g.ctrl.Backend())
+
+	g.settingsPage = pages.NewSettingsPage(g.th, g.ctrl, g.dialog, g.corePage)
 	g.settingsPage.OnLanguageChange = func() {
 		g.shell.RebuildNav()
 	}
@@ -665,10 +669,6 @@ func (g *GUI) finishBuildUI(w *gioapp.Window) {
 	g.settingsPage.OnShowLogsChange = func(show bool) {
 		g.rebuildSecondaryPages(show)
 	}
-
-	g.configsPage = pages.NewConfigsPage(g.th, g.ctrl, g.dialog)
-	g.corePage = pages.NewCorePage(g.th, g.ctrl, g.dialog)
-	g.pluginsPage = pages.NewPluginsPage(g.th, g.ctrl.Backend())
 
 	primary := []pages.Page{mainPage, g.configsPage}
 	secondary := g.buildSecondaryPages(g.cfg.MustGet("ui", "show_logs").Bool())

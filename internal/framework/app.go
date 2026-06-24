@@ -146,6 +146,8 @@ func NewApp(cfg Config) (*App, error) {
 		limit = cfg.GetLoggerLimit(conf)
 	}
 	log := logger.NewLogger(limit)
+	sheet.SetLogger(log.Root)
+	sheet.DebugDisabledCount()
 	appFS := fs.NewOSWithLog(dataDir, log.Root)
 	root := appFS.Root()
 

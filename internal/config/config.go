@@ -15,10 +15,18 @@ import (
 	"sing-box-ez/internal/framework/fs"
 )
 
+const (
+	// ConfigTypeRemote is a URL-based config that is downloaded periodically.
+	ConfigTypeRemote = "remote"
+	// ConfigTypeLocal is a config file edited and stored locally.
+	ConfigTypeLocal = "local"
+)
+
 // ConfigRecord represents a single subscription / config entry.
 type ConfigRecord struct {
 	Name                string    `json:"name" yaml:"name"`
 	URL                 string    `json:"url" yaml:"url"`
+	Type                string    `json:"type" yaml:"type"`
 	UpdateIntervalHours int       `json:"update_interval_hours" yaml:"update_interval_hours"`
 	LastUpdate          Timestamp `json:"last_update" yaml:"last_update"`
 	// Parent identifies who created this config: "user" for user-created,
@@ -36,6 +44,16 @@ func (r *ConfigRecord) IsAutoUpdate() bool {
 		return true
 	}
 	return *r.AutoUpdate
+}
+
+// IsLocal reports whether this record is a locally edited config.
+// Records with an empty Type and empty URL are treated as local for backward
+// compatibility.
+func (r *ConfigRecord) IsLocal() bool {
+	if r.Type == ConfigTypeLocal {
+		return true
+	}
+	return r.Type == "" && r.URL == ""
 }
 
 // Timestamp is a wrapper around time.Time for custom JSON/YAML unmarshalling.
