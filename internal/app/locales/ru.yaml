@@ -80,6 +80,7 @@ configs:
     'no': нет
   badge:
     local: локальный
+    modified: изменён
   dialog:
     title: Конфиг
     name: Название

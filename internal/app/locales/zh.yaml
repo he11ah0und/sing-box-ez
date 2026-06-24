@@ -80,6 +80,7 @@ configs:
     'no': 否
   badge:
     local: 本地
+    modified: 已修改
   dialog:
     title: 配置
     name: 名称

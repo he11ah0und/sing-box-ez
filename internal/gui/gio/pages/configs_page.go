@@ -45,6 +45,9 @@ type ConfigsPage struct {
 
 	list           widget.List
 	validationList widget.List
+
+	hashMismatches map[string]bool
+	hashCheckTime  time.Time
 }
 
 // NewConfigsPage creates a new configs page.
@@ -61,6 +64,20 @@ func NewConfigsPage(th *material.Theme, ctrl *core.InteractiveController, dialog
 
 func (p *ConfigsPage) refreshConfigs() {
 	p.configs = p.ctrl.Backend().GetConfigs()
+	if time.Since(p.hashCheckTime) > 2*time.Second {
+		p.refreshHashMismatches()
+		p.hashCheckTime = time.Now()
+	}
+}
+
+func (p *ConfigsPage) refreshHashMismatches() {
+	p.hashMismatches = make(map[string]bool, len(p.configs))
+	for _, rec := range p.configs {
+		if rec.IsLocal() {
+			continue
+		}
+		p.hashMismatches[rec.Name] = p.ctrl.Backend().IsConfigHashMismatch(rec.Name)
+	}
 }
 
 // Tag returns the page tag.
@@ -182,7 +199,7 @@ func (p *ConfigsPage) formatConfigMeta(rec config.ConfigRecord) string {
 	return strings.Join(parts, "  •  ")
 }
 
-func (p *ConfigsPage) layoutConfigCardHeader(gtx layout.Context, rec config.ConfigRecord, nameColor color.NRGBA) layout.Dimensions {
+func (p *ConfigsPage) layoutConfigCardHeader(gtx layout.Context, rec config.ConfigRecord, nameColor color.NRGBA, isHashMismatch bool) layout.Dimensions {
 	isLocal := rec.IsLocal()
 	colors := theme.Current().Colors()
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceEnd, Alignment: layout.Middle}.Layout(gtx,
@@ -198,6 +215,14 @@ func (p *ConfigsPage) layoutConfigCardHeader(gtx layout.Context, rec config.Conf
 			}
 			badge := material.Body2(p.th, localengine.T("configs", "badge", "local"))
 			badge.Color = colors.Fg
+			return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, badge.Layout)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if !isHashMismatch {
+				return layout.Dimensions{}
+			}
+			badge := material.Body2(p.th, localengine.T("configs", "badge", "modified"))
+			badge.Color = colors.StatusWarning
 			return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, badge.Layout)
 		}),
 	)
@@ -225,13 +250,15 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, idx int) layout.Dimen
 		nameColor = colors.Fg
 	}
 
+	isHashMismatch := p.hashMismatches[rec.Name]
+
 	return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			macro := op.Record(gtx.Ops)
 			dims := layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return p.layoutConfigCardHeader(gtx, rec, nameColor)
+						return p.layoutConfigCardHeader(gtx, rec, nameColor, isHashMismatch)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Body2(p.th, p.formatConfigMeta(rec)).Layout(gtx)

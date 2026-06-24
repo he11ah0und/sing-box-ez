@@ -153,7 +153,12 @@ func (m *Manager) ReadConfig() ([]byte, error) {
 	if m.configName == "" {
 		return nil, fmt.Errorf("no config name set")
 	}
-	configPath := m.cachedConfig(m.configName)
+	return m.ReadConfigByName(m.configName)
+}
+
+// ReadConfigByName reads the cached config bytes for the given config name.
+func (m *Manager) ReadConfigByName(name string) ([]byte, error) {
+	configPath := m.cachedConfig(name)
 	data, err := m.fsys.Root().File(configPath).Read()
 	if err != nil {
 		return nil, fmt.Errorf("read config %s: %w", configPath, err)
@@ -317,33 +322,41 @@ func (m *Manager) Restart() error {
 	return m.Start()
 }
 
-func (m *Manager) UpdateConfig() error {
+func (m *Manager) UpdateConfig() ([]byte, error) {
 	if m.configURL == "" {
-		return fmt.Errorf("no URL configured")
+		return nil, fmt.Errorf("no URL configured")
 	}
 	if m.configName == "" {
-		return fmt.Errorf("no config name set")
+		return nil, fmt.Errorf("no config name set")
 	}
 
-	if err := m.DownloadConfigFor(m.configName, m.configURL); err != nil {
+	data, err := m.DownloadConfigFor(m.configName, m.configURL)
+	if err != nil {
 		if m.hasCachedConfig(m.configName) {
-			return fmt.Errorf("download failed, using cached config: %w", err)
+			return nil, fmt.Errorf("download failed, using cached config: %w", err)
 		}
-		return err
+		return nil, err
 	}
-	return nil
+	return data, nil
 }
 
 func (m *Manager) hasCachedConfig(name string) bool {
 	return m.fsys.Root().File(m.cachedConfig(name)).Exists()
 }
 
-func (m *Manager) DownloadConfigFor(name, url string) error {
+func (m *Manager) DownloadConfigFor(name, url string) ([]byte, error) {
 	path := m.cachedConfig(name)
 	if err := m.fsys.Root().Subdir("configs").MkdirAll(0750); err != nil {
-		return err
+		return nil, err
 	}
-	return m.net.DownloadToFile(context.Background(), m.fsys, url, path)
+	data, err := m.net.GetBytes(context.Background(), url)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.fsys.Root().File(path).AtomicWrite(data, 0640); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 // CreateLocalConfig creates an empty local config file for the given name.

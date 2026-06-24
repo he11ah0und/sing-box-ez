@@ -75,6 +75,7 @@ configs:
     'no': 'no'
   badge:
     local: local
+    modified: modified
   dialog:
     title: Config
     name: Name

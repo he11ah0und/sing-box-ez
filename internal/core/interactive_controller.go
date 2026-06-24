@@ -242,7 +242,7 @@ func (ic *InteractiveController) checkAllConfigs() {
 		if cfg.IsLocal() {
 			continue
 		}
-		if !cfg.ShouldUpdate() {
+		if !cfg.ShouldUpdate() && !ic.backend.IsConfigHashMismatch(cfg.Name) {
 			continue
 		}
 
