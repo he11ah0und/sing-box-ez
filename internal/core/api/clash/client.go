@@ -363,9 +363,6 @@ func connectionFromClash(c connection) api.Connection {
 	}
 	if v, ok := c.Metadata["host"].(string); ok {
 		conn.Domain = v
-		if port, ok := c.Metadata["destinationPort"].(string); ok && port != "" {
-			conn.Domain = conn.Domain + ":" + port
-		}
 	}
 	if v, ok := c.Metadata["network"].(string); ok {
 		conn.Network = v
