@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
-var versionTagRE = regexp.MustCompile(`^v([0-9]+)\.([0-9]+)\.([0-9]+)$`)
+var versionTagRE = regexp.MustCompile(`^v([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-.]?(alpha|beta|rc)\.(\d+))?$`)
 
 // Repo manages a local clone of the sing-box repository.
 type Repo struct {
@@ -54,12 +55,34 @@ func (r *Repo) FetchTags() error {
 	return nil
 }
 
-// VersionTag represents a parsed release tag.
+// VersionTag represents a parsed release tag, including optional pre-release.
 type VersionTag struct {
-	Tag   string
-	Major int
-	Minor int
-	Patch int
+	Tag           string
+	Major         int
+	Minor         int
+	Patch         int
+	Prerelease    string // "alpha", "beta", "rc", or empty for stable
+	PrereleaseNum int
+}
+
+// prereleaseKind returns the ordering weight of a pre-release label.
+// alpha < beta < rc < stable.
+func prereleaseKind(p string) int {
+	switch p {
+	case "alpha":
+		return 0
+	case "beta":
+		return 1
+	case "rc":
+		return 2
+	default:
+		return 3 // stable
+	}
+}
+
+// IsStable reports whether the tag is a stable release.
+func (v VersionTag) IsStable() bool {
+	return v.Prerelease == ""
 }
 
 // Less reports whether v is strictly less than o.
@@ -70,12 +93,22 @@ func (v VersionTag) Less(o VersionTag) bool {
 	if v.Minor != o.Minor {
 		return v.Minor < o.Minor
 	}
-	return v.Patch < o.Patch
+	if v.Patch != o.Patch {
+		return v.Patch < o.Patch
+	}
+	vk, ok := prereleaseKind(v.Prerelease), prereleaseKind(o.Prerelease)
+	if vk != ok {
+		return vk < ok
+	}
+	return v.PrereleaseNum < o.PrereleaseNum
 }
 
 // String returns the canonical version string.
 func (v VersionTag) String() string {
-	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	if v.Prerelease == "" {
+		return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	}
+	return fmt.Sprintf("%d.%d.%d-%s.%d", v.Major, v.Minor, v.Patch, v.Prerelease, v.PrereleaseNum)
 }
 
 type versionKey struct {
@@ -83,8 +116,8 @@ type versionKey struct {
 	tag VersionTag
 }
 
-// StableTags returns sorted stable v1.x.x release tags.
-func (r *Repo) StableTags() ([]VersionTag, error) {
+// ReleaseTags returns sorted release tags including pre-releases.
+func (r *Repo) ReleaseTags() ([]VersionTag, error) {
 	cmd := exec.Command("git", "-C", r.Path, "tag", "-l", "v1.*.*")
 	out, err := cmd.Output()
 	if err != nil {
@@ -101,18 +134,22 @@ func (r *Repo) StableTags() ([]VersionTag, error) {
 			continue
 		}
 		tag := VersionTag{Tag: line}
-		fmt.Sscanf(m[1], "%d", &tag.Major)
-		fmt.Sscanf(m[2], "%d", &tag.Minor)
-		fmt.Sscanf(m[3], "%d", &tag.Patch)
+		tag.Major, _ = strconv.Atoi(m[1])
+		tag.Minor, _ = strconv.Atoi(m[2])
+		tag.Patch, _ = strconv.Atoi(m[3])
+		tag.Prerelease = m[4]
+		if m[5] != "" {
+			tag.PrereleaseNum, _ = strconv.Atoi(m[5])
+		}
 		tags = append(tags, tag)
 	}
 	sort.Slice(tags, func(i, j int) bool { return tags[i].Less(tags[j]) })
 	return tags, nil
 }
 
-// OnePerMinor filters tags to one representative per minor version (the earliest
-// patch). It also appends the latest patch of the highest minor so that recent
-// patches are represented.
+// OnePerMinor filters tags to one representative per minor version (the latest
+// release). If a stable release exists for a patch, it is preferred over a
+// pre-release of the same patch; otherwise the latest pre-release is used.
 func OnePerMinor(tags []VersionTag) []VersionTag {
 	byMinor := make(map[string][]VersionTag)
 	for _, t := range tags {
@@ -124,15 +161,20 @@ func OnePerMinor(tags []VersionTag) []VersionTag {
 		keys = append(keys, versionKey{key: k, tag: list[0]})
 	}
 	sort.Slice(keys, func(i, j int) bool { return keys[i].tag.Less(keys[j].tag) })
+
 	var res []VersionTag
 	for _, k := range keys {
 		list := byMinor[k.key]
 		sort.Slice(list, func(i, j int) bool { return list[i].Less(list[j]) })
-		res = append(res, list[0])
-		// Keep the latest patch of the latest minor.
-		if k.key == keys[len(keys)-1].key && len(list) > 1 {
-			res = append(res, list[len(list)-1])
+		// Prefer the latest stable if any; otherwise the latest pre-release.
+		chosen := list[len(list)-1]
+		for i := len(list) - 1; i >= 0; i-- {
+			if list[i].IsStable() {
+				chosen = list[i]
+				break
+			}
 		}
+		res = append(res, chosen)
 	}
 	sort.Slice(res, func(i, j int) bool { return res[i].Less(res[j]) })
 	return res

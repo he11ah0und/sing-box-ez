@@ -227,6 +227,15 @@ analyze: fmt-check vet test lint ineffassign-check complexity security
 	@echo "Full analysis complete"
 
 # ---------------------------------------------------------------------------
+# Generated code
+# ---------------------------------------------------------------------------
+proto:
+	$(GO) generate ./internal/core/api/singbox/...
+
+schema:
+	$(GO) run ./cmd/schema-gen -repo-dir /tmp/sing-box-schema-repo -out internal/singboxconfig/schema.yaml
+
+# ---------------------------------------------------------------------------
 # Docs
 # ---------------------------------------------------------------------------
 docs:

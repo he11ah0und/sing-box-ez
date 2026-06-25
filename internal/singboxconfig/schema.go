@@ -5,6 +5,7 @@ type Schema struct {
 	Version       string                 `yaml:"version"`
 	SingboxLatest string                 `yaml:"singbox_latest"`
 	Fields        map[string]*SchemaNode `yaml:"fields"`
+	Shared        map[string]*SchemaNode `yaml:"shared,omitempty"`
 }
 
 // SchemaNode describes a single field in the sing-box config.
@@ -25,6 +26,12 @@ type SchemaNode struct {
 	AdditionalProperties bool                   `yaml:"additional_properties,omitempty"`
 	// LegacyHint marks fields that need special semantic checks beyond the dictionary.
 	LegacyHint string `yaml:"legacy_hint,omitempty"`
+	// Ref refers to a shared schema node in Schema.Shared. When non-empty,
+	// this node should be replaced by a copy of the referenced shared node.
+	Ref string `yaml:"ref,omitempty"`
+	// Spread indicates that the referenced shared object's children should be
+	// merged into the parent object instead of replacing this node.
+	Spread bool `yaml:"spread,omitempty"`
 }
 
 // TypedVariant selects a set of fields when a discriminator matches.
