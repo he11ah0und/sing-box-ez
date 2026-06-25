@@ -101,6 +101,11 @@ func (d *Dropdown) SetPaginationLabels(prev, next string) {
 // SetValue updates the displayed value.
 func (d *Dropdown) SetValue(v string) { d.value = v }
 
+// Show opens the dropdown dialog programmatically.
+func (d *Dropdown) Show() {
+	d.showDialog()
+}
+
 // SetLabel updates the label shown above the dropdown.
 func (d *Dropdown) SetLabel(label string) { d.label = label }
 

@@ -52,8 +52,9 @@ type MainPage struct {
 	invalidate func()
 	dialog     widgets.DialogProvider
 
-	mainBtn    widget.Clickable
-	restartBtn widget.Clickable
+	mainBtn        widget.Clickable
+	restartBtn     widget.Clickable
+	switchConfigBtn widget.Clickable
 
 	processing bool
 	spinAngle  float32
@@ -231,6 +232,9 @@ func (p *MainPage) overviewChildren(gtx layout.Context) []layout.FlexChild {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutProfileCard(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.layoutOutboundChain(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.modeDropdown.Layout(gtx, false)
@@ -472,7 +476,8 @@ func (p *MainPage) layoutProfileCard(gtx layout.Context) layout.Dimensions {
 		children = append(children,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return p.configDropdown.Layout(gtx, false)
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					return material.Button(p.th, &p.switchConfigBtn, localengine.T("main", "btn", "switch")).Layout(gtx)
 				})
 			}),
 		)
@@ -486,6 +491,99 @@ func (p *MainPage) badgeChip(gtx layout.Context, text string, colors theme.Palet
 		lbl.Color = colors.Fg
 		return lbl.Layout(gtx)
 	})
+}
+
+func (p *MainPage) layoutOutboundChain(gtx layout.Context) layout.Dimensions {
+	colors := theme.Current().Colors()
+	p.apiMu.Lock()
+	groups := p.apiGroups
+	p.apiMu.Unlock()
+
+	chain, delay := p.buildOutboundChain(groups)
+	if chain == "" {
+		return layout.Dimensions{}
+	}
+
+	return widgets.BorderedCard(gtx, colors.Separator, colors.Surface, unit.Dp(1), unit.Dp(8), unit.Dp(12), func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				lbl := material.Body2(p.th, chain)
+				lbl.Color = colors.Fg
+				return lbl.Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if delay == "" {
+					return layout.Dimensions{}
+				}
+				lbl := material.Body2(p.th, delay)
+				lbl.Color = colors.Success
+				return lbl.Layout(gtx)
+			}),
+		)
+	})
+}
+
+func (p *MainPage) buildOutboundChain(groups []coreapi.Group) (string, string) {
+	if len(groups) == 0 {
+		return "", ""
+	}
+	groupMap := make(map[string]coreapi.Group, len(groups))
+	selectedAsNode := make(map[string]int)
+	for _, g := range groups {
+		groupMap[g.Tag] = g
+		for _, n := range g.Nodes {
+			selectedAsNode[n.Tag]++
+		}
+	}
+
+	var roots []coreapi.Group
+	for _, g := range groups {
+		if selectedAsNode[g.Tag] == 0 {
+			roots = append(roots, g)
+		}
+	}
+	if len(roots) == 0 {
+		return "", ""
+	}
+	sort.Slice(roots, func(i, j int) bool {
+		return strings.ToLower(roots[i].Tag) < strings.ToLower(roots[j].Tag)
+	})
+
+	g := roots[0]
+	var parts []string
+	visited := make(map[string]bool)
+	delay := ""
+	for {
+		if visited[g.Tag] {
+			break
+		}
+		visited[g.Tag] = true
+		parts = append(parts, fmt.Sprintf("%s (%s)", g.Tag, g.Type))
+		if g.Selected == "" {
+			break
+		}
+		if next, ok := groupMap[g.Selected]; ok {
+			g = next
+			continue
+		}
+		nodeType := ""
+		for _, n := range g.Nodes {
+			if n.Tag == g.Selected {
+				nodeType = n.Type
+				if n.DelayValid {
+					delay = fmt.Sprintf("%d ms", n.Delay)
+				}
+				break
+			}
+		}
+		if nodeType == "" {
+			nodeType = localengine.T("main", "api", "node")
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", g.Selected, nodeType))
+		break
+	}
+	return strings.Join(parts, " → "), delay
 }
 
 func (p *MainPage) layoutGraphs(gtx layout.Context) layout.Dimensions {
@@ -1052,6 +1150,9 @@ func (p *MainPage) handleClicks(gtx layout.Context) {
 	}
 	if p.restartBtn.Clicked(gtx) {
 		go p.onRestart()
+	}
+	if p.switchConfigBtn.Clicked(gtx) {
+		p.configDropdown.Show()
 	}
 	if p.closeConnsBtn.Clicked(gtx) {
 		go p.closeConnections()

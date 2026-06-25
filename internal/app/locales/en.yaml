@@ -22,6 +22,7 @@ main:
     start: Start
     stop: Stop
     restart: Restart
+    switch: Switch
   tabs:
     overview: Overview
     groups: Groups
