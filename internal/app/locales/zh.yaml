@@ -22,6 +22,7 @@ main:
     start: 启动
     stop: 停止
     restart: 重启
+    switch: 切换
   tabs:
     overview: 概览
     groups: 分组

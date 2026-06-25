@@ -99,7 +99,7 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 	}
 	var groups []api.Group
 	for name, p := range resp.Proxies {
-		if p.Type != "Selector" && p.Type != "URLTest" {
+		if p.Type != "Selector" && p.Type != "URLTest" && p.Type != "Fallback" && p.Type != "LoadBalance" {
 			continue
 		}
 		g := api.Group{
@@ -119,11 +119,14 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 				continue
 			}
 			node := api.Node{Tag: n}
-			if leaf, ok := resp.Proxies[n]; ok && len(leaf.History) > 0 {
-				last := leaf.History[len(leaf.History)-1]
-				if last.Delay > 0 {
-					node.Delay = last.Delay
-					node.DelayValid = true
+			if leaf, ok := resp.Proxies[n]; ok {
+				node.Type = leaf.Type
+				if len(leaf.History) > 0 {
+					last := leaf.History[len(leaf.History)-1]
+					if last.Delay > 0 {
+						node.Delay = last.Delay
+						node.DelayValid = true
+					}
 				}
 			}
 			g.Nodes = append(g.Nodes, node)

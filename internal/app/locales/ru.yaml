@@ -22,6 +22,7 @@ main:
     start: Старт
     stop: Стоп
     restart: Перезапуск
+    switch: Переключить
   tabs:
     overview: Обзор
     groups: Группы
