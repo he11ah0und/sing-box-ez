@@ -46,6 +46,41 @@ func (s *Sparkline) Add(v float64) {
 // Values returns the current data slice.
 func (s *Sparkline) Values() []float64 { return s.data }
 
+// SetMaxPoints changes the rolling window size and trims excess old data.
+func (s *Sparkline) SetMaxPoints(maxPoints int) {
+	if maxPoints < 2 {
+		maxPoints = 2
+	}
+	s.maxPoints = maxPoints
+	if len(s.data) > s.maxPoints {
+		s.data = s.data[len(s.data)-s.maxPoints:]
+	}
+}
+
+// MaxPoints returns the current rolling window size.
+func (s *Sparkline) MaxPoints() int { return s.maxPoints }
+
+// Stats returns the minimum, maximum and average of the retained values.
+func (s *Sparkline) Stats() (min, max, avg float64) {
+	if len(s.data) == 0 {
+		return 0, 0, 0
+	}
+	min = s.data[0]
+	max = s.data[0]
+	var sum float64
+	for _, v := range s.data {
+		if v < min {
+			min = v
+		}
+		if v > max {
+			max = v
+		}
+		sum += v
+	}
+	avg = sum / float64(len(s.data))
+	return
+}
+
 // Layout draws the sparkline into a rectangle of the requested size.
 func (s *Sparkline) Layout(gtx layout.Context, width, height unit.Dp) layout.Dimensions {
 	w := float32(gtx.Dp(width))

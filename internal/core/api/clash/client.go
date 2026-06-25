@@ -272,12 +272,16 @@ func (c *Client) readTrafficStream(ctx context.Context, ch chan<- *api.StatusEve
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if !strings.HasPrefix(line, "data:") {
+		if line == "" {
 			continue
 		}
-		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if data == "" {
-			continue
+		// Some cores send raw JSON lines, others wrap them in SSE "data:".
+		data := line
+		if strings.HasPrefix(line, "data:") {
+			data = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if data == "" {
+				continue
+			}
 		}
 		var t struct {
 			Up   int64 `json:"up"`
@@ -289,8 +293,8 @@ func (c *Client) readTrafficStream(ctx context.Context, ch chan<- *api.StatusEve
 		select {
 		case ch <- &api.StatusEvent{Status: api.Status{
 			TrafficAvailable: true,
-			UplinkTotal:      t.Up,
-			DownlinkTotal:    t.Down,
+			Uplink:           t.Up,
+			Downlink:         t.Down,
 		}}:
 		case <-ctx.Done():
 			return ctx.Err()

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"net"
 	"sort"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"gio.tools/icons"
 	"gioui.org/f32"
+	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -32,8 +34,8 @@ import (
 )
 
 const (
-	defaultURLTestURL = "http://www.gstatic.com/generate_204"
-	maxGraphPoints    = 60
+	defaultURLTestURL   = "http://www.gstatic.com/generate_204"
+	defaultGraphHistory = 60
 )
 
 type mainTab int
@@ -43,6 +45,14 @@ const (
 	tabGroups
 	tabConnections
 )
+
+func (p *MainPage) graphHistory() int {
+	n := p.ctrl.Backend().Config().Int("core", "traffic_graph_history")
+	if n < 2 {
+		return defaultGraphHistory
+	}
+	return n
+}
 
 // MainPage renders the main control screen with start/stop/restart and live
 // core API controls (mode, groups, connections).
@@ -89,6 +99,7 @@ type MainPage struct {
 	// Connections tab state.
 	connMu          sync.RWMutex
 	connRows        map[string]*widget.Clickable
+	detailRowBtns   map[string]*widget.Clickable
 	closeDetailsBtn widget.Clickable
 	closeConnsBtn   widget.Clickable
 
@@ -123,6 +134,7 @@ func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 		dialog:         dialog,
 		invalidate:     invalidate,
 		connRows:       make(map[string]*widget.Clickable),
+		detailRowBtns:  make(map[string]*widget.Clickable),
 		groupDelays:    make(map[string]map[string]int),
 		expandedGroups: make(map[string]bool),
 		groupTesting:   make(map[string]bool),
@@ -130,8 +142,8 @@ func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	}
 
 	colors := theme.Current().Colors()
-	p.upSpark = widgets.NewSparkline(colors.Success, maxGraphPoints)
-	p.downSpark = widgets.NewSparkline(colors.Info, maxGraphPoints)
+	p.upSpark = widgets.NewSparkline(colors.Success, p.graphHistory())
+	p.downSpark = widgets.NewSparkline(colors.Info, p.graphHistory())
 
 	p.configDropdown = widgets.NewDropdown(
 		th, dialog,
@@ -187,14 +199,29 @@ func (p *MainPage) Layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *MainPage) stoppedLayout(gtx layout.Context) layout.Dimensions {
-	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return widgets.SpacedList(gtx, p.stoppedChildren(gtx)...)
-	})
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		// The Start/spinner button occupies all remaining space and is centered
+		// vertically inside that area.
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				if p.processing || p.ctrl.Backend().IsRunning() {
+					return p.spinnerButton(gtx, unit.Dp(120))
+				}
+				return p.roundButton(gtx, p.th, &p.mainBtn, localengine.T("main", "btn", "start"), unit.Dp(120))
+			})
+		}),
+		// Active config dropdown is pinned to the bottom.
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Bottom: unit.Dp(24), Left: unit.Dp(24), Right: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return p.configDropdown.Layout(gtx, false)
+			})
+		}),
+	)
 }
 
 func (p *MainPage) runningLayout(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(p.layoutTabBar),
+		layout.Rigid(p.layoutDashboardHeader),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return material.List(p.th, &p.contentList).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 				return widgets.SpacedList(gtx, p.contentChildren(gtx)...)
@@ -214,29 +241,8 @@ func (p *MainPage) contentChildren(gtx layout.Context) []layout.FlexChild {
 	}
 }
 
-func (p *MainPage) stoppedChildren(gtx layout.Context) []layout.FlexChild {
-	return []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Bottom: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				// Show the spinner while the backend is starting or the API hasn't
-				// reported its first successful Status() yet.
-				if p.processing || p.ctrl.Backend().IsRunning() {
-					return p.spinnerButton(gtx, unit.Dp(120))
-				}
-				return p.roundButton(gtx, p.th, &p.mainBtn, localengine.T("main", "btn", "start"), unit.Dp(120))
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.configDropdown.Layout(gtx, false)
-		}),
-	}
-}
-
 func (p *MainPage) overviewChildren(gtx layout.Context) []layout.FlexChild {
 	return []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.layoutStatusHeader(gtx)
-		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutProfileCard(gtx)
 		}),
@@ -347,9 +353,17 @@ func (p *MainPage) connectionsChildren() []layout.FlexChild {
 	return children
 }
 
-// ---------- tab bar ----------
+// ---------- dashboard header ----------
 
-func (p *MainPage) layoutTabBar(gtx layout.Context) layout.Dimensions {
+func (p *MainPage) layoutDashboardHeader(gtx layout.Context) layout.Dimensions {
+	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start, Spacing: layout.SpaceBetween}.Layout(gtx,
+		layout.Rigid(p.layoutTabs),
+		layout.Rigid(p.layoutStatusHeaderCompact),
+	)
+}
+
+func (p *MainPage) layoutTabs(gtx layout.Context) layout.Dimensions {
 	tabs := []struct {
 		label string
 		btn   *widget.Clickable
@@ -371,7 +385,7 @@ func (p *MainPage) layoutTabBar(gtx layout.Context) layout.Dimensions {
 			return p.tabButton(gtx, idx, t.label, t.btn)
 		}))
 	}
-	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx, children...)
+	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start, Spacing: layout.SpaceStart}.Layout(gtx, children...)
 }
 
 func (p *MainPage) tabButton(gtx layout.Context, tab mainTab, label string, btn *widget.Clickable) layout.Dimensions {
@@ -401,43 +415,43 @@ func (p *MainPage) tabButton(gtx layout.Context, tab mainTab, label string, btn 
 	})
 }
 
-// ---------- overview widgets ----------
-
-func (p *MainPage) layoutStatusHeader(gtx layout.Context) layout.Dimensions {
+// layoutStatusHeaderCompact shows Backend / Version / Uptime aligned to the
+// right side of the dashboard header.
+func (p *MainPage) layoutStatusHeaderCompact(gtx layout.Context) layout.Dimensions {
 	p.apiMu.Lock()
 	status := p.apiStatus
 	errMsg := p.apiErr
 	connectedAt := p.apiConnectedAt
 	p.apiMu.Unlock()
 
-	children := []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(p.th, localengine.T("main", "api", "title")).Layout(gtx)
-		}),
-	}
-
+	children := []layout.FlexChild{}
 	if info := p.ctrl.Backend().APIInfo(); info != nil {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Body2(p.th, localengine.T("main", "api", "backend")+string(info.Backend)).Layout(gtx)
+			lbl := material.Body2(p.th, localengine.T("main", "api", "backend")+string(info.Backend))
+			lbl.Alignment = text.End
+			return lbl.Layout(gtx)
 		}))
 	}
-
 	if status.Version != "" {
-		uptime := version.HumanDurationFrom(time.Since(connectedAt), false)
+		uptime := version.HumanDurationPlain(time.Since(connectedAt))
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Body2(p.th, fmt.Sprintf(localengine.T("main", "api", "status"), status.Version, uptime)).Layout(gtx)
+			lbl := material.Body2(p.th, fmt.Sprintf(localengine.T("main", "api", "status"), status.Version, uptime))
+			lbl.Alignment = text.End
+			return lbl.Layout(gtx)
 		}))
 	}
 	if errMsg != "" {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			lbl := material.Body2(p.th, errMsg)
 			lbl.Color = theme.Current().Colors().Error
+			lbl.Alignment = text.End
 			return lbl.Layout(gtx)
 		}))
 	}
-
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	return layout.Flex{Axis: layout.Vertical, Alignment: layout.End}.Layout(gtx, children...)
 }
+
+// ---------- overview widgets ----------
 
 func (p *MainPage) layoutProfileCard(gtx layout.Context) layout.Dimensions {
 	colors := theme.Current().Colors()
@@ -579,7 +593,9 @@ func (p *MainPage) buildOutboundChain(groups []coreapi.Group) (string, string) {
 			break
 		}
 		visited[g.Tag] = true
-		parts = append(parts, fmt.Sprintf("%s (%s)", g.Tag, g.Type))
+		if g.Tag != "GLOBAL" {
+			parts = append(parts, fmt.Sprintf("%s (%s)", g.Tag, g.Type))
+		}
 		if g.Selected == "" {
 			break
 		}
@@ -640,6 +656,7 @@ func (p *MainPage) layoutGraphs(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *MainPage) graphCard(gtx layout.Context, title, rate string, spark *widgets.Sparkline) layout.Dimensions {
+	colors := theme.Current().Colors()
 	gtx.Constraints.Min.X = gtx.Constraints.Max.X
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -652,7 +669,7 @@ func (p *MainPage) graphCard(gtx layout.Context, title, rate string, spark *widg
 						return layout.Dimensions{}
 					}
 					lbl := material.Body2(p.th, rate)
-					lbl.Color = theme.Current().Colors().DisabledFg
+					lbl.Color = colors.DisabledFg
 					return lbl.Layout(gtx)
 				}),
 			)
@@ -661,6 +678,18 @@ func (p *MainPage) graphCard(gtx layout.Context, title, rate string, spark *widg
 			return layout.Inset{Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				w := unit.Dp(float32(gtx.Constraints.Max.X) / gtx.Metric.PxPerDp)
 				return spark.Layout(gtx, w, unit.Dp(80))
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			min, max, avg := spark.Stats()
+			return layout.Inset{Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				txt := fmt.Sprintf("%s: %s  %s: %s  %s: %s",
+					localengine.T("main", "dashboard", "min"), formatSpeed(min),
+					localengine.T("main", "dashboard", "max"), formatSpeed(max),
+					localengine.T("main", "dashboard", "avg"), formatSpeed(avg))
+				lbl := material.Caption(p.th, txt)
+				lbl.Color = colors.DisabledFg
+				return lbl.Layout(gtx)
 			})
 		}),
 	)
@@ -920,7 +949,13 @@ func (p *MainPage) layoutConnectionRow(gtx layout.Context, conn coreapi.Connecti
 		outbound = conn.Chain[len(conn.Chain)-1]
 	}
 
-	sub := fmt.Sprintf("↑%s ↓%s", formatBytes(conn.UplinkTotal), formatBytes(conn.DownlinkTotal))
+	var sub string
+	info := p.ctrl.Backend().APIInfo()
+	if info != nil && info.Backend != coreapi.BackendClash && (conn.Uplink > 0 || conn.Downlink > 0) {
+		sub = fmt.Sprintf("↑%s ↓%s · %s", formatSpeed(float64(conn.Uplink)), formatSpeed(float64(conn.Downlink)), formatBytes(conn.UplinkTotal+conn.DownlinkTotal))
+	} else {
+		sub = fmt.Sprintf("↑%s ↓%s", formatBytes(conn.UplinkTotal), formatBytes(conn.DownlinkTotal))
+	}
 	if outbound != "" {
 		sub += " · " + outbound
 	}
@@ -1075,6 +1110,15 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 		outbound = fmt.Sprintf("%s (%s)", conn.Outbound, conn.OutboundType)
 	}
 
+	info := p.ctrl.Backend().APIInfo()
+	showSpeed := info != nil && info.Backend != coreapi.BackendClash && (conn.Uplink > 0 || conn.Downlink > 0)
+	uplinkVal := formatBytes(conn.UplinkTotal)
+	downlinkVal := formatBytes(conn.DownlinkTotal)
+	if showSpeed {
+		uplinkVal = fmt.Sprintf("%s (%s)", formatSpeed(float64(conn.Uplink)), formatBytes(conn.UplinkTotal))
+		downlinkVal = fmt.Sprintf("%s (%s)", formatSpeed(float64(conn.Downlink)), formatBytes(conn.DownlinkTotal))
+	}
+
 	rows := []struct{ k, v string }{
 		{localengine.T("connection_details", "id"), conn.ID},
 		{localengine.T("connection_details", "inbound"), inbound},
@@ -1084,8 +1128,8 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 		{localengine.T("connection_details", "domain"), conn.Domain},
 		{localengine.T("connection_details", "outbound"), outbound},
 		{localengine.T("connection_details", "chain"), strings.Join(conn.Chain, " → ")},
-		{localengine.T("connection_details", "uplink"), formatBytes(conn.UplinkTotal)},
-		{localengine.T("connection_details", "downlink"), formatBytes(conn.DownlinkTotal)},
+		{localengine.T("connection_details", "uplink"), uplinkVal},
+		{localengine.T("connection_details", "downlink"), downlinkVal},
 		{localengine.T("connection_details", "created"), formatTime(conn.CreatedAt)},
 	}
 	if conn.ProcessInfo.UserName != "" {
@@ -1098,7 +1142,7 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 	children := make([]layout.FlexChild, 0, len(rows)+2)
 	for _, r := range rows {
 		r := r
-		children = append(children, p.detailRow(r.k, r.v))
+		children = append(children, p.detailRow(r.k, r.v, p.detailRowBtn(r.k)))
 	}
 
 	if p.closeDetailsBtn.Clicked(gtx) {
@@ -1117,10 +1161,28 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 	return widgets.DialogSpacedList(gtx, children...)
 }
 
-func (p *MainPage) detailRow(label, value string) layout.FlexChild {
+func (p *MainPage) detailRowBtn(label string) *widget.Clickable {
+	if p.detailRowBtns == nil {
+		p.detailRowBtns = make(map[string]*widget.Clickable)
+	}
+	if btn, ok := p.detailRowBtns[label]; ok {
+		return btn
+	}
+	btn := &widget.Clickable{}
+	p.detailRowBtns[label] = btn
+	return btn
+}
+
+func (p *MainPage) detailRow(label, value string, btn *widget.Clickable) layout.FlexChild {
 	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		if value == "" {
 			return layout.Dimensions{}
+		}
+		if btn.Clicked(gtx) {
+			gtx.Execute(clipboard.WriteCmd{
+				Type: "text/plain",
+				Data: io.NopCloser(strings.NewReader(value)),
+			})
 		}
 		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start, Spacing: layout.SpaceBetween}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -1131,9 +1193,11 @@ func (p *MainPage) detailRow(label, value string) layout.FlexChild {
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Body2(p.th, value)
-				lbl.Alignment = text.End
-				return lbl.Layout(gtx)
+				return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
+					lbl := material.Body2(p.th, value)
+					lbl.Alignment = text.End
+					return lbl.Layout(gtx)
+				})
 			}),
 		)
 	})
@@ -1684,8 +1748,8 @@ func (p *MainPage) setTrafficErr(msg string) {
 func (p *MainPage) resetTrafficState() {
 	p.trafficMu.Lock()
 	defer p.trafficMu.Unlock()
-	p.upSpark = widgets.NewSparkline(theme.Current().Colors().Success, maxGraphPoints)
-	p.downSpark = widgets.NewSparkline(theme.Current().Colors().Info, maxGraphPoints)
+	p.upSpark = widgets.NewSparkline(theme.Current().Colors().Success, p.graphHistory())
+	p.downSpark = widgets.NewSparkline(theme.Current().Colors().Info, p.graphHistory())
 	p.lastUpTotal = 0
 	p.lastDownTotal = 0
 	p.lastTraffic = time.Time{}
@@ -1722,6 +1786,10 @@ func (p *MainPage) recordTraffic(s coreapi.Status) {
 	p.lastUpTotal = s.UplinkTotal
 	p.lastDownTotal = s.DownlinkTotal
 	p.lastTraffic = now
+
+	n := p.graphHistory()
+	p.upSpark.SetMaxPoints(n)
+	p.downSpark.SetMaxPoints(n)
 
 	p.upSpark.Add(upRate)
 	p.downSpark.Add(dnRate)

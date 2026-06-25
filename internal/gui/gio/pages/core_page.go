@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,17 +37,17 @@ type CorePage struct {
 
 	autoRestart widget.Bool
 
-	logLevel   *widgets.Dropdown
-	savedLevel string
+	logLevel             *widgets.Dropdown
+	savedLevel           string
+	graphHistoryDropdown *widgets.Dropdown
 
 	highlightEnd time.Time
 
 	restartAdminBtn widget.Clickable
 
 	// privilegeMode is either "admin" or "setcap" (Linux only).
-	privilegeMode string
-	// privilegePickerBtn opens the mode selector dialog.
-	privilegePickerBtn widget.Clickable
+	privilegeMode     string
+	privilegeDropdown *widgets.Dropdown
 
 	privilegeState core.PrivilegeTabState
 
@@ -62,6 +63,7 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	}
 	p.autoRestart.Value = ctrl.Backend().Config().MustGet("core", "auto_restart").Bool()
 	p.initLogOverride()
+	p.initGraphHistoryDropdown()
 
 	p.privilegeState = ctrl.Backend().GetPrivilegeTabState()
 
@@ -70,6 +72,8 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	if p.privilegeState.Mode == "linux" && p.privilegeState.HasSetcap {
 		p.privilegeMode = "setcap"
 	}
+
+	p.initPrivilegeDropdown()
 
 	current := ""
 	if ver, err := ctrl.Backend().GetInstalledCoreVersion(); err == nil {
@@ -139,6 +143,43 @@ func (p *CorePage) initLogOverride() {
 	)
 }
 
+func (p *CorePage) initGraphHistoryDropdown() {
+	current := p.ctrl.Backend().Config().Int("core", "traffic_graph_history")
+	if current < 2 {
+		current = 60
+	}
+	options := []string{"30", "60", "120", "300"}
+	p.graphHistoryDropdown = widgets.NewDropdown(
+		p.th, p.dialog,
+		localengine.T("core", "graph_history", "label"),
+		strconv.Itoa(current),
+		options,
+		nil,
+		func(v string) {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 2 {
+				return
+			}
+			_ = p.ctrl.Backend().Config().Set([]string{"core", "traffic_graph_history"}, n)
+		},
+	)
+}
+
+func (p *CorePage) initPrivilegeDropdown() {
+	if p.privilegeState.Mode != "linux" {
+		return
+	}
+	modes := []string{"admin", "setcap"}
+	p.privilegeDropdown = widgets.NewDropdown(
+		p.th, p.dialog,
+		localengine.T("core", "privileges", "title"),
+		p.privilegeMode,
+		modes,
+		func(mode string) string { return localengine.T("core", "mode", mode) },
+		func(mode string) { p.onPrivilegeModeChange(mode) },
+	)
+}
+
 func (p *CorePage) saveLogLevel() {
 	level := p.logLevel.Value()
 	if level == p.savedLevel {
@@ -197,8 +238,8 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 			_ = p.ctrl.Backend().RestartAsAdmin()
 		}()
 	}
-	if p.privilegePickerBtn.Clicked(gtx) {
-		p.openPrivilegePicker()
+	if p.privilegeDropdown != nil {
+		p.privilegeDropdown.SetValue(p.privilegeMode)
 	}
 
 	if changed := p.autoRestart.Update(gtx); changed {
@@ -223,6 +264,9 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.logLevel.Layout(gtx, false)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.graphHistoryDropdown.Layout(gtx, false)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.separator(gtx)
@@ -282,16 +326,10 @@ func (p *CorePage) layoutWindowsPrivileges(gtx layout.Context) layout.Dimensions
 }
 
 func (p *CorePage) layoutLinuxPrivileges(gtx layout.Context) layout.Dimensions {
-	label := localengine.T("core", "mode", "admin")
-	if p.privilegeMode == "setcap" {
-		label = localengine.T("core", "mode", "setcap")
+	if p.privilegeDropdown == nil {
+		return layout.Dimensions{}
 	}
-
-	return widgets.SpacedList(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Button(p.th, &p.privilegePickerBtn, label).Layout(gtx)
-		}),
-	)
+	return p.privilegeDropdown.Layout(gtx, false)
 }
 
 func (p *CorePage) coloredLabel(gtx layout.Context, text string, c color.NRGBA) layout.Dimensions {
@@ -352,34 +390,6 @@ func (p *CorePage) apiInfoRow(gtx layout.Context, label, value string) layout.Fl
 				return lbl.Layout(gtx)
 			}),
 		)
-	})
-}
-
-func (p *CorePage) openPrivilegePicker() {
-	modes := []string{"admin", "setcap"}
-	btns := make([]widget.Clickable, len(modes))
-
-	p.dialog.ShowCustom(localengine.T("core", "privileges", "title"), func(gtx layout.Context) layout.Dimensions {
-		for i := range modes {
-			if btns[i].Clicked(gtx) {
-				p.dialog.HideCustom()
-				p.onPrivilegeModeChange(modes[i])
-			}
-		}
-
-		children := make([]layout.FlexChild, len(modes))
-		for i, m := range modes {
-			idx := i
-			mode := m
-			label := localengine.T("core", "mode", mode)
-			if mode == p.privilegeMode {
-				label = "> " + label
-			}
-			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &btns[idx], label).Layout(gtx)
-			})
-		}
-		return widgets.DialogSpacedList(gtx, children...)
 	})
 }
 

@@ -26,29 +26,43 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 		return localengine.T("duration", "just_now")
 	}
 
-	var unit string
-	switch {
-	case d < time.Hour:
-		unit = fmt.Sprintf(localengine.T("duration", "unit_minutes"), int(d.Minutes()))
-	case d < 24*time.Hour:
-		hours := int(d.Hours())
-		mins := int(d.Minutes()) % 60
-		hoursStr := fmt.Sprintf(localengine.T("duration", "unit_hours"), hours)
-		if mins == 0 {
-			unit = hoursStr
-		} else {
-			minsStr := fmt.Sprintf(localengine.T("duration", "unit_minutes"), mins)
-			unit = hoursStr + " " + minsStr
-		}
-	case d < 30*24*time.Hour:
-		unit = fmt.Sprintf(localengine.T("duration", "unit_days"), int(d.Hours()/24))
-	case d < 365*24*time.Hour:
-		unit = fmt.Sprintf(localengine.T("duration", "unit_months"), int(d.Hours()/24/30))
-	default:
-		unit = fmt.Sprintf(localengine.T("duration", "unit_years"), int(d.Hours()/24/365))
-	}
+	unit := humanDurationUnit(d)
 	if future {
 		return fmt.Sprintf(localengine.T("duration", "in"), unit)
 	}
 	return fmt.Sprintf(localengine.T("duration", "ago"), unit)
+}
+
+// HumanDurationPlain returns a compact numeric duration like "5s", "3h 5m", "1d",
+// without "ago", "just now" or other suffixes.
+func HumanDurationPlain(d time.Duration) string {
+	if d < 0 {
+		d = -d
+	}
+	return humanDurationUnit(d)
+}
+
+func humanDurationUnit(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf(localengine.T("duration", "seconds"), int(d.Seconds()))
+	}
+	switch {
+	case d < time.Hour:
+		return fmt.Sprintf(localengine.T("duration", "minutes"), int(d.Minutes()))
+	case d < 24*time.Hour:
+		hours := int(d.Hours())
+		mins := int(d.Minutes()) % 60
+		hoursStr := fmt.Sprintf(localengine.T("duration", "hours"), hours)
+		if mins == 0 {
+			return hoursStr
+		}
+		minsStr := fmt.Sprintf(localengine.T("duration", "minutes"), mins)
+		return hoursStr + " " + minsStr
+	case d < 30*24*time.Hour:
+		return fmt.Sprintf(localengine.T("duration", "days"), int(d.Hours()/24))
+	case d < 365*24*time.Hour:
+		return fmt.Sprintf(localengine.T("duration", "months"), int(d.Hours()/24/30))
+	default:
+		return fmt.Sprintf(localengine.T("duration", "years"), int(d.Hours()/24/365))
+	}
 }
