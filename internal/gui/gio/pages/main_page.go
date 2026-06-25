@@ -148,6 +148,7 @@ func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	)
 
 	p.tabBtns = make([]widget.Clickable, 3)
+	p.contentList.Axis = layout.Vertical
 
 	go p.refreshLoop()
 	go p.trafficLoop()
@@ -185,15 +186,8 @@ func (p *MainPage) stoppedLayout(gtx layout.Context) layout.Dimensions {
 }
 
 func (p *MainPage) runningLayout(gtx layout.Context) layout.Dimensions {
-	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X = gtx.Dp(unit.Dp(110))
-			gtx.Constraints.Max.X = gtx.Constraints.Min.X
-			return p.layoutSidebarTabs(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Dimensions{Size: image.Point{X: gtx.Dp(unit.Dp(16)), Y: 1}}
-		}),
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(p.layoutTabBar),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return material.List(p.th, &p.contentList).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 				return widgets.SpacedList(gtx, p.contentChildren(gtx)...)
@@ -336,28 +330,31 @@ func (p *MainPage) connectionsChildren() []layout.FlexChild {
 	return children
 }
 
-// ---------- sidebar tabs ----------
+// ---------- tab bar ----------
 
-func (p *MainPage) layoutSidebarTabs(gtx layout.Context) layout.Dimensions {
-	tabs := []string{
-		localengine.T("main", "tabs", "overview"),
-		localengine.T("main", "tabs", "groups"),
-		localengine.T("main", "tabs", "connections"),
+func (p *MainPage) layoutTabBar(gtx layout.Context) layout.Dimensions {
+	tabs := []struct {
+		label string
+		btn   *widget.Clickable
+	}{
+		{localengine.T("main", "tabs", "overview"), &p.tabBtns[tabOverview]},
+		{localengine.T("main", "tabs", "groups"), &p.tabBtns[tabGroups]},
+		{localengine.T("main", "tabs", "connections"), &p.tabBtns[tabConnections]},
 	}
-	children := make([]layout.FlexChild, 0, len(tabs)*2)
-	for i, label := range tabs {
-		idx := i
+
+	children := make([]layout.FlexChild, 0, len(tabs)*2-1)
+	for i, t := range tabs {
+		idx := mainTab(i)
 		if i > 0 {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return widgets.VSpace(gtx, unit.Dp(8))
+				return widgets.HSpace(gtx, unit.Dp(4))
 			}))
 		}
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return p.tabButton(gtx, mainTab(idx), label, &p.tabBtns[idx])
+			return p.tabButton(gtx, idx, t.label, t.btn)
 		}))
 	}
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceStart}.Layout(gtx, children...)
 }
 
 func (p *MainPage) tabButton(gtx layout.Context, tab mainTab, label string, btn *widget.Clickable) layout.Dimensions {
@@ -377,7 +374,6 @@ func (p *MainPage) tabButton(gtx layout.Context, tab mainTab, label string, btn 
 
 	return btn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return widgets.BorderedCard(gtx, borderColor, bg, unit.Dp(1), unit.Dp(4), unit.Dp(10), func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			lbl := material.Body2(p.th, label)
 			lbl.Color = fg
 			if active {
