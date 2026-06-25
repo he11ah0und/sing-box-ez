@@ -239,9 +239,6 @@ func (p *MainPage) overviewChildren(gtx layout.Context) []layout.FlexChild {
 			return p.layoutGraphs(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.configDropdown.Layout(gtx, false)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutBottomControls(gtx)
 		}),
 	}
@@ -472,6 +469,13 @@ func (p *MainPage) layoutProfileCard(gtx layout.Context) layout.Dimensions {
 				})
 			}))
 		}
+		children = append(children,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return p.configDropdown.Layout(gtx, false)
+				})
+			}),
+		)
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 	})
 }
@@ -829,7 +833,18 @@ func (p *MainPage) layoutConnectionRow(gtx layout.Context, conn coreapi.Connecti
 		return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return material.Body2(p.th, target).Layout(gtx)
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							return material.Body2(p.th, target).Layout(gtx)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							ipType := p.ipVersionLabel(conn.Destination)
+							if ipType == "" {
+								return layout.Dimensions{}
+							}
+							return p.badgeChip(gtx, ipType, colors)
+						}),
+					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Top: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -906,6 +921,21 @@ func isPortString(s string) bool {
 		}
 	}
 	return true
+}
+
+func (p *MainPage) ipVersionLabel(destination string) string {
+	host, _, isIP := splitHostPort(destination)
+	if !isIP || host == "" {
+		return ""
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return ""
+	}
+	if ip.To4() != nil {
+		return "IPv4"
+	}
+	return "IPv6"
 }
 
 func (p *MainPage) connRowBtn(id string) *widget.Clickable {
