@@ -26,6 +26,7 @@ import (
 	"sing-box-ez/internal/core"
 	coreapi "sing-box-ez/internal/core/api"
 	"sing-box-ez/internal/framework/localengine"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/gio/theme"
 	"sing-box-ez/internal/gui/gio/widgets"
 )
@@ -52,8 +53,8 @@ type MainPage struct {
 	invalidate func()
 	dialog     widgets.DialogProvider
 
-	mainBtn        widget.Clickable
-	restartBtn     widget.Clickable
+	mainBtn         widget.Clickable
+	restartBtn      widget.Clickable
 	switchConfigBtn widget.Clickable
 
 	processing bool
@@ -68,14 +69,15 @@ type MainPage struct {
 	modeDropdown   *widgets.Dropdown
 
 	// API state, protected by apiMu.
-	apiMu       sync.Mutex
-	apiClient   coreapi.CoreAPIClient
-	apiStatus   coreapi.Status
-	apiMode     string
-	apiGroups   []coreapi.Group
-	apiConns    []coreapi.Connection
-	apiErr      string
-	lastRefresh time.Time
+	apiMu          sync.Mutex
+	apiClient      coreapi.CoreAPIClient
+	apiStatus      coreapi.Status
+	apiMode        string
+	apiGroups      []coreapi.Group
+	apiConns       []coreapi.Connection
+	apiErr         string
+	lastRefresh    time.Time
+	apiConnectedAt time.Time
 
 	// Groups tab state, protected by groupMu.
 	groupMu        sync.Mutex
@@ -175,7 +177,10 @@ func (p *MainPage) Layout(gtx layout.Context) layout.Dimensions {
 		p.syncUIFromData()
 	}
 
-	if !p.ctrl.Backend().IsRunning() {
+	p.apiMu.Lock()
+	connected := !p.apiConnectedAt.IsZero()
+	p.apiMu.Unlock()
+	if !p.ctrl.Backend().IsRunning() || !connected {
 		return p.stoppedLayout(gtx)
 	}
 	return p.runningLayout(gtx)
@@ -213,7 +218,9 @@ func (p *MainPage) stoppedChildren(gtx layout.Context) []layout.FlexChild {
 	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Bottom: unit.Dp(24)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				if p.processing {
+				// Show the spinner while the backend is starting or the API hasn't
+				// reported its first successful Status() yet.
+				if p.processing || p.ctrl.Backend().IsRunning() {
 					return p.spinnerButton(gtx, unit.Dp(120))
 				}
 				return p.roundButton(gtx, p.th, &p.mainBtn, localengine.T("main", "btn", "start"), unit.Dp(120))
@@ -250,9 +257,17 @@ func (p *MainPage) overviewChildren(gtx layout.Context) []layout.FlexChild {
 
 func (p *MainPage) groupsChildren() []layout.FlexChild {
 	p.apiMu.Lock()
-	groups := p.apiGroups
+	allGroups := p.apiGroups
 	errMsg := p.apiErr
 	p.apiMu.Unlock()
+
+	groups := make([]coreapi.Group, 0, len(allGroups))
+	for _, g := range allGroups {
+		if g.Type == "Fallback" || g.Type == "LoadBalance" {
+			continue
+		}
+		groups = append(groups, g)
+	}
 
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -392,6 +407,7 @@ func (p *MainPage) layoutStatusHeader(gtx layout.Context) layout.Dimensions {
 	p.apiMu.Lock()
 	status := p.apiStatus
 	errMsg := p.apiErr
+	connectedAt := p.apiConnectedAt
 	p.apiMu.Unlock()
 
 	children := []layout.FlexChild{
@@ -407,7 +423,7 @@ func (p *MainPage) layoutStatusHeader(gtx layout.Context) layout.Dimensions {
 	}
 
 	if status.Version != "" {
-		uptime := status.Uptime.Round(time.Second).String()
+		uptime := version.HumanDurationFrom(time.Since(connectedAt), false)
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Body2(p.th, fmt.Sprintf(localengine.T("main", "api", "status"), status.Version, uptime)).Layout(gtx)
 		}))
@@ -461,26 +477,30 @@ func (p *MainPage) layoutProfileCard(gtx layout.Context) layout.Dimensions {
 				return widgets.VSpace(gtx, unit.Dp(8))
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Body2(p.th, name).Layout(gtx)
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return material.Body2(p.th, name).Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if updated == "" {
+									return layout.Dimensions{}
+								}
+								return layout.Inset{Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Caption(p.th, updated)
+									lbl.Color = colors.DisabledFg
+									return lbl.Layout(gtx)
+								})
+							}),
+						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Button(p.th, &p.switchConfigBtn, localengine.T("main", "btn", "switch")).Layout(gtx)
+					}),
+				)
 			}),
 		}
-		if updated != "" {
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Caption(p.th, updated)
-					lbl.Color = colors.DisabledFg
-					return lbl.Layout(gtx)
-				})
-			}))
-		}
-		children = append(children,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = gtx.Constraints.Max.X
-					return material.Button(p.th, &p.switchConfigBtn, localengine.T("main", "btn", "switch")).Layout(gtx)
-				})
-			}),
-		)
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 	})
 }
@@ -683,8 +703,6 @@ func (p *MainPage) layoutGroupCard(gtx layout.Context, g coreapi.Group) layout.D
 		expanded = true
 		p.expandedGroups[g.Tag] = true
 	}
-	testing := p.groupTesting[g.Tag]
-	msg := p.groupTestMsg[g.Tag]
 	p.groupMu.Unlock()
 
 	headerBtn := p.groupHeaderBtn(g.Tag)
@@ -740,26 +758,12 @@ func (p *MainPage) layoutGroupCard(gtx layout.Context, g coreapi.Group) layout.D
 									}
 									return layout.Dimensions{}
 								}
-								label := localengine.T("main", "api", "url_test")
-								if testing {
-									label = localengine.T("main", "api", "url_test_testing")
-								}
-								return material.Button(p.th, testBtn, label).Layout(gtx)
+								return material.IconButton(p.th, testBtn, icons.DeviceSignalCellular4Bar, localengine.T("main", "api", "url_test")).Layout(gtx)
 							}),
 						)
 					}),
 				)
 			}),
-		}
-
-		if msg != "" {
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Top: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Caption(p.th, msg)
-					lbl.Color = colors.DisabledFg
-					return lbl.Layout(gtx)
-				})
-			}))
 		}
 
 		if expanded {
@@ -1221,15 +1225,29 @@ func (p *MainPage) activateConfigAndMaybeRestart(name string) {
 		return
 	}
 	p.processing = true
-	defer func() { p.processing = false }()
 	if err := p.ctrl.Backend().ActivateConfig(name); err != nil {
+		p.processing = false
 		p.ctrl.Backend().Terminal().Infof("Failed to activate config: %v", err)
+		if p.invalidate != nil {
+			p.invalidate()
+		}
 		return
 	}
 	if p.ctrl.Backend().IsRunning() {
 		if err := p.ctrl.Backend().Restart(); err != nil {
+			p.processing = false
 			p.ctrl.Backend().Terminal().Infof("Failed to restart: %v", err)
+			if p.invalidate != nil {
+				p.invalidate()
+			}
+			return
 		}
+		// Restart succeeded; keep spinner until the API reconnects.
+		return
+	}
+	p.processing = false
+	if p.invalidate != nil {
+		p.invalidate()
 	}
 }
 
@@ -1301,8 +1319,13 @@ func lighten(c color.NRGBA, amount uint8) color.NRGBA {
 func (p *MainPage) onStart() {
 	p.processing = true
 	go func() {
-		defer func() { p.processing = false }()
-		_ = p.ctrl.StartService()
+		if err := p.ctrl.StartService(); err != nil {
+			p.processing = false
+			p.ctrl.Backend().Terminal().Infof("Failed to start service: %v", err)
+			if p.invalidate != nil {
+				p.invalidate()
+			}
+		}
 	}()
 }
 
@@ -1317,9 +1340,12 @@ func (p *MainPage) onStop() {
 func (p *MainPage) onRestart() {
 	p.processing = true
 	go func() {
-		defer func() { p.processing = false }()
 		if err := p.ctrl.Backend().Restart(); err != nil {
+			p.processing = false
 			p.ctrl.Backend().Terminal().Infof("Failed to restart: %v", err)
+			if p.invalidate != nil {
+				p.invalidate()
+			}
 		}
 	}()
 }
@@ -1345,13 +1371,14 @@ func (p *MainPage) refreshLoop() {
 
 func (p *MainPage) clearAPIState() {
 	p.apiMu.Lock()
-	changed := p.apiClient != nil || p.apiStatus.Version != "" || p.apiMode != "" || len(p.apiGroups) > 0 || len(p.apiConns) > 0 || p.apiErr != ""
+	changed := p.apiClient != nil || p.apiStatus.Version != "" || p.apiMode != "" || len(p.apiGroups) > 0 || len(p.apiConns) > 0 || p.apiErr != "" || !p.apiConnectedAt.IsZero()
 	p.apiClient = nil
 	p.apiStatus = coreapi.Status{}
 	p.apiMode = ""
 	p.apiGroups = nil
 	p.apiConns = nil
 	p.apiErr = ""
+	p.apiConnectedAt = time.Time{}
 	p.apiMu.Unlock()
 	p.resetTrafficState()
 	if changed && p.invalidate != nil {
@@ -1394,6 +1421,12 @@ func (p *MainPage) fetchAPI(client coreapi.CoreAPIClient) {
 	p.apiConns = conns
 	p.apiErr = errMsg
 	p.lastRefresh = time.Now()
+	if errMsg == "" && status != nil && status.Version != "" {
+		if p.apiConnectedAt.IsZero() {
+			p.apiConnectedAt = time.Now()
+		}
+		p.processing = false
+	}
 	p.apiMu.Unlock()
 
 	p.recordConnectionTraffic(conns)
