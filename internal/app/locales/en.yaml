@@ -28,6 +28,8 @@ main:
     overview: Overview
     groups: Groups
     connections: Connections
+  graph_history:
+    label: Traffic graph history
   api:
     title: Core control
     status: 'Version: %s  Uptime: %s'
@@ -56,6 +58,9 @@ main:
     outbound: Outbound
     profile: Profile
     started: Started
+    min: min
+    max: max
+    avg: avg
   groups:
     title: Groups
     empty: No outbound groups

@@ -28,6 +28,8 @@ main:
     overview: Обзор
     groups: Группы
     connections: Соединения
+  graph_history:
+    label: История графика трафика
   api:
     title: Управление ядром
     status: 'Версия: %s  Время работы: %s'
@@ -56,6 +58,9 @@ main:
     outbound: Исходящие
     profile: Профиль
     started: Запущено
+    min: мин
+    max: макс
+    avg: сред
   groups:
     title: Группы
     empty: Нет outbound-групп

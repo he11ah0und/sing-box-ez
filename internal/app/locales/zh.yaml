@@ -28,6 +28,8 @@ main:
     overview: 概览
     groups: 分组
     connections: 连接
+  graph_history:
+    label: 流量图表历史
   api:
     title: 核心控制
     status: '版本：%s  运行时间：%s'
@@ -55,6 +57,9 @@ main:
     outbound: 出站
     profile: 配置
     started: 已启动
+    min: 最小
+    max: 最大
+    avg: 平均
   groups:
     title: 分组
     empty: 无出站分组
