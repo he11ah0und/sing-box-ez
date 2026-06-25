@@ -844,10 +844,7 @@ func (p *MainPage) layoutConnectionRow(gtx layout.Context, conn coreapi.Connecti
 }
 
 func (p *MainPage) formatConnectionTarget(conn coreapi.Connection) string {
-	port := ""
-	if _, p, err := net.SplitHostPort(conn.Destination); err == nil {
-		port = p
-	}
+	host, port, isIP := splitHostPort(conn.Destination)
 
 	if conn.Domain != "" {
 		if port != "" {
@@ -856,8 +853,14 @@ func (p *MainPage) formatConnectionTarget(conn coreapi.Connection) string {
 		return conn.Domain
 	}
 
-	if conn.Destination != "" {
-		return conn.Destination
+	if host != "" {
+		if port != "" {
+			if isIP {
+				return net.JoinHostPort(host, port)
+			}
+			return host + ":" + port
+		}
+		return host
 	}
 
 	id := conn.ID
@@ -865,6 +868,44 @@ func (p *MainPage) formatConnectionTarget(conn coreapi.Connection) string {
 		id = id[:8]
 	}
 	return id
+}
+
+// splitHostPort extracts host, port and whether the host is an IP from an
+// address string. It handles both bracketed IPv6 forms and bare forms produced
+// by some backends (e.g. "2606:4700::1:443").
+func splitHostPort(addr string) (host, port string, isIP bool) {
+	if addr == "" {
+		return "", "", false
+	}
+	if h, p, err := net.SplitHostPort(addr); err == nil {
+		return h, p, net.ParseIP(h) != nil
+	}
+	if i := strings.LastIndex(addr, ":"); i > 0 {
+		candidate := addr[i+1:]
+		if isPortString(candidate) {
+			hostPart := addr[:i]
+			if ip := net.ParseIP(hostPart); ip != nil {
+				return hostPart, candidate, true
+			}
+			return hostPart, candidate, false
+		}
+	}
+	if ip := net.ParseIP(addr); ip != nil {
+		return addr, "", true
+	}
+	return addr, "", false
+}
+
+func isPortString(s string) bool {
+	if s == "" || len(s) > 5 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *MainPage) connRowBtn(id string) *widget.Clickable {
