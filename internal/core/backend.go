@@ -2,6 +2,7 @@ package core
 
 import (
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/core/api"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/singboxconfig"
 )
@@ -58,6 +59,14 @@ type Backend interface {
 
 	Config() *config.AppConfig
 	Terminal() *logger.LogTerminal
+
+	// APIClient returns a client for the running core's API, or nil if the API
+	// is not available for the current backend/connection mode.
+	APIClient() api.CoreAPIClient
+
+	// APIInfo returns the runtime connection parameters for the active API, or
+	// nil if the core is not running / no API is available.
+	APIInfo() *api.Info
 }
 
 // Compile-time check that *Controller implements Backend.

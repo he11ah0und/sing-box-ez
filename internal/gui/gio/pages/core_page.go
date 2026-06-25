@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"strings"
 	"time"
 
 	"gio.tools/icons"
+	"gioui.org/io/clipboard"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -46,6 +49,8 @@ type CorePage struct {
 	privilegePickerBtn widget.Clickable
 
 	privilegeState core.PrivilegeTabState
+
+	apiCopyBtn widget.Clickable
 }
 
 // NewCorePage creates a new core page.
@@ -228,6 +233,15 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutPrivileges(gtx)
 		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.separator(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(p.th, localengine.T("core", "api", "title")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.layoutAPIInfo(gtx)
+		}),
 	}
 }
 
@@ -284,6 +298,61 @@ func (p *CorePage) coloredLabel(gtx layout.Context, text string, c color.NRGBA) 
 	lbl := material.Body2(p.th, text)
 	lbl.Color = c
 	return lbl.Layout(gtx)
+}
+
+func (p *CorePage) layoutAPIInfo(gtx layout.Context) layout.Dimensions {
+	info := p.ctrl.Backend().APIInfo()
+	if info == nil || !p.ctrl.Backend().IsRunning() {
+		lbl := material.Body2(p.th, localengine.T("core", "api", "not_running"))
+		lbl.Color = theme.Current().Colors().DisabledFg
+		return lbl.Layout(gtx)
+	}
+
+	if p.apiCopyBtn.Clicked(gtx) {
+		text := fmt.Sprintf("%s: %s\n%s: %s\n%s: %s",
+			localengine.T("core", "api", "type"), info.Backend,
+			localengine.T("core", "api", "address"), info.Addr(),
+			localengine.T("core", "api", "secret"), info.Secret,
+		)
+		gtx.Execute(clipboard.WriteCmd{
+			Type: "text/plain",
+			Data: io.NopCloser(strings.NewReader(text)),
+		})
+	}
+
+	colors := theme.Current().Colors()
+	return widgets.BorderedCard(gtx, colors.Separator, colors.Surface, unit.Dp(1), unit.Dp(8), unit.Dp(12), func(gtx layout.Context) layout.Dimensions {
+		rows := []layout.FlexChild{
+			p.apiInfoRow(gtx, localengine.T("core", "api", "type"), string(info.Backend)),
+			p.apiInfoRow(gtx, localengine.T("core", "api", "address"), info.Addr()),
+			p.apiInfoRow(gtx, localengine.T("core", "api", "secret"), info.Secret),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Button(p.th, &p.apiCopyBtn, localengine.T("core", "api", "copy")).Layout(gtx)
+				})
+			}),
+		}
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, rows...)
+	})
+}
+
+func (p *CorePage) apiInfoRow(gtx layout.Context, label, value string) layout.FlexChild {
+	return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start, Spacing: layout.SpaceBetween}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Right: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					lbl := material.Body2(p.th, label)
+					lbl.Color = theme.Current().Colors().DisabledFg
+					return lbl.Layout(gtx)
+				})
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				lbl := material.Body2(p.th, value)
+				lbl.Alignment = text.End
+				return lbl.Layout(gtx)
+			}),
+		)
+	})
 }
 
 func (p *CorePage) openPrivilegePicker() {
