@@ -637,6 +637,9 @@ func (g *GUI) finishBuildUI(w *gioapp.Window) {
 		if g.tray != nil {
 			g.tray.Refresh()
 		}
+		if w != nil {
+			w.Invalidate()
+		}
 	}
 	g.ctrl.OnUpdateCheckDue = func() {
 		g.runStartupUpdateChecks(nil)
@@ -652,7 +655,7 @@ func (g *GUI) finishBuildUI(w *gioapp.Window) {
 	}
 
 	g.aboutPage = pages.NewAboutPage(g.th, g.ctrl, g.dialog)
-	mainPage := pages.NewMainPage(g.th, g.ctrl, g.dialog)
+	mainPage := pages.NewMainPage(g.th, g.ctrl, g.dialog, w.Invalidate)
 	g.logPage = pages.NewLogPage(g.th, g.ctrl.Backend())
 
 	g.corePage = pages.NewCorePage(g.th, g.ctrl, g.dialog)

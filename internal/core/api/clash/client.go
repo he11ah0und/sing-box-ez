@@ -1,6 +1,7 @@
 package clash
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"sing-box-ez/internal/core/api"
@@ -96,7 +99,7 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 	}
 	var groups []api.Group
 	for name, p := range resp.Proxies {
-		if p.Type != "Selector" && p.Type != "URLTest" && p.Type != "Fallback" {
+		if p.Type != "Selector" && p.Type != "URLTest" {
 			continue
 		}
 		g := api.Group{
@@ -104,10 +107,26 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 			Type:     p.Type,
 			Selected: p.Now,
 		}
-		for _, n := range p.All {
-			if n != "" {
-				g.Nodes = append(g.Nodes, n)
+		if len(p.History) > 0 {
+			last := p.History[len(p.History)-1]
+			if last.Delay > 0 {
+				g.Delay = last.Delay
+				g.DelayValid = true
 			}
+		}
+		for _, n := range p.All {
+			if n == "" {
+				continue
+			}
+			node := api.Node{Tag: n}
+			if leaf, ok := resp.Proxies[n]; ok && len(leaf.History) > 0 {
+				last := leaf.History[len(leaf.History)-1]
+				if last.Delay > 0 {
+					node.Delay = last.Delay
+					node.DelayValid = true
+				}
+			}
+			g.Nodes = append(g.Nodes, node)
 		}
 		groups = append(groups, g)
 	}
@@ -164,10 +183,7 @@ func (c *Client) Connections(ctx context.Context) ([]api.Connection, error) {
 	}
 	out := make([]api.Connection, len(resp.Connections))
 	for i, conn := range resp.Connections {
-		out[i] = api.Connection{
-			ID:       conn.ID,
-			Metadata: conn.Metadata,
-		}
+		out[i] = connectionFromClash(conn)
 	}
 	return out, nil
 }
@@ -175,6 +191,16 @@ func (c *Client) Connections(ctx context.Context) ([]api.Connection, error) {
 // CloseConnections implements api.CoreAPIClient.
 func (c *Client) CloseConnections(ctx context.Context) error {
 	req, err := c.req(ctx, "DELETE", "/connections", nil)
+	if err != nil {
+		return err
+	}
+	return c.doJSON(req, nil)
+}
+
+// CloseConnection implements api.CoreAPIClient.
+func (c *Client) CloseConnection(ctx context.Context, id string) error {
+	path := "/connections/" + url.PathEscape(id)
+	req, err := c.req(ctx, "DELETE", path, nil)
 	if err != nil {
 		return err
 	}
@@ -195,13 +221,196 @@ func (c *Client) URLTest(ctx context.Context, group, testURL string, timeout tim
 	return delays, nil
 }
 
+// SubscribeStatus implements api.CoreAPIClient.
+// Clash provides a live traffic stream at /traffic; if it is unavailable we
+// fall back to periodic version pings with TrafficAvailable=false.
+func (c *Client) SubscribeStatus(ctx context.Context, interval time.Duration) (<-chan *api.StatusEvent, func(), error) {
+	_ = interval
+	ch := make(chan *api.StatusEvent, 1)
+	ctx, cancel := context.WithCancel(ctx)
+	stop := func() { cancel() }
+
+	go func() {
+		defer close(ch)
+
+		// Only the SSE traffic stream carries live speed data on the Clash API.
+		// If it is unavailable, let the caller fall back to connection totals
+		// instead of keeping a useless polling loop alive.
+		if err := c.readTrafficStream(ctx, ch); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			select {
+			case ch <- &api.StatusEvent{Status: api.Status{TrafficAvailable: false}, Error: err}:
+			case <-ctx.Done():
+			}
+		}
+	}()
+
+	return ch, stop, nil
+}
+
+func (c *Client) readTrafficStream(ctx context.Context, ch chan<- *api.StatusEvent) error {
+	req, err := c.req(ctx, "GET", "/traffic", nil)
+	if err != nil {
+		return err
+	}
+	// Streaming request: do not use the default timeout client.
+	client := &http.Client{Timeout: 0}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("clash traffic stream: %d", resp.StatusCode)
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "" {
+			continue
+		}
+		var t struct {
+			Up   int64 `json:"up"`
+			Down int64 `json:"down"`
+		}
+		if err := json.Unmarshal([]byte(data), &t); err != nil {
+			continue
+		}
+		select {
+		case ch <- &api.StatusEvent{Status: api.Status{
+			TrafficAvailable: true,
+			UplinkTotal:      t.Up,
+			DownlinkTotal:    t.Down,
+		}}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return scanner.Err()
+}
+
+// SubscribeConnections implements api.CoreAPIClient.
+func (c *Client) SubscribeConnections(ctx context.Context, interval time.Duration) (<-chan *api.ConnectionEvent, func(), error) {
+	ch := make(chan *api.ConnectionEvent, 4)
+	ctx, cancel := context.WithCancel(ctx)
+	stop := func() { cancel() }
+
+	go func() {
+		defer close(ch)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			conns, err := c.Connections(ctx)
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				select {
+				case ch <- &api.ConnectionEvent{Error: err}:
+				case <-ctx.Done():
+				}
+				return
+			}
+			for _, conn := range conns {
+				select {
+				case ch <- &api.ConnectionEvent{Type: api.ConnectionEventNew, Connection: conn}:
+				case <-ctx.Done():
+					return
+				}
+			}
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return ch, stop, nil
+}
+
 type proxy struct {
-	Type string   `json:"type"`
-	Now  string   `json:"now"`
-	All  []string `json:"all"`
+	Type    string    `json:"type"`
+	Now     string    `json:"now"`
+	All     []string  `json:"all"`
+	History []history `json:"history"`
+}
+
+type history struct {
+	Time  string `json:"time"`
+	Delay int    `json:"delay"`
 }
 
 type connection struct {
 	ID       string         `json:"id"`
 	Metadata map[string]any `json:"metadata"`
+}
+
+func connectionFromClash(c connection) api.Connection {
+	conn := api.Connection{
+		ID:       c.ID,
+		Metadata: c.Metadata,
+	}
+	if c.Metadata == nil {
+		return conn
+	}
+	if v, ok := c.Metadata["host"].(string); ok {
+		conn.Domain = v
+		if port, ok := c.Metadata["destinationPort"].(string); ok && port != "" {
+			conn.Domain = conn.Domain + ":" + port
+		}
+	}
+	if v, ok := c.Metadata["network"].(string); ok {
+		conn.Network = v
+	}
+	if v, ok := c.Metadata["type"].(string); ok {
+		conn.InboundType = v
+	}
+	if v, ok := c.Metadata["sourceIP"].(string); ok {
+		if sp, ok := c.Metadata["sourcePort"].(string); ok {
+			conn.Source = v + ":" + sp
+		} else {
+			conn.Source = v
+		}
+	}
+	if v, ok := c.Metadata["destinationIP"].(string); ok {
+		if dp, ok := c.Metadata["destinationPort"].(string); ok {
+			conn.Destination = v + ":" + dp
+		} else {
+			conn.Destination = v
+		}
+	}
+	if v, ok := c.Metadata["chains"].([]any); ok {
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				conn.Chain = append(conn.Chain, s)
+			}
+		}
+	}
+	if len(conn.Chain) > 0 {
+		conn.Outbound = conn.Chain[len(conn.Chain)-1]
+	}
+	if v, ok := c.Metadata["upload"].(json.Number); ok {
+		conn.UplinkTotal, _ = strconv.ParseInt(string(v), 10, 64)
+	} else if v, ok := c.Metadata["upload"].(float64); ok {
+		conn.UplinkTotal = int64(v)
+	}
+	if v, ok := c.Metadata["download"].(json.Number); ok {
+		conn.DownlinkTotal, _ = strconv.ParseInt(string(v), 10, 64)
+	} else if v, ok := c.Metadata["download"].(float64); ok {
+		conn.DownlinkTotal = int64(v)
+	}
+	if v, ok := c.Metadata["start"].(string); ok {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			conn.CreatedAt = t
+		}
+	}
+	return conn
 }

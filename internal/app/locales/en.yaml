@@ -22,6 +22,67 @@ main:
     start: Start
     stop: Stop
     restart: Restart
+  tabs:
+    overview: Overview
+    groups: Groups
+    connections: Connections
+  api:
+    title: Core control
+    status: 'Version: %s  Uptime: %s'
+    mode: Mode
+    current_mode: 'Mode: '
+    backend: 'Backend: '
+    mode_rule: Rule
+    mode_global: Global
+    mode_direct: Direct
+    group: Group
+    node: Node
+    url_test: URL test
+    url_test_testing: Testing…
+    url_test_empty: no results
+    url_test_error: 'failed: %v'
+    url_test_result: 'avg %d ms (%d nodes)'
+    connections: 'Connections: %d'
+    close_connections: Close all connections
+    unavailable: API control is not available for this connection mode.
+  dashboard:
+    upload: Upload
+    download: Download
+    memory: Memory
+    goroutines: Goroutines
+    inbound: Inbound
+    outbound: Outbound
+    profile: Profile
+    started: Started
+  groups:
+    title: Groups
+    empty: No outbound groups
+  connections:
+    title: Connections
+    empty: No active connections
+    filter_active: Active
+    filter_all: All
+    filter_closed: Closed
+    sort_date: Date
+    sort_traffic: Traffic
+    sort_total: Total Traffic
+    search: Search
+connection_details:
+  title: Connection Details
+  id: ID
+  inbound: Inbound
+  network: Network
+  source: Source
+  destination: Destination
+  domain: Domain
+  outbound: Outbound
+  chain: Chain
+  uplink: Uplink
+  downlink: Downlink
+  created: Created
+  user: User
+  process: Process
+  close: Close connection
 core:
   update:
     checking: 'Checking version...'
@@ -53,6 +114,13 @@ core:
   log:
     title: Core log
     level: Log level
+  api:
+    title: API connection
+    not_running: Core is not running
+    type: Type
+    address: Address
+    secret: Secret
+    copy: Copy connection data
 configs:
   title: Configs
   btn:
@@ -75,6 +143,7 @@ configs:
     'no': 'no'
   badge:
     local: local
+    remote: remote
     modified: modified
   dialog:
     title: Config

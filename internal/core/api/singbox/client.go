@@ -3,6 +3,8 @@ package singbox
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"sing-box-ez/internal/core/api"
@@ -16,9 +18,9 @@ import (
 
 // Client implements api.CoreAPIClient over the native sing-box gRPC API.
 type Client struct {
-	addr   string
-	secret string
-	conn   *grpc.ClientConn
+	addr    string
+	secret  string
+	conn    *grpc.ClientConn
 	started pb.StartedServiceClient
 }
 
@@ -122,13 +124,19 @@ func (c *Client) CloseConnections(ctx context.Context) error {
 	return err
 }
 
+// CloseConnection implements api.CoreAPIClient.
+func (c *Client) CloseConnection(ctx context.Context, id string) error {
+	_, err := c.started.CloseConnection(c.ctx(ctx), &pb.CloseConnectionRequest{Id: id})
+	return err
+}
+
 // URLTest implements api.CoreAPIClient.
 // The sing-box API only supports testing a single outbound. We interpret the
 // provided group tag as the outbound tag for a best-effort test.
 func (c *Client) URLTest(ctx context.Context, group, testURL string, timeout time.Duration) (map[string]int, error) {
 	// The sing-box API URLTest request only accepts an outbound tag and does
-	// not return delays synchronously. For now we trigger the test and leave
-	// result observation to the caller.
+	// not return delays synchronously. We trigger the test and rely on the
+	// groups stream to refresh latencies.
 	_, err := c.started.URLTest(c.ctx(ctx), &pb.URLTestRequest{
 		OutboundTag: group,
 	})
@@ -136,6 +144,101 @@ func (c *Client) URLTest(ctx context.Context, group, testURL string, timeout tim
 		return nil, err
 	}
 	return nil, nil
+}
+
+// SubscribeStatus implements api.CoreAPIClient.
+func (c *Client) SubscribeStatus(ctx context.Context, interval time.Duration) (<-chan *api.StatusEvent, func(), error) {
+	stream, err := c.started.SubscribeStatus(c.ctx(ctx), &pb.SubscribeStatusRequest{Interval: int64(interval / time.Millisecond)})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ch := make(chan *api.StatusEvent, 1)
+	ctx, cancel := context.WithCancel(ctx)
+	stop := func() {
+		cancel()
+		_ = stream.CloseSend()
+	}
+
+	go func() {
+		defer close(ch)
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF || ctx.Err() != nil {
+					return
+				}
+				select {
+				case ch <- &api.StatusEvent{Error: err}:
+				case <-ctx.Done():
+				}
+				return
+			}
+			select {
+			case ch <- &api.StatusEvent{Status: statusFromProto(msg)}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return ch, stop, nil
+}
+
+// SubscribeConnections implements api.CoreAPIClient.
+func (c *Client) SubscribeConnections(ctx context.Context, interval time.Duration) (<-chan *api.ConnectionEvent, func(), error) {
+	stream, err := c.started.SubscribeConnections(c.ctx(ctx), &pb.SubscribeConnectionsRequest{Interval: int64(interval / time.Millisecond)})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ch := make(chan *api.ConnectionEvent, 4)
+	ctx, cancel := context.WithCancel(ctx)
+	stop := func() {
+		cancel()
+		_ = stream.CloseSend()
+	}
+
+	go func() {
+		defer close(ch)
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF || ctx.Err() != nil {
+					return
+				}
+				select {
+				case ch <- &api.ConnectionEvent{Error: err}:
+				case <-ctx.Done():
+				}
+				return
+			}
+			for _, ev := range msg.GetEvents() {
+				out := connectionEventFromProto(ev)
+				select {
+				case ch <- out:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+
+	return ch, stop, nil
+}
+
+func statusFromProto(s *pb.Status) api.Status {
+	return api.Status{
+		Memory:           s.GetMemory(),
+		Goroutines:       s.GetGoroutines(),
+		ConnectionsIn:    s.GetConnectionsIn(),
+		ConnectionsOut:   s.GetConnectionsOut(),
+		TrafficAvailable: s.GetTrafficAvailable(),
+		Uplink:           s.GetUplink(),
+		Downlink:         s.GetDownlink(),
+		UplinkTotal:      s.GetUplinkTotal(),
+		DownlinkTotal:    s.GetDownlinkTotal(),
+	}
 }
 
 func groupsFromProto(g *pb.Groups) []api.Group {
@@ -147,35 +250,99 @@ func groupsFromProto(g *pb.Groups) []api.Group {
 			Selected: group.GetSelected(),
 		}
 		for _, n := range group.GetItems() {
-			if n.GetTag() != "" {
-				item.Nodes = append(item.Nodes, n.GetTag())
+			if n.GetTag() == "" {
+				continue
 			}
+			node := api.Node{
+				Tag:  n.GetTag(),
+				Type: n.GetType(),
+			}
+			if t := n.GetUrlTestTime(); t > 0 {
+				node.DelayValid = true
+				node.DelayAt = time.UnixMilli(t)
+				node.Delay = int(n.GetUrlTestDelay())
+			}
+			item.Nodes = append(item.Nodes, node)
 		}
 		out = append(out, item)
 	}
 	return out
 }
 
+func connectionEventFromProto(ev *pb.ConnectionEvent) *api.ConnectionEvent {
+	out := &api.ConnectionEvent{
+		UplinkDelta:   ev.GetUplinkDelta(),
+		DownlinkDelta: ev.GetDownlinkDelta(),
+	}
+	switch ev.GetType() {
+	case pb.ConnectionEventType_CONNECTION_EVENT_NEW:
+		out.Type = api.ConnectionEventNew
+	case pb.ConnectionEventType_CONNECTION_EVENT_UPDATE:
+		out.Type = api.ConnectionEventUpdate
+	case pb.ConnectionEventType_CONNECTION_EVENT_CLOSED:
+		out.Type = api.ConnectionEventClosed
+	}
+	if conn := ev.GetConnection(); conn != nil {
+		out.Connection = connectionFromProto(conn)
+	}
+	return out
+}
+
+func connectionFromProto(c *pb.Connection) api.Connection {
+	domain := c.GetDomain()
+	if domain != "" {
+		if port := portFromDestination(c.GetDestination()); port != "" {
+			domain = domain + ":" + port
+		}
+	}
+	return api.Connection{
+		ID:            c.GetId(),
+		Inbound:       c.GetInbound(),
+		InboundType:   c.GetInboundType(),
+		Network:       c.GetNetwork(),
+		Source:        c.GetSource(),
+		Destination:   c.GetDestination(),
+		Domain:        domain,
+		Protocol:      c.GetProtocol(),
+		User:          c.GetUser(),
+		Outbound:      c.GetOutbound(),
+		OutboundType:  c.GetOutboundType(),
+		Chain:         c.GetChainList(),
+		Uplink:        c.GetUplink(),
+		Downlink:      c.GetDownlink(),
+		UplinkTotal:   c.GetUplinkTotal(),
+		DownlinkTotal: c.GetDownlinkTotal(),
+		CreatedAt:     time.UnixMilli(c.GetCreatedAt()),
+		ClosedAt:      time.UnixMilli(c.GetClosedAt()),
+		ProcessInfo:   processInfoFromProto(c.GetProcessInfo()),
+	}
+}
+
+func portFromDestination(dest string) string {
+	if i := strings.LastIndex(dest, ":"); i >= 0 {
+		return dest[i+1:]
+	}
+	return ""
+}
+
+func processInfoFromProto(p *pb.ProcessInfo) api.ProcessInfo {
+	if p == nil {
+		return api.ProcessInfo{}
+	}
+	return api.ProcessInfo{
+		ProcessID:    p.GetProcessId(),
+		UserID:       p.GetUserId(),
+		UserName:     p.GetUserName(),
+		ProcessPath:  p.GetProcessPath(),
+		PackageNames: p.GetPackageNames(),
+	}
+}
+
 func connectionsFromProto(e *pb.ConnectionEvents) []api.Connection {
 	var out []api.Connection
-	for _, ev := range e.Events {
+	for _, ev := range e.GetEvents() {
 		if conn := ev.GetConnection(); conn != nil {
-			out = append(out, api.Connection{
-				ID: conn.Id,
-				Metadata: map[string]any{
-					"inbound":      conn.Inbound,
-					"inbound_type": conn.InboundType,
-					"network":      conn.Network,
-					"source":       conn.Source,
-					"destination":  conn.Destination,
-					"domain":       conn.Domain,
-					"protocol":     conn.Protocol,
-					"user":         conn.User,
-					"from":         conn.FromOutbound,
-					"outbound":     conn.Outbound,
-					"outbound_type": conn.OutboundType,
-				},
-			})
+			out = append(out, connectionFromProto(conn))
 		}
 	}
 	return out

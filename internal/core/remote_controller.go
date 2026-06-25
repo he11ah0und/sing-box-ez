@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/core/api"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/singboxconfig"
@@ -334,6 +335,12 @@ func (r *RemoteController) ClearCoreLogs() {
 func (r *RemoteController) ClearLogs() {
 	_ = r.callEmpty("log", "clear_logs")
 }
+
+// APIClient is not available for remote controllers.
+func (r *RemoteController) APIClient() api.CoreAPIClient { return nil }
+
+// APIInfo is not available for remote controllers.
+func (r *RemoteController) APIInfo() *api.Info { return nil }
 
 // Mirror RPC message types (must match the server-side types in internal/app/rpc.go).
 

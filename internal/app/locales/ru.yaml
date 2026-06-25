@@ -22,6 +22,67 @@ main:
     start: Старт
     stop: Стоп
     restart: Перезапуск
+  tabs:
+    overview: Обзор
+    groups: Группы
+    connections: Соединения
+  api:
+    title: Управление ядром
+    status: 'Версия: %s  Время работы: %s'
+    mode: Режим
+    current_mode: 'Режим: '
+    backend: 'Бэкенд: '
+    mode_rule: Правило
+    mode_global: Глобальный
+    mode_direct: Прямой
+    group: Группа
+    node: Узел
+    url_test: Тест URL
+    url_test_testing: Тестирование…
+    url_test_empty: нет результатов
+    url_test_error: 'ошибка: %v'
+    url_test_result: 'средн. %d мс (%d узлов)'
+    connections: 'Соединения: %d'
+    close_connections: Закрыть все соединения
+    unavailable: Управление через API недоступно для этого режима подключения.
+  dashboard:
+    upload: Отправка
+    download: Приём
+    memory: Память
+    goroutines: Горутины
+    inbound: Входящие
+    outbound: Исходящие
+    profile: Профиль
+    started: Запущено
+  groups:
+    title: Группы
+    empty: Нет outbound-групп
+  connections:
+    title: Соединения
+    empty: Нет активных соединений
+    filter_active: Активные
+    filter_all: Все
+    filter_closed: Закрытые
+    sort_date: Дата
+    sort_traffic: Трафик
+    sort_total: Весь трафик
+    search: Поиск
+connection_details:
+  title: Детали соединения
+  id: ID
+  inbound: Входящий
+  network: Сеть
+  source: Источник
+  destination: Назначение
+  domain: Домен
+  outbound: Исходящий
+  chain: Цепочка
+  uplink: Отправлено
+  downlink: Получено
+  created: Создано
+  user: Пользователь
+  process: Процесс
+  close: Закрыть соединение
 core:
   update:
     current_version: 'Текущая версия: '
@@ -58,6 +119,13 @@ core:
   log:
     title: Лог ядра
     level: Уровень лога
+  api:
+    title: Подключение к API
+    not_running: Ядро не запущено
+    type: Тип
+    address: Адрес
+    secret: Секрет
+    copy: Скопировать данные подключения
 configs:
   title: Конфиги
   btn:
@@ -80,6 +148,7 @@ configs:
     'no': нет
   badge:
     local: локальный
+    remote: удалённый
     modified: изменён
   dialog:
     title: Конфиг

@@ -22,6 +22,66 @@ main:
     start: 启动
     stop: 停止
     restart: 重启
+  tabs:
+    overview: 概览
+    groups: 分组
+    connections: 连接
+  api:
+    title: 核心控制
+    status: '版本：%s  运行时间：%s'
+    mode: 模式
+    current_mode: '模式：'
+    mode_rule: 规则
+    mode_global: 全局
+    mode_direct: 直连
+    group: 分组
+    node: 节点
+    url_test: URL 测试
+    url_test_testing: 测试中…
+    url_test_empty: 无结果
+    url_test_error: '失败：%v'
+    url_test_result: '平均 %d 毫秒（%d 个节点）'
+    connections: '连接数：%d'
+    close_connections: 关闭所有连接
+    unavailable: 当前连接模式不支持 API 控制。
+  dashboard:
+    upload: 上传
+    download: 下载
+    memory: 内存
+    goroutines: 协程
+    inbound: 入站
+    outbound: 出站
+    profile: 配置
+    started: 已启动
+  groups:
+    title: 分组
+    empty: 无出站分组
+  connections:
+    title: 连接
+    empty: 无活动连接
+    filter_active: 活动
+    filter_all: 全部
+    filter_closed: 已关闭
+    sort_date: 日期
+    sort_traffic: 流量
+    sort_total: 总流量
+    search: 搜索
+connection_details:
+  title: 连接详情
+  id: ID
+  inbound: 入站
+  network: 网络
+  source: 来源
+  destination: 目标
+  domain: 域名
+  outbound: 出站
+  chain: 链路
+  uplink: 上行
+  downlink: 下行
+  created: 创建时间
+  user: 用户
+  process: 进程
+  close: 关闭连接
 core:
   update:
     current_version: 当前版本：
@@ -80,6 +140,7 @@ configs:
     'no': 否
   badge:
     local: 本地
+    remote: 远程
     modified: 已修改
   dialog:
     title: 配置

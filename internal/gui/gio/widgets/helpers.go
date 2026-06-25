@@ -5,6 +5,7 @@ import (
 	"image/color"
 
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -42,8 +43,11 @@ func DialogSpacer(gtx layout.Context) layout.Dimensions {
 
 // SpacedList lays out children vertically with PageSpacing between each item.
 func SpacedList(gtx layout.Context, children ...layout.FlexChild) layout.Dimensions {
-	if len(children) == 0 {
+	switch len(children) {
+	case 0:
 		return layout.Dimensions{}
+	case 1:
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children[0])
 	}
 	spaced := make([]layout.FlexChild, 0, len(children)*2-1)
 	for i, c := range children {
@@ -57,8 +61,11 @@ func SpacedList(gtx layout.Context, children ...layout.FlexChild) layout.Dimensi
 
 // DialogSpacedList lays out children vertically with DialogSpacing between each item.
 func DialogSpacedList(gtx layout.Context, children ...layout.FlexChild) layout.Dimensions {
-	if len(children) == 0 {
+	switch len(children) {
+	case 0:
 		return layout.Dimensions{}
+	case 1:
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children[0])
 	}
 	spaced := make([]layout.FlexChild, 0, len(children)*2-1)
 	for i, c := range children {
@@ -79,14 +86,70 @@ func Button(th *material.Theme, btn *widget.Clickable, label string) layout.Widg
 
 // BorderedCard draws a rounded rectangle with a border and background color,
 // then lays out content inside it with a uniform inset.
+// It avoids widget.Border's clip.Stroke because that stroke flattener can loop
+// forever on degenerate rectangles on Windows.
 func BorderedCard(gtx layout.Context, border, bg color.NRGBA, borderWidth, radius, inset unit.Dp, content layout.Widget) layout.Dimensions {
-	return widget.Border{
-		Color:        border,
-		Width:        borderWidth,
-		CornerRadius: radius,
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-		paint.Fill(gtx.Ops, bg)
-		return layout.UniformInset(inset).Layout(gtx, content)
-	})
+	// Record the content first so we can paint the background and border
+	// underneath it. widget.Border did the same ordering: content (including
+	// its own background) was painted, then the border stroke. We emulate
+	// that by drawing the filled border/background before replaying content.
+	macro := op.Record(gtx.Ops)
+	dims := layout.UniformInset(inset).Layout(gtx, content)
+	call := macro.Stop()
+	if dims.Size.X <= 0 || dims.Size.Y <= 0 {
+		return dims
+	}
+
+	bw := gtx.Dp(borderWidth)
+	if bw < 0 {
+		bw = 0
+	}
+	rr := gtx.Dp(radius)
+	if rr < 0 {
+		rr = 0
+	}
+	// Clamp corner radius so arcs cannot exceed the rectangle dimensions.
+	maxRR := dims.Size.X
+	if dims.Size.Y < maxRR {
+		maxRR = dims.Size.Y
+	}
+	if maxRR > 0 && rr > maxRR/2 {
+		rr = maxRR / 2
+	}
+
+	// Outer rectangle filled with border color.
+	outer := image.Rectangle{Max: dims.Size}
+	paint.FillShape(gtx.Ops, border, clip.Outline{
+		Path: clip.UniformRRect(outer, rr).Path(gtx.Ops),
+	}.Op())
+
+	// Inner rectangle filled with background color, leaving the border ring.
+	inner := image.Rectangle{
+		Min: image.Point{X: bw, Y: bw},
+		Max: image.Point{X: dims.Size.X - bw, Y: dims.Size.Y - bw},
+	}
+	if inner.Min.X > inner.Max.X {
+		inner.Min.X, inner.Max.X = inner.Max.X, inner.Min.X
+	}
+	if inner.Min.Y > inner.Max.Y {
+		inner.Min.Y, inner.Max.Y = inner.Max.Y, inner.Min.Y
+	}
+	innerRR := rr - bw
+	if innerRR < 0 {
+		innerRR = 0
+	}
+	maxInner := inner.Dx()
+	if inner.Dy() < maxInner {
+		maxInner = inner.Dy()
+	}
+	if maxInner > 0 && innerRR > maxInner/2 {
+		innerRR = maxInner / 2
+	}
+	paint.FillShape(gtx.Ops, bg, clip.Outline{
+		Path: clip.UniformRRect(inner, innerRR).Path(gtx.Ops),
+	}.Op())
+
+	// Replay content on top of the background/border.
+	call.Add(gtx.Ops)
+	return dims
 }
