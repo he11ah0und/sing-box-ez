@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -807,16 +808,7 @@ func (p *MainPage) nodeSelectBtn(group, node string) *widget.Clickable {
 
 func (p *MainPage) layoutConnectionRow(gtx layout.Context, conn coreapi.Connection) layout.Dimensions {
 	colors := theme.Current().Colors()
-	target := conn.Domain
-	if target == "" {
-		target = conn.Destination
-	}
-	if target == "" {
-		target = conn.ID
-		if len(target) > 8 {
-			target = target[:8]
-		}
-	}
+	target := p.formatConnectionTarget(conn)
 	outbound := conn.Outbound
 	if outbound == "" && len(conn.Chain) > 0 {
 		outbound = conn.Chain[len(conn.Chain)-1]
@@ -849,6 +841,30 @@ func (p *MainPage) layoutConnectionRow(gtx layout.Context, conn coreapi.Connecti
 			)
 		})
 	})
+}
+
+func (p *MainPage) formatConnectionTarget(conn coreapi.Connection) string {
+	port := ""
+	if _, p, err := net.SplitHostPort(conn.Destination); err == nil {
+		port = p
+	}
+
+	if conn.Domain != "" {
+		if port != "" {
+			return conn.Domain + ":" + port
+		}
+		return conn.Domain
+	}
+
+	if conn.Destination != "" {
+		return conn.Destination
+	}
+
+	id := conn.ID
+	if len(id) > 8 {
+		id = id[:8]
+	}
+	return id
 }
 
 func (p *MainPage) connRowBtn(id string) *widget.Clickable {
