@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/core/api"
+	"sing-box-ez/internal/core/api/clash"
+	"sing-box-ez/internal/core/api/singbox"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
@@ -35,6 +38,8 @@ type Controller struct {
 	processor  *CoreLogProcessor
 	terminal   *logger.LogTerminal
 	privileges *PrivilegeController
+	apiInfo    *api.Info
+	apiClient  api.CoreAPIClient
 }
 
 // NewController creates a new controller and wires framework services.
@@ -214,13 +219,14 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return err
 	}
-	data, err = c.applyLogOverride(data)
+	data, err = c.applyOverrides(data)
 	if err != nil {
 		return err
 	}
 	if err := c.manager.StartWithConfig(data); err != nil {
 		return err
 	}
+	c.buildAPIClient()
 	c.fwApp.Logger.Log("Sing-box started")
 	return nil
 }
@@ -239,7 +245,7 @@ func (c *Controller) Restart() error {
 	if err != nil {
 		return err
 	}
-	data, err = c.applyLogOverride(data)
+	data, err = c.applyOverrides(data)
 	if err != nil {
 		return err
 	}
@@ -255,8 +261,63 @@ func (c *Controller) Restart() error {
 	if err := c.manager.StartWithConfig(data); err != nil {
 		return err
 	}
+	c.buildAPIClient()
 	c.fwApp.Logger.Log("Sing-box restarted")
 	return nil
+}
+
+// applyOverrides applies the permanent log and API overrides to the raw
+// sing-box config. It allocates a free port and secret for the API each time.
+func (c *Controller) applyOverrides(data []byte) ([]byte, error) {
+	data, err := c.applyLogOverride(data)
+	if err != nil {
+		return nil, err
+	}
+
+	version, _ := c.GetInstalledCoreVersion()
+	port, err := api.FindFreePort("127.0.0.1")
+	if err != nil {
+		return nil, c.terminal.Errorf("failed to find free API port: %v", err)
+	}
+	secret := api.GenerateSecret()
+
+	data, info, err := api.ApplyOverride(data, version, "127.0.0.1", port, secret)
+	if err != nil {
+		return nil, c.terminal.Errorf("failed to apply API override: %v", err)
+	}
+	c.apiInfo = info
+	return data, nil
+}
+
+func (c *Controller) buildAPIClient() {
+	if c.apiInfo == nil {
+		c.apiClient = nil
+		return
+	}
+	switch c.apiInfo.Backend {
+	case api.BackendClash:
+		c.apiClient = clash.NewClient(c.apiInfo.URL(), c.apiInfo.Secret)
+	case api.BackendSingBox:
+		client, err := singbox.NewClient(c.apiInfo.Addr(), c.apiInfo.Secret)
+		if err != nil {
+			c.terminal.Warnf("Failed to create sing-box API client: %v", err)
+			c.apiClient = nil
+			return
+		}
+		c.apiClient = client
+	}
+}
+
+// APIClient returns the active internal API client, or nil if the core is not
+// running or the API backend is not yet supported.
+func (c *Controller) APIClient() api.CoreAPIClient {
+	return c.apiClient
+}
+
+// APIInfo returns the runtime connection parameters for the active API, or nil
+// if the core is not running.
+func (c *Controller) APIInfo() *api.Info {
+	return c.apiInfo
 }
 
 func (c *Controller) IsRunning() bool {
@@ -536,7 +597,7 @@ func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult
 	if err != nil {
 		return singboxconfig.ValidationResult{}, c.terminal.Errorf("failed to read config file: %v", err)
 	}
-	data, err = c.applyLogOverride(data)
+	data, err = c.applyOverrides(data)
 	if err != nil {
 		return singboxconfig.ValidationResult{}, err
 	}

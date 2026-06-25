@@ -33,13 +33,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	tags, err := repo.StableTags()
+	tags, err := repo.ReleaseTags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "list tags: %v\n", err)
 		os.Exit(1)
 	}
 	if len(tags) == 0 {
-		fmt.Fprintf(os.Stderr, "no stable tags found\n")
+		fmt.Fprintf(os.Stderr, "no release tags found\n")
 		os.Exit(1)
 	}
 	tags = OnePerMinor(tags)

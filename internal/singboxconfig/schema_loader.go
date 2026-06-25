@@ -19,6 +19,9 @@ func LoadSchema(r io.Reader) (*Schema, error) {
 		return nil, fmt.Errorf("unmarshal schema: %w", err)
 	}
 	normalizeSchema(&s)
+	if err := resolveRefs(&s); err != nil {
+		return nil, fmt.Errorf("resolve schema refs: %w", err)
+	}
 	if err := validateSchema(&s); err != nil {
 		return nil, fmt.Errorf("invalid schema: %w", err)
 	}
@@ -36,6 +39,9 @@ func mustParseVersion(s string) Version {
 // normalizeSchema fills missing 'since' on pure container nodes from their parents.
 func normalizeSchema(s *Schema) {
 	for _, node := range s.Fields {
+		normalizeNode(node, node.Since)
+	}
+	for _, node := range s.Shared {
 		normalizeNode(node, node.Since)
 	}
 }
@@ -67,6 +73,113 @@ func normalizeNode(node *SchemaNode, parentSince string) {
 	}
 }
 
+// resolveRefs replaces nodes with Ref set by deep copies of the referenced
+// shared schema nodes. Shared nodes themselves are normalized first.
+func resolveRefs(s *Schema) error {
+	for _, node := range s.Shared {
+		normalizeNode(node, node.Since)
+	}
+	for _, node := range s.Fields {
+		if err := resolveNode(nil, "", node, s.Shared, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func resolveNode(parent map[string]*SchemaNode, key string, node *SchemaNode, shared map[string]*SchemaNode, stack []string) error {
+	if node == nil {
+		return nil
+	}
+	if node.Ref != "" {
+		for _, r := range stack {
+			if r == node.Ref {
+				return fmt.Errorf("ref cycle: %s -> %s", strings.Join(stack, " -> "), node.Ref)
+			}
+		}
+		target, ok := shared[node.Ref]
+		if !ok {
+			return fmt.Errorf("unknown ref %q", node.Ref)
+		}
+		if node.Spread {
+			if parent == nil {
+				return fmt.Errorf("spread ref %q without parent", node.Ref)
+			}
+			delete(parent, key)
+			for k, v := range target.Children {
+				copy := cloneNode(v)
+				parent[k] = copy
+				if err := resolveNode(parent, k, copy, shared, append(stack, node.Ref)); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		copy := cloneNode(target)
+		*node = *copy
+		return resolveNode(parent, key, node, shared, append(stack, node.Ref))
+	}
+	for k, child := range node.Children {
+		if err := resolveNode(node.Children, k, child, shared, stack); err != nil {
+			return err
+		}
+	}
+	if node.Items != nil {
+		if err := resolveNode(nil, "", node.Items, shared, stack); err != nil {
+			return err
+		}
+	}
+	for i := range node.OneOf {
+		for k, f := range node.OneOf[i].Fields {
+			if err := resolveNode(node.OneOf[i].Fields, k, f, shared, stack); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func cloneNode(node *SchemaNode) *SchemaNode {
+	if node == nil {
+		return nil
+	}
+	c := &SchemaNode{
+		Since:                node.Since,
+		SinceV:               node.SinceV,
+		Deprecated:           node.Deprecated,
+		DeprecatedV:          node.DeprecatedV,
+		Removed:              node.Removed,
+		RemovedV:             node.RemovedV,
+		Replacement:          node.Replacement,
+		RenameTo:             node.RenameTo,
+		Type:                 node.Type,
+		AdditionalProperties: node.AdditionalProperties,
+		LegacyHint:           node.LegacyHint,
+	}
+	if len(node.Children) > 0 {
+		c.Children = make(map[string]*SchemaNode, len(node.Children))
+		for k, v := range node.Children {
+			c.Children[k] = cloneNode(v)
+		}
+	}
+	if node.Items != nil {
+		c.Items = cloneNode(node.Items)
+	}
+	if len(node.OneOf) > 0 {
+		c.OneOf = make([]TypedVariant, len(node.OneOf))
+		for i, v := range node.OneOf {
+			c.OneOf[i].When = v.When
+			if len(v.Fields) > 0 {
+				c.OneOf[i].Fields = make(map[string]*SchemaNode, len(v.Fields))
+				for k, child := range v.Fields {
+					c.OneOf[i].Fields[k] = cloneNode(child)
+				}
+			}
+		}
+	}
+	return c
+}
+
 func validateSchema(s *Schema) error {
 	if strings.TrimSpace(s.Version) == "" {
 		return fmt.Errorf("schema version is required")
@@ -86,6 +199,11 @@ func validateSchema(s *Schema) error {
 	seen := make(map[string]struct{})
 	for name, node := range s.Fields {
 		if err := validateNode(name, node, seen); err != nil {
+			return err
+		}
+	}
+	for name, node := range s.Shared {
+		if err := validateNode("shared."+name, node, seen); err != nil {
 			return err
 		}
 	}

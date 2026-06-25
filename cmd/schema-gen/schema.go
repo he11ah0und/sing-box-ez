@@ -33,6 +33,8 @@ type BuilderNode struct {
 	OneOfBy              string
 	OneOf                []BuilderVariant
 	AdditionalProperties bool
+	Ref                  string
+	Spread               bool
 }
 
 type BuilderVariant struct {
@@ -74,14 +76,21 @@ func (b *SchemaBuilder) Build() (*singboxconfig.Schema, error) {
 		{"docs/configuration/inbounds.md", "inbounds"},
 		{"docs/configuration/outbounds.md", "outbounds"},
 		{"docs/configuration/endpoints.md", "endpoints"},
-		{"docs/configuration/services.md", "services"},
+		{"docs/configuration/service/index.md", "services"},
 	}
 	for _, sec := range sections {
 		if !b.Repo.FileExistsAt(latest, sec.file) {
 			// Try older file naming.
-			alt := strings.Replace(sec.file, "/index.md", ".md", 1)
-			if b.Repo.FileExistsAt(latest, alt) {
-				sec.file = alt
+			alts := []string{
+				strings.Replace(sec.file, "/index.md", ".md", 1),
+				strings.Replace(sec.file, "/service/", "/services/", 1),
+				strings.Replace(strings.Replace(sec.file, "/service/", "/services/", 1), "/index.md", ".md", 1),
+			}
+			for _, alt := range alts {
+				if b.Repo.FileExistsAt(latest, alt) {
+					sec.file = alt
+					break
+				}
 			}
 		}
 		if !b.Repo.FileExistsAt(latest, sec.file) {
@@ -104,7 +113,7 @@ func (b *SchemaBuilder) Build() (*singboxconfig.Schema, error) {
 	b.buildTypedArray(latest, "outbounds", "docs/configuration/outbound", "")
 	b.buildTypedArray(latest, "endpoints", "docs/configuration/endpoint", "")
 	b.buildTypedArray(latest, "dns.servers", "docs/configuration/dns/server", "dns")
-	b.buildServices(latest)
+	b.buildTypedArray(latest, "services", "docs/configuration/service", "")
 
 	// Nested objects referenced from docs.
 	b.buildNested(latest, "dns.fakeip", "docs/configuration/dns/fakeip.md")
@@ -121,9 +130,13 @@ func (b *SchemaBuilder) Build() (*singboxconfig.Schema, error) {
 		Version:       "1.0.0",
 		SingboxLatest: b.Latest,
 		Fields:        make(map[string]*singboxconfig.SchemaNode),
+		Shared:        make(map[string]*singboxconfig.SchemaNode),
 	}
 	for name, node := range b.Fields {
 		out.Fields[name] = b.toSchemaNode(node)
+	}
+	for name, node := range b.Shared {
+		out.Shared[name] = b.toSchemaNode(node)
 	}
 	return out, nil
 }
@@ -353,14 +366,14 @@ func (b *SchemaBuilder) buildTypedArray(tag, rootPath, dir, parentField string) 
 	}
 	// Inline shared listen/dial fields based on the context.
 	for _, ref := range doc.SharedRefs {
-		b.inlineShared(common, ref)
+		b.spreadShared(common, ref)
 	}
 	if rootName == "inbounds" {
-		b.inlineShared(common, "Listen Fields")
+		b.spreadShared(common, "Listen Fields")
 	} else if rootName == "outbounds" || rootName == "dns" {
-		b.inlineShared(common, "Dial Fields")
+		b.spreadShared(common, "Dial Fields")
 	}
-	b.inlineSharedByFieldName(common)
+	b.insertSharedRefByFieldName(common)
 	items.OneOf = append(items.OneOf, BuilderVariant{When: map[string]string{}, Fields: common})
 
 	// Discover typed files.
@@ -395,9 +408,9 @@ func (b *SchemaBuilder) buildTypedArray(tag, rootPath, dir, parentField string) 
 			fields[fd.Name] = b.fieldDefToNode(fd, example)
 		}
 		for _, ref := range doc.SharedRefs {
-			b.inlineShared(fields, ref)
+			b.spreadShared(fields, ref)
 		}
-		b.inlineSharedByFieldName(fields)
+		b.insertSharedRefByFieldName(fields)
 		items.OneOf = append(items.OneOf, BuilderVariant{
 			When:   map[string]string{"type": variant},
 			Fields: fields,
@@ -447,7 +460,7 @@ func (b *SchemaBuilder) buildServices(tag string) {
 		for _, fd := range doc.Fields {
 			b.setChild(nodeFromFields(fields), fd.Name, b.fieldDefToNode(fd, nil))
 		}
-		b.inlineSharedByFieldName(fields)
+		b.insertSharedRefByFieldName(fields)
 		items.OneOf = append(items.OneOf, BuilderVariant{When: map[string]string{"type": variant}, Fields: fields})
 	}
 	b.Fields["services"] = &BuilderNode{Name: "services", Type: "array", Since: b.Earliest, Items: items}
@@ -477,7 +490,7 @@ func (b *SchemaBuilder) buildRuleItems(tag, fullPath, file string) {
 	for _, fd := range doc.Fields {
 		b.setChild(nodeFromFields(defaultFields), fd.Name, b.fieldDefToNode(fd, nil))
 	}
-	b.inlineSharedByFieldName(defaultFields)
+	b.insertSharedRefByFieldName(defaultFields)
 	items.OneOf = append(items.OneOf, BuilderVariant{When: map[string]string{}, Fields: defaultFields})
 
 	// Logical variant if the file documents it.
@@ -545,16 +558,20 @@ func (b *SchemaBuilder) buildNested(tag, path, file string) {
 	parent.Children[parts[len(parts)-1]] = node
 }
 
-func (b *SchemaBuilder) inlineShared(fields map[string]*BuilderNode, ref string) {
+// spreadShared inserts a spread reference to a shared schema object. The
+// referenced shared object's children will be merged into the parent object
+// when the schema is loaded.
+func (b *SchemaBuilder) spreadShared(fields map[string]*BuilderNode, ref string) {
 	key := sharedKey(ref)
-	shared, ok := b.Shared[key]
-	if !ok {
+	if _, ok := b.Shared[key]; !ok {
 		return
 	}
-	for k, v := range shared.Children {
-		if _, exists := fields[k]; !exists {
-			fields[k] = v
-		}
+	fields[key] = &BuilderNode{
+		Name:   key,
+		Type:   "object",
+		Ref:    key,
+		Spread: true,
+		Since:  b.Earliest,
 	}
 }
 
@@ -562,32 +579,34 @@ var sharedFieldAliases = map[string]string{
 	"transport": "v2ray-transport",
 }
 
-func (b *SchemaBuilder) inlineSharedByFieldName(fields map[string]*BuilderNode) {
+// insertSharedRefByFieldName replaces object fields whose name matches a shared
+// schema with a reference to that shared schema. Spread references inserted by
+// spreadShared are left untouched so that their children are merged into the
+// parent instead of replacing the field.
+func (b *SchemaBuilder) insertSharedRefByFieldName(fields map[string]*BuilderNode) {
 	for name, node := range fields {
-		if node.Type != "object" {
+		if node.Type != "object" || node.Spread {
 			continue
 		}
 		keys := []string{strings.ReplaceAll(name, "_", "-")}
 		if alias, ok := sharedFieldAliases[name]; ok {
 			keys = append(keys, alias)
 		}
-		var shared *BuilderNode
+		var ref string
 		for _, key := range keys {
-			if s, ok := b.Shared[key]; ok {
-				shared = s
+			if _, ok := b.Shared[key]; ok {
+				ref = key
 				break
 			}
 		}
-		if shared == nil {
+		if ref == "" {
 			continue
 		}
-		if len(node.Children) == 0 {
-			node.Children = make(map[string]*BuilderNode)
-		}
-		for k, v := range shared.Children {
-			if _, exists := node.Children[k]; !exists {
-				node.Children[k] = v
-			}
+		fields[name] = &BuilderNode{
+			Name:  name,
+			Type:  "object",
+			Ref:   ref,
+			Since: b.Earliest,
 		}
 	}
 }
@@ -612,6 +631,8 @@ func (b *SchemaBuilder) toSchemaNode(n *BuilderNode) *singboxconfig.SchemaNode {
 		Type:                 n.Type,
 		AdditionalProperties: n.AdditionalProperties,
 		OneOfBy:              n.OneOfBy,
+		Ref:                  n.Ref,
+		Spread:               n.Spread,
 	}
 	if len(n.Children) > 0 {
 		node.Children = make(map[string]*singboxconfig.SchemaNode)

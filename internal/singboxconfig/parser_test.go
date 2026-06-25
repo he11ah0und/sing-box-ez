@@ -56,8 +56,8 @@ func TestParserDetectsRemovedField(t *testing.T) {
 func TestParserDetectsDeprecatedField(t *testing.T) {
 	cfg := map[string]any{
 		"dns": map[string]any{
-			"servers": []any{
-				map[string]any{"type": "local", "domain_strategy": "ipv4_only"},
+			"rules": []any{
+				map[string]any{"rule_set_ip_cidr_accept_empty": true},
 			},
 		},
 	}
@@ -70,7 +70,7 @@ func TestParserDetectsDeprecatedField(t *testing.T) {
 	if len(res.Warnings) == 0 {
 		t.Fatalf("expected deprecated field warning")
 	}
-	if res.Warnings[0].Path != "dns.servers[0].domain_strategy" {
+	if res.Warnings[0].Path != "dns.rules[0].rule_set_ip_cidr_accept_empty" {
 		t.Fatalf("unexpected warning: %+v", res.Warnings[0])
 	}
 }
