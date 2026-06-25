@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"sing-box-ez/internal/core/api"
@@ -289,12 +288,6 @@ func connectionEventFromProto(ev *pb.ConnectionEvent) *api.ConnectionEvent {
 }
 
 func connectionFromProto(c *pb.Connection) api.Connection {
-	domain := c.GetDomain()
-	if domain != "" {
-		if port := portFromDestination(c.GetDestination()); port != "" {
-			domain = domain + ":" + port
-		}
-	}
 	return api.Connection{
 		ID:            c.GetId(),
 		Inbound:       c.GetInbound(),
@@ -302,7 +295,7 @@ func connectionFromProto(c *pb.Connection) api.Connection {
 		Network:       c.GetNetwork(),
 		Source:        c.GetSource(),
 		Destination:   c.GetDestination(),
-		Domain:        domain,
+		Domain:        c.GetDomain(),
 		Protocol:      c.GetProtocol(),
 		User:          c.GetUser(),
 		Outbound:      c.GetOutbound(),
@@ -316,13 +309,6 @@ func connectionFromProto(c *pb.Connection) api.Connection {
 		ClosedAt:      time.UnixMilli(c.GetClosedAt()),
 		ProcessInfo:   processInfoFromProto(c.GetProcessInfo()),
 	}
-}
-
-func portFromDestination(dest string) string {
-	if i := strings.LastIndex(dest, ":"); i >= 0 {
-		return dest[i+1:]
-	}
-	return ""
 }
 
 func processInfoFromProto(p *pb.ProcessInfo) api.ProcessInfo {
