@@ -12,6 +12,7 @@ main:
   status:
     stopped: 'Статус: остановлен'
     running: 'Статус: запущен'
+    connecting: 'Подключение…'
   active:
     none: 'Активный конфиг: (нет)'
     label: 'Активный конфиг'

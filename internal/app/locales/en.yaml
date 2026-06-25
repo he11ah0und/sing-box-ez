@@ -12,6 +12,7 @@ main:
   status:
     stopped: 'Status: stopped'
     running: 'Status: running'
+    connecting: 'Connecting…'
   active:
     none: 'Active config: (none)'
     label: 'Active config'

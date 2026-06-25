@@ -12,6 +12,7 @@ main:
   status:
     stopped: 状态：已停止
     running: 状态：运行中
+    connecting: 连接中…
   active:
     none: 活动配置：（无）
     label: 活动配置
