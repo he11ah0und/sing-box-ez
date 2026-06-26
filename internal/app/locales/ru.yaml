@@ -28,8 +28,6 @@ main:
     overview: Обзор
     groups: Группы
     connections: Соединения
-  graph_history:
-    label: История графика трафика
   api:
     title: Управление ядром
     status: 'Версия: %s  Время работы: %s'
@@ -92,6 +90,9 @@ connection_details:
   close: Закрыть соединение
 core:
   update:
+    checking: 'Проверка версии...'
+    downloading: 'Загрузка...'
+    available: 'Скачать %s'
     current_version: 'Текущая версия: '
   version:
     installed: 'Ядро: v'
@@ -126,6 +127,8 @@ core:
   log:
     title: Лог ядра
     level: Уровень лога
+  graph_history:
+    label: История графика трафика
   api:
     title: Подключение к API
     not_running: Ядро не запущено

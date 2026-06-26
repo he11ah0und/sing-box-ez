@@ -4,9 +4,11 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"time"
 
 	"gioui.org/f32"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -17,6 +19,12 @@ type Sparkline struct {
 	color     color.NRGBA
 	maxPoints int
 	data      []float64
+	times     []time.Time
+	smoothing float64
+	ema       float64
+	hasEma    bool
+	lastAdd   time.Time
+	interval  time.Duration
 }
 
 // NewSparkline creates a sparkline with the given line color and maximum
@@ -29,7 +37,21 @@ func NewSparkline(color color.NRGBA, maxPoints int) *Sparkline {
 		color:     color,
 		maxPoints: maxPoints,
 		data:      make([]float64, 0, maxPoints),
+		times:     make([]time.Time, 0, maxPoints),
+		smoothing: 1,
+		interval:  time.Second,
 	}
+}
+
+// SetSmoothing controls exponential moving average on newly added values.
+// alpha=1 disables smoothing, alpha=0 keeps the value frozen. Default is 0.4.
+func (s *Sparkline) SetSmoothing(alpha float64) {
+	if alpha < 0 {
+		alpha = 0
+	} else if alpha > 1 {
+		alpha = 1
+	}
+	s.smoothing = alpha
 }
 
 // Add appends a new value, dropping the oldest value once the buffer is full.
@@ -37,9 +59,20 @@ func (s *Sparkline) Add(v float64) {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		v = 0
 	}
-	s.data = append(s.data, v)
+	if !s.hasEma {
+		s.ema = v
+		s.hasEma = true
+	} else {
+		s.ema = s.smoothing*v + (1-s.smoothing)*s.ema
+	}
+
+	now := time.Now()
+	s.lastAdd = now
+	s.data = append(s.data, s.ema)
+	s.times = append(s.times, now)
 	if len(s.data) > s.maxPoints {
 		s.data = s.data[1:]
+		s.times = s.times[1:]
 	}
 }
 
@@ -54,7 +87,16 @@ func (s *Sparkline) SetMaxPoints(maxPoints int) {
 	s.maxPoints = maxPoints
 	if len(s.data) > s.maxPoints {
 		s.data = s.data[len(s.data)-s.maxPoints:]
+		s.times = s.times[len(s.times)-s.maxPoints:]
 	}
+}
+
+// Reset clears the buffer and smoothing state.
+func (s *Sparkline) Reset() {
+	s.data = s.data[:0]
+	s.times = s.times[:0]
+	s.hasEma = false
+	s.lastAdd = time.Time{}
 }
 
 // MaxPoints returns the current rolling window size.
@@ -101,23 +143,48 @@ func (s *Sparkline) Layout(gtx layout.Context, width, height unit.Dp) layout.Dim
 		maxVal = 1
 	}
 
-	step := w / float32(len(s.data)-1)
+	// Smooth horizontal scroll: position each point by its age so older
+	// values drift left while the newest value stays near the right edge.
+	now := gtx.Now
+	if now.IsZero() {
+		now = time.Now()
+	}
+	span := time.Duration(s.maxPoints-1) * s.interval
+	if span <= 0 {
+		span = time.Second
+	}
+	spanSecs := span.Seconds()
+
+	pointAt := func(i int, v float64) f32.Point {
+		age := now.Sub(s.times[i]).Seconds()
+		x := w - float32(age/spanSecs)*w
+		y := h - (float32(v)/float32(maxVal))*h
+		return f32.Point{X: x, Y: y}
+	}
+
+	clipRect := clip.Rect{Max: size}.Push(gtx.Ops)
+	defer clipRect.Pop()
 
 	// Fill area under the line.
 	{
 		var p clip.Path
 		p.Begin(gtx.Ops)
+		first := pointAt(0, s.data[0])
+		last := pointAt(len(s.data)-1, s.data[len(s.data)-1])
 		p.MoveTo(f32.Point{X: 0, Y: h})
+		p.LineTo(first)
 		for i, v := range s.data {
-			y := h - (float32(v)/float32(maxVal))*h
-			p.LineTo(f32.Point{X: float32(i) * step, Y: y})
+			p.LineTo(pointAt(i, v))
 		}
-		p.LineTo(f32.Point{X: w, Y: h})
+		p.LineTo(f32.Point{X: last.X, Y: h})
 		p.Close()
 		fill := s.color
 		fill.A = uint8(float32(fill.A) * 0.25)
 		paint.FillShape(gtx.Ops, fill, clip.Outline{Path: p.End()}.Op())
 	}
+
+	// Animate: schedule another frame so the scroll continues smoothly.
+	gtx.Execute(op.InvalidateCmd{At: now.Add(16 * time.Millisecond)})
 
 	return layout.Dimensions{Size: size}
 }

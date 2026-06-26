@@ -17,6 +17,7 @@ import (
 	"sing-box-ez/internal/core/api/clash"
 	"sing-box-ez/internal/core/api/singbox"
 	"sing-box-ez/internal/framework"
+	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/util/openfile"
@@ -56,7 +57,10 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 		}
 	}
 
-	manager := NewManager(cfg.DataDir, fwApp.FS, coreUpdater, fwApp.Logger)
+	// Give the core manager its own scoped FS logger so I/O errors are
+	// attributed to [core][fs] instead of the generic root terminal.
+	coreFS := fs.NewOSWithLog(cfg.DataDir, parent.Allocate("core").Allocate("fs"))
+	manager := NewManager(cfg.DataDir, coreFS, coreUpdater, fwApp.Logger)
 	if active != nil {
 		manager.SetConfigName(active.Name)
 	}
@@ -182,7 +186,7 @@ func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
 	if active.IsLocal() {
 		if !c.HasCachedConfig(active.Name) {
 			if err := c.manager.CreateLocalConfig(active.Name); err != nil {
-				return nil, c.terminal.Errorf("failed to create local config: %v", err)
+				return nil, fmt.Errorf("failed to create local config: %w", err)
 			}
 		}
 		return active, nil
@@ -192,7 +196,7 @@ func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
 		c.fwApp.Logger.Log("Updating config...")
 		data, err := c.manager.UpdateConfig()
 		if err != nil {
-			c.fwApp.Logger.Log("Config download issue: " + err.Error())
+			// The network backend already logs the download failure with context.
 			if !c.HasCachedConfig(active.Name) {
 				return nil, errors.New("no config available")
 			}
@@ -351,7 +355,7 @@ func (c *Controller) UpdateConfigNow(name, url string) error {
 		return c.terminal.Errorf("Local config %q cannot be updated from a URL", name)
 	}
 	if err := c.DownloadConfigFor(name, url); err != nil {
-		return c.terminal.Errorf("Update failed: %v", err)
+		return fmt.Errorf("update failed: %w", err)
 	}
 	c.cfg.SetLastUpdateFor(name, time.Now())
 	_ = c.cfg.Save()
@@ -383,9 +387,10 @@ func (c *Controller) DownloadCoreWithProgress(onProgress func(downloaded, total 
 
 func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 	if c.manager.updater == nil {
-		return "", c.terminal.Errorf("core updater not configured")
+		return "", fmt.Errorf("core updater not configured")
 	}
-	info, err := c.manager.updater.Check(context.Background(), "")
+
+	info, err := c.manager.CheckCoreUpdate(context.Background())
 	if err != nil {
 		return "", err
 	}
@@ -393,14 +398,32 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 		c.terminal.Infof("Core is up to date: %s", info.Current)
 		return c.manager.coreBinary(), nil
 	}
-
 	c.terminal.Infof("Latest core version: %s", info.Latest)
+
+	// Stop the running core before replacing its binary; otherwise the
+	// kernel refuses to overwrite an executable that is still in use
+	// ("text file busy" on Linux).
+	if c.manager.IsRunning() {
+		if err := c.manager.Stop(); err != nil {
+			return "", fmt.Errorf("stop core for update: %w", err)
+		}
+		for range 100 {
+			if !c.manager.IsRunning() {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		if c.manager.IsRunning() {
+			return "", fmt.Errorf("core process did not stop in time for update")
+		}
+	}
+
 	info.Files = []updater.UpdateFile{{
 		Asset:    info.Asset,
 		DestPath: ".",
 	}}
 	if err := c.manager.updater.Install(context.Background(), info, onProgress); err != nil {
-		return "", c.terminal.Errorf("Failed to download core: %v", err)
+		return "", fmt.Errorf("install core update: %w", err)
 	}
 	c.terminal.Infof("Core downloaded to: %s", c.manager.coreBinary())
 	return c.manager.coreBinary(), nil
@@ -465,7 +488,7 @@ func (c *Controller) AddConfig(rec config.ConfigRecord) error {
 			rec.Type = config.ConfigTypeLocal
 		}
 		if err := c.manager.CreateLocalConfig(rec.Name); err != nil {
-			return c.terminal.Errorf("failed to create local config: %v", err)
+			return fmt.Errorf("failed to create local config: %w", err)
 		}
 		rec.Hash = config.HashConfig([]byte("{}"))
 	}
@@ -528,7 +551,7 @@ func (c *Controller) ActivateConfig(name string) error {
 	if !c.HasCachedConfig(name) {
 		if rec.IsLocal() {
 			if err := c.manager.CreateLocalConfig(name); err != nil {
-				return c.terminal.Errorf("failed to create local config: %v", err)
+				return fmt.Errorf("failed to create local config: %w", err)
 			}
 		} else {
 			return c.terminal.Errorf("No cached config for: %s", name)
@@ -561,7 +584,9 @@ func (c *Controller) UpdateAllConfigs(progress func(done, total int)) (int, int,
 		}
 		c.terminal.Infof("Updating config: " + rec.Name + "...")
 		if err := c.DownloadConfigFor(rec.Name, rec.URL); err != nil {
-			c.terminal.Errorf("Failed to update %s: %v", rec.Name, err)
+			// The underlying I/O error is already logged by the scoped FS;
+			// continue with the remaining configs.
+			continue
 		} else {
 			c.cfg.SetLastUpdateFor(rec.Name, time.Now())
 			updated++
@@ -595,7 +620,7 @@ func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult
 	path := c.manager.cachedConfig(name)
 	data, err := c.fwApp.FS.Root().File(path).Read()
 	if err != nil {
-		return singboxconfig.ValidationResult{}, c.terminal.Errorf("failed to read config file: %v", err)
+		return singboxconfig.ValidationResult{}, fmt.Errorf("failed to read config file: %w", err)
 	}
 	data, err = c.applyOverrides(data)
 	if err != nil {
@@ -642,7 +667,7 @@ func (c *Controller) RecreateLocalConfig(name string) error {
 		return c.terminal.Errorf("Only local configs can be recreated")
 	}
 	if err := c.manager.CreateLocalConfig(name); err != nil {
-		return c.terminal.Errorf("failed to recreate local config: %v", err)
+		return fmt.Errorf("failed to recreate local config: %w", err)
 	}
 	c.terminal.Infof("Recreated local config: %s", name)
 	return nil
@@ -711,7 +736,7 @@ func (c *Controller) SetRunAsAdmin(checked bool) error {
 	c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
 	c.manager.SetElevated(checked)
 	if err := c.cfg.Save(); err != nil {
-		return c.terminal.Errorf("Failed to save admin setting: %v", err)
+		return fmt.Errorf("failed to save admin setting: %w", err)
 	}
 	c.terminal.Infof("Admin mode: %v", checked)
 	return nil
@@ -719,8 +744,7 @@ func (c *Controller) SetRunAsAdmin(checked bool) error {
 
 func (c *Controller) ApplySetcap() error {
 	if err := SetNetAdminCapabilityGUI(c.manager.coreBinary()); err != nil {
-		c.terminal.Errorf("setcap failed: %v", err)
-		return c.terminal.Errorf("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
+		return c.terminal.Errorf("setcap failed: %v; tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box", err)
 	}
 	c.terminal.Infof("setcap applied successfully.")
 	return nil
@@ -756,7 +780,7 @@ func (c *Controller) SetDefaultInterval(h int) {
 func (c *Controller) SetAutoRestart(checked bool) error {
 	c.cfg.MustGet("core", "auto_restart").Update(checked)
 	if err := c.cfg.Save(); err != nil {
-		return c.terminal.Errorf("Failed to save auto-restart setting: %v", err)
+		return fmt.Errorf("failed to save auto-restart setting: %w", err)
 	}
 	c.terminal.Infof("Auto-restart: %v", checked)
 	return nil

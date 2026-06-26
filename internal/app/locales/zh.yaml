@@ -28,13 +28,12 @@ main:
     overview: 概览
     groups: 分组
     connections: 连接
-  graph_history:
-    label: 流量图表历史
   api:
     title: 核心控制
     status: '版本：%s  运行时间：%s'
     mode: 模式
     current_mode: '模式：'
+    backend: '后端：'
     mode_rule: 规则
     mode_global: 全局
     mode_direct: 直连
@@ -91,6 +90,9 @@ connection_details:
   close: 关闭连接
 core:
   update:
+    checking: 正在检查版本…
+    downloading: 下载中…
+    available: 下载 %s
     current_version: 当前版本：
   version:
     installed: 核心：v
@@ -125,6 +127,15 @@ core:
   log:
     title: 核心日志
     level: 日志级别
+  graph_history:
+    label: 流量图表历史
+  api:
+    title: API 连接
+    not_running: 核心未运行
+    type: 类型
+    address: 地址
+    secret: 密钥
+    copy: 复制连接数据
 configs:
   title: 配置
   btn:

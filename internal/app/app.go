@@ -160,18 +160,17 @@ func findUpdater(managers []*updater.Manager, name string) *updater.Manager {
 func buildUpdaters(app *framework.App) []*updater.Manager {
 	cfg := app.Config.(*config.AppConfig)
 	log := app.Logger
-	fsys := app.FS
 
 	// App self-updater (asset is a raw binary).
 	appMgr := updater.NewManager(log.Root, "updater")
 	appMgr.Source = updater.NewGitHubBackend(appMgr.Log, "he11ah0und", "sing-box-ez")
-	appMgr.Apply = updater.NewSelfUpdateApply(appMgr.Log, fsys)
+	appMgr.Apply = updater.NewSelfUpdateApply(appMgr.Log, fs.NewOSWithLog(app.BaseDir, appMgr.Log.Allocate("fs")))
 
 	// Core updater (downloads sing-box core release archive).
 	coreMgr := updater.NewManager(log.Root, "core-updater")
 	coreMgr.Source = updater.NewGitHubBackend(coreMgr.Log, "SagerNet", "sing-box")
 	coreMgr.AssetCriteria = updater.AssetCriteria{Tags: []string{runtime.GOARCH, runtime.GOOS}}
-	coreApply := updater.NewFilesUpdateApply(coreMgr.Log, fsys)
+	coreApply := updater.NewFilesUpdateApply(coreMgr.Log, fs.NewOSWithLog(cfg.DataDir, coreMgr.Log.Allocate("fs")))
 	coreApply.BaseDir = cfg.DataDir
 	coreApply.InstallScript = loadInstallScript("core.lua")
 	coreMgr.Apply = coreApply
@@ -182,6 +181,7 @@ func buildUpdaters(app *framework.App) []*updater.Manager {
 // registerConfig defines the sing-box-ez configuration schema.
 func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, true)
+	sheet.Register([]string{"core", "traffic_graph_history"}, fwconfig.TypeInt, 60)
 
 	sheet.Register([]string{"core", "log", "level"}, fwconfig.TypeString, "error")
 

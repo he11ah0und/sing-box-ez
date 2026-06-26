@@ -28,8 +28,6 @@ main:
     overview: Overview
     groups: Groups
     connections: Connections
-  graph_history:
-    label: Traffic graph history
   api:
     title: Core control
     status: 'Version: %s  Uptime: %s'
@@ -96,8 +94,16 @@ core:
     downloading: 'Downloading...'
     available: 'Download %s'
     current_version: 'Current version: '
+  version:
+    installed: 'Core: v'
+    not_installed: 'Core: not installed'
+  latest:
+    checking: 'Latest: checking...'
+    error: 'Latest: error'
+    prefix: 'Latest: v'
   btn:
     download: Download latest sing-box core
+    check: Check latest version
     restart_admin: Restart as administrator
     apply_setcap: Apply setcap (TUN without root)
     apply: Apply
@@ -121,6 +127,8 @@ core:
   log:
     title: Core log
     level: Log level
+  graph_history:
+    label: Traffic graph history
   api:
     title: API connection
     not_running: Core is not running
@@ -342,9 +350,22 @@ dialog:
     ignore: Ignore
   core_update:
     title: Core Update Available
+    msg: 'A new version of sing-box core is available.
+
+
+      Current: v%s
+
+      Latest: v%s
+
+
+      Update now?'
   version_check:
+    title: Version Check
+    core_not_installed: Core is not installed.
     latest: 'Latest version: '
     current: 'Current: '
+    latest_installed: ✓ Latest version installed
+    update_available: ✗ Update available
   download_complete:
     title: Download Complete
     msg: 'Sing-box core v%s downloaded successfully.

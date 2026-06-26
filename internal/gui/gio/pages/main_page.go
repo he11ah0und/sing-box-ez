@@ -799,10 +799,11 @@ func (p *MainPage) layoutGroupCard(gtx layout.Context, g coreapi.Group) layout.D
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return widgets.VSpace(gtx, unit.Dp(8))
 			}))
+			selectable := g.Type == "Selector"
 			for _, n := range g.Nodes {
 				n := n
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return p.layoutNodeRow(gtx, g.Tag, n, g.Selected, delays)
+					return p.layoutNodeRow(gtx, g.Tag, n, g.Selected, delays, selectable)
 				}))
 			}
 		}
@@ -811,46 +812,53 @@ func (p *MainPage) layoutGroupCard(gtx layout.Context, g coreapi.Group) layout.D
 	})
 }
 
-func (p *MainPage) layoutNodeRow(gtx layout.Context, groupTag string, n coreapi.Node, selected string, delays map[string]int) layout.Dimensions {
+func (p *MainPage) layoutNodeRow(gtx layout.Context, groupTag string, n coreapi.Node, selected string, delays map[string]int, selectable bool) layout.Dimensions {
 	colors := theme.Current().Colors()
 	isSelected := n.Tag == selected
-
-	btn := p.nodeSelectBtn(groupTag, n.Tag)
-	if btn.Clicked(gtx) {
-		go p.selectNode(groupTag, n.Tag)
-	}
 
 	bg := colors.Surface
 	fg := colors.Fg
 	if isSelected {
 		bg = colors.Primary
 		fg = colors.OnPrimary
-	} else if btn.Hovered() || btn.Pressed() {
+	}
+
+	content := func(gtx layout.Context) layout.Dimensions {
+		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+		paint.Fill(gtx.Ops, bg)
+
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					lbl := material.Body2(p.th, n.Tag)
+					lbl.Color = fg
+					return lbl.Layout(gtx)
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					lbl := material.Body2(p.th, p.formatNodeDelay(n, delays))
+					lbl.Color = p.delayColor(n, delays, fg)
+					return lbl.Layout(gtx)
+				})
+			}),
+		)
+	}
+
+	if !selectable {
+		return layout.Inset{Top: unit.Dp(2), Bottom: unit.Dp(2)}.Layout(gtx, content)
+	}
+
+	btn := p.nodeSelectBtn(groupTag, n.Tag)
+	if btn.Clicked(gtx) {
+		go p.selectNode(groupTag, n.Tag)
+	}
+	if btn.Hovered() || btn.Pressed() {
 		bg = colors.Hover
 	}
 
 	return layout.Inset{Top: unit.Dp(2), Bottom: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
-			defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-			paint.Fill(gtx.Ops, bg)
-
-			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body2(p.th, n.Tag)
-						lbl.Color = fg
-						return lbl.Layout(gtx)
-					})
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Body2(p.th, p.formatNodeDelay(n, delays))
-						lbl.Color = p.delayColor(n, delays, fg)
-						return lbl.Layout(gtx)
-					})
-				}),
-			)
-		})
+		return material.Clickable(gtx, btn, content)
 	})
 }
 

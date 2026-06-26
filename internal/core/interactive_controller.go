@@ -141,7 +141,6 @@ func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 // main page start button action so other UI surfaces (e.g. tray) can reuse it.
 func (ic *InteractiveController) StartService() error {
 	if _, err := ic.backend.PrepareConfig(); err != nil {
-		ic.backend.Terminal().Infof("%s", err.Error())
 		switch {
 		case errors.Is(err, ErrCoreMissing):
 			if ic.OnCoreMissing != nil {
@@ -255,7 +254,7 @@ func (ic *InteractiveController) checkAllConfigs() {
 
 		ic.backend.Terminal().Infof("Auto-updating config: %s", cfg.Name)
 		if err := ic.backend.UpdateConfigNow(cfg.Name, cfg.URL); err != nil {
-			ic.backend.Terminal().Errorf("Auto-update failed for %s: %v", cfg.Name, err)
+			// The download/network backend already logs the failure with context.
 			continue
 		}
 		if active != nil && cfg.Name == active.Name {
