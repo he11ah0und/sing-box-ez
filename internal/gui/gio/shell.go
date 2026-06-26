@@ -130,6 +130,19 @@ func (s *Shell) SetSecondaryPages(pages []pages.Page) {
 	s.RebuildNav()
 }
 
+// SetPrimaryPages replaces the primary page list and rebuilds navigation.
+// If the current primary index is out of range after the change, it switches
+// to the first primary page.
+func (s *Shell) SetPrimaryPages(pages []pages.Page) {
+	if s.currentPage < len(s.primary) && s.currentPage >= len(pages) {
+		s.currentPage = 0
+	}
+	s.primary = pages
+	s.navBtns = make([]widget.Clickable, len(s.primary)+1)
+	s.collapsedClicks = make([]widget.Clickable, len(s.primary)+len(s.secondary))
+	s.RebuildNav()
+}
+
 // Layout draws the adaptive shell.
 func (s *Shell) Layout(gtx layout.Context) layout.Dimensions {
 	// Determine available width in dp.

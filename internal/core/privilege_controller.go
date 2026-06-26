@@ -168,33 +168,21 @@ func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
 	return state
 }
 
-// RestartAsAdmin attempts to restart as admin and logs the result.
+// RestartAsAdmin attempts to restart as admin and returns any error.
 func (c *PrivilegeController) RestartAsAdmin(restartFn func() error) error {
-	if err := restartFn(); err != nil {
-		return c.terminal.Errorf("Failed to restart as admin: %v", err)
-	}
-	return nil
+	return restartFn()
 }
 
-// SetRunAsAdmin updates the run-as-admin setting and logs the result.
+// SetRunAsAdmin updates the run-as-admin setting.
 func (c *PrivilegeController) SetRunAsAdmin(checked bool) error {
 	c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
 	c.manager.SetElevated(checked)
-	if err := c.cfg.Save(); err != nil {
-		return c.terminal.Errorf("Failed to save admin setting: %v", err)
-	}
-	c.terminal.Infof("Admin mode: %v", checked)
-	return nil
+	return c.cfg.Save()
 }
 
-// ApplySetcap applies setcap and logs the result.
+// ApplySetcap applies setcap and returns any error.
 func (c *PrivilegeController) ApplySetcap() error {
-	if err := SetNetAdminCapabilityGUI(c.manager.coreBinary()); err != nil {
-		c.terminal.Errorf("setcap failed: %v", err)
-		return c.terminal.Errorf("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
-	}
-	c.terminal.Infof("setcap applied successfully.")
-	return nil
+	return SetNetAdminCapabilityGUI(c.manager.coreBinary())
 }
 
 // ApplyPrivilegeAction executes a privilege action, logs the result, and returns

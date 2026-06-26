@@ -169,6 +169,31 @@ func (g *GUI) rebuildSecondaryPages(showLogs bool) {
 	g.shell.SetSecondaryPages(g.buildSecondaryPages(showLogs))
 }
 
+// rebuildPages recreates all UI pages after a language change so that cached
+// localized labels are refreshed.
+func (g *GUI) rebuildPages() {
+	g.aboutPage = pages.NewAboutPage(g.th, g.ctrl, g.dialog)
+	mainPage := pages.NewMainPage(g.th, g.ctrl, g.dialog, g.win.Invalidate)
+	g.logPage = pages.NewLogPage(g.th, g.ctrl.Backend())
+	g.corePage = pages.NewCorePage(g.th, g.ctrl, g.dialog)
+	g.configsPage = pages.NewConfigsPage(g.th, g.ctrl, g.dialog)
+	g.pluginsPage = pages.NewPluginsPage(g.th, g.ctrl.Backend())
+
+	g.settingsPage = pages.NewSettingsPage(g.th, g.ctrl, g.dialog, g.corePage)
+	g.settingsPage.OnLanguageChange = func() {
+		g.rebuildPages()
+	}
+	g.settingsPage.OnResetRequested = func() {
+		g.showResetConfirm()
+	}
+	g.settingsPage.OnShowLogsChange = func(show bool) {
+		g.rebuildSecondaryPages(show)
+	}
+
+	g.shell.SetPrimaryPages([]pages.Page{mainPage, g.configsPage})
+	g.rebuildSecondaryPages(g.cfg.MustGet("ui", "show_logs").Bool())
+}
+
 // runWithDialogPump runs f and pumps window events until f calls the provided
 // done callback. It only renders the dialog overlay, so it can be used before
 // the main UI is built (e.g. for pre-startup update checks).
@@ -664,7 +689,7 @@ func (g *GUI) finishBuildUI(w *gioapp.Window) {
 
 	g.settingsPage = pages.NewSettingsPage(g.th, g.ctrl, g.dialog, g.corePage)
 	g.settingsPage.OnLanguageChange = func() {
-		g.shell.RebuildNav()
+		g.rebuildPages()
 	}
 	g.settingsPage.OnResetRequested = func() {
 		g.showResetConfirm()
@@ -899,7 +924,7 @@ func (g *GUI) runSelfUpdateAtStartup(info *updater.UpdateInfo, done func()) {
 		})
 		g.dialog.HideLoading()
 		if err != nil {
-			g.log.Warnf("startup self-update failed: %v", err)
+			// The self-update backend already logs the failure with context.
 			g.dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
 		} else {
 			g.dialog.Show(localengine.T("dialog", "self_update", "title"), "Update complete. Please restart.")
@@ -934,7 +959,7 @@ func (g *GUI) checkCoreUpdateAtStartup(done func()) {
 		latest, err := backend.GetLatestCoreVersion()
 		g.dialog.HideLoading()
 		if err != nil {
-			g.log.Warnf("startup core-update check failed: %v", err)
+			// The updater/network layers already log the failure with context.
 			if done != nil {
 				done()
 			}
@@ -983,7 +1008,7 @@ func (g *GUI) runCoreUpdateAtStartup(done func()) {
 		})
 		g.dialog.HideLoading()
 		if err != nil {
-			g.log.Warnf("startup core download failed: %v", err)
+			// The scoped FS/updater layers already log the failure; only show UI.
 			g.dialog.Show(localengine.T("dialog", "core_update", "title"), "Download failed: "+err.Error())
 		} else {
 			g.dialog.Show(localengine.T("dialog", "core_update", "title"), "Core downloaded successfully.")

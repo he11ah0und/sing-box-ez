@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"sing-box-ez/internal/framework/base"
 	"sing-box-ez/internal/framework/logger"
 	yamlutil "sing-box-ez/internal/framework/util/yaml"
 )
@@ -122,8 +123,6 @@ const (
 
 // SheetOptions configures a new Sheet.
 type SheetOptions struct {
-	// Logger is used to report schema warnings. If nil, warnings are silent.
-	Logger *logger.LogTerminal
 	// OnMissing is the default behaviour for unknown paths.
 	OnMissing OnMissing
 }
@@ -142,8 +141,8 @@ func WithDisabled(disabled bool) Option {
 
 // Sheet is a tree of typed configuration cells.
 type Sheet struct {
+	base.Base
 	root      *node
-	log       *logger.LogTerminal
 	onMissing OnMissing
 }
 
@@ -169,7 +168,6 @@ func NewSheet(opts SheetOptions) *Sheet {
 		root: &node{
 			children: make(map[string]*node),
 		},
-		log:       opts.Logger,
 		onMissing: opts.OnMissing,
 	}
 }
@@ -179,8 +177,8 @@ func (s *Sheet) Register(path []string, typ Type, defaultValue any, opts ...Opti
 	if len(path) == 0 {
 		return nil
 	}
-	if err := validateType(typ, defaultValue); err != nil && s.log != nil {
-		s.log.Warnf("config schema: invalid default for %v: %v", path, err)
+	if err := validateType(typ, defaultValue); err != nil && s.LogTerminal != nil {
+		s.Warnf("config schema: invalid default for %v: %v", path, err)
 	}
 	n := s.ensureNode(path)
 	n.typ = typ
@@ -208,9 +206,7 @@ func (s *Sheet) Get(path ...string) (*Cell, error) {
 	case OnMissingError:
 		return nil, fmt.Errorf("config path %v not found", path)
 	default:
-		if s.log != nil {
-			s.log.Warnf("config path %v not defined in schema, creating untyped cell", path)
-		}
+		s.WarnMissing(path)
 		return &Cell{node: s.ensureNode(path)}, nil
 	}
 }
@@ -255,9 +251,7 @@ func (s *Sheet) warnGet(path []string) *Cell {
 	}
 	n := s.findNode(path)
 	if n == nil {
-		if s.log != nil {
-			s.log.Warnf("config path %v not defined in schema, creating untyped cell", path)
-		}
+		s.WarnMissing(path)
 		n = s.ensureNode(path)
 	}
 	return &Cell{node: n}
@@ -279,8 +273,8 @@ func (s *Sheet) loadTree(tree map[string]any, path []string) {
 		currentPath := append(path, key)
 		n := s.findNode(currentPath)
 		if n != nil && n.disabled {
-			if s.log != nil {
-				s.log.Warnf("config path %v is disabled, ignoring value from file", currentPath)
+			if s.LogTerminal != nil {
+				s.Warnf("config path %v is disabled, ignoring value from file", currentPath)
 			}
 			continue
 		}
@@ -289,21 +283,19 @@ func (s *Sheet) loadTree(tree map[string]any, path []string) {
 			s.loadTree(v, currentPath)
 		default:
 			if n == nil {
-				if s.log != nil {
-					s.log.Warnf("config path %v not defined in schema", currentPath)
-				}
+				s.WarnMissing(currentPath)
 				n = s.ensureNode(currentPath)
 			}
 			normalized, err := normalizeValue(n.typ, v)
 			if err != nil {
-				if s.log != nil {
-					s.log.Warnf("config path %v: %v", currentPath, err)
+				if s.LogTerminal != nil {
+					s.Warnf("config path %v: %v", currentPath, err)
 				}
 				continue
 			}
 			if err := n.applyValue(normalized); err != nil {
-				if s.log != nil {
-					s.log.Warnf("config path %v: %v", currentPath, err)
+				if s.LogTerminal != nil {
+					s.Warnf("config path %v: %v", currentPath, err)
 				}
 			}
 		}
@@ -324,17 +316,17 @@ func (s *Sheet) SetLogger(log *logger.LogTerminal) {
 	if s == nil {
 		return
 	}
-	s.log = log
+	s.Init(log, "config")
 }
 
 // DebugDisabledCount logs the number of disabled cells at debug level. It is a
 // no-op if the sheet has no logger.
 func (s *Sheet) DebugDisabledCount() {
-	if s == nil || s.log == nil {
+	if s == nil || s.LogTerminal == nil {
 		return
 	}
 	if count := s.DisabledCount(); count > 0 {
-		s.log.Debugf("config: %d cells are disabled", count)
+		s.Debugf("config: %d cells are disabled", count)
 	}
 }
 

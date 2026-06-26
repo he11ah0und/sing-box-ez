@@ -131,7 +131,8 @@ func NewApp(cfg Config) (*App, error) {
 		return nil, fmt.Errorf("ensure data dir: %w", err)
 	}
 
-	sheet := config.NewSheet(config.SheetOptions{Logger: tmpLog.Root})
+	sheet := config.NewSheet(config.SheetOptions{})
+	sheet.Init(tmpLog.Root, "config")
 	if cfg.RegisterConfig != nil {
 		cfg.RegisterConfig(sheet)
 	}

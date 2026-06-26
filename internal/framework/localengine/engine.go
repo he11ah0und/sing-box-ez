@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"sing-box-ez/internal/framework/base"
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
 
@@ -18,7 +19,7 @@ import (
 var (
 	bundles     = make(map[string]map[string]any)
 	currentLang = "en"
-	logTerminal *logger.LogTerminal
+	baseLogger  base.Base
 )
 
 // SetLogger sets the logger used by the localengine package.
@@ -26,16 +27,14 @@ var (
 // It should be called once during application initialization instead of
 // assigning the package-level Log variable directly.
 func SetLogger(parent *logger.LogTerminal) {
-	if parent != nil {
-		logTerminal = parent.Allocate("localengine")
-	}
+	baseLogger.Init(parent, "localengine")
 }
 
 // LoadFromDir reads all *.yaml files from dir and parses them as locales.
 func LoadFromDir(dir fs.Directory) error {
 	entries, err := dir.ReadDir()
 	if err != nil {
-		return logTerminal.Errorf("read locale dir %q: %w", dir.Path(), err)
+		return baseLogger.Errorf("read locale dir %q: %w", dir.Path(), err)
 	}
 	loaded := 0
 	for _, e := range entries {
@@ -51,16 +50,17 @@ func LoadFromDir(dir fs.Directory) error {
 		}
 		data, err := file.Read()
 		if err != nil {
-			return logTerminal.Errorf("read locale %s: %w", e.Name(), err)
+			return baseLogger.Errorf("read locale %s: %w", e.Name(), err)
 		}
 		lang := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-		logTerminal.Debugf("loading locale %s", lang)
+		baseLogger.Debugf("loading locale %s", lang)
 		if err := loadLanguage(lang, data); err != nil {
-			return logTerminal.Errorf("load locale %s: %w", e.Name(), err)
+			return baseLogger.Errorf("load locale %s: %w", e.Name(), err)
 		}
 		loaded++
 	}
-	logTerminal.Infof("loaded %d locale(s) from %s", loaded, dir.Path())
+	baseLogger.Infof("loaded %d locale(s) from %s", loaded, dir.Path())
+	validateLocales()
 	return nil
 }
 
@@ -115,6 +115,7 @@ func T(path ...string) string {
 	if msg, ok := lookup(bundles["en"], path); ok && msg != "" {
 		return msg
 	}
+	baseLogger.WarnMissing(path)
 	return joinPath(path)
 }
 
@@ -122,10 +123,10 @@ func T(path ...string) string {
 func SetLanguage(code string) {
 	if _, ok := bundles[code]; ok {
 		currentLang = code
-		logTerminal.Infof("language set to %s", code)
+		baseLogger.Infof("language set to %s", code)
 	} else {
 		currentLang = "en"
-		logTerminal.Warnf("language %s not available, falling back to en", code)
+		baseLogger.Warnf("language %s not available, falling back to en", code)
 	}
 }
 
@@ -147,7 +148,7 @@ func DetectSystemLanguage() string {
 		lang = os.Getenv("LC_ALL")
 	}
 	if lang == "" {
-		logTerminal.Debugf("no LANG/LC_ALL set, defaulting to en")
+		baseLogger.Debugf("no LANG/LC_ALL set, defaulting to en")
 		return "en"
 	}
 	if idx := strings.Index(lang, "."); idx != -1 {
@@ -155,10 +156,10 @@ func DetectSystemLanguage() string {
 	}
 	base, _, _ := strings.Cut(lang, "_")
 	if slices.Contains(AvailableLanguages(), base) {
-		logTerminal.Debugf("detected system language: %s", base)
+		baseLogger.Debugf("detected system language: %s", base)
 		return base
 	}
-	logTerminal.Debugf("system language %s not available, defaulting to en", base)
+	baseLogger.Debugf("system language %s not available, defaulting to en", base)
 	return "en"
 }
 
@@ -171,4 +172,69 @@ func LanguageName(code string) string {
 		}
 	}
 	return code
+}
+
+// validateLocales compares all loaded locale bundles and warns about missing
+// keys. It is called automatically after LoadFromDir finishes.
+func validateLocales() {
+	if len(bundles) == 0 {
+		return
+	}
+
+	paths := make(map[string]map[string]struct{})
+	for lang, tree := range bundles {
+		collectKeys(tree, nil, func(path []string) {
+			dotted := joinPath(path)
+			if paths[dotted] == nil {
+				paths[dotted] = make(map[string]struct{})
+			}
+			paths[dotted][lang] = struct{}{}
+		})
+	}
+
+	langs := make([]string, 0, len(bundles))
+	for lang := range bundles {
+		langs = append(langs, lang)
+	}
+	slices.Sort(langs)
+
+	dotted := make([]string, 0, len(paths))
+	for k := range paths {
+		dotted = append(dotted, k)
+	}
+	slices.Sort(dotted)
+
+	for _, key := range dotted {
+		present := paths[key]
+		if len(present) == len(bundles) {
+			continue
+		}
+		missing := make([]string, 0, len(bundles))
+		for _, lang := range langs {
+			if _, ok := present[lang]; !ok {
+				missing = append(missing, lang)
+			}
+		}
+		baseLogger.Warnf("locale key %q missing in: %s", key, strings.Join(missing, ", "))
+	}
+}
+
+// collectKeys walks a locale tree and calls yield for every leaf path.
+func collectKeys(tree map[string]any, path []string, yield func([]string)) {
+	for k, v := range tree {
+		p := keyPath(path, k)
+		if sub, ok := v.(map[string]any); ok {
+			collectKeys(sub, p, yield)
+		} else {
+			yield(p)
+		}
+	}
+}
+
+// keyPath returns a new path slice with key appended.
+func keyPath(path []string, key string) []string {
+	p := make([]string, len(path)+1)
+	copy(p, path)
+	p[len(path)] = key
+	return p
 }
