@@ -2,9 +2,12 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
+	"sing-box-ez/internal/config"
+	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/svcman"
@@ -42,6 +45,10 @@ type InteractiveController struct {
 	// OnConfigMissing is invoked when StartService fails because no active
 	// config is selected. The GUI layer can navigate to the Configs page.
 	OnConfigMissing func()
+	// OnConfigStyleCheck is invoked when the active config does not look like a
+	// client config and no fallback_type has been chosen. The GUI should show a
+	// dialog and call choose with "ignore" or "to_client".
+	OnConfigStyleCheck func(style inboundstyle.Style, rec *config.ConfigRecord, choose func(string))
 
 	stopped bool
 	stopMu  sync.Mutex
@@ -140,7 +147,8 @@ func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 // StartService prepares the active config and starts the core. It mirrors the
 // main page start button action so other UI surfaces (e.g. tray) can reuse it.
 func (ic *InteractiveController) StartService() error {
-	if _, err := ic.backend.PrepareConfig(); err != nil {
+	rec, err := ic.backend.PrepareConfig()
+	if err != nil {
 		switch {
 		case errors.Is(err, ErrCoreMissing):
 			if ic.OnCoreMissing != nil {
@@ -152,6 +160,27 @@ func (ic *InteractiveController) StartService() error {
 			}
 		}
 		return err
+	}
+
+	if ic.Controller != nil && rec != nil {
+		style, err := ic.Controller.DetectConfigStyle(rec.Name)
+		if err != nil {
+			ic.backend.Terminal().Infof("Failed to detect config style: %v", err)
+			return fmt.Errorf("detect config style: %w", err)
+		}
+		if style != inboundstyle.StyleClient && rec.GetFallbackType() == "" {
+			if ic.OnConfigStyleCheck != nil {
+				ic.OnConfigStyleCheck(style, rec, func(fallbackType string) {
+					if err := ic.Controller.SetFallbackType(rec.Name, fallbackType); err != nil {
+						ic.backend.Terminal().Infof("Failed to set fallback_type: %v", err)
+						return
+					}
+					_ = ic.StartService()
+				})
+				return nil
+			}
+			return fmt.Errorf("config %q is not a client config; set fallback_type to %q or %q in the profile", rec.Name, inboundstyle.FallbackIgnore, inboundstyle.FallbackToClient)
+		}
 	}
 
 	if ic.serviceManager != nil {

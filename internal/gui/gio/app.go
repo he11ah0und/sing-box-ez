@@ -12,6 +12,7 @@ import (
 	apppkg "sing-box-ez/internal/app"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/rpc"
@@ -678,6 +679,9 @@ func (g *GUI) finishBuildUI(w *gioapp.Window) {
 		g.shell.NavigateTo("configs")
 		g.configsPage.ShowAddDialog()
 	}
+	g.ctrl.OnConfigStyleCheck = func(style inboundstyle.Style, rec *config.ConfigRecord, choose func(string)) {
+		g.showConfigStyleDialog(style, rec, choose)
+	}
 
 	g.aboutPage = pages.NewAboutPage(g.th, g.ctrl, g.dialog)
 	mainPage := pages.NewMainPage(g.th, g.ctrl, g.dialog, w.Invalidate)
@@ -733,6 +737,17 @@ func (g *GUI) finishBuildUI(w *gioapp.Window) {
 		g.tray.Refresh()
 	}
 
+	g.maybeAutoStartCore()
+}
+
+func (g *GUI) maybeAutoStartCore() {
+	if g.ctrl.Backend().IsRunning() {
+		return
+	}
+	if g.app.StartCoreOnLaunch || g.cfg.MustGet("core", "start_on_launch").Bool() {
+		g.log.Infof("auto-starting core")
+		go g.ctrl.StartService()
+	}
 }
 
 // RequestRestart stops the current app services and replaces the process with
@@ -768,6 +783,35 @@ func (g *GUI) showResetConfirm() {
 	g.dialog.Show(widgets.Text(title, body),
 		widgets.Cancel(),
 		widgets.Confirm(func() { g.resetDataAndRestart() }))
+}
+
+// showConfigStyleDialog asks the user what to do when the active config does not
+// look like a client config.
+func (g *GUI) showConfigStyleDialog(style inboundstyle.Style, rec *config.ConfigRecord, choose func(string)) {
+	var title, body string
+	switch style {
+	case inboundstyle.StyleServer:
+		title = localengine.T("dialog", "config_style", "server_title")
+		body = localengine.T("dialog", "config_style", "server_body")
+	case inboundstyle.StyleUndefined:
+		title = localengine.T("dialog", "config_style", "undefined_title")
+		body = localengine.T("dialog", "config_style", "undefined_body")
+	default:
+		title = localengine.T("dialog", "config_style", "unknown_title")
+		body = localengine.T("dialog", "config_style", "unknown_body")
+	}
+
+	buttons := []widgets.ButtonSpec{
+		widgets.Action(localengine.T("dialog", "config_style", "btn", "cancel"), func() {}),
+		widgets.Action(localengine.T("dialog", "config_style", "btn", "ignore"), func() { choose(inboundstyle.FallbackIgnore) }),
+	}
+	if style == inboundstyle.StyleServer {
+		buttons = append(buttons,
+			widgets.Confirm(func() { choose(inboundstyle.FallbackToClient) }),
+		)
+	}
+
+	g.dialog.Show(widgets.Text(title, body), buttons...)
 }
 
 // resetDataAndRestart removes config.yaml, profiles.yaml and the configs folder,

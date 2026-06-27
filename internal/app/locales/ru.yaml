@@ -110,6 +110,9 @@ core:
     apply_setcap: Применить setcap (TUN без root)
     apply: Применить
   auto_restart: Авто-перезапуск ядра при фатальных ошибках
+  start_on_launch: Запускать ядро при старте программы
+  proxy:
+    enabled: Включить proxy (mixed + TUN HTTP proxy)
   privileges:
     title: Привилегии
     admin: 'Привилегии: запущено от администратора'
@@ -165,6 +168,10 @@ configs:
     local: локальный
     remote: удалённый
     modified: изменён
+    client: client
+    server: server
+    undefined: undefined
+    not_recommended: не рекомендуется
   dialog:
     title: Конфиг
     name: Название
@@ -385,6 +392,17 @@ dialog:
   unknown: неизвестно
   error:
     no_matching_asset: Подходящий файл не найден
+  config_style:
+    server_title: Конфиг похож на серверный
+    server_body: 'Эта конфигурация не похожа на клиентскую. Запуск такого конфига не рекомендуется для клиентского использования.'
+    undefined_title: Не удалось определить тип конфига
+    undefined_body: 'В конфиге отсутствуют inbounds. Рекомендуется отменить запуск.'
+    unknown_title: Неизвестный тип конфига
+    unknown_body: 'Не удалось определить тип конфигурации.'
+    btn:
+      cancel: Отмена
+      ignore: Всё равно запустить
+      to_client: Конвертировать в client
   privileges:
     title: Требуются привилегии
     msg_linux: 'sing-box нуждается в повышенных привилегиях для создания TUN-устройства.

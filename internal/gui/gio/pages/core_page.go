@@ -35,7 +35,9 @@ type CorePage struct {
 
 	coreUpdate *widgets.UpdateCheck
 
-	autoRestart widget.Bool
+	autoRestart   widget.Bool
+	startOnLaunch widget.Bool
+	proxyEnabled  widget.Bool
 
 	logLevel             *widgets.Dropdown
 	savedLevel           string
@@ -65,6 +67,8 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 		dialog: dialog,
 	}
 	p.autoRestart.Value = ctrl.Backend().Config().MustGet("core", "auto_restart").Bool()
+	p.startOnLaunch.Value = ctrl.Backend().Config().MustGet("core", "start_on_launch").Bool()
+	p.proxyEnabled.Value = ctrl.Backend().Config().MustGet("core", "proxy", "enabled").Bool()
 	p.initLogOverride()
 	p.initGraphHistoryDropdown()
 	p.initURLTestURL()
@@ -274,6 +278,16 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		_ = p.ctrl.Backend().SetAutoRestart(p.autoRestart.Value)
 	}
 
+	if changed := p.startOnLaunch.Update(gtx); changed {
+		_ = p.ctrl.Backend().Config().MustGet("core", "start_on_launch").Update(p.startOnLaunch.Value)
+		_ = p.ctrl.Backend().Config().Save()
+	}
+
+	if changed := p.proxyEnabled.Update(gtx); changed {
+		_ = p.ctrl.Backend().Config().MustGet("core", "proxy", "enabled").Update(p.proxyEnabled.Value)
+		_ = p.ctrl.Backend().Config().Save()
+	}
+
 	for {
 		ev, ok := p.urlTestURLEditor.Update(gtx)
 		if !ok {
@@ -293,6 +307,12 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.CheckBox(p.th, &p.autoRestart, localengine.T("core", "auto_restart")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.CheckBox(p.th, &p.startOnLaunch, localengine.T("core", "start_on_launch")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.CheckBox(p.th, &p.proxyEnabled, localengine.T("core", "proxy", "enabled")).Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.separator(gtx)
