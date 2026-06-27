@@ -3,12 +3,10 @@ module sing-box-ez
 go 1.25.0
 
 require (
-	gio.tools/icons v0.0.0-20240708021058-44790e75e701
-	gioui.org v0.10.0
-	gioui.org/x v0.10.0
-	github.com/godbus/dbus/v5 v5.1.0
+	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gogpu/systray v0.1.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
+	github.com/wailsapp/wails/v3 v3.0.0-alpha2.107
 	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/sys v0.43.0
 	google.golang.org/grpc v1.81.1
@@ -18,18 +16,17 @@ require (
 )
 
 require (
-	gioui.org/shader v1.0.8 // indirect
-	github.com/go-text/typesetting v0.3.4 // indirect
+	github.com/adrg/xdg v0.5.3 // indirect
+	github.com/coder/websocket v1.8.14 // indirect
+	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-webgpu/goffi v0.5.0 // indirect
+	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/yuin/goldmark v1.7.8 // indirect
-	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/image v0.26.0 // indirect
-	golang.org/x/net v0.51.0 // indirect
+	github.com/wailsapp/wails/webview2 v1.0.27 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 )

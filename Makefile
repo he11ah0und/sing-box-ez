@@ -1,8 +1,9 @@
-.PHONY: all setup build run run-nogui build-nogui clean deps test docs help
+.PHONY: all build build-nogui run run-nogui dev clean deps test vet fmt fmt-check lint ineffassign-check security complexity outdated analyze help
 
 APP_NAME := sing-box-ez
 BUILD_DIR := ./build
 GO := go
+WAILS3 := $(shell go env GOPATH)/bin/wails3
 GOPATH := $(shell go env GOPATH)
 GO_BIN := $(GOPATH)/bin
 
@@ -14,79 +15,56 @@ COMMIT_DATE  := $(shell git log -1 --format=%cI 2>/dev/null || echo "unknown")
 
 # ---------------------------------------------------------------------------
 # Build options — override on the command line:
-#   make build OS=windows ARCH=arm64 GUI=0
-#   make build OS=linux   ARCH=amd64 GUI=1 GUI_BACKEND=wayland
+#   make build OS=windows ARCH=amd64
+#   make build-nogui OS=linux ARCH=amd64
 # ---------------------------------------------------------------------------
-OS           ?= $(shell go env GOOS)
-ARCH         ?= $(shell go env GOARCH)
-GUI          ?= 1
-GUI_BACKEND  ?= wayland
-COMPILER     ?= gcc
-PLUGINS      ?= 1
+OS       ?= $(shell go env GOOS)
+ARCH     ?= $(shell go env GOARCH)
+COMPILER ?= gcc
+PLUGINS  ?= 1
 
-GOOS    := $(OS)
-GOARCH  := $(ARCH)
-
-# Compiler flavour: gcc (glibc) or musl
-COMPILER_SUFFIX := $(if $(filter musl,$(COMPILER)),-musl,)
+GOOS   := $(OS)
+GOARCH := $(ARCH)
 
 # On Windows with GUI, hide the console window.
-WIN_GUI_FLAG := $(if $(and $(filter windows,$(GOOS)),$(filter 1,$(GUI))),-H windowsgui,)
-LDFLAGS := -ldflags "-s -w $(WIN_GUI_FLAG) \
+WIN_GUI_FLAG := $(if $(filter windows,$(GOOS)),-H windowsgui,)
+LDFLAGS := -s -w $(WIN_GUI_FLAG) \
 	-X 'sing-box-ez/internal/framework/version.Branch=$(BRANCH)' \
 	-X 'sing-box-ez/internal/framework/version.BuildDate=$(BUILD_DATE)' \
 	-X 'sing-box-ez/internal/framework/version.Commit=$(BUILD_COMMIT)' \
 	-X 'sing-box-ez/internal/framework/version.BuildOS=$(GOOS)' \
 	-X 'sing-box-ez/internal/framework/version.BuildArch=$(GOARCH)' \
-	-X 'sing-box-ez/internal/framework/version.BuildGUI=$(GUI)' \
-	-X 'sing-box-ez/internal/framework/version.BuildBackend=$(if $(and $(filter linux,$(GOOS)),$(filter 1,$(GUI))),$(GUI_BACKEND),)' \
+	-X 'sing-box-ez/internal/framework/version.BuildGUI=1' \
 	-X 'sing-box-ez/internal/framework/version.BuildCompiler=$(COMPILER)' \
 	-X 'sing-box-ez/internal/framework/version.BuildDev=$(BUILD_DEV)' \
-	-X 'sing-box-ez/internal/framework/version.CommitDate=$(COMMIT_DATE)'"
+	-X 'sing-box-ez/internal/framework/version.CommitDate=$(COMMIT_DATE)'
 
-# Lazy-evaluated variables so target-specific overrides are respected.
-# GUI_BACKEND only affects Linux (Wayland vs X11). Linux GUI needs CGO for
-# Wayland/X11; Windows GUI uses Gio's pure-Go backend and does not need CGO.
-CGO_ENABLED = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),1,0)
+NOGUI_LDFLAGS := -s -w \
+	-X 'sing-box-ez/internal/framework/version.Branch=$(BRANCH)' \
+	-X 'sing-box-ez/internal/framework/version.BuildDate=$(BUILD_DATE)' \
+	-X 'sing-box-ez/internal/framework/version.Commit=$(BUILD_COMMIT)' \
+	-X 'sing-box-ez/internal/framework/version.BuildOS=$(GOOS)' \
+	-X 'sing-box-ez/internal/framework/version.BuildArch=$(GOARCH)' \
+	-X 'sing-box-ez/internal/framework/version.BuildGUI=0' \
+	-X 'sing-box-ez/internal/framework/version.BuildCompiler=$(COMPILER)' \
+	-X 'sing-box-ez/internal/framework/version.BuildDev=$(BUILD_DEV)' \
+	-X 'sing-box-ez/internal/framework/version.CommitDate=$(COMMIT_DATE)'
 
-# Build tags: combine into a single comma-separated list for Go's -tags flag
 comma := ,
 empty :=
 space := $(empty) $(empty)
-# Build tag for Linux GUI backend (wayland/x11).
-LINUX_GUI_TAG = $(if $(and $(filter linux,$(GOOS)),$(filter 1,$(GUI))),$(if $(filter wayland,$(GUI_BACKEND)),wayland,$(if $(filter x11,$(GUI_BACKEND)),x11,)),)
-TAG_LIST  = $(if $(filter 1,$(GUI)),$(LINUX_GUI_TAG),nogui)
-TAG_LIST += $(if $(filter 0,$(PLUGINS)),noplugins,)
-BUILD_TAGS = $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
-TYPE_SUFFIX     = $(if $(filter 1,$(GUI)),-gui,-cli)
-GUI_TYPE_SUFFIX = $(if $(and $(filter 1,$(GUI)),$(filter linux,$(GOOS))),$(if $(filter wayland,$(GUI_BACKEND)),-wayland,-x11),)
-EXT         = $(if $(filter windows,$(GOOS)),.exe,)
+TAG_LIST := $(if $(filter 0,$(PLUGINS)),noplugins,)
+BUILD_TAGS := $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
+
+NOGUI_TAG_LIST := nogui$(if $(filter 0,$(PLUGINS)), noplugins,)
+NOGUI_BUILD_TAGS := -tags "$(subst $(space),$(comma),$(strip $(NOGUI_TAG_LIST)))"
+
+EXT             := $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
+GUI_OUTPUT      := $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)-gui$(EXT)
+CLI_OUTPUT      := $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)-cli$(EXT)
 
-# Detect whether we are cross-compiling with CGO enabled.
-HOST_OS   := $(shell go env GOOS)
-HOST_ARCH := $(shell go env GOARCH)
-
-CROSS_CC :=
-
-ifeq ($(COMPILER),musl)
-  ifeq ($(GOARCH),amd64)
-    CROSS_CC := musl-gcc
-  endif
-else
-  ifeq ($(shell [ "$(CGO_ENABLED)" = "1" ] && [ "$(GOOS)-$(GOARCH)" != "$(HOST_OS)-$(HOST_ARCH)" ] && echo 1 || echo 0),1)
-    ifeq ($(GOOS),linux)
-      ifeq ($(GOARCH),arm64)
-        CROSS_CC := aarch64-linux-gnu-gcc
-      endif
-    endif
-  endif
-endif
-# Explicit user-provided CC takes precedence (ignore plain 'cc'/'gcc'),
-# otherwise use auto-detected cross compiler.
-BUILD_CC := $(or $(filter-out cc gcc,$(CC)),$(CROSS_CC))
-
-OUTPUT = $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)$(TYPE_SUFFIX)$(GUI_TYPE_SUFFIX)$(EXT)
+# Wails v3 uses webkitgtk-6.0 / WebKit2GTK-4.1 on Linux; no extra tag needed.
 
 # ---------------------------------------------------------------------------
 # Default target
@@ -100,34 +78,29 @@ help:
 	@echo "Usage: make <target> [options]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build       Compile the binary"
-	@echo "  build-nogui Alias for 'make build GUI=0'"
+	@echo "  build       Compile the Wails GUI binary"
+	@echo "  build-nogui Compile the CLI-only binary"
 	@echo "  run         Build and run locally (GUI mode)"
 	@echo "  run-nogui   Build and run locally (CLI mode)"
+	@echo "  dev         Run Wails in development mode"
 	@echo "  deps        Download Go dependencies"
 	@echo "  test        Run Go tests"
-	@echo "  docs        Generate plugin API docs and serve with mkdocs"
-	@echo "  defs        Generate VS Code Lua definitions for plugin dev"
 	@echo "  clean       Remove build artifacts"
 	@echo ""
 	@echo "Build options (examples):"
-	@echo "  make build                       # native OS/arch, Wayland GUI (gio)"
-	@echo "  make build GUI=0                 # native OS/arch, CLI only"
-	@echo "  make build GUI_BACKEND=x11       # native, X11 GUI"
-	@echo "  make build OS=linux ARCH=arm64 GUI=1"
-	@echo "  make build OS=windows ARCH=amd64 GUI=0"
-	@echo "  make build OS=darwin ARCH=arm64 GUI=1"
+	@echo "  make build                       # native OS/arch GUI"
+	@echo "  make build-nogui                 # native OS/arch CLI"
+	@echo "  make build OS=windows ARCH=amd64 # cross-compile Windows GUI"
+	@echo "  make build OS=linux ARCH=arm64   # cross-compile Linux GUI"
 	@echo ""
 	@echo "Variables:"
-	@echo "  OS           Target operating system  (default: current)"
-	@echo "  ARCH         Target architecture      (default: current)"
-	@echo "  GUI          1 = with GUI (CGO needed only on Linux), 0 = CLI only"
-	@echo "  GUI_BACKEND  wayland | x11  (default: wayland)"
-	@echo "  COMPILER     gcc | musl     (default: gcc)"
-	@echo "  CC           Cross-compiler to use    (auto-detected)"
+	@echo "  OS          Target operating system  (default: current)"
+	@echo "  ARCH        Target architecture      (default: current)"
+	@echo "  COMPILER    gcc | musl                (default: gcc)"
+	@echo "  PLUGINS     1 = with plugins, 0 = without  (default: 1)"
 
 # ---------------------------------------------------------------------------
-# System dependencies (Debian/Ubuntu only)
+# System dependencies
 # ---------------------------------------------------------------------------
 setup:
 	@command -v apt-get >/dev/null 2>&1 || { echo "apt-get not found. Install dependencies manually."; exit 0; }
@@ -136,49 +109,15 @@ ifeq ($(COMPILER),musl)
 	sudo apt-get update -qq
 	sudo apt-get install --no-install-recommends -y musl-tools
 else
-ifeq ($(GOOS),linux)
-ifeq ($(GUI),1)
-ifeq ($(GUI_BACKEND),wayland)
-	@echo "Installing Wayland build dependencies..."
+	@echo "Installing Wails v3 build dependencies..."
 	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev libwayland-dev libwayland-bin libxkbcommon-dev libvulkan-dev libxkbcommon-x11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev
-else
-	@echo "Installing X11 build dependencies..."
-	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libvulkan-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev
-endif
-else
-	@echo "Installing base build dependencies..."
-	sudo apt-get update -qq
-	sudo apt-get install --no-install-recommends -y gcc
-endif
-endif
+	sudo apt-get install --no-install-recommends -y gcc libgtk-4-dev libwebkitgtk-6.0-dev
 endif
 
-# ---------------------------------------------------------------------------
-# System dependencies (Arch Linux)
-# ---------------------------------------------------------------------------
 setup-arch:
 	@command -v pacman >/dev/null 2>&1 || { echo "pacman not found. This target is for Arch Linux only."; exit 0; }
-ifeq ($(COMPILER),musl)
-	@echo "Installing musl build dependencies..."
-	sudo pacman -S --needed musl
-else
-ifeq ($(GOOS),linux)
-ifeq ($(GUI),1)
-ifeq ($(GUI_BACKEND),wayland)
-	@echo "Installing Wayland build dependencies..."
-	sudo pacman -S --needed mesa wayland libxkbcommon vulkan-headers libxfixes
-else
-	@echo "Installing X11 build dependencies..."
-	sudo pacman -S --needed mesa libx11 libxcursor libxrandr libxinerama libxi libglvnd libxkbcommon vulkan-headers wayland libxfixes
-endif
-else
-	@echo "Installing base build dependencies..."
-	sudo pacman -S --needed gcc
-endif
-endif
-endif
+	@echo "Installing Wails v3 build dependencies..."
+	sudo pacman -S --needed gtk4 webkitgtk-6.0
 	@echo "Installing Go analysis tools..."
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
@@ -193,11 +132,11 @@ deps:
 	$(GO) mod download
 	$(GO) mod tidy
 
-vet:
-	$(GO) vet ./...
-
 test:
 	$(GO) test ./...
+
+vet:
+	$(GO) vet ./...
 
 # ---------------------------------------------------------------------------
 # Code quality & analysis
@@ -250,30 +189,36 @@ defs:
 # ---------------------------------------------------------------------------
 build:
 	@mkdir -p $(BUILD_DIR)
-	@echo "Building: OS=$(GOOS) ARCH=$(GOARCH) GUI=$(GUI) GUI_BACKEND=$(GUI_BACKEND) CGO=$(CGO_ENABLED)"
-	$(if $(BUILD_CC),@echo "Cross-compiler: $(BUILD_CC)")
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
-		$(if $(BUILD_CC),CC=$(BUILD_CC)) \
-		$(GO) build -trimpath -buildvcs=false $(BUILD_TAGS) $(LDFLAGS) -o $(OUTPUT) .
-	@echo "Built: $(OUTPUT)"
+	@echo "Building: OS=$(GOOS) ARCH=$(GOARCH) GUI=1"
+	@echo "Installing frontend dependencies..."
+	cd frontend && npm install --omit=none
+	@echo "Generating Wails v3 bindings..."
+	$(WAILS3) generate bindings -clean=true -i
+	@echo "Building frontend..."
+	cd frontend && npm run build
+	@echo "Building GUI binary..."
+	CGO_ENABLED=1 GOOS=$(GOOS) GOARCH=$(GOARCH) \
+		$(GO) build -trimpath -buildvcs=false -ldflags "$(LDFLAGS)" -o $(GUI_OUTPUT) .
+	@echo "Built: $(GUI_OUTPUT)"
 
-# ---------------------------------------------------------------------------
-# Convenience aliases
-# ---------------------------------------------------------------------------
 build-nogui:
-	$(MAKE) build GUI=0 PLUGINS=0
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building: OS=$(GOOS) ARCH=$(GOARCH) GUI=0"
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) \
+		$(GO) build -trimpath -buildvcs=false $(NOGUI_BUILD_TAGS) -ldflags "$(NOGUI_LDFLAGS)" -o $(CLI_OUTPUT) .
+	@echo "Built: $(CLI_OUTPUT)"
 
 # ---------------------------------------------------------------------------
-# Run locally
+# Development & run
 # ---------------------------------------------------------------------------
-run: GUI=1
+dev:
+	PATH=$(GO_BIN):$(PATH) $(WAILS3) dev -config ./build/config.yml
+
 run: build
-	$(OUTPUT) $(ARGS)
+	$(GUI_OUTPUT) $(ARGS)
 
-run-nogui: GUI=0
-run-nogui: PLUGINS=0
-run-nogui: build
-	$(OUTPUT) $(ARGS)
+run-nogui: build-nogui
+	$(CLI_OUTPUT) $(ARGS)
 
 # ---------------------------------------------------------------------------
 # Clean

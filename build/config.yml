@@ -1,0 +1,40 @@
+version: '3'
+
+info:
+  companyName: "sing-box-ez"
+  productName: "sing-box-ez"
+  productIdentifier: "com.example.sing-box-ez"
+  description: "A graphical interface for sing-box"
+  copyright: "(c) 2025 sing-box-ez contributors"
+  comments: "Cross-platform sing-box manager"
+  version: "0.0.1"
+
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+      - "*.js"
+      - "*.ts"
+    git_ignore: true
+  executes:
+    - cmd: cd frontend && npm install --omit=none
+      type: blocking
+    - cmd: wails3 generate bindings
+      type: blocking
+    - cmd: cd frontend && npm run dev -- --port 9245 --strictPort
+      type: background
+    - cmd: go run .
+      type: primary

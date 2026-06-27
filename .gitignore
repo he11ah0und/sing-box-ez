@@ -18,3 +18,8 @@ AGENTS.md
 # Generator scratch output
 /schema-gen
 /schema-generated.yaml
+
+# Frontend generated assets
+frontend/bindings/
+frontend/dist/
+frontend/node_modules/
