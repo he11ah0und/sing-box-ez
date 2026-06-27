@@ -80,6 +80,7 @@ connection_details:
   source: Источник
   destination: Назначение
   domain: Домен
+  rule: Правило
   outbound: Исходящий
   chain: Цепочка
   uplink: Отправлено

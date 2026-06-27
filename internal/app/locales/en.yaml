@@ -80,6 +80,7 @@ connection_details:
   source: Source
   destination: Destination
   domain: Domain
+  rule: Rule
   outbound: Outbound
   chain: Chain
   uplink: Uplink
