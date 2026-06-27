@@ -72,6 +72,7 @@ type Connection struct {
 	Downlink      int64
 	UplinkTotal   int64
 	DownlinkTotal int64
+	Rule          string
 	CreatedAt     time.Time
 	ClosedAt      time.Time
 	ProcessInfo   ProcessInfo

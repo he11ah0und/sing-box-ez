@@ -100,6 +100,7 @@ type MainPage struct {
 	connMu          sync.RWMutex
 	connRows        map[string]*widget.Clickable
 	detailRowBtns   map[string]*widget.Clickable
+	detailsList     widget.List
 	closeDetailsBtn widget.Clickable
 	closeConnsBtn   widget.Clickable
 
@@ -165,6 +166,7 @@ func NewMainPage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 
 	p.tabBtns = make([]widget.Clickable, 3)
 	p.contentList.Axis = layout.Vertical
+	p.detailsList.Axis = layout.Vertical
 
 	go p.refreshLoop()
 	go p.trafficLoop()
@@ -964,6 +966,9 @@ func (p *MainPage) layoutConnectionRow(gtx layout.Context, conn coreapi.Connecti
 	} else {
 		sub = fmt.Sprintf("↑%s ↓%s", formatBytes(conn.UplinkTotal), formatBytes(conn.DownlinkTotal))
 	}
+	if !conn.CreatedAt.IsZero() {
+		sub += " · " + version.HumanDurationPlain(time.Since(conn.CreatedAt))
+	}
 	if outbound != "" {
 		sub += " · " + outbound
 	}
@@ -1134,6 +1139,7 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 		{localengine.T("connection_details", "source"), conn.Source},
 		{localengine.T("connection_details", "destination"), conn.Destination},
 		{localengine.T("connection_details", "domain"), conn.Domain},
+		{localengine.T("connection_details", "rule"), conn.Rule},
 		{localengine.T("connection_details", "outbound"), outbound},
 		{localengine.T("connection_details", "chain"), strings.Join(conn.Chain, " → ")},
 		{localengine.T("connection_details", "uplink"), uplinkVal},
@@ -1147,17 +1153,23 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 		)
 	}
 
-	children := make([]layout.FlexChild, 0, len(rows)+2)
-	for _, r := range rows {
-		r := r
-		children = append(children, p.detailRow(r.k, r.v, p.detailRowBtn(r.k)))
-	}
-
 	if p.closeDetailsBtn.Clicked(gtx) {
 		go p.closeConnection(conn.ID)
 		p.dialog.HideCustom()
 	}
-	children = append(children,
+
+	rowChildren := make([]layout.FlexChild, 0, len(rows))
+	for _, r := range rows {
+		r := r
+		rowChildren = append(rowChildren, p.detailRow(r.k, r.v, p.detailRowBtn(r.k)))
+	}
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return material.List(p.th, &p.detailsList).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+				return widgets.DialogSpacedList(gtx, rowChildren...)
+			})
+		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return widgets.VSpace(gtx, unit.Dp(16))
 		}),
@@ -1165,8 +1177,6 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 			return material.Button(p.th, &p.closeDetailsBtn, localengine.T("connection_details", "close")).Layout(gtx)
 		}),
 	)
-
-	return widgets.DialogSpacedList(gtx, children...)
 }
 
 func (p *MainPage) detailRowBtn(label string) *widget.Clickable {
@@ -1192,7 +1202,7 @@ func (p *MainPage) detailRow(label, value string, btn *widget.Clickable) layout.
 				Data: io.NopCloser(strings.NewReader(value)),
 			})
 		}
-		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start, Spacing: layout.SpaceBetween}.Layout(gtx,
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start, Spacing: layout.SpaceEnd}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Right: unit.Dp(12), Top: unit.Dp(2), Bottom: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					lbl := material.Body2(p.th, label)
@@ -1201,6 +1211,9 @@ func (p *MainPage) detailRow(label, value string, btn *widget.Clickable) layout.
 				})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				// Force the clickable area to fill the allocated width so that
+				// right-aligned text is visible and the row measures correctly.
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
 				return material.Clickable(gtx, btn, func(gtx layout.Context) layout.Dimensions {
 					lbl := material.Body2(p.th, value)
 					lbl.Alignment = text.End

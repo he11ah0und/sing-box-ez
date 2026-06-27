@@ -80,6 +80,7 @@ connection_details:
   source: 来源
   destination: 目标
   domain: 域名
+  rule: 规则
   outbound: 出站
   chain: 链路
   uplink: 上行

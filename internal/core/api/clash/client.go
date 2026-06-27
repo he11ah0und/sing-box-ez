@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -356,14 +355,38 @@ type history struct {
 }
 
 type connection struct {
-	ID       string         `json:"id"`
-	Metadata map[string]any `json:"metadata"`
+	ID          string         `json:"id"`
+	Metadata    map[string]any `json:"metadata"`
+	Chains      []string       `json:"chains"`
+	Upload      int64          `json:"upload"`
+	Download    int64          `json:"download"`
+	Start       string         `json:"start"`
+	Rule        string         `json:"rule"`
+	RulePayload string         `json:"rulePayload"`
 }
 
 func connectionFromClash(c connection) api.Connection {
+	// Clash returns chains from innermost (final) outbound to outermost selector,
+	// so reverse them for top-down display (selector → group → final node).
+	chain := make([]string, len(c.Chains))
+	for i, v := range c.Chains {
+		chain[len(c.Chains)-1-i] = v
+	}
 	conn := api.Connection{
-		ID:       c.ID,
-		Metadata: c.Metadata,
+		ID:            c.ID,
+		Metadata:      c.Metadata,
+		Chain:         chain,
+		UplinkTotal:   c.Upload,
+		DownlinkTotal: c.Download,
+		Rule:          c.Rule,
+	}
+	if len(conn.Chain) > 0 {
+		conn.Outbound = conn.Chain[len(conn.Chain)-1]
+	}
+	if c.Start != "" {
+		if t, err := time.Parse(time.RFC3339, c.Start); err == nil {
+			conn.CreatedAt = t
+		}
 	}
 	if c.Metadata == nil {
 		return conn
@@ -389,31 +412,6 @@ func connectionFromClash(c connection) api.Connection {
 			conn.Destination = v + ":" + dp
 		} else {
 			conn.Destination = v
-		}
-	}
-	if v, ok := c.Metadata["chains"].([]any); ok {
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				conn.Chain = append(conn.Chain, s)
-			}
-		}
-	}
-	if len(conn.Chain) > 0 {
-		conn.Outbound = conn.Chain[len(conn.Chain)-1]
-	}
-	if v, ok := c.Metadata["upload"].(json.Number); ok {
-		conn.UplinkTotal, _ = strconv.ParseInt(string(v), 10, 64)
-	} else if v, ok := c.Metadata["upload"].(float64); ok {
-		conn.UplinkTotal = int64(v)
-	}
-	if v, ok := c.Metadata["download"].(json.Number); ok {
-		conn.DownlinkTotal, _ = strconv.ParseInt(string(v), 10, 64)
-	} else if v, ok := c.Metadata["download"].(float64); ok {
-		conn.DownlinkTotal = int64(v)
-	}
-	if v, ok := c.Metadata["start"].(string); ok {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			conn.CreatedAt = t
 		}
 	}
 	return conn
