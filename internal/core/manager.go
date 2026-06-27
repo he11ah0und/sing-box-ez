@@ -400,13 +400,6 @@ func (m *Manager) DownloadCore(onProgress ProgressFunc) (string, error) {
 }
 
 func (m *Manager) UpdateCore(onProgress ProgressFunc) error {
-	if m.running {
-		if err := m.Stop(); err != nil {
-			return err
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-
 	info, err := m.CheckCoreUpdate(context.Background())
 	if err != nil {
 		return err
@@ -418,7 +411,49 @@ func (m *Manager) UpdateCore(onProgress ProgressFunc) error {
 		Asset:    info.Asset,
 		DestPath: ".",
 	}}
-	return m.updater.Install(context.Background(), info, onProgress)
+
+	wasRunning := m.IsRunning()
+
+	stopCore := func() error {
+		if !m.IsRunning() {
+			return nil
+		}
+		if err := m.Stop(); err != nil {
+			return fmt.Errorf("stop core for update: %w", err)
+		}
+		for range 100 {
+			if !m.IsRunning() {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		if m.IsRunning() {
+			return fmt.Errorf("core process did not stop in time for update")
+		}
+		return nil
+	}
+
+	if fa, ok := m.updater.Apply.(*updater.FilesUpdateApply); ok {
+		fa.BeforeInstall = stopCore
+		defer func() { fa.BeforeInstall = nil }()
+	} else {
+		if err := stopCore(); err != nil {
+			return err
+		}
+	}
+
+	if err := m.updater.Install(context.Background(), info, onProgress); err != nil {
+		return err
+	}
+
+	if wasRunning {
+		m.log.Root.Infof("Restarting core after update")
+		if err := m.Start(); err != nil {
+			m.log.Root.Infof("Failed to restart core after update: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func (m *Manager) SetConfigURL(url string) {

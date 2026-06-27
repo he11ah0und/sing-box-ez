@@ -241,9 +241,9 @@ func (d *Dropdown) showDialog() {
 	if title == "" {
 		title = "Select"
 	}
-	d.dialog.ShowCustom(title, func(gtx layout.Context) layout.Dimensions {
+	d.dialog.Show(CustomNoButtons(title, func(gtx layout.Context) layout.Dimensions {
 		return d.layoutDialog(gtx)
-	})
+	}))
 }
 
 func (d *Dropdown) layoutDialog(gtx layout.Context) layout.Dimensions {
@@ -260,7 +260,7 @@ func (d *Dropdown) layoutDialog(gtx layout.Context) layout.Dimensions {
 			d.searchText = ""
 			d.searchEd.SetText("")
 			d.page = 0
-			d.dialog.HideCustom()
+			d.dialog.Hide()
 			if d.onChange != nil {
 				d.onChange(d.options[idx])
 			}

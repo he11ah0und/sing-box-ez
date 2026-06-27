@@ -88,7 +88,8 @@ connection_details:
   created: Created
   user: User
   process: Process
-  close: Close connection
+  close: Close
+  close_connection: Close connection
 core:
   update:
     checking: 'Checking version...'
@@ -130,6 +131,9 @@ core:
     level: Log level
   graph_history:
     label: Traffic graph history
+  url_test_url:
+    title: URL test
+    label: URL-test URL
   api:
     title: API connection
     not_running: Core is not running

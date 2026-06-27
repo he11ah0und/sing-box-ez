@@ -245,16 +245,16 @@ func (u *UpdateCheck) Layout(gtx layout.Context) layout.Dimensions {
 
 func (u *UpdateCheck) runCheck() {
 	u.checking = true
-	u.dialog.ShowLoading(u.checkingLabel)
+	u.dialog.Show(Loading(u.checkingLabel))
 	info, err := u.checkFn(context.Background())
-	u.dialog.HideLoading()
+	u.dialog.Hide()
 	u.checking = false
 	u.checked = true
 	u.lastInfo = info
 
 	if err != nil {
 		u.hasUpdate = false
-		u.dialog.Show(u.detailsTitle, "Update check failed: "+err.Error())
+		u.dialog.Show(Text(u.detailsTitle, "Update check failed: "+err.Error()))
 		return
 	}
 
@@ -271,9 +271,9 @@ func (u *UpdateCheck) runUpdate() {
 	if u.isDevBuild {
 		title, _ := u.devBuildConfirmFormatter(u.lastInfo.Current, u.lastInfo.Latest)
 		body := u.formatDetailsBody(u.lastInfo)
-		u.dialog.ShowConfirmMarkdown(title, body, func() {
-			go u.doUpdate()
-		}, nil)
+		u.dialog.Show(Markdown(title, body),
+			Ignore(nil),
+			Update(func() { go u.doUpdate() }))
 		return
 	}
 	u.doUpdate()
@@ -303,11 +303,11 @@ func (u *UpdateCheck) doUpdate() {
 	u.progressMu.Lock()
 	u.progress = 0
 	u.progressMu.Unlock()
-	u.dialog.ShowLoadingWithProgress(u.updateLabel, func() float32 {
+	u.dialog.Show(Progress(u.updateLabel, func() float32 {
 		u.progressMu.Lock()
 		defer u.progressMu.Unlock()
 		return u.progress
-	})
+	}))
 	err := u.updateFn(context.Background(), func(downloaded, total int64) {
 		u.progressMu.Lock()
 		defer u.progressMu.Unlock()
@@ -317,19 +317,19 @@ func (u *UpdateCheck) doUpdate() {
 			u.progress = 0
 		}
 	})
-	u.dialog.HideLoading()
+	u.dialog.Hide()
 	u.updating = false
 
 	if err != nil {
-		u.dialog.Show(u.updateLabel, "Update failed: "+err.Error())
+		u.dialog.Show(Text(u.updateLabel, "Update failed: "+err.Error()))
 		return
 	}
-	u.dialog.Show(u.updateLabel, "Update installed successfully.")
+	u.dialog.Show(Text(u.updateLabel, "Update installed successfully."))
 	u.checked = false
 	u.hasUpdate = false
 }
 
 func (u *UpdateCheck) showDetails(info UpdateCheckInfo) {
 	body := u.formatDetailsBody(info)
-	u.dialog.ShowMarkdown(u.detailsTitle, body)
+	u.dialog.Show(Markdown(u.detailsTitle, body))
 }

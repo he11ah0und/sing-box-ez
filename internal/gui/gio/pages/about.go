@@ -258,23 +258,23 @@ func (p *AboutPage) buildInfoText() string {
 }
 
 func (p *AboutPage) fetchReleaseNotes() {
-	p.dialog.ShowLoading(localengine.T("about", "release_notes", "title"))
+	p.dialog.Show(widgets.Loading(localengine.T("about", "release_notes", "title")))
 	release, err := updater.GetReleaseByVersion(version.Commit)
 	if err != nil {
 		if release.Version == "" {
-			p.dialog.Show(localengine.T("about", "release_notes", "title"), localengine.T("about", "release_notes", "not_found"))
+			p.dialog.Show(widgets.Text(localengine.T("about", "release_notes", "title"), localengine.T("about", "release_notes", "not_found")))
 			p.logUpdater("Release notes not found")
 			return
 		}
 		p.logUpdater("Failed to fetch release notes: %v", err)
-		p.dialog.Show(localengine.T("about", "release_notes", "title"), localengine.T("about", "release_notes", "error"))
+		p.dialog.Show(widgets.Text(localengine.T("about", "release_notes", "title"), localengine.T("about", "release_notes", "error")))
 		return
 	}
 	dateStr := release.PublishedAt.Local().Format("2006-01-02 15:04:05")
 	ago := version.HumanDuration(release.PublishedAt)
 	body := fmt.Sprintf("# %s: %s\n\nReleased: %s (%s)\n\n%s",
 		release.Version, release.Name, dateStr, ago, release.Body)
-	p.dialog.ShowMarkdown(localengine.T("about", "release_notes", "title")+": "+release.Version, body)
+	p.dialog.Show(widgets.Markdown(localengine.T("about", "release_notes", "title")+": "+release.Version, body))
 	p.logUpdater("Release notes fetched: %s", release.Version)
 }
 
@@ -291,13 +291,13 @@ func (p *AboutPage) logUpdater(format string, args ...interface{}) {
 }
 
 func (p *AboutPage) openBranchPicker() {
-	p.dialog.ShowLoading(localengine.T("progress", "checking_updates"))
+	p.dialog.Show(widgets.Loading(localengine.T("progress", "checking_updates")))
 
 	branches, err := p.ctrl.GetBranches()
 	if err != nil {
-		p.dialog.HideLoading()
+		p.dialog.Hide()
 		p.logUpdater("Failed to load branches: %v", err)
-		p.dialog.Show(localengine.T("about", "btn", "switch_branch"), localengine.T("about", "branch", "load_error")+err.Error())
+		p.dialog.Show(widgets.Text(localengine.T("about", "btn", "switch_branch"), localengine.T("about", "branch", "load_error")+err.Error()))
 		return
 	}
 
@@ -306,9 +306,9 @@ func (p *AboutPage) openBranchPicker() {
 	p.pickerBtns = make([]widget.Clickable, len(branches))
 	p.pickerMu.Unlock()
 
-	p.dialog.HideLoading()
+	p.dialog.Hide()
 
-	p.dialog.ShowCustom(localengine.T("about", "btn", "switch_branch"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.Show(widgets.CustomNoButtons(localengine.T("about", "btn", "switch_branch"), func(gtx layout.Context) layout.Dimensions {
 		p.pickerMu.Lock()
 		branches := p.pickerBranches
 		btns := p.pickerBtns
@@ -316,7 +316,7 @@ func (p *AboutPage) openBranchPicker() {
 
 		for i := range branches {
 			if btns[i].Clicked(gtx) {
-				p.dialog.HideCustom()
+				p.dialog.Hide()
 				p.currentBranch = branches[i].Name
 				go p.selfUpdate.RunCheck()
 			}
@@ -334,7 +334,7 @@ func (p *AboutPage) openBranchPicker() {
 			}))
 		}
 		return widgets.DialogSpacedList(gtx, children...)
-	})
+	}))
 
 	p.logUpdater("Loaded %d branches", len(branches))
 }
