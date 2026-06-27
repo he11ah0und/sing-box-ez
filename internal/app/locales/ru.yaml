@@ -88,7 +88,8 @@ connection_details:
   created: Создано
   user: Пользователь
   process: Процесс
-  close: Закрыть соединение
+  close: Закрыть
+  close_connection: Закрыть соединение
 core:
   update:
     checking: 'Проверка версии...'
@@ -130,6 +131,9 @@ core:
     level: Уровень лога
   graph_history:
     label: История графика трафика
+  url_test_url:
+    title: URL-тест
+    label: URL для URL-теста
   api:
     title: Подключение к API
     not_running: Ядро не запущено

@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	defaultURLTestURL   = "http://www.gstatic.com/generate_204"
+	defaultURLTestURL   = "http://cp.cloudflare.com/generate_204"
 	defaultGraphHistory = 60
 )
 
@@ -67,9 +67,10 @@ type MainPage struct {
 	restartBtn      widget.Clickable
 	switchConfigBtn widget.Clickable
 
-	processing bool
-	spinAngle  float32
-	spinTime   time.Time
+	processing       bool
+	startAttemptTime time.Time
+	spinAngle        float32
+	spinTime         time.Time
 
 	activeTab   mainTab
 	tabBtns     []widget.Clickable
@@ -97,12 +98,11 @@ type MainPage struct {
 	groupTestMsg   map[string]string
 
 	// Connections tab state.
-	connMu          sync.RWMutex
-	connRows        map[string]*widget.Clickable
-	detailRowBtns   map[string]*widget.Clickable
-	detailsList     widget.List
-	closeDetailsBtn widget.Clickable
-	closeConnsBtn   widget.Clickable
+	connMu        sync.RWMutex
+	connRows      map[string]*widget.Clickable
+	detailRowBtns map[string]*widget.Clickable
+	detailsList   widget.List
+	closeConnsBtn widget.Clickable
 
 	// Traffic graph state, protected by trafficMu.
 	trafficMu     sync.Mutex
@@ -246,7 +246,7 @@ func (p *MainPage) contentChildren(gtx layout.Context) []layout.FlexChild {
 func (p *MainPage) overviewChildren(gtx layout.Context) []layout.FlexChild {
 	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.layoutProfileCard(gtx)
+			return p.layoutGraphs(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutOutboundChain(gtx)
@@ -255,7 +255,7 @@ func (p *MainPage) overviewChildren(gtx layout.Context) []layout.FlexChild {
 			return p.modeDropdown.Layout(gtx, false)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.layoutGraphs(gtx)
+			return p.layoutProfileCard(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.layoutBottomControls(gtx)
@@ -826,10 +826,8 @@ func (p *MainPage) layoutNodeRow(gtx layout.Context, groupTag string, n coreapi.
 	}
 
 	content := func(gtx layout.Context) layout.Dimensions {
-		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-		paint.Fill(gtx.Ops, bg)
-
-		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
+		macro := op.Record(gtx.Ops)
+		dims := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle, Spacing: layout.SpaceBetween}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					lbl := material.Body2(p.th, n.Tag)
@@ -845,6 +843,10 @@ func (p *MainPage) layoutNodeRow(gtx layout.Context, groupTag string, n coreapi.
 				})
 			}),
 		)
+		call := macro.Stop()
+		paint.FillShape(gtx.Ops, bg, clip.Rect{Max: dims.Size}.Op())
+		call.Add(gtx.Ops)
+		return dims
 	}
 
 	if !selectable {
@@ -1104,9 +1106,11 @@ func (p *MainPage) connRowBtn(id string) *widget.Clickable {
 }
 
 func (p *MainPage) showConnectionDetails(conn coreapi.Connection) {
-	p.dialog.ShowCustom(localengine.T("connection_details", "title"), func(gtx layout.Context) layout.Dimensions {
+	p.dialog.Show(widgets.Custom(localengine.T("connection_details", "title"), func(gtx layout.Context) layout.Dimensions {
 		return p.layoutConnectionDetails(gtx, conn)
-	})
+	}), widgets.Close(), widgets.Danger(localengine.T("connection_details", "close_connection"), func() {
+		go p.closeConnection(conn.ID)
+	}))
 }
 
 func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Connection) layout.Dimensions {
@@ -1153,11 +1157,6 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 		)
 	}
 
-	if p.closeDetailsBtn.Clicked(gtx) {
-		go p.closeConnection(conn.ID)
-		p.dialog.HideCustom()
-	}
-
 	rowChildren := make([]layout.FlexChild, 0, len(rows))
 	for _, r := range rows {
 		r := r
@@ -1165,16 +1164,10 @@ func (p *MainPage) layoutConnectionDetails(gtx layout.Context, conn coreapi.Conn
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.List(p.th, &p.detailsList).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 				return widgets.DialogSpacedList(gtx, rowChildren...)
 			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return widgets.VSpace(gtx, unit.Dp(16))
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.Button(p.th, &p.closeDetailsBtn, localengine.T("connection_details", "close")).Layout(gtx)
 		}),
 	)
 }
@@ -1310,6 +1303,7 @@ func (p *MainPage) activateConfigAndMaybeRestart(name string) {
 		return
 	}
 	p.processing = true
+	p.startAttemptTime = time.Now()
 	if err := p.ctrl.Backend().ActivateConfig(name); err != nil {
 		p.processing = false
 		p.ctrl.Backend().Terminal().Infof("Failed to activate config: %v", err)
@@ -1403,6 +1397,7 @@ func lighten(c color.NRGBA, amount uint8) color.NRGBA {
 
 func (p *MainPage) onStart() {
 	p.processing = true
+	p.startAttemptTime = time.Now()
 	go func() {
 		if err := p.ctrl.StartService(); err != nil {
 			p.processing = false
@@ -1416,6 +1411,7 @@ func (p *MainPage) onStart() {
 
 func (p *MainPage) onStop() {
 	p.processing = true
+	p.startAttemptTime = time.Time{}
 	go func() {
 		defer func() { p.processing = false }()
 		_ = p.ctrl.StopService()
@@ -1424,6 +1420,7 @@ func (p *MainPage) onStop() {
 
 func (p *MainPage) onRestart() {
 	p.processing = true
+	p.startAttemptTime = time.Now()
 	go func() {
 		if err := p.ctrl.Backend().Restart(); err != nil {
 			p.processing = false
@@ -1443,6 +1440,14 @@ func (p *MainPage) refreshLoop() {
 	for range ticker.C {
 		if !p.ctrl.Backend().IsRunning() {
 			p.clearAPIState()
+			if p.processing && !p.startAttemptTime.IsZero() && time.Since(p.startAttemptTime) > 2*time.Second {
+				p.processing = false
+				p.startAttemptTime = time.Time{}
+				p.ctrl.Backend().Terminal().Infof("Core process exited before the API became ready")
+				if p.invalidate != nil {
+					p.invalidate()
+				}
+			}
 			continue
 		}
 		client := p.ctrl.Backend().APIClient()
@@ -1582,7 +1587,11 @@ func (p *MainPage) testGroup(group string) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	results, err := client.URLTest(ctx, group, defaultURLTestURL, 5*time.Second)
+	urlTestURL := p.ctrl.Backend().Config().String("core", "url_test_url")
+	if urlTestURL == "" {
+		urlTestURL = defaultURLTestURL
+	}
+	results, err := client.URLTest(ctx, group, urlTestURL, 5*time.Second)
 	if err != nil {
 		p.groupMu.Lock()
 		p.groupTestMsg[group] = fmt.Sprintf(localengine.T("main", "api", "url_test_error"), err)

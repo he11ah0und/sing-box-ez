@@ -182,6 +182,7 @@ func buildUpdaters(app *framework.App) []*updater.Manager {
 func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, true)
 	sheet.Register([]string{"core", "traffic_graph_history"}, fwconfig.TypeInt, 60)
+	sheet.Register([]string{"core", "url_test_url"}, fwconfig.TypeString, "http://cp.cloudflare.com/generate_204")
 
 	sheet.Register([]string{"core", "log", "level"}, fwconfig.TypeString, "error")
 

@@ -21,6 +21,10 @@ type FilesUpdateApply struct {
 	FS            fs.FS
 	BaseDir       string
 	InstallScript []byte
+	// BeforeInstall is called after the asset has been downloaded but before
+	// it is applied. It can be used to stop a running process whose binary is
+	// about to be replaced.
+	BeforeInstall func() error
 }
 
 // NewFilesUpdateApply creates a FilesUpdateApply with a logger allocated from parent.
@@ -52,6 +56,12 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 	tmpFile, tmpPath, cleanup, err := a.downloadTemp(ctx, source, uf, onProgress)
 	if err != nil {
 		return err
+	}
+	if a.BeforeInstall != nil {
+		if err := a.BeforeInstall(); err != nil {
+			cleanup()
+			return err
+		}
 	}
 	if len(a.InstallScript) > 0 {
 		return a.applyInstallScript(ctx, uf, info, tmpPath, cleanup, onProgress)

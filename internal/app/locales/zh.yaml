@@ -88,7 +88,8 @@ connection_details:
   created: 创建时间
   user: 用户
   process: 进程
-  close: 关闭连接
+  close: 关闭
+  close_connection: 关闭连接
 core:
   update:
     checking: 正在检查版本…
@@ -130,6 +131,9 @@ core:
     level: 日志级别
   graph_history:
     label: 流量图表历史
+  url_test_url:
+    title: URL 测试
+    label: URL 测试地址
   api:
     title: API 连接
     not_running: 核心未运行

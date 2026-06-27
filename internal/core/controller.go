@@ -400,31 +400,50 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 	}
 	c.terminal.Infof("Latest core version: %s", info.Latest)
 
-	// Stop the running core before replacing its binary; otherwise the
-	// kernel refuses to overwrite an executable that is still in use
-	// ("text file busy" on Linux).
-	if c.manager.IsRunning() {
-		if err := c.manager.Stop(); err != nil {
-			return "", fmt.Errorf("stop core for update: %w", err)
-		}
-		for range 100 {
-			if !c.manager.IsRunning() {
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		if c.manager.IsRunning() {
-			return "", fmt.Errorf("core process did not stop in time for update")
-		}
-	}
-
 	info.Files = []updater.UpdateFile{{
 		Asset:    info.Asset,
 		DestPath: ".",
 	}}
+
+	wasRunning := c.manager.IsRunning()
+
+	// Stop the running core right before its binary is replaced. The download
+	// can run while the core is still active; only the actual installation must
+	// happen on a stopped process.
+	if fa, ok := c.manager.updater.Apply.(*updater.FilesUpdateApply); ok {
+		fa.BeforeInstall = func() error {
+			if !c.manager.IsRunning() {
+				return nil
+			}
+			c.terminal.Infof("Stopping core for update")
+			if err := c.manager.Stop(); err != nil {
+				return fmt.Errorf("stop core for update: %w", err)
+			}
+			for range 100 {
+				if !c.manager.IsRunning() {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			if c.manager.IsRunning() {
+				return fmt.Errorf("core process did not stop in time for update")
+			}
+			return nil
+		}
+		defer func() { fa.BeforeInstall = nil }()
+	}
+
 	if err := c.manager.updater.Install(context.Background(), info, onProgress); err != nil {
 		return "", fmt.Errorf("install core update: %w", err)
 	}
+
+	if wasRunning {
+		c.terminal.Infof("Restarting core after update")
+		if err := c.Start(); err != nil {
+			c.terminal.Infof("Failed to restart core after update: %v", err)
+		}
+	}
+
 	c.terminal.Infof("Core downloaded to: %s", c.manager.coreBinary())
 	return c.manager.coreBinary(), nil
 }

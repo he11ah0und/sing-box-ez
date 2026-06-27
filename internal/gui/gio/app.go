@@ -363,7 +363,7 @@ func (g *GUI) handleStartupFrameEvents(gtx layout.Context, options []startup.Opt
 			}
 		}
 		if actionResult.err != nil {
-			g.dialog.Show("Error", actionResult.err.Error())
+			g.dialog.Show(widgets.Text("Error", actionResult.err.Error()))
 		}
 	}
 	actionMu.Unlock()
@@ -429,12 +429,12 @@ func (g *GUI) layoutStartupCard(options []startup.Option, selected int, remoteAd
 
 func (g *GUI) showStartupOptionsDialog(options []startup.Option, selected *int) {
 	btns := make([]widget.Clickable, len(options))
-	g.dialog.ShowCustomNoCancel(localengine.T("startup", "subtitle"), func(gtx layout.Context) layout.Dimensions {
+	g.dialog.Show(widgets.CustomNoButtons(localengine.T("startup", "subtitle"), func(gtx layout.Context) layout.Dimensions {
 		colors := theme.Current().Colors()
 		for i := range options {
 			if btns[i].Clicked(gtx) {
 				*selected = i
-				g.dialog.HideCustom()
+				g.dialog.Hide()
 			}
 		}
 
@@ -460,7 +460,7 @@ func (g *GUI) showStartupOptionsDialog(options []startup.Option, selected *int) 
 			})
 		}
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-	})
+	}))
 }
 
 func (g *GUI) startupOptionIndex(options []startup.Option, id string) int {
@@ -765,9 +765,9 @@ func (g *GUI) doRestart() {
 func (g *GUI) showResetConfirm() {
 	title := localengine.T("settings", "reset", "confirm_title")
 	body := localengine.T("settings", "reset", "confirm_msg")
-	g.dialog.ShowConfirm(title, body, func() {
-		g.resetDataAndRestart()
-	}, nil)
+	g.dialog.Show(widgets.Text(title, body),
+		widgets.Cancel(),
+		widgets.Confirm(func() { g.resetDataAndRestart() }))
 }
 
 // resetDataAndRestart removes config.yaml, profiles.yaml and the configs folder,
@@ -786,17 +786,15 @@ func (g *GUI) resetDataAndRestart() {
 		}
 	}
 	if len(errs) > 0 {
-		g.dialog.Show(localengine.T("settings", "reset", "title"), strings.Join(errs, "\n"))
+		g.dialog.Show(widgets.Text(localengine.T("settings", "reset", "title"), strings.Join(errs, "\n")))
 		return
 	}
 
 	successTitle := localengine.T("settings", "reset", "success_title")
 	successBody := localengine.T("settings", "reset", "success_msg")
-	g.dialog.ShowConfirm(successTitle, successBody, func() {
-		g.RequestRestart()
-	}, func() {
-		g.RequestRestart()
-	})
+	g.dialog.Show(widgets.Text(successTitle, successBody),
+		widgets.Action(localengine.T("dialog", "btn", "cancel"), func() { g.RequestRestart() }),
+		widgets.Confirm(func() { g.RequestRestart() }))
 }
 
 //go:embed assets/NotoEmoji.ttf
@@ -825,10 +823,10 @@ func (g *GUI) checkSelfUpdateAtStartup(done func()) {
 		return
 	}
 
-	g.dialog.ShowLoading(localengine.T("about", "update", "checking"))
+	g.dialog.Show(widgets.Loading(localengine.T("about", "update", "checking")))
 	go func() {
 		info, err := updater.CheckUpdate(version.Branch)
-		g.dialog.HideLoading()
+		g.dialog.Hide()
 		if err != nil {
 			g.log.Warnf("startup self-update check failed: %v", err)
 			if done != nil {
@@ -856,7 +854,9 @@ func (g *GUI) checkSelfUpdateAtStartup(done func()) {
 		if isDevBuild {
 			title = localengine.T("about", "update", "dev_build_confirm_title")
 		}
-		g.dialog.ShowConfirmMarkdown(title, body, onUpdate, onDismiss)
+		g.dialog.Show(widgets.Markdown(title, body),
+			widgets.Action(localengine.T("dialog", "btn", "cancel"), onDismiss),
+			widgets.Update(onUpdate))
 	}()
 }
 
@@ -898,7 +898,7 @@ func (g *GUI) selfUpdateBody(info *updater.UpdateInfo) string {
 func (g *GUI) runSelfUpdateAtStartup(info *updater.UpdateInfo, done func()) {
 	u := g.selfUpdater()
 	if u == nil {
-		g.dialog.Show(localengine.T("dialog", "self_update", "title"), "Self updater not configured")
+		g.dialog.Show(widgets.Text(localengine.T("dialog", "self_update", "title"), "Self updater not configured"))
 		if done != nil {
 			done()
 		}
@@ -907,11 +907,11 @@ func (g *GUI) runSelfUpdateAtStartup(info *updater.UpdateInfo, done func()) {
 
 	var progress float32
 	var mu sync.Mutex
-	g.dialog.ShowLoadingWithProgress(localengine.T("about", "update", "updating"), func() float32 {
+	g.dialog.Show(widgets.Progress(localengine.T("about", "update", "updating"), func() float32 {
 		mu.Lock()
 		defer mu.Unlock()
 		return progress
-	})
+	}))
 	go func() {
 		err := u.Install(context.Background(), info, func(downloaded, total int64) {
 			mu.Lock()
@@ -922,12 +922,12 @@ func (g *GUI) runSelfUpdateAtStartup(info *updater.UpdateInfo, done func()) {
 				progress = 0
 			}
 		})
-		g.dialog.HideLoading()
+		g.dialog.Hide()
 		if err != nil {
 			// The self-update backend already logs the failure with context.
-			g.dialog.Show(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error())
+			g.dialog.Show(widgets.Text(localengine.T("dialog", "self_update", "title"), "Update failed: "+err.Error()))
 		} else {
-			g.dialog.Show(localengine.T("dialog", "self_update", "title"), "Update complete. Please restart.")
+			g.dialog.Show(widgets.Text(localengine.T("dialog", "self_update", "title"), "Update complete. Please restart."))
 		}
 		if done != nil {
 			done()
@@ -952,12 +952,12 @@ func (g *GUI) checkCoreUpdateAtStartup(done func()) {
 		return
 	}
 
-	g.dialog.ShowLoading(localengine.T("core", "update", "checking"))
+	g.dialog.Show(widgets.Loading(localengine.T("core", "update", "checking")))
 	go func() {
 		backend := g.coreBackend()
 		current, _ := backend.GetInstalledCoreVersion()
 		latest, err := backend.GetLatestCoreVersion()
-		g.dialog.HideLoading()
+		g.dialog.Hide()
 		if err != nil {
 			// The updater/network layers already log the failure with context.
 			if done != nil {
@@ -982,20 +982,20 @@ func (g *GUI) checkCoreUpdateAtStartup(done func()) {
 				done()
 			}
 		}
-		g.dialog.ShowConfirm(localengine.T("dialog", "core_update", "title"), body, func() {
-			g.runCoreUpdateAtStartup(done)
-		}, onDismiss)
+		g.dialog.Show(widgets.Text(localengine.T("dialog", "core_update", "title"), body),
+			widgets.Action(localengine.T("dialog", "btn", "cancel"), onDismiss),
+			widgets.Confirm(func() { g.runCoreUpdateAtStartup(done) }))
 	}()
 }
 
 func (g *GUI) runCoreUpdateAtStartup(done func()) {
 	var progress float32
 	var mu sync.Mutex
-	g.dialog.ShowLoadingWithProgress(localengine.T("core", "update", "downloading"), func() float32 {
+	g.dialog.Show(widgets.Progress(localengine.T("core", "update", "downloading"), func() float32 {
 		mu.Lock()
 		defer mu.Unlock()
 		return progress
-	})
+	}))
 	go func() {
 		_, err := g.coreBackend().DownloadCoreWithProgress(func(downloaded, total int64) {
 			mu.Lock()
@@ -1006,12 +1006,12 @@ func (g *GUI) runCoreUpdateAtStartup(done func()) {
 				progress = 0
 			}
 		})
-		g.dialog.HideLoading()
+		g.dialog.Hide()
 		if err != nil {
 			// The scoped FS/updater layers already log the failure; only show UI.
-			g.dialog.Show(localengine.T("dialog", "core_update", "title"), "Download failed: "+err.Error())
+			g.dialog.Show(widgets.Text(localengine.T("dialog", "core_update", "title"), "Download failed: "+err.Error()))
 		} else {
-			g.dialog.Show(localengine.T("dialog", "core_update", "title"), "Core downloaded successfully.")
+			g.dialog.Show(widgets.Text(localengine.T("dialog", "core_update", "title"), "Core downloaded successfully."))
 		}
 		if done != nil {
 			done()

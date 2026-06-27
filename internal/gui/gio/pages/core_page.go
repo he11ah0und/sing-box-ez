@@ -41,6 +41,9 @@ type CorePage struct {
 	savedLevel           string
 	graphHistoryDropdown *widgets.Dropdown
 
+	urlTestURLEditor widget.Editor
+	savedURLTestURL  string
+
 	highlightEnd time.Time
 
 	restartAdminBtn widget.Clickable
@@ -64,6 +67,7 @@ func NewCorePage(th *material.Theme, ctrl *core.InteractiveController, dialog wi
 	p.autoRestart.Value = ctrl.Backend().Config().MustGet("core", "auto_restart").Bool()
 	p.initLogOverride()
 	p.initGraphHistoryDropdown()
+	p.initURLTestURL()
 
 	p.privilegeState = ctrl.Backend().GetPrivilegeTabState()
 
@@ -165,6 +169,30 @@ func (p *CorePage) initGraphHistoryDropdown() {
 	)
 }
 
+func (p *CorePage) initURLTestURL() {
+	p.savedURLTestURL = p.ctrl.Backend().Config().String("core", "url_test_url")
+	p.urlTestURLEditor.SingleLine = true
+	p.urlTestURLEditor.Submit = true
+	p.urlTestURLEditor.SetText(p.savedURLTestURL)
+}
+
+func (p *CorePage) saveURLTestURL() {
+	v := strings.TrimSpace(p.urlTestURLEditor.Text())
+	if v == p.savedURLTestURL {
+		return
+	}
+	cfg := p.ctrl.Backend().Config()
+	if err := cfg.MustGet("core", "url_test_url").Update(v); err == nil {
+		_ = cfg.Save()
+		p.savedURLTestURL = v
+	}
+}
+
+func (p *CorePage) layoutURLTestURL(gtx layout.Context) layout.Dimensions {
+	dirty := p.urlTestURLEditor.Text() != p.savedURLTestURL
+	return widgets.LabeledInput(gtx, p.th, localengine.T("core", "url_test_url", "label"), &p.urlTestURLEditor, dirty)
+}
+
 func (p *CorePage) initPrivilegeDropdown() {
 	if p.privilegeState.Mode != "linux" {
 		return
@@ -246,6 +274,16 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		_ = p.ctrl.Backend().SetAutoRestart(p.autoRestart.Value)
 	}
 
+	for {
+		ev, ok := p.urlTestURLEditor.Update(gtx)
+		if !ok {
+			break
+		}
+		if _, ok := ev.(widget.SubmitEvent); ok {
+			p.saveURLTestURL()
+		}
+	}
+
 	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.H6(p.th, localengine.T("tab", "core")).Layout(gtx)
@@ -267,6 +305,15 @@ func (p *CorePage) Children(gtx layout.Context) []layout.FlexChild {
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.graphHistoryDropdown.Layout(gtx, false)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.separator(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(p.th, localengine.T("core", "url_test_url", "title")).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.layoutURLTestURL(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.separator(gtx)
@@ -414,30 +461,22 @@ func (p *CorePage) onPrivilegeModeChange(mode string) {
 	}
 
 	// setcap not applied — show confirmation dialog
-	var applyBtn widget.Clickable
-
-	p.dialog.ShowCustom(localengine.T("core", "btn", "apply_setcap"), func(gtx layout.Context) layout.Dimensions {
-		if applyBtn.Clicked(gtx) {
-			p.dialog.HideCustom()
-			go func() {
-				p.dialog.ShowLoading(localengine.T("progress", "applying_setcap"))
-				err := p.ctrl.Backend().ApplySetcap()
-				p.dialog.HideLoading()
-				if err == nil {
-					_ = p.ctrl.Backend().SetRunAsAdmin(false)
-					p.privilegeMode = "setcap"
-					p.privilegeState = p.ctrl.Backend().GetPrivilegeTabState()
-				}
-			}()
-		}
-
+	p.dialog.Show(widgets.Custom(localengine.T("core", "btn", "apply_setcap"), func(gtx layout.Context) layout.Dimensions {
 		return widgets.DialogSpacedList(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return material.Body2(p.th, localengine.T("core", "mode", "setcap_prompt")).Layout(gtx)
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return material.Button(p.th, &applyBtn, localengine.T("core", "btn", "apply")).Layout(gtx)
-			}),
 		)
-	})
+	}), widgets.Action(localengine.T("core", "btn", "apply"), func() {
+		go func() {
+			p.dialog.Show(widgets.Loading(localengine.T("progress", "applying_setcap")))
+			err := p.ctrl.Backend().ApplySetcap()
+			p.dialog.Hide()
+			if err == nil {
+				_ = p.ctrl.Backend().SetRunAsAdmin(false)
+				p.privilegeMode = "setcap"
+				p.privilegeState = p.ctrl.Backend().GetPrivilegeTabState()
+			}
+		}()
+	}))
 }
