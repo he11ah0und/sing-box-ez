@@ -110,6 +110,9 @@ core:
     apply_setcap: 应用 setcap（无需 root 使用 TUN）
     apply: 应用
   auto_restart: 核心崩溃时自动重启
+  start_on_launch: 启动时启动核心
+  proxy:
+    enabled: 启用代理（mixed + TUN HTTP 代理）
   privileges:
     title: 权限
     admin: 权限：以管理员身份运行
@@ -165,6 +168,10 @@ configs:
     local: 本地
     remote: 远程
     modified: 已修改
+    client: client
+    server: server
+    undefined: undefined
+    not_recommended: 不推荐
   dialog:
     title: 配置
     name: 名称
@@ -385,6 +392,17 @@ dialog:
   unknown: 未知
   error:
     no_matching_asset: 未找到匹配的文件
+  config_style:
+    server_title: 配置看起来像服务器配置
+    server_body: '此配置看起来不像客户端配置。不建议在客户端使用。'
+    undefined_title: 无法确定配置类型
+    undefined_body: '配置中没有 inbounds。建议取消启动。'
+    unknown_title: 未知配置类型
+    unknown_body: '无法确定配置类型。'
+    btn:
+      cancel: 取消
+      ignore: 仍要启动
+      to_client: 转换为 client
   privileges:
     title: 需要权限
     msg_linux: 'sing-box 需要提升的权限来创建 TUN 设备。

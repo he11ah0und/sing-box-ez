@@ -16,6 +16,7 @@ import (
 	"sing-box-ez/internal/core/api"
 	"sing-box-ez/internal/core/api/clash"
 	"sing-box-ez/internal/core/api/singbox"
+	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/logger"
@@ -84,7 +85,11 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 		privileges: privileges,
 	}
 	c.manager.SetConfigTransform(func(data []byte) ([]byte, error) {
-		return c.applyLogOverride(data)
+		data, err := c.applyLogOverride(data)
+		if err != nil {
+			return nil, err
+		}
+		return c.applyInboundsOverride(data, c.cfg.GetActiveConfig())
 	})
 	return c
 }
@@ -223,7 +228,8 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return err
 	}
-	data, err = c.applyOverrides(data)
+	active := c.cfg.GetActiveConfig()
+	data, err = c.applyOverrides(data, active)
 	if err != nil {
 		return err
 	}
@@ -249,7 +255,8 @@ func (c *Controller) Restart() error {
 	if err != nil {
 		return err
 	}
-	data, err = c.applyOverrides(data)
+	active := c.cfg.GetActiveConfig()
+	data, err = c.applyOverrides(data, active)
 	if err != nil {
 		return err
 	}
@@ -272,8 +279,13 @@ func (c *Controller) Restart() error {
 
 // applyOverrides applies the permanent log and API overrides to the raw
 // sing-box config. It allocates a free port and secret for the API each time.
-func (c *Controller) applyOverrides(data []byte) ([]byte, error) {
+func (c *Controller) applyOverrides(data []byte, rec *config.ConfigRecord) ([]byte, error) {
 	data, err := c.applyLogOverride(data)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err = c.applyInboundsOverride(data, rec)
 	if err != nil {
 		return nil, err
 	}
@@ -291,6 +303,72 @@ func (c *Controller) applyOverrides(data []byte) ([]byte, error) {
 	}
 	c.apiInfo = info
 	return data, nil
+}
+
+func (c *Controller) applyInboundsOverride(data []byte, rec *config.ConfigRecord) ([]byte, error) {
+	if rec == nil {
+		return data, nil
+	}
+
+	tree, err := inboundstyle.ParseTree(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse config for inbounds override: %w", err)
+	}
+
+	proxyEnabled := c.cfg.MustGet("core", "proxy", "enabled").Bool()
+	fallbackType := rec.GetFallbackType()
+	if err := inboundstyle.ApplyOverride(tree, proxyEnabled, fallbackType); err != nil {
+		return nil, fmt.Errorf("apply inbounds override: %w", err)
+	}
+
+	output, err := inboundstyle.MarshalTree(tree)
+	if err != nil {
+		return nil, fmt.Errorf("marshal config after inbounds override: %w", err)
+	}
+
+	version, _ := c.GetInstalledCoreVersion()
+	parser, err := singboxconfig.NewConfigParserForVersion(version)
+	if err != nil {
+		c.terminal.Warnf("Invalid core version %q, using latest schema: %v", version, err)
+		parser = singboxconfig.NewConfigParser()
+	}
+	if _, err := parser.Parse(output); err != nil {
+		c.terminal.Warnf("Config contains unknown fields after inbounds override: %v", err)
+	}
+
+	return output, nil
+}
+
+// DetectConfigStyle reads the cached config for the named profile and classifies
+// its inbounds as client/server/undefined.
+func (c *Controller) DetectConfigStyle(name string) (inboundstyle.Style, error) {
+	if !c.HasCachedConfig(name) {
+		return inboundstyle.StyleUndefined, fmt.Errorf("config not cached: %s", name)
+	}
+	data, err := c.manager.ReadConfigByName(name)
+	if err != nil {
+		return inboundstyle.StyleUndefined, fmt.Errorf("read config: %w", err)
+	}
+	tree, err := inboundstyle.ParseTree(data)
+	if err != nil {
+		return inboundstyle.StyleUndefined, fmt.Errorf("parse config: %w", err)
+	}
+	return inboundstyle.DetectFromConfig(tree), nil
+}
+
+// SetFallbackType persists the fallback type for the named profile.
+func (c *Controller) SetFallbackType(name, fallbackType string) error {
+	rec := c.cfg.GetConfigByName(name)
+	if rec == nil {
+		return fmt.Errorf("profile not found: %s", name)
+	}
+	updated := *rec
+	updated.FallbackType = &fallbackType
+	c.cfg.UpdateConfig(name, updated)
+	if err := c.cfg.Save(); err != nil {
+		return fmt.Errorf("save profile fallback_type: %w", err)
+	}
+	return nil
 }
 
 func (c *Controller) buildAPIClient() {
@@ -641,7 +719,11 @@ func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult
 	if err != nil {
 		return singboxconfig.ValidationResult{}, fmt.Errorf("failed to read config file: %w", err)
 	}
-	data, err = c.applyOverrides(data)
+	rec := c.cfg.GetConfigByName(name)
+	if rec == nil {
+		return singboxconfig.ValidationResult{}, fmt.Errorf("profile not found: %s", name)
+	}
+	data, err = c.applyOverrides(data, rec)
 	if err != nil {
 		return singboxconfig.ValidationResult{}, err
 	}

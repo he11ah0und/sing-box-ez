@@ -110,6 +110,9 @@ core:
     apply_setcap: Apply setcap (TUN without root)
     apply: Apply
   auto_restart: Auto-restart core on fatal errors
+  start_on_launch: Start core on launch
+  proxy:
+    enabled: Enable proxy (mixed + TUN HTTP proxy)
   privileges:
     title: Privileges
     admin: 'Privileges: running as administrator'
@@ -165,6 +168,10 @@ configs:
     local: local
     remote: remote
     modified: modified
+    client: client
+    server: server
+    undefined: undefined
+    not_recommended: not recommended
   dialog:
     title: Config
     name: Name
@@ -385,6 +392,17 @@ dialog:
   unknown: unknown
   error:
     no_matching_asset: No matching asset found
+  config_style:
+    server_title: Config looks like a server config
+    server_body: 'This config does not look like a client config. Running it is not recommended for client use.'
+    undefined_title: Could not determine config type
+    undefined_body: 'The config has no inbounds. It is recommended to cancel the launch.'
+    unknown_title: Unknown config type
+    unknown_body: 'Could not determine the config type.'
+    btn:
+      cancel: Cancel
+      ignore: Run anyway
+      to_client: Convert to client
   privileges:
     title: Privileges Required
     msg_linux: 'sing-box needs elevated privileges to create the TUN device.

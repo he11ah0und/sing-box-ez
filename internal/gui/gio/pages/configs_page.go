@@ -21,6 +21,7 @@ import (
 
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
+	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/gio/theme"
@@ -176,6 +177,21 @@ func (p *ConfigsPage) cardBackground(isCached, autoUpdate bool, colors theme.Pal
 	}
 }
 
+func (p *ConfigsPage) configStyle(rec config.ConfigRecord) (inboundstyle.Style, bool) {
+	ctrl, ok := p.ctrl.Backend().(*core.Controller)
+	if !ok {
+		return inboundstyle.StyleUndefined, false
+	}
+	if !ctrl.HasCachedConfig(rec.Name) {
+		return inboundstyle.StyleUndefined, false
+	}
+	style, err := ctrl.DetectConfigStyle(rec.Name)
+	if err != nil {
+		return inboundstyle.StyleUndefined, false
+	}
+	return style, true
+}
+
 func (p *ConfigsPage) formatConfigSource(rec config.ConfigRecord) string {
 	src := rec.Parent
 	if src == "" || src == "user" {
@@ -199,7 +215,7 @@ func (p *ConfigsPage) formatConfigMeta(rec config.ConfigRecord) string {
 	return strings.Join(parts, "  •  ")
 }
 
-func (p *ConfigsPage) layoutConfigCardHeader(gtx layout.Context, rec config.ConfigRecord, nameColor color.NRGBA, isHashMismatch bool) layout.Dimensions {
+func (p *ConfigsPage) layoutConfigCardHeader(gtx layout.Context, rec config.ConfigRecord, nameColor color.NRGBA, isHashMismatch bool, style inboundstyle.Style, hasStyle bool) layout.Dimensions {
 	isLocal := rec.IsLocal()
 	colors := theme.Current().Colors()
 	return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceEnd, Alignment: layout.Middle}.Layout(gtx,
@@ -215,6 +231,25 @@ func (p *ConfigsPage) layoutConfigCardHeader(gtx layout.Context, rec config.Conf
 			}
 			badge := material.Body2(p.th, localengine.T("configs", "badge", "local"))
 			badge.Color = colors.Fg
+			return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, badge.Layout)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if !hasStyle {
+				return layout.Dimensions{}
+			}
+			label := localengine.T("configs", "badge", string(style))
+			if style == inboundstyle.StyleUndefined {
+				label += " " + localengine.T("configs", "badge", "not_recommended")
+			}
+			badge := material.Body2(p.th, label)
+			switch style {
+			case inboundstyle.StyleClient:
+				badge.Color = colors.Success
+			case inboundstyle.StyleServer:
+				badge.Color = colors.StatusWarning
+			case inboundstyle.StyleUndefined:
+				badge.Color = colors.Error
+			}
 			return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, badge.Layout)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -251,6 +286,7 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, idx int) layout.Dimen
 	}
 
 	isHashMismatch := p.hashMismatches[rec.Name]
+	style, hasStyle := p.configStyle(rec)
 
 	return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -258,7 +294,7 @@ func (p *ConfigsPage) layoutConfigCard(gtx layout.Context, idx int) layout.Dimen
 			dims := layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return p.layoutConfigCardHeader(gtx, rec, nameColor, isHashMismatch)
+						return p.layoutConfigCardHeader(gtx, rec, nameColor, isHashMismatch, style, hasStyle)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Body2(p.th, p.formatConfigMeta(rec)).Layout(gtx)

@@ -33,13 +33,14 @@ var installersFS embed.FS
 // the loaded configuration, core controller, and updater references.
 type App struct {
 	*framework.App
-	Profiles    *config.Profiles
-	Controller  *core.Controller
-	Backend     rpc.Backend
-	SelfUpdater *updater.Manager
-	CoreUpdater *updater.Manager
-	host        string
-	runGUI      func(*App) bool
+	Profiles          *config.Profiles
+	Controller        *core.Controller
+	Backend           rpc.Backend
+	SelfUpdater       *updater.Manager
+	CoreUpdater       *updater.Manager
+	host              string
+	StartCoreOnLaunch bool
+	runGUI            func(*App) bool
 }
 
 // New creates a new sing-box-ez App from command-line arguments.
@@ -69,6 +70,11 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 				Desc: "Run as an RPC daemon on the given IPC address (tcp://host:port, unix:///path, npipe://name, or auto)",
 				Type: fwcli.String,
 			},
+			{
+				Name: "start-core",
+				Desc: "Start the sing-box core automatically when the program launches",
+				Type: fwcli.Bool,
+			},
 		},
 	})
 	if err != nil {
@@ -92,6 +98,9 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 	// Read global flags that influence operating mode.
 	if v, ok := fwApp.CLI.GlobalValue("host"); ok {
 		app.host = fwcli.AsString(v)
+	}
+	if v, ok := fwApp.CLI.GlobalValue("start-core"); ok {
+		app.StartCoreOnLaunch = fwcli.AsBool(v)
 	}
 
 	registry := rpc.NewRegistry()
@@ -183,8 +192,10 @@ func registerConfig(sheet *fwconfig.Sheet) {
 	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, true)
 	sheet.Register([]string{"core", "traffic_graph_history"}, fwconfig.TypeInt, 60)
 	sheet.Register([]string{"core", "url_test_url"}, fwconfig.TypeString, "http://cp.cloudflare.com/generate_204")
+	sheet.Register([]string{"core", "start_on_launch"}, fwconfig.TypeBool, false)
 
 	sheet.Register([]string{"core", "log", "level"}, fwconfig.TypeString, "error")
+	sheet.Register([]string{"core", "proxy", "enabled"}, fwconfig.TypeBool, true)
 
 	sheet.Register([]string{"log", "level"}, fwconfig.TypeString, "info")
 	sheet.Register([]string{"log", "limit"}, fwconfig.TypeInt, 100)

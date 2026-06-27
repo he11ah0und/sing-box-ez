@@ -37,6 +37,18 @@ type ConfigRecord struct {
 	AutoUpdate *bool `json:"auto_update" yaml:"auto_update"`
 	// Hash is the SHA-256 hex digest of the last known config content.
 	Hash string `json:"hash" yaml:"hash"`
+	// FallbackType controls how a non-client config is handled before starting
+	// the core. Empty/nil means "ask the user". "ignore" keeps the config as-is,
+	// "to_client" replaces inbounds with a standard client template.
+	FallbackType *string `json:"fallback_type" yaml:"fallback_type"`
+}
+
+// GetFallbackType returns the fallback type string or empty string if unset.
+func (r *ConfigRecord) GetFallbackType() string {
+	if r == nil || r.FallbackType == nil {
+		return ""
+	}
+	return *r.FallbackType
 }
 
 // IsAutoUpdate reports whether automatic updates are enabled for this record.
