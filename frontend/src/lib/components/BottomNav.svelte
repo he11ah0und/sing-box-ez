@@ -1,15 +1,12 @@
 <script>
-  import { Home, List, Menu } from '@lucide/svelte';
-  import { pushLevel, currentLevel } from '../stores/navigation.js';
+  import { setRootPage, currentLevel } from '../stores/navigation.js';
   import { tValue, locale } from '../stores/locale.js';
+  import { pageRegistry } from '../pages/index.js';
 
-  const items = [
-    { id: 'main', key: 'tab.main', icon: Home },
-    { id: 'configs', key: 'tab.configs', icon: List }
-  ];
+  const items = pageRegistry.filter((page) => page.bottomNav);
 
   function navigate(id) {
-    pushLevel({ type: 'page', id });
+    setRootPage(id);
   }
 </script>
 
@@ -25,12 +22,4 @@
       <span class="text-xs mt-1">{tValue($locale, item.key, item.id)}</span>
     </button>
   {/each}
-  <button
-    class="flex flex-col items-center p-2 rounded-lg hover:bg-[var(--color-surface-variant)] transition-colors"
-    class:text-[var(--color-primary)]={$currentLevel.id === 'menu'}
-    onclick={() => navigate('menu')}
-  >
-    <Menu size={22} />
-    <span class="text-xs mt-1">{tValue($locale, 'tab.menu', 'Menu')}</span>
-  </button>
 </nav>

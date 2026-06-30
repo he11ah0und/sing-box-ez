@@ -106,6 +106,60 @@ func joinPath(path []string) string {
 	return strings.Join(path, ".")
 }
 
+// Lookup returns the raw value at the given dotted path for the given language.
+// The bool indicates whether the path exists in that language's bundle.
+func Lookup(code string, path ...string) (any, bool) {
+	b, ok := bundles[code]
+	if !ok {
+		return nil, false
+	}
+	if len(path) == 0 {
+		return b, true
+	}
+	current, ok := b[path[0]]
+	if !ok {
+		return nil, false
+	}
+	for _, p := range path[1:] {
+		sub, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = sub[p]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+// LookupString returns the string value at the given dotted path.
+// Falls back to English. The bool indicates whether a non-empty string was found.
+func LookupString(code string, path ...string) (string, bool) {
+	for _, lang := range []string{code, "en"} {
+		if v, ok := Lookup(lang, path...); ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s, true
+			}
+		}
+	}
+	return "", false
+}
+
+// LeafPaths returns all dotted leaf paths (paths that resolve to strings)
+// for the given language code.
+func LeafPaths(code string) []string {
+	b, ok := bundles[code]
+	if !ok {
+		return nil
+	}
+	var out []string
+	collectKeys(b, nil, func(path []string) {
+		out = append(out, joinPath(path))
+	})
+	return out
+}
+
 // T returns the localized string for the given path segments.
 // Falls back to English and finally to the dotted path itself.
 func T(path ...string) string {
@@ -128,6 +182,33 @@ func SetLanguage(code string) {
 		currentLang = "en"
 		baseLogger.Warnf("language %s not available, falling back to en", code)
 	}
+}
+
+// CurrentLanguage returns the active language code.
+func CurrentLanguage() string {
+	return currentLang
+}
+
+// Translations returns the full translation tree for the given language code.
+// Returns nil if the language is not loaded.
+func Translations(code string) map[string]any {
+	if b, ok := bundles[code]; ok {
+		return copyMap(b)
+	}
+	return nil
+}
+
+func copyMap(src map[string]any) map[string]any {
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		switch val := v.(type) {
+		case map[string]any:
+			dst[k] = copyMap(val)
+		default:
+			dst[k] = val
+		}
+	}
+	return dst
 }
 
 // AvailableLanguages returns the list of loaded language codes.

@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" // #nosec G108 -- pprof is opt-in via SINGBOXEZ_PPROF
 	"os"
+	"time"
 
 	"sing-box-ez/internal/app"
 )
@@ -17,8 +18,12 @@ func main() {
 			addr = "127.0.0.1:6060"
 		}
 		go func() {
-			log.Printf("pprof listening on http://%s/debug/pprof/", addr)
-			if err := http.ListenAndServe(addr, nil); err != nil {
+			log.Printf("pprof listening on http://%s/debug/pprof/", addr) // #nosec G706 -- address comes from env var
+			srv := &http.Server{
+				Addr:              addr,
+				ReadHeaderTimeout: 5 * time.Second,
+			}
+			if err := srv.ListenAndServe(); err != nil {
 				log.Printf("pprof server error: %v", err)
 			}
 		}()

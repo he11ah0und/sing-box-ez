@@ -23,9 +23,6 @@ import (
 //go:embed locales/*.yaml
 var localesFS embed.FS
 
-//go:embed themes/*.yaml
-var ThemesFS embed.FS
-
 //go:embed installers/*.lua
 var installersFS embed.FS
 
@@ -129,7 +126,7 @@ func (a *App) Run() {
 	if a.host != "" {
 		transport, err := rpc.ParseAddress(a.host)
 		if err != nil {
-			a.Logger.Root.Errorf("invalid --host address: %v", err)
+			_ = a.Logger.Root.Errorf("invalid --host address: %v", err)
 			os.Exit(1)
 		}
 		registry := rpc.NewRegistry()
@@ -140,7 +137,7 @@ func (a *App) Run() {
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
 		if err := server.Run(ctx); err != nil {
-			a.Logger.Root.Errorf("RPC server error: %v", err)
+			_ = a.Logger.Root.Errorf("RPC server error: %v", err)
 			os.Exit(1)
 		}
 		return

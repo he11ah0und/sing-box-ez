@@ -187,7 +187,7 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 				p.terminal.Infof("Detected core fatal error, auto-restarting...")
 				go func() {
 					if err := p.manager.Restart(); err != nil {
-						p.terminal.Errorf("Auto-restart failed: %v", err)
+						_ = p.terminal.Errorf("Auto-restart failed: %v", err)
 					}
 				}()
 				if p.OnAutoRestart != nil {

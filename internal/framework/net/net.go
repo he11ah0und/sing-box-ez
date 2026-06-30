@@ -44,7 +44,7 @@ func NewClientWithProgress(parent *logger.LogTerminal, cfg *progress.Config) *Cl
 // status code and logs errors.
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	c.Log.Debugf("%s %s", req.Method, req.URL.String())
-	resp, err := c.HTTP.Do(req)
+	resp, err := c.HTTP.Do(req) // #nosec G704 -- generic HTTP client, URLs are validated by callers
 	if err != nil {
 		return nil, c.Log.Errorf("%s %s failed: %v", req.Method, req.URL.String(), err)
 	}

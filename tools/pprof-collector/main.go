@@ -19,7 +19,7 @@ func main() {
 	flag.Parse()
 
 	base := filepath.Join(*out, time.Now().Format("20060102_150405"))
-	if err := os.MkdirAll(base, 0755); err != nil {
+	if err := os.MkdirAll(base, 0750); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create output dir: %v\n", err)
 		os.Exit(1)
 	}
@@ -31,7 +31,7 @@ func main() {
 	for {
 		resp, err := client.Get(baseURL + "/")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				break
 			}
@@ -96,7 +96,7 @@ func dumpCtx(ctx context.Context, client *http.Client, url, path string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304 -- output path is provided by operator
 	if err != nil {
 		return err
 	}

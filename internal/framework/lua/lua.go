@@ -583,7 +583,7 @@ func (vm *VM) luaLogWarn(L *lua.LState) int {
 }
 
 func (vm *VM) luaLogError(L *lua.LState) int {
-	vm.Log.Errorf("%s", L.CheckString(1))
+	_ = vm.Log.Errorf("%s", L.CheckString(1))
 	return 0
 }
 

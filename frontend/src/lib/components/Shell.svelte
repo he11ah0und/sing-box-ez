@@ -1,37 +1,19 @@
 <script>
   import TopBar from './TopBar.svelte';
   import BottomNav from './BottomNav.svelte';
-  import { currentLevel, canGoBack, popLevel, pushLevel } from '../stores/navigation.js';
+  import { currentLevel, setRootPage } from '../stores/navigation.js';
   import { tValue, locale } from '../stores/locale.js';
+  import { pageRegistry } from '../pages/index.js';
 
   let { children } = $props();
 
-  const navItems = [
-    { id: 'main', key: 'tab.main' },
-    { id: 'configs', key: 'tab.configs' },
-    { id: 'core', key: 'tab.core' },
-    { id: 'settings', key: 'tab.settings' },
-    { id: 'logs', key: 'tab.logs' },
-    { id: 'about', key: 'tab.about' }
-  ];
-
-  function handleTopButton() {
-    if ($canGoBack) {
-      popLevel();
-    } else {
-      pushLevel({ type: 'page', id: 'menu' });
-    }
-  }
+  const navItems = pageRegistry.filter((page) => page.nav);
 
   function navigate(id) {
-    if (id === 'menu') {
-      pushLevel({ type: 'page', id: 'menu' });
-    } else {
-      pushLevel({ type: 'page', id });
-    }
+    setRootPage(id);
   }
 
-  let title = $derived(tValue($locale, navItems.find(i => i.id === $currentLevel.id)?.key ?? $currentLevel.id, $currentLevel.id));
+  let title = $derived(tValue($locale, pageRegistry.find(i => i.id === $currentLevel.id)?.key ?? $currentLevel.id, $currentLevel.id));
 </script>
 
 <div class="flex h-full w-full bg-[var(--color-bg)] text-[var(--color-text)]">
@@ -42,11 +24,13 @@
     </div>
     <nav class="flex-1 overflow-auto py-2">
       {#each navItems as item}
+        {@const Icon = item.icon}
         <button
           class="w-full text-left px-4 py-3 hover:bg-[var(--color-surface-variant)] flex items-center gap-3"
           class:bg-[var(--color-surface-variant)]={$currentLevel.id === item.id}
           onclick={() => navigate(item.id)}
         >
+          <Icon size={20} />
           <span>{tValue($locale, item.key, item.id)}</span>
         </button>
       {/each}
@@ -55,7 +39,7 @@
 
   <!-- Main area -->
   <div class="flex flex-col flex-1 min-w-0">
-    <TopBar {title} showBack={$canGoBack} onaction={handleTopButton} />
+    <TopBar {title} />
 
     <main class="flex-1 overflow-auto">
       {@render children?.()}

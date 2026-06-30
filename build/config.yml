@@ -34,7 +34,7 @@ dev_mode:
       type: blocking
     - cmd: wails3 generate bindings
       type: blocking
-    - cmd: cd frontend && npm run dev -- --port 9245 --strictPort
+    - cmd: cd frontend && npm run dev -- --port 9245 --strictPort --host 127.0.0.1
       type: background
     - cmd: go run .
       type: primary

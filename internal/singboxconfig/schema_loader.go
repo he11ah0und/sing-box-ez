@@ -92,33 +92,46 @@ func resolveNode(parent map[string]*SchemaNode, key string, node *SchemaNode, sh
 		return nil
 	}
 	if node.Ref != "" {
-		for _, r := range stack {
-			if r == node.Ref {
-				return fmt.Errorf("ref cycle: %s -> %s", strings.Join(stack, " -> "), node.Ref)
-			}
-		}
-		target, ok := shared[node.Ref]
-		if !ok {
-			return fmt.Errorf("unknown ref %q", node.Ref)
-		}
-		if node.Spread {
-			if parent == nil {
-				return fmt.Errorf("spread ref %q without parent", node.Ref)
-			}
-			delete(parent, key)
-			for k, v := range target.Children {
-				copy := cloneNode(v)
-				parent[k] = copy
-				if err := resolveNode(parent, k, copy, shared, append(stack, node.Ref)); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		copy := cloneNode(target)
-		*node = *copy
-		return resolveNode(parent, key, node, shared, append(stack, node.Ref))
+		return resolveRef(parent, key, node, shared, stack)
 	}
+	return resolveNodeChildren(node, shared, stack)
+}
+
+func resolveRef(parent map[string]*SchemaNode, key string, node *SchemaNode, shared map[string]*SchemaNode, stack []string) error {
+	for _, r := range stack {
+		if r == node.Ref {
+			return fmt.Errorf("ref cycle: %s -> %s", strings.Join(stack, " -> "), node.Ref)
+		}
+	}
+	target, ok := shared[node.Ref]
+	if !ok {
+		return fmt.Errorf("unknown ref %q", node.Ref)
+	}
+	if node.Spread {
+		return spreadRef(parent, key, node, target, shared, stack)
+	}
+	copy := cloneNode(target)
+	*node = *copy
+	return resolveNode(parent, key, node, shared, append(stack, node.Ref))
+}
+
+func spreadRef(parent map[string]*SchemaNode, key string, node *SchemaNode, target *SchemaNode, shared map[string]*SchemaNode, stack []string) error {
+	if parent == nil {
+		return fmt.Errorf("spread ref %q without parent", node.Ref)
+	}
+	delete(parent, key)
+	newStack := append(stack, node.Ref)
+	for k, v := range target.Children {
+		copy := cloneNode(v)
+		parent[k] = copy
+		if err := resolveNode(parent, k, copy, shared, newStack); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func resolveNodeChildren(node *SchemaNode, shared map[string]*SchemaNode, stack []string) error {
 	for k, child := range node.Children {
 		if err := resolveNode(node.Children, k, child, shared, stack); err != nil {
 			return err
@@ -130,10 +143,17 @@ func resolveNode(parent map[string]*SchemaNode, key string, node *SchemaNode, sh
 		}
 	}
 	for i := range node.OneOf {
-		for k, f := range node.OneOf[i].Fields {
-			if err := resolveNode(node.OneOf[i].Fields, k, f, shared, stack); err != nil {
-				return err
-			}
+		if err := resolveOneOf(node.OneOf[i], shared, stack); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func resolveOneOf(variant TypedVariant, shared map[string]*SchemaNode, stack []string) error {
+	for k, f := range variant.Fields {
+		if err := resolveNode(variant.Fields, k, f, shared, stack); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -210,7 +230,26 @@ func validateSchema(s *Schema) error {
 	return nil
 }
 
+var validNodeTypes = map[string]struct{}{
+	"object":   {},
+	"array":    {},
+	"string":   {},
+	"integer":  {},
+	"boolean":  {},
+	"number":   {},
+	"duration": {},
+	"enum":     {},
+	"any":      {},
+}
+
 func validateNode(path string, node *SchemaNode, seen map[string]struct{}) error {
+	if err := validateNodeHeader(path, node, seen); err != nil {
+		return err
+	}
+	return validateNodeBody(path, node, seen)
+}
+
+func validateNodeHeader(path string, node *SchemaNode, seen map[string]struct{}) error {
 	if node == nil {
 		return fmt.Errorf("%s: nil node", path)
 	}
@@ -223,18 +262,7 @@ func validateNode(path string, node *SchemaNode, seen map[string]struct{}) error
 	if node.Type == "" {
 		return fmt.Errorf("%s: type is required", path)
 	}
-	validTypes := map[string]struct{}{
-		"object":   {},
-		"array":    {},
-		"string":   {},
-		"integer":  {},
-		"boolean":  {},
-		"number":   {},
-		"duration": {},
-		"enum":     {},
-		"any":      {},
-	}
-	if _, ok := validTypes[node.Type]; !ok {
+	if _, ok := validNodeTypes[node.Type]; !ok {
 		return fmt.Errorf("%s: unknown type %q", path, node.Type)
 	}
 
@@ -254,36 +282,53 @@ func validateNode(path string, node *SchemaNode, seen map[string]struct{}) error
 	if node.Removed != "" && node.Deprecated == "" {
 		return fmt.Errorf("%s: removed requires deprecated", path)
 	}
+	return nil
+}
 
+func validateNodeBody(path string, node *SchemaNode, seen map[string]struct{}) error {
 	switch node.Type {
 	case "object":
-		if node.Items != nil {
-			return fmt.Errorf("%s: object cannot have items", path)
-		}
-		for name, child := range node.Children {
-			childPath := path + "." + name
-			if err := validateNode(childPath, child, seen); err != nil {
-				return err
-			}
-		}
-		for i := range node.OneOf {
-			for name, child := range node.OneOf[i].Fields {
-				childPath := fmt.Sprintf("%s.<one_of[%d]>.%s", path, i, name)
-				if err := validateNode(childPath, child, seen); err != nil {
-					return err
-				}
-			}
-		}
+		return validateObjectNode(path, node, seen)
 	case "array":
-		if node.Children != nil {
-			return fmt.Errorf("%s: array cannot have children", path)
+		return validateArrayNode(path, node, seen)
+	}
+	return nil
+}
+
+func validateObjectNode(path string, node *SchemaNode, seen map[string]struct{}) error {
+	if node.Items != nil {
+		return fmt.Errorf("%s: object cannot have items", path)
+	}
+	for name, child := range node.Children {
+		childPath := path + "." + name
+		if err := validateNode(childPath, child, seen); err != nil {
+			return err
 		}
-		if node.Items == nil {
-			return fmt.Errorf("%s: array requires items", path)
-		}
-		if err := validateNode(path+"[]", node.Items, seen); err != nil {
+	}
+	for i := range node.OneOf {
+		if err := validateOneOfNode(path, node.OneOf[i], i, seen); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func validateOneOfNode(path string, variant TypedVariant, idx int, seen map[string]struct{}) error {
+	for name, child := range variant.Fields {
+		childPath := fmt.Sprintf("%s.<one_of[%d]>.%s", path, idx, name)
+		if err := validateNode(childPath, child, seen); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateArrayNode(path string, node *SchemaNode, seen map[string]struct{}) error {
+	if node.Children != nil {
+		return fmt.Errorf("%s: array cannot have children", path)
+	}
+	if node.Items == nil {
+		return fmt.Errorf("%s: array requires items", path)
+	}
+	return validateNode(path+"[]", node.Items, seen)
 }

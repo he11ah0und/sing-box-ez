@@ -834,7 +834,7 @@ func (c *Controller) RestartAsAdmin() error {
 }
 
 func (c *Controller) SetRunAsAdmin(checked bool) error {
-	c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
+	_ = c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
 	c.manager.SetElevated(checked)
 	if err := c.cfg.Save(); err != nil {
 		return fmt.Errorf("failed to save admin setting: %w", err)
@@ -865,7 +865,7 @@ func (c *Controller) OpenDataDir() error {
 }
 
 func (c *Controller) SetLogLimit(v int) {
-	c.cfg.MustGet("log", "limit").Update(v)
+	_ = c.cfg.MustGet("log", "limit").Update(v)
 	_ = c.cfg.Save()
 	c.fwApp.Logger.SetLimit(v)
 	c.processor.LogBuffer().SetLimit(v)
@@ -873,13 +873,13 @@ func (c *Controller) SetLogLimit(v int) {
 }
 
 func (c *Controller) SetDefaultInterval(h int) {
-	c.cfg.MustGet("updates", "default_interval_hours").Update(h)
+	_ = c.cfg.MustGet("updates", "default_interval_hours").Update(h)
 	_ = c.cfg.Save()
 	c.terminal.Infof("Default interval set to %dh", h)
 }
 
 func (c *Controller) SetAutoRestart(checked bool) error {
-	c.cfg.MustGet("core", "auto_restart").Update(checked)
+	_ = c.cfg.MustGet("core", "auto_restart").Update(checked)
 	if err := c.cfg.Save(); err != nil {
 		return fmt.Errorf("failed to save auto-restart setting: %w", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 )
 
 // requestEnvelope is sent from client to server.
@@ -40,7 +41,11 @@ func readFrame(r io.Reader) ([]byte, error) {
 
 // writeFrame writes a length-prefixed msgpack frame to w.
 func writeFrame(w io.Writer, data []byte) error {
-	if err := binary.Write(w, binary.BigEndian, uint32(len(data))); err != nil {
+	n := len(data)
+	if n < 0 || n > math.MaxUint32 {
+		return fmt.Errorf("frame too large: %d", n)
+	}
+	if err := binary.Write(w, binary.BigEndian, uint32(n)); err != nil {
 		return err
 	}
 	if len(data) == 0 {

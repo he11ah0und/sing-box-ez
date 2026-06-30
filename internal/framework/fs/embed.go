@@ -30,13 +30,13 @@ func (fs *embedFS) openAsOSFile(name string) (*os.File, error) {
 		return nil, err
 	}
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
 		return nil, err
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
 		return nil, err
 	}
 	return tmp, nil

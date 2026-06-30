@@ -114,7 +114,7 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 					ID:    "run_as_admin",
 					Label: localengine.T("dialog", "privileges", "btn_run_as_admin"),
 					Handler: func() error {
-						c.cfg.MustGet("privileges", "run_as_admin").Update(true)
+						_ = c.cfg.MustGet("privileges", "run_as_admin").Update(true)
 						c.manager.SetElevated(true)
 						return c.cfg.Save()
 					},
@@ -175,7 +175,7 @@ func (c *PrivilegeController) RestartAsAdmin(restartFn func() error) error {
 
 // SetRunAsAdmin updates the run-as-admin setting.
 func (c *PrivilegeController) SetRunAsAdmin(checked bool) error {
-	c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
+	_ = c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
 	c.manager.SetElevated(checked)
 	return c.cfg.Save()
 }
@@ -190,9 +190,9 @@ func (c *PrivilegeController) ApplySetcap() error {
 func (c *PrivilegeController) ApplyPrivilegeAction(action *PrivilegeAction) (success, needRefresh, needClose bool) {
 	err := action.Handler()
 	if err != nil {
-		c.terminal.Errorf("%s", action.Label+" failed: "+err.Error())
+		_ = c.terminal.Errorf("%s", action.Label+" failed: "+err.Error())
 		if action.ID == "setcap" {
-			c.terminal.Errorf("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
+			_ = c.terminal.Errorf("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
 		}
 		return false, false, false
 	}

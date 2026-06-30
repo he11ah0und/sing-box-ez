@@ -78,14 +78,29 @@ help:
 	@echo "Usage: make <target> [options]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build       Compile the Wails GUI binary"
-	@echo "  build-nogui Compile the CLI-only binary"
-	@echo "  run         Build and run locally (GUI mode)"
-	@echo "  run-nogui   Build and run locally (CLI mode)"
-	@echo "  dev         Run Wails in development mode"
-	@echo "  deps        Download Go dependencies"
-	@echo "  test        Run Go tests"
-	@echo "  clean       Remove build artifacts"
+	@echo "  build              Compile the Wails GUI binary"
+	@echo "  build-nogui        Compile the CLI-only binary"
+	@echo "  run                Build and run locally (GUI mode)"
+	@echo "  run-nogui          Build and run locally (CLI mode)"
+	@echo "  dev                Run Wails in development mode"
+	@echo "  deps               Download and tidy Go dependencies"
+	@echo "  test               Run Go tests"
+	@echo "  vet                Run go vet"
+	@echo "  fmt                Format Go source files"
+	@echo "  fmt-check          Check Go formatting without changing files"
+	@echo "  lint               Run staticcheck"
+	@echo "  ineffassign-check  Run ineffassign"
+	@echo "  security           Run gosec security scanner"
+	@echo "  complexity         Run gocyclo complexity check"
+	@echo "  outdated           List outdated Go modules"
+	@echo "  analyze            Run fmt-check, vet, test, lint, ineffassign-check, complexity and security"
+	@echo "  proto              Generate protobuf Go bindings"
+	@echo "  schema             Generate sing-box schema YAML"
+	@echo "  docs               Generate and serve documentation"
+	@echo "  defs               Generate plugin definitions"
+	@echo "  setup              Install system dependencies (Debian/Ubuntu)"
+	@echo "  setup-arch         Install system dependencies and Go analysis tools (Arch Linux)"
+	@echo "  clean              Remove build artifacts"
 	@echo ""
 	@echo "Build options (examples):"
 	@echo "  make build                       # native OS/arch GUI"
@@ -154,7 +169,7 @@ ineffassign-check:
 	$(GO_BIN)/ineffassign ./...
 
 security:
-	$(GO_BIN)/gosec -quiet ./...
+	$(GO_BIN)/gosec -quiet -exclude-dir=internal/core/api/singbox/proto ./...
 
 complexity:
 	$(GO_BIN)/gocyclo -over 15 .

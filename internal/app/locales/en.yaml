@@ -5,18 +5,20 @@ tab:
   configs: Configs
   core: Core
   settings: Settings
-  log: Log
+  debug: Debug
   plugins: Plugins
   about: About
+  menu: Menu
 main:
   status:
     stopped: 'Status: stopped'
     running: 'Status: running'
-    connecting: 'Connecting…'
+    connecting: Connecting…
   active:
     none: 'Active config: (none)'
-    label: 'Active config'
+    label: Active config
     prefix: 'Active config: '
+    placeholder: Select active config
   'no':
     config: No config selected — select one in the Configs tab
   btn:
@@ -43,10 +45,11 @@ main:
     url_test_testing: Testing…
     url_test_empty: no results
     url_test_error: 'failed: %v'
-    url_test_result: 'avg %d ms (%d nodes)'
+    url_test_result: avg %d ms (%d nodes)
     connections: 'Connections: %d'
     close_connections: Close all connections
     unavailable: API control is not available for this connection mode.
+    connecting: Connecting…
   dashboard:
     upload: Upload
     download: Download
@@ -72,6 +75,8 @@ main:
     sort_traffic: Traffic
     sort_total: Total Traffic
     search: Search
+  running: Running
+  stopped: Stopped
 connection_details:
   title: Connection Details
   id: ID
@@ -92,17 +97,14 @@ connection_details:
   close_connection: Close connection
 core:
   update:
-    checking: 'Checking version...'
-    downloading: 'Downloading...'
-    available: 'Download %s'
+    checking: Checking version...
+    downloading: Downloading...
+    available: Download %s
     current_version: 'Current version: '
   version:
     installed: 'Core: v'
     not_installed: 'Core: not installed'
-  latest:
-    checking: 'Latest: checking...'
-    error: 'Latest: error'
-    prefix: 'Latest: v'
+  latest: Latest version
   btn:
     download: Download latest sing-box core
     check: Check latest version
@@ -144,6 +146,7 @@ core:
     address: Address
     secret: Secret
     copy: Copy connection data
+  installed: Installed version
 configs:
   title: Configs
   btn:
@@ -172,6 +175,7 @@ configs:
     server: server
     undefined: undefined
     not_recommended: not recommended
+    active: Active
   dialog:
     title: Config
     name: Name
@@ -195,6 +199,16 @@ configs:
       copy: Copy
     delete_title: Delete
     delete_msg: Delete config
+  nameRequired: Name is required
+  new: New config
+  name: Name
+  type: Type
+  remote: Remote
+  local: Local
+  url: URL / Path
+  interval: Update interval (h)
+  empty: No configs yet.
+  confirmDelete: Delete this config?
 validation:
   ok: No deprecated or removed fields detected.
   summary_errors: Found %d critical errors and %d warnings.
@@ -276,12 +290,16 @@ settings:
     title: Danger Zone
     btn: Reset all data
     confirm_title: Reset all data?
-    confirm_msg: |
-      This will permanently delete config.yaml, profiles.yaml and the configs/ folder.
+    confirm_msg: 'This will permanently delete config.yaml, profiles.yaml and the configs/ folder.
+
       The application will restart afterwards.
+
+      '
     success_title: Data reset
     success_msg: All data has been reset. The application will restart now.
   desktop_notifications: Desktop notifications
+  runAsAdmin: Run core as admin
+  saved: Settings saved
 startup:
   title: sing-box-ez
   subtitle: Choose how to run
@@ -328,22 +346,30 @@ about:
     load_branches: Load branches
     check_branch: Check update for branch
     switch_branch: Switch branch
+    check_update: Check update
+    install_update: Install update
   branch:
     label: 'Branch: '
     load_error: 'Failed to load branches: '
   dev_build:
     label: Development build — release notes unavailable
   update:
-    checking: 'Checking update'
-    updating: 'Updating...'
-    available: 'Update to %s'
+    checking: Checking update
+    updating: Updating...
+    available: Update to %s
     current_version: 'Current version: '
     dev_build: 'Dev build: current %s, remote %s'
-    dev_build_confirm_title: 'Dev build update'
-    dev_build_confirm_body: 'You are on a dev build (%s) newer than the latest release (%s). Updating will downgrade. Continue?'
+    dev_build_confirm_title: Dev build update
+    dev_build_confirm_body: You are on a dev build (%s) newer than the latest release (%s). Updating will downgrade. Continue?
+    confirm: Install update?
+    installed: Update installed
+    title: App update
+    latest: 'Latest:'
+    up_to_date: Up to date
+    downloading: Downloading…
   release_notes:
     title: Release notes
-    error: 'Failed to fetch release notes'
+    error: Failed to fetch release notes
     not_found: 'Current build does not match any official release.
 
 
@@ -394,11 +420,11 @@ dialog:
     no_matching_asset: No matching asset found
   config_style:
     server_title: Config looks like a server config
-    server_body: 'This config does not look like a client config. Running it is not recommended for client use.'
+    server_body: This config does not look like a client config. Running it is not recommended for client use.
     undefined_title: Could not determine config type
-    undefined_body: 'The config has no inbounds. It is recommended to cancel the launch.'
+    undefined_body: The config has no inbounds. It is recommended to cancel the launch.
     unknown_title: Unknown config type
-    unknown_body: 'Could not determine the config type.'
+    unknown_body: Could not determine the config type.
     btn:
       cancel: Cancel
       ignore: Run anyway
@@ -498,3 +524,10 @@ tray:
     quit: Quit
 locale:
   name: English
+common:
+  cancel: Cancel
+  saving: Saving...
+  save: Save
+  refresh: Refresh
+  reset: Reset
+  clear: Clear

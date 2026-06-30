@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -161,7 +160,7 @@ func findRename(old string, added []string) string {
 // nextMinor returns the next minor version string for a deprecation marker.
 func nextMinor(v string) string {
 	var major, minor, patch int
-	fmt.Sscanf(v, "%d.%d.%d", &major, &minor, &patch)
+	_, _ = fmt.Sscanf(v, "%d.%d.%d", &major, &minor, &patch)
 	return fmt.Sprintf("%d.%d.0", major, minor+1)
 }
 
@@ -208,15 +207,6 @@ func parseChangesBlocks(src string) []ChangeBlock {
 		blocks = append(blocks, *cur)
 	}
 	return blocks
-}
-
-func extractCodeBlock(src, lang string) string {
-	re := regexp.MustCompile("(?s)```" + regexp.QuoteMeta(lang) + "\\s*(.*?)```")
-	m := re.FindStringSubmatch(src)
-	if m == nil {
-		return ""
-	}
-	return sanitizeJSONExample(m[1])
 }
 
 func extractCodeBlocks(src, lang string) []map[string]any {
@@ -305,26 +295,43 @@ func extractReplacement(text string) string {
 	return ""
 }
 
+var (
+	boolSuffixes   = []string{"_enabled", "_disabled"}
+	boolNames      = []string{"enabled", "disabled"}
+	intSuffixes    = []string{"_port", "_count", "_capacity", "_index", "_size", "_id"}
+	intNames       = []string{"port", "mtu", "user_id"}
+	durationSuffix = []string{"_timeout", "_interval", "_delay", "_ttl"}
+	stringSuffixes = []string{
+		"_address", "_path", "_strategy", "_mode", "_interface",
+		"_domain", "_package", "_uid", "_ssid", "_bssid", "_mark",
+	}
+	stringNames = []string{"type", "tag"}
+)
+
+func nameMatches(name string, exact []string, suffixes []string) bool {
+	for _, n := range exact {
+		if name == n {
+			return true
+		}
+	}
+	for _, s := range suffixes {
+		if strings.HasSuffix(name, s) {
+			return true
+		}
+	}
+	return false
+}
+
 // inferTypeFromName guesses a YAML/JSON type from a field name.
 func inferTypeFromName(name string) string {
 	switch {
-	case strings.HasSuffix(name, "_enabled") || name == "enabled" ||
-		strings.HasSuffix(name, "_disabled") || name == "disabled":
+	case nameMatches(name, boolNames, boolSuffixes):
 		return "boolean"
-	case name == "port" || strings.HasSuffix(name, "_port") || name == "mtu" ||
-		strings.HasSuffix(name, "_count") || strings.HasSuffix(name, "_capacity") ||
-		strings.HasSuffix(name, "_index") || strings.HasSuffix(name, "_size") ||
-		name == "user_id" || strings.HasSuffix(name, "_id"):
+	case nameMatches(name, intNames, intSuffixes):
 		return "integer"
-	case strings.HasSuffix(name, "_timeout") || strings.HasSuffix(name, "_interval") ||
-		strings.HasSuffix(name, "_delay") || strings.HasSuffix(name, "_ttl"):
+	case nameMatches(name, nil, durationSuffix):
 		return "duration"
-	case name == "type" || name == "tag" || strings.HasSuffix(name, "_address") ||
-		strings.HasSuffix(name, "_path") || strings.HasSuffix(name, "_strategy") ||
-		strings.HasSuffix(name, "_mode") || strings.HasSuffix(name, "_interface") ||
-		strings.HasSuffix(name, "_domain") || strings.HasSuffix(name, "_package") ||
-		strings.HasSuffix(name, "_uid") || strings.HasSuffix(name, "_ssid") ||
-		strings.HasSuffix(name, "_bssid") || strings.HasSuffix(name, "_mark"):
+	case nameMatches(name, stringNames, stringSuffixes):
 		return "string"
 	}
 	return "any"
@@ -382,50 +389,4 @@ func inferFieldType(fd *FieldDef, example any) string {
 		}
 	}
 	return inferTypeFromName(fd.Name)
-}
-
-// parseVersion parses a version string for comparisons.
-func parseVersion(s string) VersionTag {
-	var v VersionTag
-	fmt.Sscanf(s, "%d.%d.%d", &v.Major, &v.Minor, &v.Patch)
-	return v
-}
-
-// earlier returns the earlier of two version strings.
-func earlier(a, b string) string {
-	if a == "" {
-		return b
-	}
-	if b == "" {
-		return a
-	}
-	va, vb := parseVersion(a), parseVersion(b)
-	if va.Less(vb) {
-		return a
-	}
-	return b
-}
-
-// later returns the later of two version strings.
-func later(a, b string) string {
-	if a == "" {
-		return b
-	}
-	if b == "" {
-		return a
-	}
-	va, vb := parseVersion(a), parseVersion(b)
-	if vb.Less(va) {
-		return a
-	}
-	return b
-}
-
-// boolStr parses a string as a boolean, returning a pointer.
-func boolStr(s string) *bool {
-	v, err := strconv.ParseBool(s)
-	if err != nil {
-		return nil
-	}
-	return &v
 }

@@ -14,7 +14,6 @@ import (
 
 type mockStartedService struct {
 	pb.UnimplementedStartedServiceServer
-	secret string
 }
 
 func (m *mockStartedService) GetVersion(ctx context.Context, _ *emptypb.Empty) (*pb.Version, error) {

@@ -88,7 +88,7 @@ func configHashMismatch(dataDir string, rec *config.ConfigRecord) bool {
 	if rec.IsLocal() || rec.Hash == "" {
 		return false
 	}
-	data, err := os.ReadFile(filepath.Join(dataDir, "configs", rec.Name+".json"))
+	data, err := os.ReadFile(filepath.Join(dataDir, "configs", rec.Name+".json")) // #nosec G304 -- config file inside app data dir
 	if err != nil {
 		return false
 	}
@@ -135,16 +135,8 @@ func downloadLatestCore(dataDir string, onProgress func(d, t int64)) (string, er
 
 func cmdStart(cfg *config.AppConfig, _ *fwcli.Context) error {
 	dataDir := cfg.DataDir
-	if !coreExists(dataDir) {
-		fmt.Println("Core not found, downloading latest...")
-		_, err := downloadLatestCore(dataDir, func(d, t int64) {
-			pct := float64(d) / float64(t) * 100
-			fmt.Printf("\rDownload: %.1f%% (%d / %d bytes)", pct, d, t)
-		})
-		if err != nil {
-			return fmt.Errorf("download core failed: %w", err)
-		}
-		fmt.Println()
+	if err := ensureCoreDownloaded(dataDir); err != nil {
+		return err
 	}
 
 	ver, _ := core.GetCoreVersion(coreBinaryPath(dataDir))
@@ -157,32 +149,74 @@ func cmdStart(cfg *config.AppConfig, _ *fwcli.Context) error {
 		return fmt.Errorf("no active config set, use GUI or edit profiles.yaml")
 	}
 
-	if active.IsLocal() {
-		if !hasCachedConfig(dataDir, active.Name) {
-			m := newCoreManager(dataDir)
-			if err := m.CreateLocalConfig(active.Name); err != nil {
-				return fmt.Errorf("failed to create local config: %w", err)
-			}
-		}
-	} else if active.ShouldUpdate() || !hasCachedConfig(dataDir, active.Name) || (cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool() && configHashMismatch(dataDir, active)) {
-		fmt.Println("Updating config...")
-		m := newCoreManager(dataDir)
-		m.SetConfigName(active.Name)
-		m.SetConfigURL(active.URL)
-		data, err := m.UpdateConfig()
-		if err != nil {
-			if !hasCachedConfig(dataDir, active.Name) {
-				return fmt.Errorf("config download failed: %w", err)
-			}
-			fmt.Println("Using existing local config")
-		} else {
-			active.Hash = config.HashConfig(data)
-			cfg.SetLastUpdateFor(active.Name, time.Now())
-			_ = cfg.Save()
-			fmt.Println("Config updated")
-		}
+	if err := prepareActiveConfig(cfg, active, dataDir); err != nil {
+		return err
 	}
 
+	return runCoreAndWait(cfg, active, dataDir)
+}
+
+func ensureCoreDownloaded(dataDir string) error {
+	if coreExists(dataDir) {
+		return nil
+	}
+	fmt.Println("Core not found, downloading latest...")
+	_, err := downloadLatestCore(dataDir, func(d, t int64) {
+		pct := float64(d) / float64(t) * 100
+		fmt.Printf("\rDownload: %.1f%% (%d / %d bytes)", pct, d, t)
+	})
+	if err != nil {
+		return fmt.Errorf("download core failed: %w", err)
+	}
+	fmt.Println()
+	return nil
+}
+
+func prepareActiveConfig(cfg *config.AppConfig, active *config.ConfigRecord, dataDir string) error {
+	if active.IsLocal() {
+		return ensureLocalConfig(active, dataDir)
+	}
+	return maybeUpdateRemoteConfig(cfg, active, dataDir)
+}
+
+func ensureLocalConfig(active *config.ConfigRecord, dataDir string) error {
+	if hasCachedConfig(dataDir, active.Name) {
+		return nil
+	}
+	m := newCoreManager(dataDir)
+	if err := m.CreateLocalConfig(active.Name); err != nil {
+		return fmt.Errorf("failed to create local config: %w", err)
+	}
+	return nil
+}
+
+func maybeUpdateRemoteConfig(cfg *config.AppConfig, active *config.ConfigRecord, dataDir string) error {
+	needsUpdate := active.ShouldUpdate() || !hasCachedConfig(dataDir, active.Name)
+	needsHashUpdate := cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool() && configHashMismatch(dataDir, active)
+	if !needsUpdate && !needsHashUpdate {
+		return nil
+	}
+
+	fmt.Println("Updating config...")
+	m := newCoreManager(dataDir)
+	m.SetConfigName(active.Name)
+	m.SetConfigURL(active.URL)
+	data, err := m.UpdateConfig()
+	if err != nil {
+		if !hasCachedConfig(dataDir, active.Name) {
+			return fmt.Errorf("config download failed: %w", err)
+		}
+		fmt.Println("Using existing local config")
+		return nil
+	}
+	active.Hash = config.HashConfig(data)
+	cfg.SetLastUpdateFor(active.Name, time.Now())
+	_ = cfg.Save()
+	fmt.Println("Config updated")
+	return nil
+}
+
+func runCoreAndWait(cfg *config.AppConfig, active *config.ConfigRecord, dataDir string) error {
 	m := newCoreManager(dataDir)
 	m.SetConfigURL(active.URL)
 	m.SetConfigName(active.Name)
@@ -213,7 +247,7 @@ func cmdStart(cfg *config.AppConfig, _ *fwcli.Context) error {
 
 func cmdStop(cfg *config.AppConfig, _ *fwcli.Context) error {
 	dataDir := cfg.DataDir
-	data, err := os.ReadFile(filepath.Join(dataDir, ".pid"))
+	data, err := os.ReadFile(filepath.Join(dataDir, ".pid")) // #nosec G304 -- PID file inside app data dir
 	if err != nil {
 		return fmt.Errorf("pid file not found, is sing-box running?")
 	}
@@ -281,7 +315,7 @@ func cmdDownload(cfg *config.AppConfig, _ *fwcli.Context) error {
 
 func cmdStatus(cfg *config.AppConfig, _ *fwcli.Context) error {
 	dataDir := cfg.DataDir
-	data, err := os.ReadFile(filepath.Join(dataDir, ".pid"))
+	data, err := os.ReadFile(filepath.Join(dataDir, ".pid")) // #nosec G304 -- PID file inside app data dir
 	if err != nil {
 		fmt.Println("Status: not running (no pid file)")
 		return nil

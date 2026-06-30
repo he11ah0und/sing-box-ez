@@ -30,10 +30,10 @@ func DefaultPath() string {
 
 // Listen implements ipc.Transport.
 func (t *Transport) Listen() (net.Listener, error) {
-	if err := os.MkdirAll(filepath.Dir(t.path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(t.path), 0o750); err != nil {
 		return nil, fmt.Errorf("create socket directory: %w", err)
 	}
-	_ = os.Remove(t.path)
+	_ = os.Remove(t.path) // #nosec G104 -- best-effort cleanup
 	return net.Listen("unix", t.path)
 }
 

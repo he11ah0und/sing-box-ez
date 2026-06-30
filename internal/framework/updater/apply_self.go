@@ -184,7 +184,7 @@ func findBinaryInDir(dir fs.Directory, tmpDir, name string) (string, error) {
 }
 
 func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source, asset Asset, path string, onProgress func(downloaded, total int64)) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600) // #nosec G304 -- self-update path is controlled by the app
 	if err != nil {
 		return a.Log.Errorf("cannot create %q: %v", path, err)
 	}

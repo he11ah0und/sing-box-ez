@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 )
 
@@ -268,11 +267,6 @@ func AsBool(v Value) bool {
 	return false
 }
 
-// normalizeFlagName returns the canonical flag name.
-func normalizeFlagName(name string) string {
-	return name
-}
-
 // isFlag reports whether token looks like a flag.
 func isFlag(token string) bool {
 	return len(token) >= 2 && token[0] == '-'
@@ -316,15 +310,4 @@ func indexRune(s string, r rune) int {
 		}
 	}
 	return -1
-}
-
-// expandPath resolves a path to an absolute path if it is relative.
-func expandPath(raw string) string {
-	if raw == "" || filepath.IsAbs(raw) {
-		return raw
-	}
-	if abs, err := filepath.Abs(raw); err == nil {
-		return abs
-	}
-	return raw
 }

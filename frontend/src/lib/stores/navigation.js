@@ -33,3 +33,7 @@ export function replaceTop(level) {
 export function goHome() {
   navigationStack.set([{ type: 'page', id: 'main' }]);
 }
+
+export function setRootPage(id) {
+  navigationStack.set([{ type: 'page', id }]);
+}

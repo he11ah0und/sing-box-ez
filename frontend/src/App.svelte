@@ -1,38 +1,37 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { initWailsEvents } from './lib/wails/bridge.js';
   import { theme, applyTheme } from './lib/stores/theme.js';
+  import { signalLocaleReady } from './lib/stores/locale.js';
+  import { GetTheme } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import { currentLevel } from './lib/stores/navigation.js';
   import { appState } from './lib/stores/appState.js';
   import Shell from './lib/components/Shell.svelte';
   import Modal from './lib/components/Modal.svelte';
-
-  import MainPage from './lib/pages/MainPage.svelte';
-  import ConfigsPage from './lib/pages/ConfigsPage.svelte';
-  import CorePage from './lib/pages/CorePage.svelte';
-  import SettingsPage from './lib/pages/SettingsPage.svelte';
-  import LogsPage from './lib/pages/LogsPage.svelte';
-  import AboutPage from './lib/pages/AboutPage.svelte';
-  import MenuPage from './lib/pages/MenuPage.svelte';
+  import Notification from './lib/components/Notification.svelte';
   import StartupPage from './lib/pages/StartupPage.svelte';
+  import { pageComponents } from './lib/pages/index.js';
 
-  const pages = {
-    main: MainPage,
-    configs: ConfigsPage,
-    core: CorePage,
-    settings: SettingsPage,
-    logs: LogsPage,
-    about: AboutPage,
-    menu: MenuPage
-  };
-
-  let activePage = $derived(pages[$currentLevel.id] ?? MainPage);
+  let ActivePage = $derived(pageComponents[$currentLevel.id] ?? pageComponents.main);
 
   onMount(() => {
     console.log('App mounted');
     try {
       initWailsEvents();
-      applyTheme($theme.colors);
+      GetTheme()
+        .then((t) => {
+          if (t) {
+            theme.set(t);
+            applyTheme(t);
+          } else {
+            applyTheme($theme);
+          }
+        })
+        .catch((err) => {
+          console.warn('Failed to fetch initial theme:', err);
+          applyTheme($theme);
+        });
+      tick().then(() => setTimeout(signalLocaleReady, 0));
       console.log('Wails events initialized');
     } catch (err) {
       console.error('Failed to init Wails events:', err);
@@ -44,7 +43,7 @@
   <StartupPage />
 {:else}
   <Shell>
-    <activePage></activePage>
+    <ActivePage />
   </Shell>
 {/if}
 
@@ -53,3 +52,5 @@
     <p>{$appState.dialog.body}</p>
   </Modal>
 {/if}
+
+<Notification />

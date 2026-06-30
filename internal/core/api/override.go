@@ -58,7 +58,7 @@ func ApplyOverride(data []byte, version, host string, port int, secret string) (
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	info := &Info{Backend: backend, Host: host, Port: port, Secret: secret}
 
-	out, ok, err := parser.Override(data, func(tree map[string]any) bool {
+	out, _, err := parser.Override(data, func(tree map[string]any) bool {
 		switch backend {
 		case BackendSingBox:
 			applySingBoxAPI(tree, addr, secret)
@@ -69,11 +69,6 @@ func ApplyOverride(data []byte, version, host string, port int, secret string) (
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("apply API override: %w", err)
-	}
-	if !ok {
-		// Validation reported unknown fields. This can happen when the schema
-		// does not yet know about the selected API fields. Return the output
-		// anyway but leave a hint for the caller.
 	}
 	return out, info, nil
 }

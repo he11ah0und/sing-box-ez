@@ -66,7 +66,7 @@ func NewInteractiveControllerWithManager(b Backend, manager svcman.Manager) *Int
 	cfg := b.Config()
 	if lang := cfg.MustGet("ui", "language").String(); lang == "" {
 		lang = localengine.DetectSystemLanguage()
-		cfg.MustGet("ui", "language").Update(lang)
+		_ = cfg.MustGet("ui", "language").Update(lang)
 		_ = cfg.Save()
 		localengine.SetLanguage(lang)
 	} else {
@@ -149,40 +149,55 @@ func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 func (ic *InteractiveController) StartService() error {
 	rec, err := ic.backend.PrepareConfig()
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrCoreMissing):
-			if ic.OnCoreMissing != nil {
-				ic.OnCoreMissing()
-			}
-		case errors.Is(err, ErrNoActiveConfig):
-			if ic.OnConfigMissing != nil {
-				ic.OnConfigMissing()
-			}
-		}
+		ic.handlePrepareConfigError(err)
 		return err
 	}
 
 	if ic.Controller != nil && rec != nil {
-		style, err := ic.Controller.DetectConfigStyle(rec.Name)
-		if err != nil {
-			ic.backend.Terminal().Infof("Failed to detect config style: %v", err)
-			return fmt.Errorf("detect config style: %w", err)
-		}
-		if style != inboundstyle.StyleClient && rec.GetFallbackType() == "" {
-			if ic.OnConfigStyleCheck != nil {
-				ic.OnConfigStyleCheck(style, rec, func(fallbackType string) {
-					if err := ic.Controller.SetFallbackType(rec.Name, fallbackType); err != nil {
-						ic.backend.Terminal().Infof("Failed to set fallback_type: %v", err)
-						return
-					}
-					_ = ic.StartService()
-				})
-				return nil
-			}
-			return fmt.Errorf("config %q is not a client config; set fallback_type to %q or %q in the profile", rec.Name, inboundstyle.FallbackIgnore, inboundstyle.FallbackToClient)
+		if err := ic.checkClientStyle(rec); err != nil {
+			return err
 		}
 	}
 
+	return ic.startBackend()
+}
+
+func (ic *InteractiveController) handlePrepareConfigError(err error) {
+	switch {
+	case errors.Is(err, ErrCoreMissing):
+		if ic.OnCoreMissing != nil {
+			ic.OnCoreMissing()
+		}
+	case errors.Is(err, ErrNoActiveConfig):
+		if ic.OnConfigMissing != nil {
+			ic.OnConfigMissing()
+		}
+	}
+}
+
+func (ic *InteractiveController) checkClientStyle(rec *config.ConfigRecord) error {
+	style, err := ic.Controller.DetectConfigStyle(rec.Name)
+	if err != nil {
+		ic.backend.Terminal().Infof("Failed to detect config style: %v", err)
+		return fmt.Errorf("detect config style: %w", err)
+	}
+	if style == inboundstyle.StyleClient || rec.GetFallbackType() != "" {
+		return nil
+	}
+	if ic.OnConfigStyleCheck != nil {
+		ic.OnConfigStyleCheck(style, rec, func(fallbackType string) {
+			if err := ic.Controller.SetFallbackType(rec.Name, fallbackType); err != nil {
+				ic.backend.Terminal().Infof("Failed to set fallback_type: %v", err)
+				return
+			}
+			_ = ic.StartService()
+		})
+		return nil
+	}
+	return fmt.Errorf("config %q is not a client config; set fallback_type to %q or %q in the profile", rec.Name, inboundstyle.FallbackIgnore, inboundstyle.FallbackToClient)
+}
+
+func (ic *InteractiveController) startBackend() error {
 	if ic.serviceManager != nil {
 		if err := ic.serviceManager.Start(); err != nil {
 			ic.backend.Terminal().Infof("Failed to start: %v", err)
@@ -265,42 +280,56 @@ func (ic *InteractiveController) checkAllConfigs() {
 	}
 
 	active := ic.backend.GetActiveConfig()
-	activeUpdated := false
+	activeUpdated := ic.updateOutdatedConfigs(configs, active)
 
+	if activeUpdated {
+		ic.onActiveConfigUpdated()
+	}
+}
+
+func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRecord, active *config.ConfigRecord) bool {
 	autoUpdateConfigs := ic.backend.Config().MustGet("updates", "auto_update_configs").Bool()
 	autoUpdateOnHashMismatch := ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool()
 
+	activeUpdated := false
 	for i := range configs {
 		cfg := &configs[i]
 		if cfg.IsLocal() {
 			continue
 		}
-		needsUpdate := autoUpdateConfigs && cfg.ShouldUpdate()
-		needsHashUpdate := autoUpdateOnHashMismatch && ic.backend.IsConfigHashMismatch(cfg.Name)
-		if !needsUpdate && !needsHashUpdate {
-			continue
-		}
-
-		ic.backend.Terminal().Infof("Auto-updating config: %s", cfg.Name)
-		if err := ic.backend.UpdateConfigNow(cfg.Name, cfg.URL); err != nil {
-			// The download/network backend already logs the failure with context.
-			continue
-		}
-		if active != nil && cfg.Name == active.Name {
+		updated := ic.tryUpdateConfig(cfg, active, autoUpdateConfigs, autoUpdateOnHashMismatch)
+		if updated {
 			activeUpdated = true
 		}
 	}
+	return activeUpdated
+}
 
-	if activeUpdated {
-		if ic.OnConfigUpdate != nil {
-			ic.OnConfigUpdate()
-		}
-		if ic.backend.Config().MustGet("updates", "auto_restart_on_config_update").Bool() && ic.backend.IsRunning() {
-			ic.backend.Terminal().Infof("Active config updated, restarting core...")
-			if err := ic.backend.Restart(); err != nil {
-				ic.backend.Terminal().Errorf("Auto-restart failed: %v", err)
-			}
-		}
+func (ic *InteractiveController) tryUpdateConfig(cfg *config.ConfigRecord, active *config.ConfigRecord, autoUpdateConfigs, autoUpdateOnHashMismatch bool) bool {
+	needsUpdate := autoUpdateConfigs && cfg.ShouldUpdate()
+	needsHashUpdate := autoUpdateOnHashMismatch && ic.backend.IsConfigHashMismatch(cfg.Name)
+	if !needsUpdate && !needsHashUpdate {
+		return false
+	}
+
+	ic.backend.Terminal().Infof("Auto-updating config: %s", cfg.Name)
+	if err := ic.backend.UpdateConfigNow(cfg.Name, cfg.URL); err != nil {
+		// The download/network backend already logs the failure with context.
+		return false
+	}
+	return active != nil && cfg.Name == active.Name
+}
+
+func (ic *InteractiveController) onActiveConfigUpdated() {
+	if ic.OnConfigUpdate != nil {
+		ic.OnConfigUpdate()
+	}
+	if !ic.backend.Config().MustGet("updates", "auto_restart_on_config_update").Bool() || !ic.backend.IsRunning() {
+		return
+	}
+	ic.backend.Terminal().Infof("Active config updated, restarting core...")
+	if err := ic.backend.Restart(); err != nil {
+		_ = ic.backend.Terminal().Errorf("Auto-restart failed: %v", err)
 	}
 }
 

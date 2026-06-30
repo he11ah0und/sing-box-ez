@@ -44,12 +44,12 @@ func (m *Manager) IsInstalled() bool {
 // Install implements svcman.Manager.
 func (m *Manager) Install(opts svcman.InstallOptions) error {
 	script := buildScript(m.name, opts)
-	if err := os.WriteFile(m.path, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(m.path, []byte(script), 0o750); err != nil { // #nosec G306 -- init script must be executable
 		return fmt.Errorf("sysv install: %w", err)
 	}
 	for _, level := range []string{"2", "3", "4", "5"} {
 		target := filepath.Join("/etc", "rc"+level+".d", "S99"+m.name)
-		_ = os.Symlink(m.path, target)
+		_ = os.Symlink(m.path, target) // #nosec G104 -- best-effort symlink creation
 	}
 	return nil
 }
@@ -57,7 +57,7 @@ func (m *Manager) Install(opts svcman.InstallOptions) error {
 // Remove implements svcman.Manager.
 func (m *Manager) Remove() error {
 	for _, level := range []string{"2", "3", "4", "5"} {
-		_ = os.Remove(filepath.Join("/etc", "rc"+level+".d", "S99"+m.name))
+		_ = os.Remove(filepath.Join("/etc", "rc"+level+".d", "S99"+m.name)) // #nosec G104 -- best-effort cleanup
 	}
 	return os.Remove(m.path)
 }
@@ -91,11 +91,11 @@ func (m *Manager) Status() (svcman.Status, error) {
 }
 
 func (m *Manager) run(arg string) error {
-	return exec.Command("service", m.name, arg).Run()
+	return exec.Command("service", m.name, arg).Run() // #nosec G204 -- service command with controlled args
 }
 
 func (m *Manager) runOutput(arg string) ([]byte, error) {
-	return exec.Command("service", m.name, arg).Output()
+	return exec.Command("service", m.name, arg).Output() // #nosec G204 -- service command with controlled args
 }
 
 func buildScript(name string, opts svcman.InstallOptions) string {

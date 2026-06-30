@@ -45,36 +45,36 @@ func (m *Manager) IsInstalled() bool {
 // Install implements svcman.Manager.
 func (m *Manager) Install(opts svcman.InstallOptions) error {
 	script := buildScript(m.name, opts)
-	if err := os.WriteFile(m.path, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(m.path, []byte(script), 0o750); err != nil { // #nosec G306 -- init script must be executable
 		return fmt.Errorf("openrc install: %w", err)
 	}
-	return exec.Command("rc-update", "add", m.name, "default").Run()
+	return exec.Command("rc-update", "add", m.name, "default").Run() // #nosec G204 -- rc-update with controlled args
 }
 
 // Remove implements svcman.Manager.
 func (m *Manager) Remove() error {
-	_ = exec.Command("rc-update", "del", m.name, "default").Run()
+	_ = exec.Command("rc-update", "del", m.name, "default").Run() // #nosec G204,G104 -- rc-update with controlled args
 	return os.Remove(m.path)
 }
 
 // Start implements svcman.Manager.
 func (m *Manager) Start() error {
-	return exec.Command("rc-service", m.name, "start").Run()
+	return exec.Command("rc-service", m.name, "start").Run() // #nosec G204 -- rc-service with controlled args
 }
 
 // Stop implements svcman.Manager.
 func (m *Manager) Stop() error {
-	return exec.Command("rc-service", m.name, "stop").Run()
+	return exec.Command("rc-service", m.name, "stop").Run() // #nosec G204 -- rc-service with controlled args
 }
 
 // Restart implements svcman.Manager.
 func (m *Manager) Restart() error {
-	return exec.Command("rc-service", m.name, "restart").Run()
+	return exec.Command("rc-service", m.name, "restart").Run() // #nosec G204 -- rc-service with controlled args
 }
 
 // Status implements svcman.Manager.
 func (m *Manager) Status() (svcman.Status, error) {
-	out, err := exec.Command("rc-service", m.name, "status").Output()
+	out, err := exec.Command("rc-service", m.name, "status").Output() // #nosec G204 -- rc-service with controlled args
 	if err != nil {
 		return svcman.StatusUnknown, nil
 	}

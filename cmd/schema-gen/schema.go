@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
 	"sing-box-ez/internal/singboxconfig"
+
+	"gopkg.in/yaml.v3"
 )
 
 // SchemaBuilder incrementally constructs a schema tree from parsed docs.
@@ -291,13 +292,14 @@ func (b *SchemaBuilder) fieldDefToNode(fd *FieldDef, example any) *BuilderNode {
 		node.AdditionalProperties = true
 	}
 	// Expand structure example for object/array children.
-	if node.Type == "object" {
+	switch node.Type {
+	case "object":
 		if m, ok := example.(map[string]any); ok {
 			for k, v := range m {
 				node.Children[k] = b.valueToNode(k, v)
 			}
 		}
-	} else if node.Type == "array" {
+	case "array":
 		if arr, ok := example.([]any); ok && len(arr) > 0 {
 			node.Items = b.valueToNode(fd.Name+"[]", arr[0])
 		} else {
@@ -333,8 +335,8 @@ func (b *SchemaBuilder) valueToNode(name string, v any) *BuilderNode {
 // buildTypedArray assembles a root array field whose items are discriminated by `type`.
 func (b *SchemaBuilder) buildTypedArray(tag, rootPath, dir, parentField string) {
 	rootName := rootPath
-	if idx := strings.Index(rootPath, "."); idx != -1 {
-		rootName = rootPath[:idx]
+	if before, _, ok := strings.Cut(rootPath, "."); ok {
+		rootName = before
 	}
 	indexPath := dir + "/index.md"
 	if !b.Repo.FileExistsAt(tag, indexPath) {
@@ -349,8 +351,14 @@ func (b *SchemaBuilder) buildTypedArray(tag, rootPath, dir, parentField string) 
 		OneOfBy: "type",
 	}
 
-	// Default variant with common fields. If the type table names a default
-	// variant file (e.g. "legacy" for DNS servers), use that file.
+	common, defaultFile := b.buildDefaultVariant(tag, dir, rootName, doc)
+	items.OneOf = append(items.OneOf, BuilderVariant{When: map[string]string{}, Fields: common})
+	b.buildTypedVariants(tag, dir, defaultFile, items)
+	b.placeTypedArray(rootName, rootPath, items)
+}
+
+// buildDefaultVariant builds the common/default variant for a typed array.
+func (b *SchemaBuilder) buildDefaultVariant(tag, dir, rootName string, doc *ParsedDoc) (map[string]*BuilderNode, string) {
 	common := make(map[string]*BuilderNode)
 	common["type"] = &BuilderNode{Name: "type", Type: "string", Since: b.Earliest}
 	defaultFile := DefaultVariantFile(doc)
@@ -364,19 +372,21 @@ func (b *SchemaBuilder) buildTypedArray(tag, rootPath, dir, parentField string) 
 	for _, fd := range doc.Fields {
 		b.setChild(nodeFromFields(common), fd.Name, b.fieldDefToNode(fd, doc.Structure[fd.Name]))
 	}
-	// Inline shared listen/dial fields based on the context.
 	for _, ref := range doc.SharedRefs {
 		b.spreadShared(common, ref)
 	}
-	if rootName == "inbounds" {
+	switch rootName {
+	case "inbounds":
 		b.spreadShared(common, "Listen Fields")
-	} else if rootName == "outbounds" || rootName == "dns" {
+	case "outbounds", "dns":
 		b.spreadShared(common, "Dial Fields")
 	}
 	b.insertSharedRefByFieldName(common)
-	items.OneOf = append(items.OneOf, BuilderVariant{When: map[string]string{}, Fields: common})
+	return common, defaultFile
+}
 
-	// Discover typed files.
+// buildTypedVariants discovers and appends typed variant files to items.
+func (b *SchemaBuilder) buildTypedVariants(tag, dir, defaultFile string, items *BuilderNode) {
 	files, err := b.Repo.ListFilesAt(tag, dir)
 	if err != nil {
 		return
@@ -397,73 +407,49 @@ func (b *SchemaBuilder) buildTypedArray(tag, rootPath, dir, parentField string) 
 		if err != nil {
 			continue
 		}
-		fields := make(map[string]*BuilderNode)
-		fields["type"] = &BuilderNode{Name: "type", Type: "string", Since: b.Earliest}
-		mainStruct := mainStructure(doc, "")
-		for _, fd := range doc.Fields {
-			var example any
-			if m, ok := mainStruct.(map[string]any); ok {
-				example = m[fd.Name]
-			}
-			fields[fd.Name] = b.fieldDefToNode(fd, example)
-		}
-		for _, ref := range doc.SharedRefs {
-			b.spreadShared(fields, ref)
-		}
-		b.insertSharedRefByFieldName(fields)
+		fields := b.buildVariantFields(doc)
 		items.OneOf = append(items.OneOf, BuilderVariant{
 			When:   map[string]string{"type": variant},
 			Fields: fields,
 		})
 	}
-
-	// Place the array into the schema tree.
-	if rootName == rootPath {
-		b.Fields[rootName] = &BuilderNode{
-			Name:  rootName,
-			Type:  "array",
-			Since: b.Earliest,
-			Items: items,
-		}
-	} else {
-		// e.g. dns.servers
-		parts := strings.Split(rootPath, ".")
-		parent := b.Fields[parts[0]]
-		if parent == nil {
-			return
-		}
-		parent.Children[parts[1]] = &BuilderNode{
-			Name:  parts[1],
-			Type:  "array",
-			Since: b.Earliest,
-			Items: items,
-		}
-	}
 }
 
-func (b *SchemaBuilder) buildServices(tag string) {
-	prefix := "docs/configuration/services"
-	if !b.Repo.FileExistsAt(tag, prefix+"/index.md") {
+// buildVariantFields builds a single typed variant's field map.
+func (b *SchemaBuilder) buildVariantFields(doc *ParsedDoc) map[string]*BuilderNode {
+	fields := make(map[string]*BuilderNode)
+	fields["type"] = &BuilderNode{Name: "type", Type: "string", Since: b.Earliest}
+	mainStruct := mainStructure(doc, "")
+	mainMap, _ := mainStruct.(map[string]any)
+	for _, fd := range doc.Fields {
+		fields[fd.Name] = b.fieldDefToNode(fd, mainMap[fd.Name])
+	}
+	for _, ref := range doc.SharedRefs {
+		b.spreadShared(fields, ref)
+	}
+	b.insertSharedRefByFieldName(fields)
+	return fields
+}
+
+// placeTypedArray inserts the assembled array into the schema tree.
+func (b *SchemaBuilder) placeTypedArray(rootName, rootPath string, items *BuilderNode) {
+	node := &BuilderNode{
+		Name:  rootName,
+		Type:  "array",
+		Since: b.Earliest,
+		Items: items,
+	}
+	if rootName == rootPath {
+		b.Fields[rootName] = node
 		return
 	}
-	items := &BuilderNode{Type: "object", Since: b.Earliest, OneOfBy: "type"}
-	files, _ := b.Repo.ListFilesAt(tag, prefix)
-	for _, f := range files {
-		if !strings.HasSuffix(f, ".md") || strings.HasSuffix(f, ".zh.md") || filepath.Base(f) == "index.md" {
-			continue
-		}
-		variant := strings.TrimSuffix(filepath.Base(f), ".md")
-		data, _ := b.Repo.ReadFileAt(tag, f)
-		doc, _ := ParseMarkdown(string(data))
-		fields := make(map[string]*BuilderNode)
-		fields["type"] = &BuilderNode{Name: "type", Type: "string", Since: b.Earliest}
-		for _, fd := range doc.Fields {
-			b.setChild(nodeFromFields(fields), fd.Name, b.fieldDefToNode(fd, nil))
-		}
-		b.insertSharedRefByFieldName(fields)
-		items.OneOf = append(items.OneOf, BuilderVariant{When: map[string]string{"type": variant}, Fields: fields})
+	parts := strings.Split(rootPath, ".")
+	parent := b.Fields[parts[0]]
+	if parent == nil {
+		return
 	}
-	b.Fields["services"] = &BuilderNode{Name: "services", Type: "array", Since: b.Earliest, Items: items}
+	node.Name = parts[1]
+	parent.Children[parts[1]] = node
 }
 
 // buildRuleItems parses a *_rule.md file and creates an array field with
@@ -662,7 +648,7 @@ func (b *SchemaBuilder) toSchemaChildren(m map[string]*BuilderNode) map[string]*
 
 // WriteYAML writes the schema to path as YAML.
 func WriteYAML(s *singboxconfig.Schema, path string) error {
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304 -- output path is provided by operator
 	if err != nil {
 		return err
 	}

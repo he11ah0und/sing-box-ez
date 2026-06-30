@@ -123,7 +123,7 @@ func (m *Manager) DownloadAsset(ctx context.Context, asset Asset, dest string, p
 		return m.Log.Errorf("updater manager has no source backend configured")
 	}
 	m.Log.Infof("downloading asset %s → %s", asset.Name, dest)
-	f, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
+	f, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600) // #nosec G304 -- destination is chosen by the app
 	if err != nil {
 		return m.Log.Errorf("open dest failed: %v", err)
 	}

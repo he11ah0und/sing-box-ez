@@ -62,7 +62,7 @@ func (m *Manager) Remove() error {
 func (m *Manager) Start() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return os.WriteFile(m.pidFile, []byte(strconv.Itoa(os.Getpid())), 0o644)
+	return os.WriteFile(m.pidFile, []byte(strconv.Itoa(os.Getpid())), 0o600)
 }
 
 // Stop implements svcman.Manager.

@@ -14,7 +14,7 @@ type LogOverride struct {
 
 // SetCoreLogOverride persists the core log level in the application config.
 func (c *Controller) SetCoreLogOverride(o LogOverride) error {
-	c.cfg.MustGet("core", "log", "level").Update(o.Level)
+	_ = c.cfg.MustGet("core", "log", "level").Update(o.Level)
 	if err := c.cfg.Save(); err != nil {
 		return c.terminal.Errorf("failed to save core log level: %v", err)
 	}

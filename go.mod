@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gogpu/systray v0.1.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/wailsapp/wails/v3 v3.0.0-alpha2.107
 	github.com/yuin/gopher-lua v1.1.2

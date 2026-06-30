@@ -22,7 +22,7 @@ func newSelfUpdatePlatform(parent *logger.LogTerminal) selfUpdatePlatform {
 
 func (u *unixSelfUpdate) replace(exe, newExe string) error {
 	u.Log.Infof("replacing running binary %q with %q", exe, newExe)
-	if err := os.Chmod(newExe, 0750); err != nil {
+	if err := os.Chmod(newExe, 0750); err != nil { // #nosec G302 -- replacement binary must remain executable
 		return u.Log.Errorf("chmod replacement %q failed: %v", newExe, err)
 	}
 	if err := os.Rename(newExe, exe); err != nil {

@@ -5,9 +5,10 @@ tab:
   configs: 配置
   core: 核心
   settings: 设置
-  log: 日志
+  debug: 调试
   plugins: 插件
   about: 关于
+  menu: Menu
 main:
   status:
     stopped: 状态：已停止
@@ -17,6 +18,7 @@ main:
     none: 活动配置：（无）
     label: 活动配置
     prefix: 活动配置：
+    placeholder: Select active config
   'no':
     config: 未选择配置 — 请在配置标签页中选择一个
   btn:
@@ -30,10 +32,10 @@ main:
     connections: 连接
   api:
     title: 核心控制
-    status: '版本：%s  运行时间：%s'
+    status: 版本：%s  运行时间：%s
     mode: 模式
-    current_mode: '模式：'
-    backend: '后端：'
+    current_mode: 模式：
+    backend: 后端：
     mode_rule: 规则
     mode_global: 全局
     mode_direct: 直连
@@ -42,11 +44,12 @@ main:
     url_test: URL 测试
     url_test_testing: 测试中…
     url_test_empty: 无结果
-    url_test_error: '失败：%v'
-    url_test_result: '平均 %d 毫秒（%d 个节点）'
-    connections: '连接数：%d'
+    url_test_error: 失败：%v
+    url_test_result: 平均 %d 毫秒（%d 个节点）
+    connections: 连接数：%d
     close_connections: 关闭所有连接
     unavailable: 当前连接模式不支持 API 控制。
+    connecting: Connecting…
   dashboard:
     upload: 上传
     download: 下载
@@ -72,6 +75,8 @@ main:
     sort_traffic: 流量
     sort_total: 总流量
     search: 搜索
+  running: Running
+  stopped: Stopped
 connection_details:
   title: 连接详情
   id: ID
@@ -99,10 +104,7 @@ core:
   version:
     installed: 核心：v
     not_installed: 核心：未安装
-  latest:
-    checking: 最新版本：检查中...
-    error: 最新版本：错误
-    prefix: 最新版本：v
+  latest: Latest version
   btn:
     download: 下载最新 sing-box 核心
     check: 检查最新版本
@@ -144,6 +146,7 @@ core:
     address: 地址
     secret: 密钥
     copy: 复制连接数据
+  installed: Installed version
 configs:
   title: 配置
   btn:
@@ -172,6 +175,7 @@ configs:
     server: server
     undefined: undefined
     not_recommended: 不推荐
+    active: Active
   dialog:
     title: 配置
     name: 名称
@@ -195,6 +199,16 @@ configs:
       copy: 复制
     delete_title: 删除
     delete_msg: 删除配置
+  nameRequired: Name is required
+  new: New config
+  name: Name
+  type: Type
+  remote: Remote
+  local: Local
+  url: URL / Path
+  interval: Update interval (h)
+  empty: No configs yet.
+  confirmDelete: Delete this config?
 validation:
   ok: 未检测到已弃用或已删除的字段。
   summary_errors: 发现 %d 个严重错误和 %d 个警告。
@@ -202,9 +216,9 @@ validation:
   errors_title: 错误 (%d)
   warnings_title: 警告 (%d)
   item:
-    removed: '在 %s 中已删除：%s。替代方案：%s'
-    deprecated: '自 %s 起已弃用，将在 %s 中删除：%s。替代方案：%s'
-    deprecated_no_removal: '自 %s 起已弃用：%s。替代方案：%s'
+    removed: 在 %s 中已删除：%s。替代方案：%s
+    deprecated: 自 %s 起已弃用，将在 %s 中删除：%s。替代方案：%s
+    deprecated_no_removal: 自 %s 起已弃用：%s。替代方案：%s
 settings:
   tab:
     interface: 界面
@@ -216,7 +230,7 @@ settings:
   log_limit:
     label: 日志行数限制（0=无限制）：
   log_level:
-    label: '日志级别：'
+    label: 日志级别：
     debug: 调试
     info: 信息
     warn: 警告
@@ -276,12 +290,16 @@ settings:
     title: 危险区域
     btn: 重置所有数据
     confirm_title: 重置所有数据？
-    confirm_msg: |
-      这将永久删除 config.yaml、profiles.yaml 和 configs/ 文件夹。
+    confirm_msg: '这将永久删除 config.yaml、profiles.yaml 和 configs/ 文件夹。
+
       之后应用将重新启动。
+
+      '
     success_title: 数据已重置
     success_msg: 所有数据已重置。应用现在将重新启动。
   desktop_notifications: 桌面通知
+  runAsAdmin: 以管理员身份运行核心
+  saved: 设置已保存
 startup:
   title: sing-box-ez
   subtitle: 选择运行方式
@@ -328,6 +346,8 @@ about:
     load_branches: 加载分支
     check_branch: 检查分支更新
     switch_branch: 切换分支
+    check_update: Check update
+    install_update: Install update
   branch:
     label: 分支：
     load_error: 加载分支失败：
@@ -341,6 +361,12 @@ about:
     dev_build: 开发版本：当前 %s，远程 %s
     dev_build_confirm_title: 开发版本更新
     dev_build_confirm_body: 您正在使用比最新发布版本 (%s) 更新的开发版本 (%s)。更新将降级版本。继续？
+    confirm: Install update?
+    installed: Update installed
+    title: App update
+    latest: 'Latest:'
+    up_to_date: Up to date
+    downloading: Downloading…
   release_notes:
     title: 发布说明
     error: 获取发布说明失败
@@ -394,11 +420,11 @@ dialog:
     no_matching_asset: 未找到匹配的文件
   config_style:
     server_title: 配置看起来像服务器配置
-    server_body: '此配置看起来不像客户端配置。不建议在客户端使用。'
+    server_body: 此配置看起来不像客户端配置。不建议在客户端使用。
     undefined_title: 无法确定配置类型
-    undefined_body: '配置中没有 inbounds。建议取消启动。'
+    undefined_body: 配置中没有 inbounds。建议取消启动。
     unknown_title: 未知配置类型
-    unknown_body: '无法确定配置类型。'
+    unknown_body: 无法确定配置类型。
     btn:
       cancel: 取消
       ignore: 仍要启动
@@ -498,3 +524,10 @@ tray:
     quit: 退出
 locale:
   name: 中文
+common:
+  cancel: 取消
+  saving: 保存中...
+  save: 保存
+  refresh: 刷新
+  reset: 重置
+  clear: 清空

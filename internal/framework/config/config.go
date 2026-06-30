@@ -7,6 +7,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"sing-box-ez/internal/framework/base"
@@ -515,17 +516,17 @@ func toInt(v any) (int, bool) {
 	case int32:
 		return int(x), true
 	case int64:
-		return int(x), true
-	case uint:
-		return int(x), true
+		return toIntFromInt64(x)
 	case uint8:
 		return int(x), true
 	case uint16:
 		return int(x), true
+	case uint:
+		return toIntFromUint(uint64(x))
 	case uint32:
-		return int(x), true
+		return toIntFromUint(uint64(x))
 	case uint64:
-		return int(x), true
+		return toIntFromUint(x)
 	case float32:
 		return int(x), true
 	case float64:
@@ -533,6 +534,20 @@ func toInt(v any) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func toIntFromInt64(x int64) (int, bool) {
+	if x > math.MaxInt || x < math.MinInt {
+		return 0, false
+	}
+	return int(x), true
+}
+
+func toIntFromUint(x uint64) (int, bool) {
+	if x > uint64(math.MaxInt) {
+		return 0, false
+	}
+	return int(x), true
 }
 
 func toString(v any) (string, bool) {

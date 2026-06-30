@@ -7,12 +7,17 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 )
+
+// maxTarSkip limits how many bytes of a tar entry we are willing to discard
+// while indexing an archive. This protects against decompression bombs.
+const maxTarSkip int64 = 1 << 30 // 1 GiB
 
 // NewArchiveFS opens path as an archive and returns a read-only FS.
 // Supported formats: "zip", "tar", "tar.gz", "tar.bz2".
@@ -74,6 +79,9 @@ func newZipFS(path string) (FS, error) {
 		if name == "" || strings.Contains(name, "..") {
 			continue
 		}
+		if f.UncompressedSize64 > math.MaxInt64 {
+			return nil, fmt.Errorf("zip entry %q too large", name)
+		}
 		entry := &archiveEntry{
 			name:    name,
 			size:    int64(f.UncompressedSize64),
@@ -88,30 +96,37 @@ func newZipFS(path string) (FS, error) {
 	return fsys, nil
 }
 
+func openTarReader(f *os.File, gz bool) (io.Reader, string, error) {
+	if gz {
+		gr, err := gzip.NewReader(f)
+		if err != nil {
+			return nil, "", fmt.Errorf("gzip header: %w", err)
+		}
+		return gr, "tar.gz", nil
+	}
+
+	buf := make([]byte, 2)
+	if _, err := f.Read(buf); err == nil {
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return nil, "", err
+		}
+		if buf[0] == 'B' && buf[1] == 'Z' {
+			return bzip2.NewReader(f), "tar.bz2", nil
+		}
+	}
+	return f, "tar", nil
+}
+
 func newTarFS(path string, gz bool) (FS, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- archive path is controlled by the app
 	if err != nil {
 		return nil, fmt.Errorf("open tar %q: %w", path, err)
 	}
 	defer f.Close()
 
-	var r io.Reader = f
-	if gz {
-		gr, err := gzip.NewReader(f)
-		if err != nil {
-			return nil, fmt.Errorf("gzip header: %w", err)
-		}
-		r = gr
-	} else {
-		buf := make([]byte, 2)
-		if _, err := f.Read(buf); err == nil {
-			if _, err := f.Seek(0, io.SeekStart); err != nil {
-				return nil, err
-			}
-			if buf[0] == 'B' && buf[1] == 'Z' {
-				r = bzip2.NewReader(f)
-			}
-		}
+	r, format, err := openTarReader(f, gz)
+	if err != nil {
+		return nil, err
 	}
 
 	cr := &countingReader{Reader: r}
@@ -119,13 +134,10 @@ func newTarFS(path string, gz bool) (FS, error) {
 
 	fsys := &archiveFS{
 		path:    path,
-		format:  "tar",
+		format:  format,
 		files:   make(map[string]*archiveEntry),
 		dirs:    make(map[string][]*archiveEntry),
 		modTime: time.Now(),
-	}
-	if gz {
-		fsys.format = "tar.gz"
 	}
 
 	for {
@@ -143,17 +155,20 @@ func newTarFS(path string, gz bool) (FS, error) {
 		}
 
 		offset := cr.bytes
+		if h.Mode < 0 || h.Mode > math.MaxUint32 {
+			return nil, fmt.Errorf("tar entry %q has invalid mode", name)
+		}
 		entry := &archiveEntry{
 			name:      name,
 			size:      h.Size,
-			mode:      os.FileMode(h.Mode).Perm(),
+			mode:      os.FileMode(uint32(h.Mode)).Perm(),
 			modTime:   h.ModTime,
 			isDir:     h.Typeflag == tar.TypeDir,
 			tarOffset: offset,
 		}
 		fsys.addEntry(name, entry)
 
-		if _, err := io.Copy(io.Discard, tr); err != nil {
+		if err := skipTarEntry(tr); err != nil {
 			return nil, fmt.Errorf("skip tar content: %w", err)
 		}
 	}
@@ -451,7 +466,7 @@ func (fsys *archiveFS) openTarEntry(targetOffset, size int64) (io.Reader, error)
 		if cr.bytes == targetOffset {
 			return &offsetFileReader{r: io.LimitReader(cr, size), f: f}, nil
 		}
-		if _, err := io.Copy(io.Discard, tr); err != nil {
+		if err := skipTarEntry(tr); err != nil {
 			_ = f.Close()
 			return nil, err
 		}
@@ -491,6 +506,14 @@ func (c *countingReader) Read(p []byte) (int, error) {
 	n, err := c.Reader.Read(p)
 	c.bytes += int64(n)
 	return n, err
+}
+
+func skipTarEntry(tr *tar.Reader) error {
+	_, err := io.CopyN(io.Discard, tr, maxTarSkip)
+	if err == io.EOF {
+		return nil
+	}
+	return err
 }
 
 type archiveFileInfo struct {

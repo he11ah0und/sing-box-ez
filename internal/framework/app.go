@@ -263,11 +263,11 @@ func (a *App) Stop() error {
 func (a *App) OpenDataDir() error {
 	switch runtime.GOOS {
 	case "windows":
-		return exec.Command("explorer", a.BaseDir).Start()
+		return exec.Command("explorer", a.BaseDir).Start() // #nosec G204 -- opening app data dir
 	case "darwin":
-		return exec.Command("open", a.BaseDir).Start()
+		return exec.Command("open", a.BaseDir).Start() // #nosec G204 -- opening app data dir
 	default:
-		return exec.Command("xdg-open", a.BaseDir).Start()
+		return exec.Command("xdg-open", a.BaseDir).Start() // #nosec G204 -- opening app data dir
 	}
 }
 

@@ -70,12 +70,12 @@ func (m *Manager) IsInstalled() bool {
 
 // Install implements svcman.Manager.
 func (m *Manager) Install(opts svcman.InstallOptions) error {
-	if err := os.MkdirAll(m.dir, 0o755); err != nil {
+	if err := os.MkdirAll(m.dir, 0o750); err != nil {
 		return fmt.Errorf("systemd install: %w", err)
 	}
 
 	unit := buildUnit(opts)
-	if err := os.WriteFile(m.unitFilePath(), []byte(unit), 0o644); err != nil {
+	if err := os.WriteFile(m.unitFilePath(), []byte(unit), 0o600); err != nil {
 		return fmt.Errorf("systemd install: write unit: %w", err)
 	}
 
@@ -140,7 +140,7 @@ func (m *Manager) cmd(args ...string) *exec.Cmd {
 	if m.user {
 		args = append([]string{"--user"}, args...)
 	}
-	return exec.Command("systemctl", args...)
+	return exec.Command("systemctl", args...) // #nosec G204 -- systemctl with controlled unit name
 }
 
 func buildUnit(opts svcman.InstallOptions) string {

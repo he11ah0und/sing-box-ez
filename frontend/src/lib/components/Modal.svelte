@@ -1,10 +1,11 @@
 <script>
   import { X } from '@lucide/svelte';
+  import { portal } from '../actions/portal.js';
 
   let { title = '', showClose = true, onclose, children, footer } = $props();
 </script>
 
-<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4">
+<div use:portal class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4">
   <div class="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg bg-[var(--color-surface)] sm:rounded-xl shadow-2xl flex flex-col">
     {#if title || showClose}
       <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">

@@ -28,24 +28,24 @@ func (m *Manager) IsInstalled() bool { return false }
 
 // Install implements svcman.Manager.
 func (m *Manager) Install(opts svcman.InstallOptions) error {
-	return errors.New("Windows services are only supported on Windows")
+	return errors.New("windows services are only supported on Windows")
 }
 
 // Remove implements svcman.Manager.
-func (m *Manager) Remove() error { return errors.New("Windows services are only supported on Windows") }
+func (m *Manager) Remove() error { return errors.New("windows services are only supported on Windows") }
 
 // Start implements svcman.Manager.
-func (m *Manager) Start() error { return errors.New("Windows services are only supported on Windows") }
+func (m *Manager) Start() error { return errors.New("windows services are only supported on Windows") }
 
 // Stop implements svcman.Manager.
-func (m *Manager) Stop() error { return errors.New("Windows services are only supported on Windows") }
+func (m *Manager) Stop() error { return errors.New("windows services are only supported on Windows") }
 
 // Restart implements svcman.Manager.
 func (m *Manager) Restart() error {
-	return errors.New("Windows services are only supported on Windows")
+	return errors.New("windows services are only supported on Windows")
 }
 
 // Status implements svcman.Manager.
 func (m *Manager) Status() (svcman.Status, error) {
-	return svcman.StatusUnknown, errors.New("Windows services are only supported on Windows")
+	return svcman.StatusUnknown, errors.New("windows services are only supported on Windows")
 }

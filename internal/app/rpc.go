@@ -80,59 +80,59 @@ type PrivilegeTabStateMsg struct {
 
 // registerRPC registers application RPC methods on the registry.
 func (a *App) registerRPC(registry *rpc.Registry) {
-	registry.Register("core", "start", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("core", "start", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		_, err := a.Controller.PrepareConfig()
 		if err != nil {
 			return rpc.Empty{}, err
 		}
 		return rpc.Empty{}, a.Controller.Start()
 	})
-	registry.Register("core", "stop", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("core", "stop", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.Stop()
 	})
-	registry.Register("core", "restart", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("core", "restart", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.Restart()
 	})
-	registry.Register("core", "status", func(ctx context.Context, _ rpc.Empty) (CoreStatusRes, error) {
+	_ = registry.Register("core", "status", func(ctx context.Context, _ rpc.Empty) (CoreStatusRes, error) {
 		return CoreStatusRes{Running: a.Controller.IsRunning(), PID: a.Controller.GetPID()}, nil
 	})
-	registry.Register("core", "prepare_config", func(ctx context.Context, _ rpc.Empty) (ConfigRecordMsg, error) {
+	_ = registry.Register("core", "prepare_config", func(ctx context.Context, _ rpc.Empty) (ConfigRecordMsg, error) {
 		rec, err := a.Controller.PrepareConfig()
 		if err != nil {
 			return ConfigRecordMsg{}, err
 		}
 		return configRecordToMsg(*rec), nil
 	})
-	registry.Register("core", "download", func(ctx context.Context, _ rpc.Empty) (CoreDownloadRes, error) {
+	_ = registry.Register("core", "download", func(ctx context.Context, _ rpc.Empty) (CoreDownloadRes, error) {
 		path, err := a.Controller.DownloadCore(nil)
 		return CoreDownloadRes{Path: path}, err
 	})
-	registry.Register("core", "get_installed_version", func(ctx context.Context, _ rpc.Empty) (string, error) {
+	_ = registry.Register("core", "get_installed_version", func(ctx context.Context, _ rpc.Empty) (string, error) {
 		return a.Controller.GetInstalledCoreVersion()
 	})
-	registry.Register("core", "get_latest_version", func(ctx context.Context, _ rpc.Empty) (string, error) {
+	_ = registry.Register("core", "get_latest_version", func(ctx context.Context, _ rpc.Empty) (string, error) {
 		return a.Controller.GetLatestCoreVersion()
 	})
-	registry.Register("core", "get_privilege_tab_state", func(ctx context.Context, _ rpc.Empty) (PrivilegeTabStateMsg, error) {
+	_ = registry.Register("core", "get_privilege_tab_state", func(ctx context.Context, _ rpc.Empty) (PrivilegeTabStateMsg, error) {
 		return privilegeStateToMsg(a.Controller.GetPrivilegeTabState()), nil
 	})
-	registry.Register("core", "restart_as_admin", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("core", "restart_as_admin", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.RestartAsAdmin()
 	})
-	registry.Register("core", "set_run_as_admin", func(ctx context.Context, req rpc.BoolValue) (rpc.Empty, error) {
+	_ = registry.Register("core", "set_run_as_admin", func(ctx context.Context, req rpc.BoolValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.SetRunAsAdmin(req.Value)
 	})
-	registry.Register("core", "set_auto_restart", func(ctx context.Context, req rpc.BoolValue) (rpc.Empty, error) {
+	_ = registry.Register("core", "set_auto_restart", func(ctx context.Context, req rpc.BoolValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.SetAutoRestart(req.Value)
 	})
-	registry.Register("core", "set_log_override", func(ctx context.Context, req core.LogOverride) (rpc.Empty, error) {
+	_ = registry.Register("core", "set_log_override", func(ctx context.Context, req core.LogOverride) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.SetCoreLogOverride(req)
 	})
-	registry.Register("core", "apply_setcap", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("core", "apply_setcap", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.ApplySetcap()
 	})
 
-	registry.Register("config", "list", func(ctx context.Context, _ rpc.Empty) (ConfigListRes, error) {
+	_ = registry.Register("config", "list", func(ctx context.Context, _ rpc.Empty) (ConfigListRes, error) {
 		cfg := a.Config.(*config.AppConfig)
 		recs := cfg.GetConfigs()
 		msgs := make([]ConfigRecordMsg, len(recs))
@@ -141,85 +141,85 @@ func (a *App) registerRPC(registry *rpc.Registry) {
 		}
 		return ConfigListRes{ActiveName: cfg.GetActiveName(), Configs: msgs}, nil
 	})
-	registry.Register("config", "get_active", func(ctx context.Context, _ rpc.Empty) (ConfigRecordMsg, error) {
+	_ = registry.Register("config", "get_active", func(ctx context.Context, _ rpc.Empty) (ConfigRecordMsg, error) {
 		rec := a.Config.(*config.AppConfig).GetActiveConfig()
 		if rec == nil {
 			return ConfigRecordMsg{}, nil
 		}
 		return configRecordToMsg(*rec), nil
 	})
-	registry.Register("config", "set_active", func(ctx context.Context, req SetActiveReq) (rpc.Empty, error) {
+	_ = registry.Register("config", "set_active", func(ctx context.Context, req SetActiveReq) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.ActivateConfig(req.Name)
 	})
-	registry.Register("config", "update", func(ctx context.Context, req ConfigUpdateReq) (rpc.Empty, error) {
+	_ = registry.Register("config", "update", func(ctx context.Context, req ConfigUpdateReq) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.UpdateConfigNow(req.Name, req.URL)
 	})
-	registry.Register("config", "has_cached", func(ctx context.Context, req rpc.StringValue) (rpc.BoolValue, error) {
+	_ = registry.Register("config", "has_cached", func(ctx context.Context, req rpc.StringValue) (rpc.BoolValue, error) {
 		return rpc.BoolValue{Value: a.Controller.HasCachedConfig(req.Value)}, nil
 	})
-	registry.Register("config", "hash_mismatch", func(ctx context.Context, req rpc.StringValue) (rpc.BoolValue, error) {
+	_ = registry.Register("config", "hash_mismatch", func(ctx context.Context, req rpc.StringValue) (rpc.BoolValue, error) {
 		return rpc.BoolValue{Value: a.Controller.IsConfigHashMismatch(req.Value)}, nil
 	})
-	registry.Register("config", "delete", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
+	_ = registry.Register("config", "delete", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.DeleteConfig(req.Value)
 	})
-	registry.Register("config", "add", func(ctx context.Context, req ConfigRecordMsg) (rpc.Empty, error) {
+	_ = registry.Register("config", "add", func(ctx context.Context, req ConfigRecordMsg) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.AddConfig(msgToConfigRecord(req))
 	})
-	registry.Register("config", "edit", func(ctx context.Context, req EditConfigReq) (rpc.Empty, error) {
+	_ = registry.Register("config", "edit", func(ctx context.Context, req EditConfigReq) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.EditConfig(req.OldName, msgToConfigRecord(req.Rec))
 	})
-	registry.Register("config", "update_all", func(ctx context.Context, _ rpc.Empty) (UpdateAllRes, error) {
+	_ = registry.Register("config", "update_all", func(ctx context.Context, _ rpc.Empty) (UpdateAllRes, error) {
 		updated, total, err := a.Controller.UpdateAllConfigs(nil)
 		return UpdateAllRes{Updated: updated, Total: total}, err
 	})
-	registry.Register("config", "validate", func(ctx context.Context, req rpc.StringValue) (singboxconfig.ValidationResult, error) {
+	_ = registry.Register("config", "validate", func(ctx context.Context, req rpc.StringValue) (singboxconfig.ValidationResult, error) {
 		return a.Controller.ValidateConfig(req.Value)
 	})
-	registry.Register("config", "open_file", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
+	_ = registry.Register("config", "open_file", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.OpenConfigFile(req.Value)
 	})
-	registry.Register("config", "open_dir", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
+	_ = registry.Register("config", "open_dir", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.OpenConfigDir(req.Value)
 	})
-	registry.Register("config", "recreate_local", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
+	_ = registry.Register("config", "recreate_local", func(ctx context.Context, req rpc.StringValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.RecreateLocalConfig(req.Value)
 	})
 
-	registry.Register("log", "core_lines", func(ctx context.Context, _ rpc.Empty) ([]string, error) {
+	_ = registry.Register("log", "core_lines", func(ctx context.Context, _ rpc.Empty) ([]string, error) {
 		return a.Controller.GetCoreLogLines(), nil
 	})
-	registry.Register("log", "core_clean_lines", func(ctx context.Context, _ rpc.Empty) ([]string, error) {
+	_ = registry.Register("log", "core_clean_lines", func(ctx context.Context, _ rpc.Empty) ([]string, error) {
 		return a.Controller.GetCoreLogCleanLines(), nil
 	})
-	registry.Register("log", "app_lines", func(ctx context.Context, _ rpc.Empty) ([]string, error) {
+	_ = registry.Register("log", "app_lines", func(ctx context.Context, _ rpc.Empty) ([]string, error) {
 		return a.Controller.GetLogLines(), nil
 	})
-	registry.Register("log", "app_lines_at_least", func(ctx context.Context, req rpc.IntValue) ([]string, error) {
+	_ = registry.Register("log", "app_lines_at_least", func(ctx context.Context, req rpc.IntValue) ([]string, error) {
 		return a.Controller.GetLogLinesAtLeast(logger.LogLevel(req.Value)), nil
 	})
-	registry.Register("log", "clear_logs", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("log", "clear_logs", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		a.Controller.ClearLogs()
 		return rpc.Empty{}, nil
 	})
-	registry.Register("log", "clear_core_logs", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("log", "clear_core_logs", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		a.Controller.ClearCoreLogs()
 		return rpc.Empty{}, nil
 	})
 
-	registry.Register("app", "open_data_dir", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("app", "open_data_dir", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.OpenDataDir()
 	})
-	registry.Register("app", "set_log_limit", func(ctx context.Context, req rpc.IntValue) (rpc.Empty, error) {
+	_ = registry.Register("app", "set_log_limit", func(ctx context.Context, req rpc.IntValue) (rpc.Empty, error) {
 		a.Controller.SetLogLimit(req.Value)
 		return rpc.Empty{}, nil
 	})
-	registry.Register("app", "set_default_interval", func(ctx context.Context, req rpc.IntValue) (rpc.Empty, error) {
+	_ = registry.Register("app", "set_default_interval", func(ctx context.Context, req rpc.IntValue) (rpc.Empty, error) {
 		a.Controller.SetDefaultInterval(req.Value)
 		return rpc.Empty{}, nil
 	})
 
-	registry.Register("app", "shutdown", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
+	_ = registry.Register("app", "shutdown", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		a.Controller.Close()
 		return rpc.Empty{}, nil
 	})

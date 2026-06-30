@@ -5,18 +5,20 @@ tab:
   configs: Конфиги
   core: Ядро
   settings: Настройки
-  log: Лог
+  debug: Дебаг
   plugins: Плагины
   about: О программе
+  menu: Menu
 main:
   status:
     stopped: 'Статус: остановлен'
     running: 'Статус: запущен'
-    connecting: 'Подключение…'
+    connecting: Подключение…
   active:
     none: 'Активный конфиг: (нет)'
-    label: 'Активный конфиг'
+    label: Активный конфиг
     prefix: 'Активный конфиг: '
+    placeholder: Select active config
   'no':
     config: Конфиг не выбран — выберите во вкладке Конфиги
   btn:
@@ -43,10 +45,11 @@ main:
     url_test_testing: Тестирование…
     url_test_empty: нет результатов
     url_test_error: 'ошибка: %v'
-    url_test_result: 'средн. %d мс (%d узлов)'
+    url_test_result: средн. %d мс (%d узлов)
     connections: 'Соединения: %d'
     close_connections: Закрыть все соединения
     unavailable: Управление через API недоступно для этого режима подключения.
+    connecting: Connecting…
   dashboard:
     upload: Отправка
     download: Приём
@@ -72,6 +75,8 @@ main:
     sort_traffic: Трафик
     sort_total: Весь трафик
     search: Поиск
+  running: Running
+  stopped: Stopped
 connection_details:
   title: Детали соединения
   id: ID
@@ -92,17 +97,14 @@ connection_details:
   close_connection: Закрыть соединение
 core:
   update:
-    checking: 'Проверка версии...'
-    downloading: 'Загрузка...'
-    available: 'Скачать %s'
+    checking: Проверка версии...
+    downloading: Загрузка...
+    available: Скачать %s
     current_version: 'Текущая версия: '
   version:
     installed: 'Ядро: v'
     not_installed: 'Ядро: не установлено'
-  latest:
-    checking: 'Последняя: проверка...'
-    error: 'Последняя: ошибка'
-    prefix: 'Последняя: v'
+  latest: Latest version
   btn:
     download: Скачать последнее ядро sing-box
     check: Проверить последнюю версию
@@ -144,6 +146,7 @@ core:
     address: Адрес
     secret: Секрет
     copy: Скопировать данные подключения
+  installed: Installed version
 configs:
   title: Конфиги
   btn:
@@ -172,6 +175,7 @@ configs:
     server: server
     undefined: undefined
     not_recommended: не рекомендуется
+    active: Active
   dialog:
     title: Конфиг
     name: Название
@@ -195,6 +199,16 @@ configs:
       copy: Копировать
     delete_title: Удаление
     delete_msg: Удалить конфиг
+  nameRequired: Name is required
+  new: New config
+  name: Name
+  type: Type
+  remote: Remote
+  local: Local
+  url: URL / Path
+  interval: Update interval (h)
+  empty: No configs yet.
+  confirmDelete: Delete this config?
 validation:
   ok: Устаревших или удалённых полей не найдено.
   summary_errors: Найдено %d критических ошибок и %d предупреждений.
@@ -276,12 +290,16 @@ settings:
     title: Опасная зона
     btn: Сбросить все данные
     confirm_title: Сбросить все данные?
-    confirm_msg: |
-      Это безвозвратно удалит config.yaml, profiles.yaml и папку configs/.
+    confirm_msg: 'Это безвозвратно удалит config.yaml, profiles.yaml и папку configs/.
+
       После этого приложение перезапустится.
+
+      '
     success_title: Данные сброшены
     success_msg: Все данные сброшены. Приложение будет перезапущено.
   desktop_notifications: Уведомления на рабочий стол
+  runAsAdmin: Запускать ядро от имени администратора
+  saved: Настройки сохранены
 startup:
   title: sing-box-ez
   subtitle: Выберите режим запуска
@@ -328,22 +346,30 @@ about:
     load_branches: Загрузить ветки
     check_branch: Проверить обновление для ветки
     switch_branch: Сменить ветку
+    check_update: Check update
+    install_update: Install update
   branch:
     label: 'Ветка: '
     load_error: 'Не удалось загрузить ветки: '
   dev_build:
     label: Сборка разработки — заметки к релизу недоступны
   update:
-    checking: 'Проверка обновления'
-    updating: 'Обновление...'
-    available: 'Обновить до %s'
+    checking: Проверка обновления
+    updating: Обновление...
+    available: Обновить до %s
     current_version: 'Текущая версия: '
     dev_build: 'Dev-сборка: текущая %s, удалённая %s'
-    dev_build_confirm_title: 'Обновление dev-сборки'
-    dev_build_confirm_body: 'Вы используете dev-сборку (%s), новее последнего релиза (%s). Обновление откатит версию. Продолжить?'
+    dev_build_confirm_title: Обновление dev-сборки
+    dev_build_confirm_body: Вы используете dev-сборку (%s), новее последнего релиза (%s). Обновление откатит версию. Продолжить?
+    confirm: Install update?
+    installed: Update installed
+    title: App update
+    latest: 'Latest:'
+    up_to_date: Up to date
+    downloading: Downloading…
   release_notes:
     title: Примечания к релизу
-    error: 'Не удалось загрузить примечания к релизу'
+    error: Не удалось загрузить примечания к релизу
     not_found: 'Текущая сборка не соответствует ни одному официальному релизу.
 
 
@@ -394,11 +420,11 @@ dialog:
     no_matching_asset: Подходящий файл не найден
   config_style:
     server_title: Конфиг похож на серверный
-    server_body: 'Эта конфигурация не похожа на клиентскую. Запуск такого конфига не рекомендуется для клиентского использования.'
+    server_body: Эта конфигурация не похожа на клиентскую. Запуск такого конфига не рекомендуется для клиентского использования.
     undefined_title: Не удалось определить тип конфига
-    undefined_body: 'В конфиге отсутствуют inbounds. Рекомендуется отменить запуск.'
+    undefined_body: В конфиге отсутствуют inbounds. Рекомендуется отменить запуск.
     unknown_title: Неизвестный тип конфига
-    unknown_body: 'Не удалось определить тип конфигурации.'
+    unknown_body: Не удалось определить тип конфигурации.
     btn:
       cancel: Отмена
       ignore: Всё равно запустить
@@ -498,3 +524,10 @@ tray:
     quit: Выход
 locale:
   name: Русский
+common:
+  cancel: Отмена
+  saving: Сохранение...
+  save: Сохранить
+  refresh: Обновить
+  reset: Сбросить
+  clear: Очистить

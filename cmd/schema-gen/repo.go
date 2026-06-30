@@ -31,10 +31,10 @@ func OpenRepo(path string, url string) (*Repo, error) {
 		return false
 	}
 	if !isRepo(path) {
-		if err := os.MkdirAll(path, 0o755); err != nil {
+		if err := os.MkdirAll(path, 0o750); err != nil {
 			return nil, fmt.Errorf("create repo dir: %w", err)
 		}
-		cmd := exec.Command("git", "clone", "--bare", url, path)
+		cmd := exec.Command("git", "clone", "--bare", url, path) // #nosec G204 -- git command with fixed args
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -46,7 +46,7 @@ func OpenRepo(path string, url string) (*Repo, error) {
 
 // FetchTags updates tags from origin.
 func (r *Repo) FetchTags() error {
-	cmd := exec.Command("git", "-C", r.Path, "fetch", "--tags", "origin")
+	cmd := exec.Command("git", "-C", r.Path, "fetch", "--tags", "origin") // #nosec G204 -- git command with fixed args
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -118,7 +118,7 @@ type versionKey struct {
 
 // ReleaseTags returns sorted release tags including pre-releases.
 func (r *Repo) ReleaseTags() ([]VersionTag, error) {
-	cmd := exec.Command("git", "-C", r.Path, "tag", "-l", "v1.*.*")
+	cmd := exec.Command("git", "-C", r.Path, "tag", "-l", "v1.*.*") // #nosec G204 -- git command with fixed args
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("list tags: %w", err)
@@ -182,7 +182,7 @@ func OnePerMinor(tags []VersionTag) []VersionTag {
 
 // ReadFileAt reads a file from a tag via git show.
 func (r *Repo) ReadFileAt(tag, path string) ([]byte, error) {
-	cmd := exec.Command("git", "-C", r.Path, "show", fmt.Sprintf("%s:%s", tag, path))
+	cmd := exec.Command("git", "-C", r.Path, "show", fmt.Sprintf("%s:%s", tag, path)) // #nosec G204 -- git command with controlled repo path
 	return cmd.Output()
 }
 
@@ -194,7 +194,7 @@ func (r *Repo) FileExistsAt(tag, path string) bool {
 
 // ListFilesAt lists files under prefix at a tag.
 func (r *Repo) ListFilesAt(tag, prefix string) ([]string, error) {
-	cmd := exec.Command("git", "-C", r.Path, "ls-tree", "-r", "--name-only", tag, prefix)
+	cmd := exec.Command("git", "-C", r.Path, "ls-tree", "-r", "--name-only", tag, prefix) // #nosec G204 -- git command with controlled repo path
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
