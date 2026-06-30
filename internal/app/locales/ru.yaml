@@ -221,6 +221,7 @@ validation:
     deprecated_no_removal: 'Устарело с %s: %s. Замена: %s'
 settings:
   tab:
+    general: Основные
     interface: Интерфейс
     configs: Конфиги
     core: Ядро
@@ -525,6 +526,7 @@ tray:
 locale:
   name: Русский
 common:
+  back: Назад
   cancel: Отмена
   saving: Сохранение...
   save: Сохранить

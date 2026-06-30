@@ -6,7 +6,11 @@
     icon: Bug,
     nav: true,
     bottomNav: true,
-    order: 3
+    order: 3,
+    tabs: [
+      { id: 'app', key: 'log.tab.app' },
+      { id: 'core', key: 'log.tab.core' }
+    ]
   };
 </script>
 
@@ -14,6 +18,7 @@
   import { Trash2, RefreshCw } from '@lucide/svelte';
   import { appState, clearLogs } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
+  import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
   import { parseANSILine, parseAppLogLine, parseCoreLogLine } from '../utils/ansi.js';
   import {
@@ -23,7 +28,6 @@
     ClearCoreLogs
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
-  let activeTab = $state('app');
   let processing = $state(false);
 
   function colorizeCore(line) {
@@ -49,7 +53,7 @@
   async function clear() {
     processing = true;
     try {
-      if (activeTab === 'core') {
+      if ($subNav.activeTab === 'core') {
         await ClearCoreLogs();
       } else {
         await ClearAppLogs();
@@ -86,29 +90,8 @@
     </button>
   {/snippet}
 
-  <div class="flex gap-2">
-    <button
-      class="px-4 py-2 rounded-xl text-sm font-medium transition"
-      class:bg-[var(--color-primary)]={activeTab === 'app'}
-      class:text-white={activeTab === 'app'}
-      class:bg-[var(--color-surface-variant)]={activeTab !== 'app'}
-      onclick={() => activeTab = 'app'}
-    >
-      {tValue($locale, 'log.tab.app', 'App')}
-    </button>
-    <button
-      class="px-4 py-2 rounded-xl text-sm font-medium transition"
-      class:bg-[var(--color-primary)]={activeTab === 'core'}
-      class:text-white={activeTab === 'core'}
-      class:bg-[var(--color-surface-variant)]={activeTab !== 'core'}
-      onclick={() => activeTab = 'core'}
-    >
-      {tValue($locale, 'log.tab.core', 'Core')}
-    </button>
-  </div>
-
   <div class="flex-1 min-h-0 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 overflow-auto font-mono text-sm">
-    {#if activeTab === 'core'}
+    {#if $subNav.activeTab === 'core'}
       {#if $appState.logs.core.length === 0}
         <p class="text-[var(--color-text-muted)]">{tValue($locale, 'log.empty', 'No logs yet.')}</p>
       {:else}

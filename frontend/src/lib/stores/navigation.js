@@ -12,6 +12,8 @@ export const canGoBack = derived(
   ($stack) => $stack.length > 1
 );
 
+export const subNav = writable({ pageId: null, activeTab: null });
+
 export function pushLevel(level) {
   navigationStack.update((stack) => [...stack, level]);
 }
@@ -36,4 +38,19 @@ export function goHome() {
 
 export function setRootPage(id) {
   navigationStack.set([{ type: 'page', id }]);
+}
+
+export function enterSubNav(pageId, tabs = []) {
+  subNav.set({
+    pageId,
+    activeTab: tabs[0]?.id ?? null
+  });
+}
+
+export function setSubTab(id) {
+  subNav.update((s) => ({ ...s, activeTab: id }));
+}
+
+export function exitSubNav() {
+  subNav.set({ pageId: null, activeTab: null });
 }

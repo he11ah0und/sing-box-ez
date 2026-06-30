@@ -221,6 +221,7 @@ validation:
     deprecated_no_removal: 自 %s 起已弃用：%s。替代方案：%s
 settings:
   tab:
+    general: 常规
     interface: 界面
     configs: 配置
     core: 核心
@@ -525,6 +526,7 @@ tray:
 locale:
   name: 中文
 common:
+  back: 返回
   cancel: 取消
   saving: 保存中...
   save: 保存

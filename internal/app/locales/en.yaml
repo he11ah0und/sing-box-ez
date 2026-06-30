@@ -221,6 +221,7 @@ validation:
     deprecated_no_removal: 'Deprecated in %s: %s. Replacement: %s'
 settings:
   tab:
+    general: General
     interface: Interface
     configs: Configs
     core: Core
@@ -525,6 +526,7 @@ tray:
 locale:
   name: English
 common:
+  back: Back
   cancel: Cancel
   saving: Saving...
   save: Save
