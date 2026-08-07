@@ -55,10 +55,10 @@ func TestKeyAliases(t *testing.T) {
 
 func TestParseHex(t *testing.T) {
 	cases := map[string]RGBA{
-		"#fff":       {R: 255, G: 255, B: 255, A: 255},
-		"#1234":      {R: 17, G: 34, B: 51, A: 68},
-		"#AABBCC":    {R: 170, G: 187, B: 204, A: 255},
-		"#AABBCCDD":  {R: 170, G: 187, B: 204, A: 221},
+		"#fff":      {R: 255, G: 255, B: 255, A: 255},
+		"#1234":     {R: 17, G: 34, B: 51, A: 68},
+		"#AABBCC":   {R: 170, G: 187, B: 204, A: 255},
+		"#AABBCCDD": {R: 170, G: 187, B: 204, A: 221},
 	}
 	for in, want := range cases {
 		got, err := ParseHex(in)

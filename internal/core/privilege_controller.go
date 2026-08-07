@@ -3,9 +3,9 @@ package core
 import (
 	"runtime"
 
+	"github.com/he11ah0und/localengine"
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/config"
-	"sing-box-ez/internal/framework/localengine"
-	"sing-box-ez/internal/framework/logger"
 )
 
 // PrivilegeAction describes a single action available in the privilege dialog/tab.

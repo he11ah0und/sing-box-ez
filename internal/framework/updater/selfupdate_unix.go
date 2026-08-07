@@ -6,7 +6,7 @@ import (
 	"os"
 	"syscall"
 
-	"sing-box-ez/internal/framework/logger"
+	"github.com/he11ah0und/logger"
 )
 
 // unixSelfUpdate is the platform backend for replacing the running binary on

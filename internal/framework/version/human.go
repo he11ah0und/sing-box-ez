@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"sing-box-ez/internal/framework/localengine"
+	"github.com/he11ah0und/localengine"
 )
 
 // HumanDuration returns a human-readable string like "2 hours ago" or "3 days ago"

@@ -1,9 +1,9 @@
 package core
 
 import (
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core/api"
-	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/singboxconfig"
 )
 

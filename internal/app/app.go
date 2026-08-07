@@ -5,16 +5,17 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	iofs "io/fs"
 	"os"
 	"os/signal"
 	"runtime"
 
+	fwconfig "github.com/he11ah0und/config"
 	"sing-box-ez/internal/cli"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework"
 	fwcli "sing-box-ez/internal/framework/cli"
-	fwconfig "sing-box-ez/internal/framework/config"
 	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
@@ -51,8 +52,12 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 			cfg := conf.(*config.AppConfig)
 			return cfg.Int("log", "limit")
 		},
-		LoadLocales: func(load func(dir fs.Directory) error) error {
-			return load(fs.Embed(localesFS).Root().Subdir("locales"))
+		LoadLocales: func(load func(fsys iofs.FS) error) error {
+			sub, err := iofs.Sub(localesFS, "locales")
+			if err != nil {
+				return err
+			}
+			return load(sub)
 		},
 		BuildUpdaters:    buildUpdaters,
 		RegisterCommands: cli.RegisterCommands,

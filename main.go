@@ -5,12 +5,16 @@ import (
 	"net/http"
 	_ "net/http/pprof" // #nosec G108 -- pprof is opt-in via SINGBOXEZ_PPROF
 	"os"
+	"runtime"
 	"time"
 
 	"sing-box-ez/internal/app"
 )
 
 func main() {
+	// GTK/Wails requires all native GUI calls to remain on the main OS thread.
+	runtime.LockOSThread()
+
 	// Optional localhost pprof server for diagnosing hangs.
 	// Enable on Windows with: $env:SINGBOXEZ_PPROF=":6060"; .\sing-box-ez.exe
 	if addr := os.Getenv("SINGBOXEZ_PPROF"); addr != "" {

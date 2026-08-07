@@ -11,8 +11,8 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
+	"github.com/he11ah0und/logger"
 	frameworkfs "sing-box-ez/internal/framework/fs"
-	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/progress"
 	"sing-box-ez/internal/framework/version"
 )

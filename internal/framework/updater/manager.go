@@ -5,7 +5,7 @@ import (
 	"errors"
 	"os"
 
-	"sing-box-ez/internal/framework/logger"
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/framework/version"
 )
 

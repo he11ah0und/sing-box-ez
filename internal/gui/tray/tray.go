@@ -8,8 +8,8 @@ import (
 	_ "embed"
 	"sync"
 
-	"sing-box-ez/internal/framework/localengine"
-	"sing-box-ez/internal/framework/logger"
+	"github.com/he11ah0und/localengine"
+	"github.com/he11ah0und/logger"
 
 	systray "github.com/gogpu/systray"
 )

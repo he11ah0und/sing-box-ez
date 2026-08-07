@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core/api"
 	"sing-box-ez/internal/core/api/clash"
@@ -19,7 +20,6 @@ import (
 	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/fs"
-	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/util/openfile"
 	"sing-box-ez/internal/singboxconfig"

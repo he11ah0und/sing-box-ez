@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"sing-box-ez/internal/framework/logger"
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/framework/net"
 	frameworkprogress "sing-box-ez/internal/framework/progress"
 )

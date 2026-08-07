@@ -11,7 +11,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	fwconfig "sing-box-ez/internal/framework/config"
+	fwconfig "github.com/he11ah0und/config"
 	"sing-box-ez/internal/framework/fs"
 )
 

@@ -12,12 +12,12 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"github.com/he11ah0und/localengine"
 	apppkg "sing-box-ez/internal/app"
 	"sing-box-ez/internal/app/themes"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/core/api"
-	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/gui/tray"
 )
 
@@ -454,6 +454,9 @@ func (w *WailsApp) Run() error {
 	wailsApp := application.New(application.Options{
 		Name:        "sing-box-ez",
 		Description: "sing-box-ez graphical interface",
+		Linux: application.LinuxOptions{
+			ProgramName: "sing-box-ez",
+		},
 		Services: []application.Service{
 			application.NewService(bindings),
 		},

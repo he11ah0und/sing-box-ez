@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/framework/fs"
-	"sing-box-ez/internal/framework/logger"
 	luavm "sing-box-ez/internal/framework/lua"
 	frameworkprogress "sing-box-ez/internal/framework/progress"
 )

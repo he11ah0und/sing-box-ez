@@ -5,17 +5,19 @@ package framework
 import (
 	"errors"
 	"fmt"
+	iofs "io/fs"
 	"os"
 	"os/exec"
 	"runtime"
 
 	"sing-box-ez/internal/framework/cli"
-	"sing-box-ez/internal/framework/config"
 	"sing-box-ez/internal/framework/fs"
-	"sing-box-ez/internal/framework/localengine"
-	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
+
+	"github.com/he11ah0und/config"
+	"github.com/he11ah0und/localengine"
+	"github.com/he11ah0und/logger"
 )
 
 // App is the framework-level application container. It owns cross-cutting
@@ -58,11 +60,11 @@ type Config struct {
 	GetLoggerLimit func(config.Config) int
 	// LoadLocales is called during app construction to load localization
 	// bundles. The framework passes the localengine.LoadFromDir loader so the
-	// implementation can load locale files from any backend (e.g. embed.FS,
-	// OS directory, or a custom fs.Directory). It may call the loader
-	// multiple times for different sources.
+	// implementation can load locale files from any fs.FS source (e.g.
+	// embed.FS, os.DirFS, or a subdirectory via fs.Sub). It may call the
+	// loader multiple times for different sources.
 	// If nil, localengine is only initialised with a logger.
-	LoadLocales func(load func(dir fs.Directory) error) error
+	LoadLocales func(load func(fsys iofs.FS) error) error
 	// BuildUpdaters returns the list of updater managers that should be
 	// registered in the app. The framework passes the constructed App so the
 	// implementation can access the config, logger and file system. If nil,
@@ -132,7 +134,7 @@ func NewApp(cfg Config) (*App, error) {
 	}
 
 	sheet := config.NewSheet(config.SheetOptions{})
-	sheet.Init(tmpLog.Root, "config")
+	sheet.SetLogger(tmpLog.Root.Allocate("config"))
 	if cfg.RegisterConfig != nil {
 		cfg.RegisterConfig(sheet)
 	}
@@ -147,7 +149,7 @@ func NewApp(cfg Config) (*App, error) {
 		limit = cfg.GetLoggerLimit(conf)
 	}
 	log := logger.NewLogger(limit)
-	sheet.SetLogger(log.Root)
+	sheet.SetLogger(log.Root.Allocate("config"))
 	sheet.DebugDisabledCount()
 	appFS := fs.NewOSWithLog(dataDir, log.Root)
 	root := appFS.Root()
@@ -157,7 +159,7 @@ func NewApp(cfg Config) (*App, error) {
 		return nil, err
 	}
 
-	localengine.SetLogger(log.Root)
+	localengine.SetLogger(log.Root.Allocate("localengine"))
 	if cfg.LoadLocales != nil {
 		_ = cfg.LoadLocales(localengine.LoadFromDir)
 	}

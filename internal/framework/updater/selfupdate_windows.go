@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"sing-box-ez/internal/framework/logger"
+	"github.com/he11ah0und/logger"
 )
 
 // windowsSelfUpdate is the platform backend for replacing the running binary on

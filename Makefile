@@ -7,6 +7,10 @@ WAILS3 := $(shell go env GOPATH)/bin/wails3
 GOPATH := $(shell go env GOPATH)
 GO_BIN := $(GOPATH)/bin
 
+# Private he11ah0und modules are fetched directly via git, bypassing
+# proxy.golang.org and the checksum database.
+export GOPRIVATE := github.com
+
 BRANCH     := $(shell git branch --show-current 2>/dev/null || git describe --tags --exact-match 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 BUILD_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")

@@ -12,29 +12,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework"
 	fwcli "sing-box-ez/internal/framework/cli"
 	"sing-box-ez/internal/framework/fs"
-	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/plugins"
 )
 
-const (
-	defaultGitHubOwner = "he11ah0und"
-	defaultGitHubRepo  = "sing-box-ez"
-)
-
 // RegisterCommands registers sing-box-ez CLI commands on the framework CLI engine.
 func RegisterCommands(cli *fwcli.Engine[*framework.App]) {
-	cli.SetBeforeExec(func(app *framework.App) error {
-		ensureUpdater()
-		return nil
-	})
-
 	cli.Register("start", "Start sing-box with auto-update", wrap(cmdStart))
 	cli.Register("stop", "Stop running sing-box", wrap(cmdStop))
 	cli.Register("update", "Download latest config", wrap(cmdUpdate))
@@ -98,19 +88,6 @@ func configHashMismatch(dataDir string, rec *config.ConfigRecord) bool {
 func newCoreManager(dataDir string) *core.Manager {
 	log := logger.NewLogger(0)
 	return core.NewManager(dataDir, fs.NewOS(dataDir), nil, log)
-}
-
-// ensureUpdater installs default updater managers when none are configured.
-func ensureUpdater() {
-	if updater.CurrentManager() != nil {
-		return
-	}
-	gh := updater.NewGitHubBackend(logger.NewLogger(0).Root, defaultGitHubOwner, defaultGitHubRepo)
-	updater.SetManager(&updater.Manager{
-		Name:   "updater",
-		Source: gh,
-		Apply:  &updater.SelfUpdateApply{},
-	})
 }
 
 func latestCoreVersion(dataDir string) (string, error) {
@@ -406,7 +383,9 @@ func cmdInstall(cfg *config.AppConfig, ctx *fwcli.Context) error {
 
 func cmdVersion(_ *config.AppConfig, _ *fwcli.Context) error {
 	fmt.Println("sing-box-ez", version.Info())
-	fmt.Println("Repository:", "https://github.com/he11ah0und/sing-box-ez")
+	if gh, ok := updater.CurrentBackend().(*updater.GitHubBackend); ok {
+		fmt.Printf("Repository: https://github.com/%s/%s\n", gh.Owner, gh.Repo)
+	}
 	return nil
 }
 

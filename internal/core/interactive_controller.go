@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/he11ah0und/localengine"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework"
-	"sing-box-ez/internal/framework/localengine"
 	"sing-box-ez/internal/framework/svcman"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/version"

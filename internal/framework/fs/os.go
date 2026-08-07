@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sing-box-ez/internal/framework/logger"
+	"github.com/he11ah0und/logger"
 )
 
 // OSFS is an FS implementation backed by the real OS file system.

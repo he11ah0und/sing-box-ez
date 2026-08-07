@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/framework/fs"
-	"sing-box-ez/internal/framework/logger"
 )
 
 func TestManagerLifecycle(t *testing.T) {

@@ -5,11 +5,11 @@ package plugins
 import (
 	"time"
 
+	"github.com/he11ah0und/logger"
 	lua "github.com/yuin/gopher-lua"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework/fs"
-	"sing-box-ez/internal/framework/logger"
 )
 
 // configModuleDef returns the API definition for the config module.

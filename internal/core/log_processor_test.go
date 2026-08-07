@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	fwconfig "github.com/he11ah0und/config"
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/config"
-	fwconfig "sing-box-ez/internal/framework/config"
-	"sing-box-ez/internal/framework/logger"
 )
 
 func TestIsCoreFatalError(t *testing.T) {

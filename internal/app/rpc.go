@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/framework/logger"
 	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/singboxconfig"
 )
