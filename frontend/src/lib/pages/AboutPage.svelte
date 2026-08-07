@@ -12,6 +12,7 @@
 
 <script lang="ts">
   import { ExternalLink, FolderOpen, GitBranch, Download, FileText, RefreshCw } from '@lucide/svelte';
+  import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
   import Page from '../components/Page.svelte';
@@ -19,6 +20,7 @@
   import { Button } from '$lib/components/ui/button/index.js';
   import { Progress } from '$lib/components/ui/progress/index.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
+  import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import { cn } from '$lib/utils.js';
   import {
     GetVersionInfo,
@@ -27,11 +29,13 @@
     InstallSelfUpdate,
     OpenDataDir,
     OpenURL,
-    GetReleaseNotes,
-    type VersionInfo,
-    type UpdateChannel,
-    type SelfUpdateInfo
+    GetReleaseNotes
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import type {
+    VersionInfo,
+    UpdateChannel,
+    SelfUpdateInfo
+  } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
   let version = $state<VersionInfo | null>(null);
   let branches = $state<UpdateChannel[]>([]);
@@ -39,7 +43,7 @@
   let selfUpdate = $state<SelfUpdateInfo | null>(null);
   let checking = $state(false);
   let installing = $state(false);
-  let message = $state('');
+  let showInstallConfirm = $state(false);
   let releaseNotes = $state('');
   let showNotes = $state(false);
   let showBranchPicker = $state(false);
@@ -51,17 +55,16 @@
       const list = await GetBranches();
       branches = list ?? [];
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
   async function checkUpdate() {
     checking = true;
-    message = '';
     try {
       selfUpdate = await CheckSelfUpdate(currentBranch);
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
       selfUpdate = null;
     } finally {
       checking = false;
@@ -69,13 +72,12 @@
   }
 
   async function installUpdate() {
-    if (!confirm(tValue($locale, 'about.update.confirm', 'Install update?'))) return;
     installing = true;
     try {
       await InstallSelfUpdate(currentBranch);
-      message = tValue($locale, 'about.update.installed', 'Update installed');
+      toast.success(tValue($locale, 'about.update.installed', 'Update installed'));
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     } finally {
       installing = false;
     }
@@ -95,7 +97,7 @@
       releaseNotes = body;
       showNotes = true;
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
@@ -202,14 +204,34 @@
           {tValue($locale, 'about.btn.check_update', 'Check update')}
         </Button>
         {#if selfUpdate?.hasUpdate}
-          <Button
-            class="bg-[var(--color-success)] text-white hover:opacity-90"
-            disabled={installing}
-            onclick={installUpdate}
-          >
-            <Download size={16} />
-            {tValue($locale, 'about.btn.install_update', 'Install update')}
-          </Button>
+          <AlertDialog.Root bind:open={showInstallConfirm}>
+            <AlertDialog.Trigger>
+              {#snippet child({ props })}
+                <Button
+                  {...props}
+                  class="bg-[var(--color-success)] text-white hover:opacity-90"
+                  disabled={installing}
+                >
+                  <Download size={16} />
+                  {tValue($locale, 'about.btn.install_update', 'Install update')}
+                </Button>
+              {/snippet}
+            </AlertDialog.Trigger>
+            <AlertDialog.Content>
+              <AlertDialog.Header>
+                <AlertDialog.Title>{tValue($locale, 'about.btn.install_update', 'Install update')}</AlertDialog.Title>
+                <AlertDialog.Description>
+                  {tValue($locale, 'about.update.confirm', 'Install update?')}
+                </AlertDialog.Description>
+              </AlertDialog.Header>
+              <AlertDialog.Footer>
+                <AlertDialog.Cancel>{tValue($locale, 'common.cancel', 'Cancel')}</AlertDialog.Cancel>
+                <AlertDialog.Action onclick={installUpdate}>
+                  {tValue($locale, 'startup.continue', 'Continue')}
+                </AlertDialog.Action>
+              </AlertDialog.Footer>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
         {/if}
       </div>
     </Card.Content>
@@ -223,10 +245,6 @@
       </Button>
     </Card.Content>
   </Card.Root>
-
-  {#if message}
-    <p class="text-sm text-destructive">{message}</p>
-  {/if}
 </Page>
 
 <Dialog.Root open={showNotes} onOpenChange={(open) => { if (!open) showNotes = false; }}>

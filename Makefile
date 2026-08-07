@@ -212,7 +212,7 @@ build:
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install --omit=none
 	@echo "Generating Wails v3 bindings..."
-	$(WAILS3) generate bindings -clean=true -i
+	$(WAILS3) generate bindings -clean=true -ts -i
 	@echo "Building frontend..."
 	cd frontend && npm run build
 	@echo "Building GUI binary..."

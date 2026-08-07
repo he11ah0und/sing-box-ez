@@ -13,6 +13,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { Square, RefreshCw, ChevronDown, ChevronUp, Zap } from '@lucide/svelte';
+  import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
 
@@ -24,6 +25,7 @@
   import * as Select from '$lib/components/ui/select/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
+  import { Skeleton } from '$lib/components/ui/skeleton/index.js';
   import { cn } from '$lib/utils.js';
   import {
     Start,
@@ -44,13 +46,15 @@
     SelectAPINode,
     URLTestAPIGroup,
     CloseAPIConnections,
-    CloseAPIConnection,
-    type APIStatus,
-    type APIInfo,
-    type APIGroup,
-    type APINode,
-    type APIConnection
+    CloseAPIConnection
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import type {
+    APIStatus,
+    APIInfo,
+    APIGroup,
+    APINode,
+    APIConnection
+  } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
   import { formatBytes, formatSpeed, formatRelative, formatTime, splitHostPort, ipVersionLabel } from '../utils/format.js';
 
   const tabs = [
@@ -62,7 +66,6 @@
 
   let activeTab = $state('overview');
   let processing = $state(false);
-  let message = $state('');
   let apiStatus = $state<APIStatus | null>(null);
   let apiInfo = $state<APIInfo | null>(null);
   let apiMode = $state('');
@@ -123,7 +126,7 @@
       }));
       if (status.running) await pollAPI();
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
@@ -160,12 +163,11 @@
 
   async function callBinding(promise: Promise<unknown>, action: string) {
     processing = true;
-    message = '';
     try {
       await promise;
       await loadInitial();
     } catch (err) {
-      message = `${action}: ${err}`;
+      toast.error(`${action}: ${err}`);
     } finally {
       processing = false;
     }
@@ -192,7 +194,7 @@
       await loadInitial();
       await pollAPI();
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     } finally {
       processing = false;
     }
@@ -203,7 +205,7 @@
       await SetAPIMode(mode);
       await pollAPI();
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
@@ -212,7 +214,7 @@
       await SelectAPINode(group, node);
       await pollAPI();
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
@@ -220,9 +222,9 @@
     testingGroups = new Set(testingGroups).add(tag);
     try {
       const res = await URLTestAPIGroup(tag);
-      groupDelays = { ...groupDelays, [tag]: res.results ?? {} };
+      groupDelays = { ...groupDelays, [tag]: (res.results ?? {}) as Record<string, number> };
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     } finally {
       const next = new Set(testingGroups);
       next.delete(tag);
@@ -242,7 +244,7 @@
       await CloseAPIConnections();
       await pollAPI();
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
@@ -252,7 +254,7 @@
       selectedConn = null;
       await pollAPI();
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
@@ -438,62 +440,73 @@
           </Card.Content>
         </Card.Root>
 
-        <!-- Outbound chain -->
-        {#if outboundChain.chain}
+        <!-- API-dependent blocks: skeletons while the API status is loading -->
+        {#if !apiStatus}
           <Card.Root>
-            <Card.Content>
-              <div class="flex items-center justify-between gap-4">
-                <p class="text-sm break-all">{outboundChain.chain}</p>
-                {#if outboundChain.delay}
-                  <span class="text-[var(--color-success)] text-sm whitespace-nowrap">{outboundChain.delay}</span>
+            <Card.Content class="space-y-3">
+              <Skeleton class="h-5 w-1/3" />
+              <Skeleton class="h-10 w-full rounded-xl" />
+              <Skeleton class="h-10 w-full rounded-xl" />
+            </Card.Content>
+          </Card.Root>
+        {:else}
+          <!-- Outbound chain -->
+          {#if outboundChain.chain}
+            <Card.Root>
+              <Card.Content>
+                <div class="flex items-center justify-between gap-4">
+                  <p class="text-sm break-all">{outboundChain.chain}</p>
+                  {#if outboundChain.delay}
+                    <span class="text-[var(--color-success)] text-sm whitespace-nowrap">{outboundChain.delay}</span>
+                  {/if}
+                </div>
+              </Card.Content>
+            </Card.Root>
+          {/if}
+
+          <!-- Mode selector -->
+          <Card.Root>
+            <Card.Content class="space-y-2">
+              <p class="text-sm text-muted-foreground">{tValue($locale, 'main.api.mode', 'Mode')}</p>
+              <Select.Root type="single" value={apiMode} onValueChange={(v) => { if (v) setMode(v); }}>
+                <Select.Trigger class="w-full">{modeLabel}</Select.Trigger>
+                <Select.Content>
+                  {#each modes as m (m)}
+                    <Select.Item value={m} label={tValue($locale, `main.api.mode_${m}`, m)} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </Card.Content>
+          </Card.Root>
+
+          <!-- Profile card -->
+          <Card.Root>
+            <Card.Content class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-muted-foreground">{tValue($locale, 'main.dashboard.profile', 'Profile')}</span>
+                {#if activeBadge}
+                  <Badge variant="outline">{activeBadge}</Badge>
                 {/if}
               </div>
+              <Select.Root
+                type="single"
+                value={$appState.activeConfig?.name ?? ''}
+                onValueChange={(v) => { if (v) activateConfig(v); }}
+                disabled={!$appState.configs.length}
+              >
+                <Select.Trigger class="w-full">{configSelectLabel}</Select.Trigger>
+                <Select.Content>
+                  {#each $appState.configs as cfg (cfg.name)}
+                    <Select.Item value={cfg.name} label={cfg.name} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+              {#if activeUpdated}
+                <p class="text-sm text-muted-foreground">{activeUpdated}</p>
+              {/if}
             </Card.Content>
           </Card.Root>
         {/if}
-
-        <!-- Mode selector -->
-        <Card.Root>
-          <Card.Content class="space-y-2">
-            <p class="text-sm text-muted-foreground">{tValue($locale, 'main.api.mode', 'Mode')}</p>
-            <Select.Root type="single" value={apiMode} onValueChange={(v) => { if (v) setMode(v); }}>
-              <Select.Trigger class="w-full">{modeLabel}</Select.Trigger>
-              <Select.Content>
-                {#each modes as m (m)}
-                  <Select.Item value={m} label={tValue($locale, `main.api.mode_${m}`, m)} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </Card.Content>
-        </Card.Root>
-
-        <!-- Profile card -->
-        <Card.Root>
-          <Card.Content class="space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-muted-foreground">{tValue($locale, 'main.dashboard.profile', 'Profile')}</span>
-              {#if activeBadge}
-                <Badge variant="outline">{activeBadge}</Badge>
-              {/if}
-            </div>
-            <Select.Root
-              type="single"
-              value={$appState.activeConfig?.name ?? ''}
-              onValueChange={(v) => { if (v) activateConfig(v); }}
-              disabled={!$appState.configs.length}
-            >
-              <Select.Trigger class="w-full">{configSelectLabel}</Select.Trigger>
-              <Select.Content>
-                {#each $appState.configs as cfg (cfg.name)}
-                  <Select.Item value={cfg.name} label={cfg.name} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-            {#if activeUpdated}
-              <p class="text-sm text-muted-foreground">{activeUpdated}</p>
-            {/if}
-          </Card.Content>
-        </Card.Root>
 
         <!-- Stop / Restart -->
         <div class="flex flex-wrap gap-3">
@@ -514,7 +527,13 @@
             <Card.Title>{tValue($locale, 'main.groups.title', 'Groups')}</Card.Title>
           </Card.Header>
           <Card.Content class="space-y-4">
-            {#if !visibleGroups.length}
+            {#if !apiStatus}
+              <div class="space-y-3">
+                <Skeleton class="h-16 w-full rounded-xl" />
+                <Skeleton class="h-16 w-full rounded-xl" />
+                <Skeleton class="h-16 w-full rounded-xl" />
+              </div>
+            {:else if !visibleGroups.length}
               <p class="text-muted-foreground">{tValue($locale, 'main.groups.empty', 'No groups')}</p>
             {:else}
               {#each visibleGroups as group (group.tag)}
@@ -619,9 +638,6 @@
     </Tabs.Root>
   {/if}
 
-  {#if message}
-    <p class="text-sm text-destructive">{message}</p>
-  {/if}
 </Page>
 
 <Dialog.Root open={selectedConn != null} onOpenChange={(open) => { if (!open) selectedConn = null; }}>

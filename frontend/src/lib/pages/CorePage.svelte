@@ -11,34 +11,37 @@
 
 <script lang="ts">
   import { Download, RefreshCw } from '@lucide/svelte';
+  import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Progress } from '$lib/components/ui/progress/index.js';
+  import { Skeleton } from '$lib/components/ui/skeleton/index.js';
   import { GetCoreInfo, DownloadCore } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
   let processing = $state(false);
-  let message = $state('');
+  let loaded = $state(false);
 
   async function load() {
     try {
       const info = await GetCoreInfo();
       appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, ...info } }));
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
+    } finally {
+      loaded = true;
     }
   }
 
   async function download() {
     processing = true;
-    message = '';
     try {
       await DownloadCore();
       await load();
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     } finally {
       processing = false;
     }
@@ -51,16 +54,23 @@
 >
   <Card.Root>
     <Card.Content class="space-y-4">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="rounded-xl bg-background border border-border p-4">
-          <p class="text-sm text-muted-foreground">{tValue($locale, 'core.installed', 'Installed version')}</p>
-          <p class="text-lg font-medium">{$appState.coreInfo.installedVersion || '—'}</p>
+      {#if !loaded}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Skeleton class="h-[76px] w-full rounded-xl" />
+          <Skeleton class="h-[76px] w-full rounded-xl" />
         </div>
-        <div class="rounded-xl bg-background border border-border p-4">
-          <p class="text-sm text-muted-foreground">{tValue($locale, 'core.latest', 'Latest version')}</p>
-          <p class="text-lg font-medium">{$appState.coreInfo.latestVersion || '—'}</p>
+      {:else}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="rounded-xl bg-background border border-border p-4">
+            <p class="text-sm text-muted-foreground">{tValue($locale, 'core.installed', 'Installed version')}</p>
+            <p class="text-lg font-medium">{$appState.coreInfo.installedVersion || '—'}</p>
+          </div>
+          <div class="rounded-xl bg-background border border-border p-4">
+            <p class="text-sm text-muted-foreground">{tValue($locale, 'core.latest', 'Latest version')}</p>
+            <p class="text-lg font-medium">{$appState.coreInfo.latestVersion || '—'}</p>
+          </div>
         </div>
-      </div>
+      {/if}
 
       {#if $appState.coreInfo.downloading}
         <div class="space-y-1">
@@ -85,10 +95,6 @@
           {tValue($locale, 'common.refresh', 'Refresh')}
         </Button>
       </div>
-
-      {#if message}
-        <p class="text-sm text-destructive">{message}</p>
-      {/if}
     </Card.Content>
   </Card.Root>
 </Page>

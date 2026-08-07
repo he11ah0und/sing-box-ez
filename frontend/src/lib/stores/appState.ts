@@ -1,28 +1,14 @@
 import { writable } from 'svelte/store';
+import type { ConfigRecord } from '../../../bindings/sing-box-ez/internal/config/models.js';
+import type { CoreInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+
+// Re-export generated Wails models so existing imports from this module keep working.
+export type { ConfigRecord, CoreInfo };
 
 export interface CoreStatus {
   running: boolean;
   processing: boolean;
   pid: number;
-}
-
-export interface ConfigRecord {
-  name: string;
-  url?: string;
-  type?: string;
-  update_interval_hours?: number;
-  last_update?: string | null;
-  parent?: string;
-  auto_update?: boolean;
-  hash?: string;
-  fallback_type?: string | null;
-}
-
-export interface CoreInfo {
-  installedVersion: string;
-  latestVersion: string;
-  downloading: boolean;
-  downloadProgress: number;
 }
 
 export interface TrafficHistory {

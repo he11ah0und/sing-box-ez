@@ -1,4 +1,5 @@
 import { writable, get } from 'svelte/store';
+import type { ThemePayload } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
@@ -8,6 +9,15 @@ export interface ThemeData {
   colors?: Record<string, string>;
   darkColors?: Record<string, string>;
   lightColors?: Record<string, string>;
+}
+
+// fromThemePayload converts a generated Wails theme payload into the frontend ThemeData shape.
+export function fromThemePayload(payload: ThemePayload): ThemeData {
+  return {
+    name: payload.name,
+    mode: payload.mode,
+    colors: (payload.colors ?? undefined) as Record<string, string> | undefined
+  };
 }
 
 const defaultColors: Record<string, string> = {

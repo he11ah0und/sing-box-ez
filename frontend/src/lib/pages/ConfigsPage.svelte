@@ -12,6 +12,7 @@
 
 <script lang="ts">
   import { Plus, Check, Trash2, Edit2 } from '@lucide/svelte';
+  import { toast } from 'svelte-sonner';
   import { appState, type ConfigRecord } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
   import Page from '../components/Page.svelte';
@@ -19,6 +20,8 @@
   import * as Card from '$lib/components/ui/card/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
+  import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
+  import * as Tooltip from '$lib/components/ui/tooltip/index.js';
   import {
     GetConfigs,
     GetActiveConfig,
@@ -28,10 +31,10 @@
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
   let processing = $state(false);
-  let message = $state('');
   let showForm = $state(false);
   let editing = $state<string | null>(null);
   let initialRecord = $state<ConfigRecord | null>(null);
+  let deleteTarget = $state<string | null>(null);
 
   async function load() {
     try {
@@ -42,7 +45,7 @@
         activeConfig: active
       }));
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
@@ -74,16 +77,17 @@
     await load();
   }
 
-  async function remove(name: string) {
-    if (!confirm(tValue($locale, 'configs.confirmDelete', 'Delete this config?'))) return;
+  async function confirmDelete() {
+    if (!deleteTarget) return;
     processing = true;
     try {
-      await DeleteConfig(name);
+      await DeleteConfig(deleteTarget);
       await load();
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     } finally {
       processing = false;
+      deleteTarget = null;
     }
   }
 </script>
@@ -127,12 +131,39 @@
                   {tValue($locale, 'configs.badge.active', 'Active')}
                 </Badge>
               {/if}
-              <Button variant="ghost" size="icon" onclick={() => startEdit(cfg)}>
-                <Edit2 size={16} />
-              </Button>
-              <Button variant="ghost" size="icon" class="text-destructive hover:bg-destructive/10" onclick={() => remove(cfg.name)}>
-                <Trash2 size={16} />
-              </Button>
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  {#snippet child({ props })}
+                    <Button
+                      {...props}
+                      variant="ghost"
+                      size="icon"
+                      aria-label={tValue($locale, 'configs.btn.edit', 'Edit config')}
+                      onclick={() => startEdit(cfg)}
+                    >
+                      <Edit2 size={16} />
+                    </Button>
+                  {/snippet}
+                </Tooltip.Trigger>
+                <Tooltip.Content>{tValue($locale, 'configs.btn.edit', 'Edit config')}</Tooltip.Content>
+              </Tooltip.Root>
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  {#snippet child({ props })}
+                    <Button
+                      {...props}
+                      variant="ghost"
+                      size="icon"
+                      class="text-destructive hover:bg-destructive/10"
+                      aria-label={tValue($locale, 'configs.btn.delete', 'Delete')}
+                      onclick={() => (deleteTarget = cfg.name)}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  {/snippet}
+                </Tooltip.Trigger>
+                <Tooltip.Content>{tValue($locale, 'configs.btn.delete', 'Delete')}</Tooltip.Content>
+              </Tooltip.Root>
             </div>
           </li>
         {/each}
@@ -140,7 +171,24 @@
     {/if}
   </Card.Root>
 
-  {#if message}
-    <p class="text-sm text-destructive">{message}</p>
-  {/if}
+  <AlertDialog.Root open={deleteTarget != null} onOpenChange={(open) => { if (!open) deleteTarget = null; }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>{tValue($locale, 'configs.btn.delete', 'Delete')}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {tValue($locale, 'configs.confirmDelete', 'Delete this config?')}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel>{tValue($locale, 'common.cancel', 'Cancel')}</AlertDialog.Cancel>
+        <AlertDialog.Action
+          class="bg-destructive text-white hover:bg-destructive/90"
+          disabled={processing}
+          onclick={confirmDelete}
+        >
+          {tValue($locale, 'startup.continue', 'Continue')}
+        </AlertDialog.Action>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
 </Page>

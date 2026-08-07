@@ -16,9 +16,10 @@
 
 <script lang="ts">
   import { Save, RotateCcw } from '@lucide/svelte';
+  import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
-  import { theme, applyTheme } from '../stores/theme.js';
+  import { theme, applyTheme, fromThemePayload } from '../stores/theme.js';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
@@ -27,20 +28,21 @@
   import { Label } from '$lib/components/ui/label/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
   import { Switch } from '$lib/components/ui/switch/index.js';
+  import { Separator } from '$lib/components/ui/separator/index.js';
   import {
     GetSettings,
     SaveSettings,
     GetTheme,
     GetThemeNames,
     GetAvailableLanguages,
-    SetLanguage,
-    type Settings,
-    type LanguageOption
+    SetLanguage
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import type {
+    Settings,
+    LanguageOption
+  } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
   let processing = $state(false);
-  let message = $state('');
-  let saved = $state(false);
 
   let form = $state<Settings>({
     language: 'en',
@@ -73,28 +75,27 @@
       languages = langs && langs.length > 0 ? langs : [{ code: 'en', name: 'English' }];
       appState.update((state) => ({ ...state, settings: s as unknown as Record<string, unknown> }));
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     }
   }
 
   async function save() {
     processing = true;
-    message = '';
-    saved = false;
     try {
       await SaveSettings({ ...form });
       appState.update((state) => ({ ...state, settings: { ...form } }));
       const [t, l] = await Promise.all([GetTheme(), SetLanguage(form.language)]);
       if (t) {
-        theme.set(t);
-        applyTheme(t);
+        const data = fromThemePayload(t);
+        theme.set(data);
+        applyTheme(data);
       }
       if (l) {
-        locale.set({ language: l.language, values: l.values ?? {} });
+        locale.set({ language: l.language, values: (l.values ?? {}) as Record<string, string> });
       }
-      saved = true;
+      toast.success(tValue($locale, 'settings.saved', 'Settings saved'));
     } catch (err) {
-      message = String(err);
+      toast.error(String(err));
     } finally {
       processing = false;
     }
@@ -188,6 +189,8 @@
           </div>
         </div>
 
+        <Separator />
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.desktopNotifications} />
@@ -202,13 +205,6 @@
             <span>{tValue($locale, 'settings.update_check.self', 'Auto-check app updates')}</span>
           </Label>
         </div>
-      {/if}
-
-      {#if saved}
-        <p class="text-sm text-[var(--color-success)]">{tValue($locale, 'settings.saved', 'Settings saved')}</p>
-      {/if}
-      {#if message}
-        <p class="text-sm text-destructive">{message}</p>
       {/if}
     </Card.Content>
   </Card.Root>

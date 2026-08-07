@@ -46,6 +46,7 @@
         <button
           class="w-full text-left px-4 py-3 hover:bg-accent flex items-center gap-3 text-muted-foreground"
           onclick={back}
+          aria-label={tValue($locale, 'common.back', 'Back')}
         >
           <ArrowLeft size={20} />
           <span>{tValue($locale, 'common.back', 'Back')}</span>

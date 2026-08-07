@@ -25,8 +25,8 @@ function flush() {
   const keys = Array.from(pendingKeys);
   pendingKeys.clear();
   RegisterLocaleKeys(keys)
-    .then((values: Record<string, string> | null) => {
-      locale.update((l) => ({ ...l, values: { ...l.values, ...(values || {}) } }));
+    .then((values) => {
+      setLocaleValues(values as Record<string, string> | null);
     })
     .catch((err: unknown) => {
       console.warn('RegisterLocaleKeys failed:', err);
