@@ -176,6 +176,7 @@ configs:
     undefined: undefined
     not_recommended: 不推荐
     active: Active
+    hash_mismatch_tooltip: 缓存内容与存储的哈希不一致
   dialog:
     title: 配置
     name: 名称
@@ -209,6 +210,12 @@ configs:
   interval: Update interval (h)
   empty: No configs yet.
   confirmDelete: Delete this config?
+  update_all:
+    done: 所有配置已更新
+  update_now:
+    done: 配置已更新
+  recreate:
+    done: 配置文件已重新创建
 validation:
   ok: 未检测到已弃用或已删除的字段。
   summary_errors: 发现 %d 个严重错误和 %d 个警告。
@@ -219,6 +226,12 @@ validation:
     removed: 在 %s 中已删除：%s。替代方案：%s
     deprecated: 自 %s 起已弃用，将在 %s 中删除：%s。替代方案：%s
     deprecated_no_removal: 自 %s 起已弃用：%s。替代方案：%s
+  info_title: 信息
+  field:
+    deprecated: 弃用于
+    removed: 删除于
+    replacement: 替代方案
+  copied: 验证结果已复制
 settings:
   tab:
     general: 常规
@@ -245,6 +258,9 @@ settings:
     interval: 启动检查间隔（小时）
     background_interval: 后台检查间隔（小时）
   show_logs: 显示日志
+  system:
+    mode: 平台
+    restart_admin_confirm: 以管理员权限重启应用？
   config:
     title: 配置
   config_update:
@@ -293,11 +309,11 @@ settings:
     confirm_title: 重置所有数据？
     confirm_msg: '这将永久删除 config.yaml、profiles.yaml 和 configs/ 文件夹。
 
-      之后应用将重新启动。
+      之后应用将退出。
 
       '
     success_title: 数据已重置
-    success_msg: 所有数据已重置。应用现在将重新启动。
+    success_msg: 所有数据已重置。应用现在将退出。
   desktop_notifications: 桌面通知
   runAsAdmin: 以管理员身份运行核心
   saved: 设置已保存
@@ -331,6 +347,7 @@ log:
   btn:
     copy: 复制全部
     clear: 清空
+  copied: 日志已复制
 about:
   system:
     title: 系统
@@ -503,6 +520,12 @@ notify:
   core_crashed:
     title: Sing-box EZ — 核心崩溃
     body: 检测到致命错误。正在自动重启...
+  core_missing:
+    title: Sing-box EZ
+    body: 未安装 sing-box 内核。请在设置的内核选项卡中下载。
+  config_missing:
+    title: Sing-box EZ
+    body: 没有活动配置。请在配置页面添加并激活配置。
 duration:
   seconds: '%d秒'
   minutes: '%d分'

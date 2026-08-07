@@ -5,6 +5,7 @@ package wails
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"sing-box-ez/internal/framework/updater"
@@ -82,21 +83,13 @@ func (b *Bindings) CheckSelfUpdate(branch string) (SelfUpdateInfo, error) {
 	if err != nil {
 		return SelfUpdateInfo{}, err
 	}
-	hasUpdate := false
-	isDevBuild := false
-	if info.ReleaseCount > 0 && info.Current != info.Latest {
-		currentDate, dateErr := version.CommitDateTime()
-		if dateErr != nil {
-			hasUpdate = true
-		} else {
-			switch {
-			case currentDate.Before(info.LatestDate):
-				hasUpdate = true
-			case currentDate.After(info.LatestDate):
-				isDevBuild = true
-			}
-		}
-	}
+	return toSelfUpdateInfo(info), nil
+}
+
+// toSelfUpdateInfo converts an updater result into the UI-facing form,
+// applying the same has-update/dev-build logic the legacy Gio UI used.
+func toSelfUpdateInfo(info *updater.UpdateInfo) SelfUpdateInfo {
+	hasUpdate, isDevBuild := selfUpdateStatus(info)
 	return SelfUpdateInfo{
 		Current:      info.Current,
 		Latest:       info.Latest,
@@ -105,7 +98,90 @@ func (b *Bindings) CheckSelfUpdate(branch string) (SelfUpdateInfo, error) {
 		Body:         info.LatestBody,
 		LatestDate:   info.LatestDate,
 		ReleaseCount: info.ReleaseCount,
-	}, nil
+	}
+}
+
+// selfUpdateStatus reports whether the app is behind the latest release or
+// ahead of it (dev build). Ported from the Gio startupUpdateStatus.
+func selfUpdateStatus(info *updater.UpdateInfo) (hasUpdate, isDevBuild bool) {
+	if info.ReleaseCount == 0 || info.Current == info.Latest {
+		return false, false
+	}
+	currentDate, err := version.CommitDateTime()
+	if err != nil {
+		return true, false
+	}
+	switch {
+	case currentDate.Before(info.LatestDate):
+		return true, false
+	case currentDate.After(info.LatestDate):
+		return false, true
+	}
+	return false, false
+}
+
+// normalizeCoreVersion ensures a leading "v" so installed and latest core
+// versions compare equal. Ported from the Gio GUI.
+func normalizeCoreVersion(v string) string {
+	if v == "" {
+		return v
+	}
+	if !strings.HasPrefix(v, "v") {
+		return "v" + v
+	}
+	return v
+}
+
+// runUpdateChecks performs the startup/periodic update checks, mirroring the
+// legacy Gio flow: first the application self-update, then the core update.
+// Each check respects its updates.auto_check_* setting and only reports an
+// available update; installation is always initiated by the user.
+func (b *Bindings) runUpdateChecks() {
+	b.checkSelfUpdateAvailable()
+	b.checkCoreUpdateAvailable()
+}
+
+func (b *Bindings) checkSelfUpdateAvailable() {
+	if b.ic == nil {
+		return
+	}
+	cfg := b.app.Controller.Config()
+	if !cfg.MustGet("updates", "auto_check_self").Bool() {
+		return
+	}
+	info, err := b.ic.CheckSelfUpdate()
+	if err != nil {
+		b.app.Logger.Root.Warnf("background self-update check failed: %v", err)
+		return
+	}
+	hasUpdate, isDevBuild := selfUpdateStatus(info)
+	if !hasUpdate && !isDevBuild {
+		return
+	}
+	b.emit("selfupdate:available", toSelfUpdateInfo(info))
+}
+
+func (b *Bindings) checkCoreUpdateAvailable() {
+	cfg := b.app.Controller.Config()
+	if !cfg.MustGet("updates", "auto_check_core").Bool() {
+		return
+	}
+	current, _ := b.app.Controller.GetInstalledCoreVersion()
+	latest, err := b.app.Controller.GetLatestCoreVersion()
+	if err != nil {
+		// The updater/network layers already log the failure with context.
+		return
+	}
+	current = normalizeCoreVersion(current)
+	latest = normalizeCoreVersion(latest)
+	if current == latest || latest == "" {
+		return
+	}
+	b.emit("core:version", map[string]string{"latest": latest})
+	b.emit("core:update_available", map[string]string{
+		"current": current,
+		"latest":  latest,
+	})
 }
 
 // InstallSelfUpdate downloads and installs the latest app update for a branch.

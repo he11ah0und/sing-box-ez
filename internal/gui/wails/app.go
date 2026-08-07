@@ -6,6 +6,8 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -18,6 +20,7 @@ import (
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/core/api"
+	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/gui/tray"
 )
 
@@ -48,6 +51,18 @@ type Settings struct {
 	AutoCheckCore        bool   `json:"autoCheckCore"`
 	AutoCheckSelf        bool   `json:"autoCheckSelf"`
 	DefaultIntervalHours int    `json:"defaultIntervalHours"`
+
+	ProxyEnabled        bool   `json:"proxyEnabled"`
+	URLTestURL          string `json:"urlTestURL"`
+	CoreLogLevel        string `json:"coreLogLevel"`
+	TrafficGraphHistory int    `json:"trafficGraphHistory"`
+	ShowLogs            bool   `json:"showLogs"`
+
+	AutoUpdateConfigs                  bool `json:"autoUpdateConfigs"`
+	AutoUpdateConfigsIntervalHours     int  `json:"autoUpdateConfigsIntervalHours"`
+	AutoUpdateOnHashMismatch           bool `json:"autoUpdateOnHashMismatch"`
+	AutoRestartOnConfigUpdate          bool `json:"autoRestartOnConfigUpdate"`
+	BackgroundUpdateCheckIntervalHours int  `json:"backgroundUpdateCheckIntervalHours"`
 }
 
 // ThemePayload is the UI-facing representation of the active theme.
@@ -80,6 +95,13 @@ type Bindings struct {
 	localeReady        bool
 	localeMissingWarns map[string]struct{}
 	localeMu           sync.Mutex
+
+	// styleCheckMu guards pendingStyleChecks.
+	styleCheckMu sync.Mutex
+	// pendingStyleChecks holds the choose callbacks of in-flight config style
+	// checks, keyed by profile name. A SetFallbackType call for the profile
+	// consumes the callback and resumes the start flow.
+	pendingStyleChecks map[string]func(string)
 }
 
 // ServiceName returns the service name used by Wails.
@@ -91,11 +113,6 @@ func (b *Bindings) ServiceName() string {
 func (b *Bindings) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	b.ctx = ctx
 	return nil
-}
-
-// Greet is a temporary binding used to verify the Wails bridge.
-func (b *Bindings) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, Wails v3 is working!", name)
 }
 
 // GetStatus returns whether the sing-box core is running.
@@ -136,9 +153,14 @@ func (b *Bindings) DeleteConfig(name string) error {
 	return b.app.Controller.DeleteConfig(name)
 }
 
-// Start starts the sing-box core with the active config.
+// Start prepares the active config and starts the sing-box core. It goes
+// through the interactive start flow (config refresh, hash-mismatch handling,
+// client-style check) so the button behaves like the legacy UI and the tray.
 func (b *Bindings) Start() error {
-	return b.app.Controller.Start()
+	if b.ic == nil {
+		return b.app.Controller.Start()
+	}
+	return b.ic.StartService()
 }
 
 // Stop stops the sing-box core.
@@ -357,6 +379,18 @@ func (b *Bindings) GetSettings() Settings {
 		AutoCheckCore:        cfg.MustGet("updates", "auto_check_core").Bool(),
 		AutoCheckSelf:        cfg.MustGet("updates", "auto_check_self").Bool(),
 		DefaultIntervalHours: cfg.MustGet("updates", "default_interval_hours").Int(),
+
+		ProxyEnabled:        cfg.MustGet("core", "proxy", "enabled").Bool(),
+		URLTestURL:          cfg.MustGet("core", "url_test_url").String(),
+		CoreLogLevel:        cfg.MustGet("core", "log", "level").String(),
+		TrafficGraphHistory: cfg.MustGet("core", "traffic_graph_history").Int(),
+		ShowLogs:            cfg.MustGet("ui", "show_logs").Bool(),
+
+		AutoUpdateConfigs:                  cfg.MustGet("updates", "auto_update_configs").Bool(),
+		AutoUpdateConfigsIntervalHours:     cfg.MustGet("updates", "auto_update_configs_interval_hours").Int(),
+		AutoUpdateOnHashMismatch:           cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool(),
+		AutoRestartOnConfigUpdate:          cfg.MustGet("updates", "auto_restart_on_config_update").Bool(),
+		BackgroundUpdateCheckIntervalHours: cfg.MustGet("updates", "background_update_check_interval_hours").Int(),
 	}
 }
 
@@ -374,11 +408,52 @@ func (b *Bindings) SaveSettings(s Settings) error {
 	_ = cfg.MustGet("updates", "auto_check_core").Update(s.AutoCheckCore)
 	_ = cfg.MustGet("updates", "auto_check_self").Update(s.AutoCheckSelf)
 	_ = cfg.MustGet("updates", "default_interval_hours").Update(s.DefaultIntervalHours)
+
+	_ = cfg.MustGet("core", "proxy", "enabled").Update(s.ProxyEnabled)
+	_ = cfg.MustGet("core", "url_test_url").Update(s.URLTestURL)
+	_ = cfg.MustGet("core", "log", "level").Update(s.CoreLogLevel)
+	_ = cfg.MustGet("core", "traffic_graph_history").Update(s.TrafficGraphHistory)
+	_ = cfg.MustGet("ui", "show_logs").Update(s.ShowLogs)
+
+	_ = cfg.MustGet("updates", "auto_update_configs").Update(s.AutoUpdateConfigs)
+	_ = cfg.MustGet("updates", "auto_update_configs_interval_hours").Update(s.AutoUpdateConfigsIntervalHours)
+	_ = cfg.MustGet("updates", "auto_update_on_hash_mismatch").Update(s.AutoUpdateOnHashMismatch)
+	_ = cfg.MustGet("updates", "auto_restart_on_config_update").Update(s.AutoRestartOnConfigUpdate)
+	_ = cfg.MustGet("updates", "background_update_check_interval_hours").Update(s.BackgroundUpdateCheckIntervalHours)
 	if err := cfg.Save(); err != nil {
 		return err
 	}
 	b.emit("settings:changed", s)
 	b.emitTheme()
+	return nil
+}
+
+// ResetData deletes config.yaml, profiles.yaml and the configs/ folder, then
+// quits the application. The legacy Gio UI restarted the process afterwards;
+// the Wails build has no restart mechanism, so it exits instead and the user
+// relaunches manually.
+func (b *Bindings) ResetData() error {
+	dataDir := b.app.Controller.Config().DataDir
+	paths := []string{
+		filepath.Join(dataDir, "config.yaml"),
+		filepath.Join(dataDir, "profiles.yaml"),
+		filepath.Join(dataDir, "configs"),
+	}
+	var errs []string
+	for _, p := range paths {
+		if err := os.RemoveAll(p); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", p, err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("reset data: %s", strings.Join(errs, "; "))
+	}
+	if b.ic != nil {
+		b.ic.Close()
+	}
+	if wailsAppInstance != nil {
+		wailsAppInstance.Quit()
+	}
 	return nil
 }
 
@@ -425,6 +500,24 @@ func (b *Bindings) emit(name string, data any) {
 	}
 }
 
+// notify emits a user-facing notification event with a localized title and body.
+func (b *Bindings) notify(title, body string) {
+	b.emit("notification", map[string]string{"title": title, "body": body})
+}
+
+// showDialog emits a modal dialog event for the frontend.
+func (b *Bindings) showDialog(title, body string) {
+	b.emit("dialog:show", map[string]string{"title": title, "body": body})
+}
+
+// emitConfigsChanged pushes the current profile list and active profile to the UI.
+func (b *Bindings) emitConfigsChanged() {
+	b.emit("configs:changed", map[string]any{
+		"configs": b.app.Controller.GetConfigs(),
+		"active":  b.app.Controller.GetActiveConfig(),
+	})
+}
+
 // WailsApp is the Wails v3 binding layer for the sing-box-ez GUI.
 type WailsApp struct {
 	app    *apppkg.App
@@ -449,7 +542,13 @@ func (w *WailsApp) Run() error {
 		ctx:                context.Background(),
 		localeKeys:         make(map[string]struct{}),
 		localeMissingWarns: make(map[string]struct{}),
+		pendingStyleChecks: make(map[string]func(string)),
 	}
+
+	// Create the interactive controller up front so the tray and the WebSocket
+	// IPC server share the same start/stop flow as the window bindings.
+	ic := core.NewInteractiveController(w.app.Controller)
+	bindings.ic = ic
 
 	wailsApp := application.New(application.Options{
 		Name:        "sing-box-ez",
@@ -507,13 +606,11 @@ func (w *WailsApp) Run() error {
 		func() { win.Hide() },
 		func() { wailsApp.Quit() },
 		func() bool { return w.app.Controller.IsRunning() },
-		func() { _ = w.app.Controller.Start() },
-		func() { _ = w.app.Controller.Stop() },
+		func() { go func() { _ = ic.StartService() }() },
+		func() { go func() { _ = ic.StopService() }() },
 	)
 	_ = trayIcon.Start()
 
-	ic := core.NewInteractiveController(w.app.Controller)
-	bindings.ic = ic
 	ic.OnStatusChange = func(running bool) {
 		bindings.emit("status:changed", Status{Running: running, PID: w.app.Controller.GetPID()})
 		trayIcon.Refresh()
@@ -522,10 +619,7 @@ func (w *WailsApp) Run() error {
 		bindings.emit("log:app", map[string]string{"line": msg})
 	}
 	ic.OnConfigUpdate = func() {
-		bindings.emit("configs:changed", map[string]any{
-			"configs": w.app.Controller.GetConfigs(),
-			"active":  w.app.Controller.GetActiveConfig(),
-		})
+		bindings.emitConfigsChanged()
 	}
 	ic.OnVersionChange = func(ver string) {
 		bindings.emit("core:version", map[string]string{"installed": ver})
@@ -534,8 +628,42 @@ func (w *WailsApp) Run() error {
 		bindings.emit("core:version", map[string]string{"latest": ver})
 	}
 	ic.OnNotification = func(title, body string) {
-		bindings.emit("notification", map[string]string{"title": title, "body": body})
+		bindings.notify(title, body)
 	}
+	ic.OnAutoRestart = func() {
+		bindings.notify(
+			localengine.T("notify", "core_crashed", "title"),
+			localengine.T("notify", "core_crashed", "body"),
+		)
+	}
+	ic.OnUpdateCheckDue = func() {
+		bindings.runUpdateChecks()
+	}
+	ic.OnCoreMissing = func() {
+		title := localengine.T("notify", "core_missing", "title")
+		body := localengine.T("notify", "core_missing", "body")
+		bindings.notify(title, body)
+		bindings.showDialog(title, body)
+	}
+	ic.OnConfigMissing = func() {
+		title := localengine.T("notify", "config_missing", "title")
+		body := localengine.T("notify", "config_missing", "body")
+		bindings.notify(title, body)
+		bindings.showDialog(title, body)
+	}
+	ic.OnConfigStyleCheck = func(style inboundstyle.Style, rec *config.ConfigRecord, choose func(string)) {
+		bindings.styleCheckMu.Lock()
+		bindings.pendingStyleChecks[rec.Name] = choose
+		bindings.styleCheckMu.Unlock()
+		bindings.emit("config:style_check", map[string]string{
+			"config": rec.Name,
+			"style":  string(style),
+		})
+	}
+
+	// Run the startup update checks (self-update, then core update), mirroring
+	// the legacy Gio startup flow.
+	go bindings.runUpdateChecks()
 
 	// Subscribe to core log lines and forward them as events.
 	if ic.Controller != nil {

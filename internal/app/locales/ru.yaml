@@ -176,6 +176,7 @@ configs:
     undefined: undefined
     not_recommended: не рекомендуется
     active: Active
+    hash_mismatch_tooltip: Содержимое кэша отличается от сохранённого хэша
   dialog:
     title: Конфиг
     name: Название
@@ -209,6 +210,12 @@ configs:
   interval: Update interval (h)
   empty: No configs yet.
   confirmDelete: Delete this config?
+  update_all:
+    done: Все конфиги обновлены
+  update_now:
+    done: Конфиг обновлён
+  recreate:
+    done: Файл конфига создан заново
 validation:
   ok: Устаревших или удалённых полей не найдено.
   summary_errors: Найдено %d критических ошибок и %d предупреждений.
@@ -219,6 +226,12 @@ validation:
     removed: 'Удалено в %s: %s. Замена: %s'
     deprecated: 'Устарело с %s, удалят в %s: %s. Замена: %s'
     deprecated_no_removal: 'Устарело с %s: %s. Замена: %s'
+  info_title: Инфо
+  field:
+    deprecated: устарело с
+    removed: удалено в
+    replacement: замена
+  copied: Результат проверки скопирован
 settings:
   tab:
     general: Основные
@@ -245,6 +258,9 @@ settings:
     interval: Интервал проверки при запуске (часов)
     background_interval: Интервал фоновой проверки (часов)
   show_logs: Показывать логи
+  system:
+    mode: Платформа
+    restart_admin_confirm: Перезапустить приложение с правами администратора?
   config:
     title: Конфиг
   config_update:
@@ -293,11 +309,11 @@ settings:
     confirm_title: Сбросить все данные?
     confirm_msg: 'Это безвозвратно удалит config.yaml, profiles.yaml и папку configs/.
 
-      После этого приложение перезапустится.
+      После этого приложение завершит работу.
 
       '
     success_title: Данные сброшены
-    success_msg: Все данные сброшены. Приложение будет перезапущено.
+    success_msg: Все данные сброшены. Приложение сейчас завершит работу.
   desktop_notifications: Уведомления на рабочий стол
   runAsAdmin: Запускать ядро от имени администратора
   saved: Настройки сохранены
@@ -331,6 +347,7 @@ log:
   btn:
     copy: Копировать всё
     clear: Очистить
+  copied: Логи скопированы
 about:
   system:
     title: Система
@@ -503,6 +520,12 @@ notify:
   core_crashed:
     title: Sing-box EZ — авария ядра
     body: Обнаружена фатальная ошибка. Авто-перезапуск...
+  core_missing:
+    title: Sing-box EZ
+    body: Ядро sing-box не установлено. Загрузите его на вкладке ядра в настройках.
+  config_missing:
+    title: Sing-box EZ
+    body: Нет активного конфига. Добавьте и активируйте конфиг на странице конфигов.
 duration:
   seconds: '%dс'
   minutes: '%dм'

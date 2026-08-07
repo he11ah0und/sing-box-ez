@@ -176,6 +176,7 @@ configs:
     undefined: undefined
     not_recommended: not recommended
     active: Active
+    hash_mismatch_tooltip: Cached content differs from the stored hash
   dialog:
     title: Config
     name: Name
@@ -209,6 +210,12 @@ configs:
   interval: Update interval (h)
   empty: No configs yet.
   confirmDelete: Delete this config?
+  update_all:
+    done: All configs updated
+  update_now:
+    done: Config updated
+  recreate:
+    done: Config file recreated
 validation:
   ok: No deprecated or removed fields detected.
   summary_errors: Found %d critical errors and %d warnings.
@@ -219,6 +226,12 @@ validation:
     removed: 'Removed in %s: %s. Replacement: %s'
     deprecated: 'Deprecated in %s, removed in %s: %s. Replacement: %s'
     deprecated_no_removal: 'Deprecated in %s: %s. Replacement: %s'
+  info_title: Info
+  field:
+    deprecated: deprecated in
+    removed: removed in
+    replacement: replacement
+  copied: Validation result copied
 settings:
   tab:
     general: General
@@ -245,6 +258,9 @@ settings:
   btn:
     save: Save
   show_logs: Show logs
+  system:
+    mode: Platform
+    restart_admin_confirm: Restart the application with administrator privileges?
   config:
     title: Config
   config_update:
@@ -293,11 +309,11 @@ settings:
     confirm_title: Reset all data?
     confirm_msg: 'This will permanently delete config.yaml, profiles.yaml and the configs/ folder.
 
-      The application will restart afterwards.
+      The application will exit afterwards.
 
       '
     success_title: Data reset
-    success_msg: All data has been reset. The application will restart now.
+    success_msg: All data has been reset. The application will exit now.
   desktop_notifications: Desktop notifications
   runAsAdmin: Run core as admin
   saved: Settings saved
@@ -331,6 +347,7 @@ log:
   btn:
     copy: Copy all
     clear: Clear
+  copied: Logs copied
 about:
   system:
     title: System
@@ -503,6 +520,12 @@ notify:
   core_crashed:
     title: Sing-box EZ — Core Crashed
     body: A fatal error was detected. Auto-restarting...
+  core_missing:
+    title: Sing-box EZ
+    body: Sing-box core is not installed. Download it from the Core settings tab.
+  config_missing:
+    title: Sing-box EZ
+    body: No active config. Add and activate a config on the Configs page.
 duration:
   seconds: '%ds'
   minutes: '%dm'
