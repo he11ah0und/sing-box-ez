@@ -1,15 +1,3 @@
-<script module lang="ts">
-  import { List } from '@lucide/svelte';
-  export const pageMeta = {
-    id: 'configs',
-    key: 'tab.configs',
-    icon: List,
-    nav: true,
-    bottomNav: true,
-    order: 1
-  };
-</script>
-
 <script lang="ts">
   import { Plus, Check, Trash2, Edit2 } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';

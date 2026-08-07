@@ -1,15 +1,3 @@
-<script module lang="ts">
-  import { Home } from '@lucide/svelte';
-  export const pageMeta = {
-    id: 'main',
-    key: 'tab.main',
-    icon: Home,
-    nav: true,
-    bottomNav: true,
-    order: 0
-  };
-</script>
-
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { Square, RefreshCw, ChevronDown, ChevronUp, Zap } from '@lucide/svelte';
@@ -122,7 +110,7 @@
         configs: configs ?? [],
         activeConfig: active,
         coreInfo: { ...s.coreInfo, ...coreInfo },
-        settings: settings as unknown as Record<string, unknown>
+        settings
       }));
       if (status.running) await pollAPI();
     } catch (err) {

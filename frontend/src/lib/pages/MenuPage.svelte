@@ -1,14 +1,3 @@
-<script module lang="ts">
-  import { Menu } from '@lucide/svelte';
-  export const pageMeta = {
-    id: 'menu',
-    key: 'tab.menu',
-    icon: Menu,
-    nav: false,
-    bottomNav: false
-  };
-</script>
-
 <script lang="ts">
   import { setRootPage, currentLevel } from '../stores/navigation.js';
   import { locale, tValue } from '../stores/locale.js';

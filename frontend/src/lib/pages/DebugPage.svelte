@@ -1,19 +1,3 @@
-<script module lang="ts">
-  import { Bug } from '@lucide/svelte';
-  export const pageMeta = {
-    id: 'debug',
-    key: 'tab.debug',
-    icon: Bug,
-    nav: true,
-    bottomNav: true,
-    order: 3,
-    tabs: [
-      { id: 'app', key: 'log.tab.app' },
-      { id: 'core', key: 'log.tab.core' }
-    ]
-  };
-</script>
-
 <script lang="ts">
   import { Trash2, RefreshCw } from '@lucide/svelte';
   import { appState, clearLogs } from '../stores/appState.js';

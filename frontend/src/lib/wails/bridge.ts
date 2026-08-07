@@ -3,6 +3,7 @@ import { toast } from 'svelte-sonner';
 import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../stores/appState.js';
 import { locale, setLocaleValues } from '../stores/locale.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
+import type { Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -94,8 +95,8 @@ export function initWailsEvents() {
     }));
   });
 
-  Events.On('settings:changed', (event: WailsEvent<Record<string, unknown>>) => {
-    appState.update((s) => ({ ...s, settings: event.data ?? {} }));
+  Events.On('settings:changed', (event: WailsEvent<Settings>) => {
+    appState.update((s) => ({ ...s, settings: event.data ?? {} as Settings }));
   });
 
   Events.On('core:version', (event: WailsEvent<CoreVersionPayload>) => {

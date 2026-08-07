@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import type { ConfigRecord } from '../../../bindings/sing-box-ez/internal/config/models.js';
-import type { CoreInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+import type { CoreInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
 // Re-export generated Wails models so existing imports from this module keep working.
 export type { ConfigRecord, CoreInfo };
@@ -60,12 +60,8 @@ export interface AppState {
   status: CoreStatus;
   configs: ConfigRecord[];
   activeConfig: ConfigRecord | null;
-  settings: Record<string, unknown>;
+  settings: Settings;
   coreInfo: CoreInfo;
-  apiStatus: unknown;
-  apiMode: string;
-  apiGroups: unknown[];
-  apiConnections: unknown[];
   logs: LogsState;
   traffic: TrafficState;
   dialog: DialogPayload | null;
@@ -77,17 +73,13 @@ export const appState = writable<AppState>({
   status: { running: false, processing: false, pid: 0 },
   configs: [],
   activeConfig: null,
-  settings: {},
+  settings: {} as Settings,
   coreInfo: {
     installedVersion: '',
     latestVersion: '',
     downloading: false,
     downloadProgress: 0
   },
-  apiStatus: null,
-  apiMode: '',
-  apiGroups: [],
-  apiConnections: [],
   logs: { app: [], core: [] },
   traffic: {
     up: 0,

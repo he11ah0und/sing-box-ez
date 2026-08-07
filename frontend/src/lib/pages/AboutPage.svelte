@@ -1,15 +1,3 @@
-<script module lang="ts">
-  import { Info } from '@lucide/svelte';
-  export const pageMeta = {
-    id: 'about',
-    key: 'tab.about',
-    icon: Info,
-    nav: true,
-    bottomNav: true,
-    order: 4
-  };
-</script>
-
 <script lang="ts">
   import { ExternalLink, FolderOpen, GitBranch, Download, FileText, RefreshCw } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
@@ -63,6 +51,15 @@
     checking = true;
     try {
       selfUpdate = await CheckSelfUpdate(currentBranch);
+      if (selfUpdate?.hasUpdate) {
+        toast.success(tValue($locale, 'about.update.available', 'Update available'), {
+          description: `${tValue($locale, 'about.update.current_version', 'Current:')} ${selfUpdate.current} → ${tValue($locale, 'about.update.latest', 'Latest:')} ${selfUpdate.latest}`
+        });
+      } else if (selfUpdate?.isDevBuild) {
+        toast.warning(tValue($locale, 'about.update.dev_build', 'Development build'));
+      } else if (selfUpdate) {
+        toast(tValue($locale, 'about.update.up_to_date', 'Up to date'));
+      }
     } catch (err) {
       toast.error(String(err));
       selfUpdate = null;
@@ -171,20 +168,6 @@
       </div>
     </Card.Header>
     <Card.Content class="space-y-4">
-      {#if selfUpdate}
-        <div class="rounded-xl bg-background border border-border p-4 space-y-2">
-          <p class="text-sm">{tValue($locale, 'about.update.current_version', 'Current:')} {selfUpdate.current}</p>
-          <p class="text-sm">{tValue($locale, 'about.update.latest', 'Latest:')} {selfUpdate.latest}</p>
-          {#if selfUpdate.hasUpdate}
-            <p class="text-sm text-[var(--color-success)]">{tValue($locale, 'about.update.available', 'Update available')}</p>
-          {:else if selfUpdate.isDevBuild}
-            <p class="text-sm text-[var(--color-warning)]">{tValue($locale, 'about.update.dev_build', 'Development build')}</p>
-          {:else}
-            <p class="text-sm text-muted-foreground">{tValue($locale, 'about.update.up_to_date', 'Up to date')}</p>
-          {/if}
-        </div>
-      {/if}
-
       {#if $appState.selfUpdate?.downloading}
         <div class="space-y-1">
           <div class="flex justify-between text-sm">

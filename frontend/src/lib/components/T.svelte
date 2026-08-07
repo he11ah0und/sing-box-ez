@@ -3,7 +3,7 @@
 
   let { id, fallback = '' }: { id: string; fallback?: string } = $props();
 
-  registerLocaleKey(id);
+  $effect(() => registerLocaleKey(id));
 </script>
 
 {$locale.values[id] ?? fallback}

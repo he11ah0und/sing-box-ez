@@ -1,14 +1,3 @@
-<script module lang="ts">
-  import { Cpu } from '@lucide/svelte';
-  export const pageMeta = {
-    id: 'core',
-    key: 'tab.core',
-    icon: Cpu,
-    nav: false,
-    bottomNav: false
-  };
-</script>
-
 <script lang="ts">
   import { Download, RefreshCw } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';

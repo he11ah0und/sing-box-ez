@@ -1,19 +1,3 @@
-<script module lang="ts">
-  import { Settings as SettingsIcon } from '@lucide/svelte';
-  export const pageMeta = {
-    id: 'settings',
-    key: 'tab.settings',
-    icon: SettingsIcon,
-    nav: true,
-    bottomNav: true,
-    order: 2,
-    tabs: [
-      { id: 'general', key: 'settings.tab.general' },
-      { id: 'core', key: 'settings.tab.core' }
-    ]
-  };
-</script>
-
 <script lang="ts">
   import { Save, RotateCcw } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
@@ -73,7 +57,7 @@
       form = { ...form, ...s };
       themeNames = names && names.length > 0 ? names : ['default'];
       languages = langs && langs.length > 0 ? langs : [{ code: 'en', name: 'English' }];
-      appState.update((state) => ({ ...state, settings: s as unknown as Record<string, unknown> }));
+      appState.update((state) => ({ ...state, settings: s }));
     } catch (err) {
       toast.error(String(err));
     }
