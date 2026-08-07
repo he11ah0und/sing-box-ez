@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { locale, tValue } from '../stores/locale.js';
   import type { ConfigRecord } from '../stores/appState.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
@@ -12,13 +13,15 @@
     mode = 'add',
     initialRecord = null,
     onclose = () => {},
-    onsave = async (_rec: ConfigRecord) => {}
+    onsave = async (_rec: ConfigRecord) => {},
+    actions
   }: {
     open?: boolean;
     mode?: 'add' | 'edit';
     initialRecord?: ConfigRecord | null;
     onclose?: () => void;
     onsave?: (rec: ConfigRecord) => void | Promise<void>;
+    actions?: Snippet;
   } = $props();
 
   let processing = $state(false);
@@ -148,6 +151,10 @@
           <Input id="config-interval" type="number" min="0" bind:value={form.update_interval_hours} />
         </div>
       </div>
+
+      {#if mode === 'edit' && actions}
+        {@render actions()}
+      {/if}
     </div>
 
     <Dialog.Footer>

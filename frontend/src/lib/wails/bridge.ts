@@ -3,7 +3,7 @@ import { toast } from 'svelte-sonner';
 import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../stores/appState.js';
 import { locale, setLocaleValues } from '../stores/locale.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
-import type { Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+import type { SelfUpdateInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -58,6 +58,11 @@ interface UpdateProgressPayload {
   downloaded?: number;
 }
 
+interface StyleCheckPayload {
+  config?: string;
+  style?: string;
+}
+
 function showNotification(data: NotificationPayload) {
   const title = data.title ?? '';
   const description = data.body ?? data.message;
@@ -93,6 +98,20 @@ export function initWailsEvents() {
       configs: data.configs ?? s.configs,
       activeConfig: data.active ?? s.activeConfig
     }));
+  });
+
+  Events.On('config:style_check', (event: WailsEvent<StyleCheckPayload>) => {
+    const data = event.data ?? {};
+    if (!data.config) return;
+    appState.update((s) => ({
+      ...s,
+      styleCheck: { config: data.config ?? '', style: data.style ?? 'undefined' }
+    }));
+  });
+
+  Events.On('selfupdate:available', (event: WailsEvent<SelfUpdateInfo>) => {
+    if (!event.data) return;
+    appState.update((s) => ({ ...s, selfUpdateInfo: event.data }));
   });
 
   Events.On('settings:changed', (event: WailsEvent<Settings>) => {

@@ -34,7 +34,8 @@ export const pageRegistry: PageMeta[] = [
     order: 2,
     tabs: [
       { id: 'general', key: 'settings.tab.general' },
-      { id: 'core', key: 'settings.tab.core' }
+      { id: 'core', key: 'settings.tab.core' },
+      { id: 'system', key: 'settings.tab.system' }
     ]
   },
   {

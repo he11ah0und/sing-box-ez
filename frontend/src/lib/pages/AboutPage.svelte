@@ -47,6 +47,14 @@
     }
   }
 
+  // Pick up a background update check result delivered via selfupdate:available,
+  // both on mount and if the event arrives while the page is open.
+  $effect(() => {
+    if (!selfUpdate && $appState.selfUpdateInfo?.hasUpdate) {
+      selfUpdate = $appState.selfUpdateInfo;
+    }
+  });
+
   async function checkUpdate() {
     checking = true;
     try {

@@ -3,15 +3,17 @@
   import type { Component } from 'svelte';
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
-  import { signalLocaleReady } from '$lib/stores/locale.js';
-  import { GetTheme } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import { signalLocaleReady, locale, tValue } from '$lib/stores/locale.js';
+  import { GetTheme, SetFallbackType } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import { currentLevel } from '$lib/stores/navigation.js';
-  import { appState } from '$lib/stores/appState.js';
+  import { appState, type StyleCheckState } from '$lib/stores/appState.js';
   import Shell from '$lib/components/Shell.svelte';
   import StartupPage from '$lib/pages/StartupPage.svelte';
   import { loadPage } from '$lib/pages/index.js';
   import { Toaster } from '$lib/components/ui/sonner/index.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
+  import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
+  import { Button } from '$lib/components/ui/button/index.js';
   import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 
   let ActivePage = $state<Component | null>(null);
@@ -51,6 +53,38 @@
   function closeDialog() {
     appState.update((s) => ({ ...s, dialog: null }));
   }
+
+  function clearStyleCheck() {
+    appState.update((s) => ({ ...s, styleCheck: null }));
+  }
+
+  async function resolveStyleCheck(check: StyleCheckState, fallbackType: 'ignore' | 'to_client') {
+    clearStyleCheck();
+    try {
+      await SetFallbackType(check.config, fallbackType);
+    } catch (err) {
+      console.error('SetFallbackType failed:', err);
+    }
+  }
+
+  const styleCheckTitle = $derived(
+    $appState.styleCheck
+      ? tValue(
+          $locale,
+          `dialog.config_style.${$appState.styleCheck.style}_title`,
+          tValue($locale, 'dialog.config_style.unknown_title', 'Unknown config type')
+        )
+      : ''
+  );
+  const styleCheckBody = $derived(
+    $appState.styleCheck
+      ? tValue(
+          $locale,
+          `dialog.config_style.${$appState.styleCheck.style}_body`,
+          tValue($locale, 'dialog.config_style.unknown_body', 'Could not determine the config type.')
+        )
+      : ''
+  );
 </script>
 
 <Tooltip.Provider>
@@ -73,5 +107,29 @@
     <p class="text-sm text-muted-foreground">{$appState.dialog?.body ?? ''}</p>
   </Dialog.Content>
 </Dialog.Root>
+
+{#if $appState.styleCheck}
+  <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) clearStyleCheck(); }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>{styleCheckTitle}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {$appState.styleCheck.config} — {styleCheckBody}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <Button variant="outline" onclick={clearStyleCheck}>
+          {tValue($locale, 'dialog.config_style.btn.cancel', 'Cancel')}
+        </Button>
+        <Button variant="outline" onclick={() => resolveStyleCheck($appState.styleCheck!, 'ignore')}>
+          {tValue($locale, 'dialog.config_style.btn.ignore', 'Run anyway')}
+        </Button>
+        <Button onclick={() => resolveStyleCheck($appState.styleCheck!, 'to_client')}>
+          {tValue($locale, 'dialog.config_style.btn.to_client', 'Convert to client')}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
 
 <Toaster position="top-right" theme={$colorScheme} />

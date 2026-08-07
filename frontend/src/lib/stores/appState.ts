@@ -1,9 +1,13 @@
 import { writable } from 'svelte/store';
 import type { ConfigRecord } from '../../../bindings/sing-box-ez/internal/config/models.js';
-import type { CoreInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+import type {
+  CoreInfo,
+  SelfUpdateInfo,
+  Settings
+} from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
 // Re-export generated Wails models so existing imports from this module keep working.
-export type { ConfigRecord, CoreInfo };
+export type { ConfigRecord, CoreInfo, SelfUpdateInfo };
 
 export interface CoreStatus {
   running: boolean;
@@ -56,6 +60,11 @@ export interface SelfUpdateState {
   downloadProgress: number;
 }
 
+export interface StyleCheckState {
+  config: string;
+  style: string;
+}
+
 export interface AppState {
   status: CoreStatus;
   configs: ConfigRecord[];
@@ -67,6 +76,8 @@ export interface AppState {
   dialog: DialogPayload | null;
   startup: StartupState;
   selfUpdate: SelfUpdateState;
+  styleCheck: StyleCheckState | null;
+  selfUpdateInfo: SelfUpdateInfo | null;
 }
 
 export const appState = writable<AppState>({
@@ -96,7 +107,9 @@ export const appState = writable<AppState>({
   },
   dialog: null,
   startup: { show: false, options: [], selected: null },
-  selfUpdate: { downloading: false, downloadProgress: 0 }
+  selfUpdate: { downloading: false, downloadProgress: 0 },
+  styleCheck: null,
+  selfUpdateInfo: null
 });
 
 export function appendAppLog(line: string) {

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Trash2, RefreshCw } from '@lucide/svelte';
+  import { Trash2, RefreshCw, Copy } from '@lucide/svelte';
+  import { toast } from 'svelte-sonner';
   import { appState, clearLogs } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
   import { subNav } from '../stores/navigation.js';
@@ -50,6 +51,17 @@
       processing = false;
     }
   }
+
+  async function copy() {
+    const lines = $subNav.activeTab === 'core' ? $appState.logs.core : $appState.logs.app;
+    const text = lines.map((line) => parseANSILine(line).map((p) => p.text).join('')).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(tValue($locale, 'log.copied', 'Logs copied'));
+    } catch (err) {
+      toast.error(String(err));
+    }
+  }
 </script>
 
 <Page
@@ -59,6 +71,10 @@
   extraClass="space-y-4"
 >
   {#snippet actions()}
+    <Button variant="outline" onclick={copy}>
+      <Copy size={16} />
+      {tValue($locale, 'log.btn.copy', 'Copy all')}
+    </Button>
     <Button variant="outline" onclick={load}>
       <RefreshCw size={16} />
       {tValue($locale, 'common.refresh', 'Refresh')}
