@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
   import { List } from '@lucide/svelte';
   export const pageMeta = {
     id: 'configs',
@@ -10,12 +10,15 @@
   };
 </script>
 
-<script>
+<script lang="ts">
   import { Plus, Check, Trash2, Edit2 } from '@lucide/svelte';
-  import { appState } from '../stores/appState.js';
+  import { appState, type ConfigRecord } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
   import Page from '../components/Page.svelte';
   import ConfigFormModal from '../components/ConfigFormModal.svelte';
+  import * as Card from '$lib/components/ui/card/index.js';
+  import { Button } from '$lib/components/ui/button/index.js';
+  import { Badge } from '$lib/components/ui/badge/index.js';
   import {
     GetConfigs,
     GetActiveConfig,
@@ -27,8 +30,8 @@
   let processing = $state(false);
   let message = $state('');
   let showForm = $state(false);
-  let editing = $state(null);
-  let initialRecord = $state(null);
+  let editing = $state<string | null>(null);
+  let initialRecord = $state<ConfigRecord | null>(null);
 
   async function load() {
     try {
@@ -49,7 +52,7 @@
     showForm = true;
   }
 
-  function startEdit(rec) {
+  function startEdit(rec: ConfigRecord) {
     editing = rec.name;
     initialRecord = rec;
     showForm = true;
@@ -61,7 +64,7 @@
     initialRecord = null;
   }
 
-  async function handleSave(rec) {
+  async function handleSave(rec: ConfigRecord) {
     if (editing) {
       await EditConfig(editing, rec);
     } else {
@@ -71,7 +74,7 @@
     await load();
   }
 
-  async function remove(name) {
+  async function remove(name: string) {
     if (!confirm(tValue($locale, 'configs.confirmDelete', 'Delete this config?'))) return;
     processing = true;
     try {
@@ -90,13 +93,10 @@
   onLoad={load}
 >
   {#snippet actions()}
-    <button
-      class="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--color-primary)] text-white hover:opacity-90 transition"
-      onclick={startAdd}
-    >
+    <Button onclick={startAdd}>
       <Plus size={18} />
       {tValue($locale, 'configs.btn.add', 'Add')}
-    </button>
+    </Button>
   {/snippet}
 
   <ConfigFormModal
@@ -107,41 +107,40 @@
     onsave={handleSave}
   />
 
-  <section class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden">
+  <Card.Root class="overflow-hidden py-0 gap-0">
     {#if $appState.configs.length === 0}
-      <p class="p-6 text-[var(--color-text-muted)]">{tValue($locale, 'configs.empty', 'No configs yet.')}</p>
+      <Card.Content class="py-6">
+        <p class="text-muted-foreground">{tValue($locale, 'configs.empty', 'No configs yet.')}</p>
+      </Card.Content>
     {:else}
-      <ul class="divide-y divide-[var(--color-border)]">
+      <ul class="divide-y divide-border">
         {#each $appState.configs as cfg (cfg.name)}
-          <li class="p-4 flex items-center justify-between gap-4 hover:bg-[var(--color-bg)] transition">
+          <li class="p-4 flex items-center justify-between gap-4 hover:bg-accent transition">
             <div class="min-w-0">
               <p class="font-medium truncate">{cfg.name}</p>
-              <p class="text-sm text-[var(--color-text-muted)] truncate">{cfg.type} · {cfg.update_interval_hours}h</p>
+              <p class="text-sm text-muted-foreground truncate">{cfg.type} · {cfg.update_interval_hours}h</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               {#if $appState.activeConfig?.name === cfg.name}
-                <span class="flex items-center gap-1 text-sm text-green-500"><Check size={16} /> {tValue($locale, 'configs.badge.active', 'Active')}</span>
+                <Badge variant="secondary" class="text-[var(--color-success)]">
+                  <Check size={12} />
+                  {tValue($locale, 'configs.badge.active', 'Active')}
+                </Badge>
               {/if}
-              <button
-                class="p-2 rounded-lg hover:bg-[var(--color-surface-variant)]"
-                onclick={() => startEdit(cfg)}
-              >
+              <Button variant="ghost" size="icon" onclick={() => startEdit(cfg)}>
                 <Edit2 size={16} />
-              </button>
-              <button
-                class="p-2 rounded-lg hover:bg-[var(--color-danger)] hover:text-white text-[var(--color-danger)] transition"
-                onclick={() => remove(cfg.name)}
-              >
+              </Button>
+              <Button variant="ghost" size="icon" class="text-destructive hover:bg-destructive/10" onclick={() => remove(cfg.name)}>
                 <Trash2 size={16} />
-              </button>
+              </Button>
             </div>
           </li>
         {/each}
       </ul>
     {/if}
-  </section>
+  </Card.Root>
 
   {#if message}
-    <p class="text-sm text-[var(--color-danger)]">{message}</p>
+    <p class="text-sm text-destructive">{message}</p>
   {/if}
 </Page>

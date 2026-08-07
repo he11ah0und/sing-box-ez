@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
   import { Bug } from '@lucide/svelte';
   export const pageMeta = {
     id: 'debug',
@@ -14,13 +14,15 @@
   };
 </script>
 
-<script>
+<script lang="ts">
   import { Trash2, RefreshCw } from '@lucide/svelte';
   import { appState, clearLogs } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
-  import { parseANSILine, parseAppLogLine, parseCoreLogLine } from '../utils/ansi.js';
+  import { Button } from '$lib/components/ui/button/index.js';
+  import { ScrollArea } from '$lib/components/ui/scroll-area/index.js';
+  import { parseANSILine, parseAppLogLine, parseCoreLogLine, type AnsiPart } from '../utils/ansi.js';
   import {
     GetAppLogs,
     GetCoreLogs,
@@ -30,7 +32,7 @@
 
   let processing = $state(false);
 
-  function colorizeCore(line) {
+  function colorizeCore(line: string): AnsiPart[] {
     const ansi = parseANSILine(line);
     if (ansi.some((p) => p.style.includes('color'))) {
       return ansi;
@@ -45,7 +47,7 @@
         ...s,
         logs: { app: app ?? [], core: core ?? [] }
       }));
-    } catch (err) {
+    } catch {
       // ignore
     }
   }
@@ -73,48 +75,43 @@
   extraClass="space-y-4"
 >
   {#snippet actions()}
-    <button
-      class="flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-variant)] hover:bg-[var(--color-border)] transition"
-      onclick={load}
-    >
+    <Button variant="outline" onclick={load}>
       <RefreshCw size={16} />
       {tValue($locale, 'common.refresh', 'Refresh')}
-    </button>
-    <button
-      class="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--color-danger)] text-white hover:opacity-90 transition"
-      disabled={processing}
-      onclick={clear}
-    >
+    </Button>
+    <Button variant="destructive" disabled={processing} onclick={clear}>
       <Trash2 size={16} />
       {tValue($locale, 'common.clear', 'Clear')}
-    </button>
+    </Button>
   {/snippet}
 
-  <div class="flex-1 min-h-0 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 overflow-auto font-mono text-sm">
-    {#if $subNav.activeTab === 'core'}
-      {#if $appState.logs.core.length === 0}
-        <p class="text-[var(--color-text-muted)]">{tValue($locale, 'log.empty', 'No logs yet.')}</p>
+  <ScrollArea class="flex-1 min-h-0 rounded-2xl border border-border bg-card">
+    <div class="p-4 font-mono text-sm">
+      {#if $subNav.activeTab === 'core'}
+        {#if $appState.logs.core.length === 0}
+          <p class="text-muted-foreground">{tValue($locale, 'log.empty', 'No logs yet.')}</p>
+        {:else}
+          {#each $appState.logs.core as line}
+            <div class="whitespace-pre-wrap break-words py-0.5">
+              {#each colorizeCore(line) as part}
+                <span style={part.style}>{part.text}</span>
+              {/each}
+            </div>
+          {/each}
+        {/if}
       {:else}
-        {#each $appState.logs.core as line}
-          <div class="whitespace-pre-wrap break-words py-0.5">
-            {#each colorizeCore(line) as part}
-              <span style={part.style}>{part.text}</span>
-            {/each}
-          </div>
-        {/each}
+        {#if $appState.logs.app.length === 0}
+          <p class="text-muted-foreground">{tValue($locale, 'log.empty', 'No logs yet.')}</p>
+        {:else}
+          {#each $appState.logs.app as line}
+            <div class="whitespace-pre-wrap break-words py-0.5">
+              {#each parseAppLogLine(line) as part}
+                <span style={part.style}>{part.text}</span>
+              {/each}
+            </div>
+          {/each}
+        {/if}
       {/if}
-    {:else}
-      {#if $appState.logs.app.length === 0}
-        <p class="text-[var(--color-text-muted)]">{tValue($locale, 'log.empty', 'No logs yet.')}</p>
-      {:else}
-        {#each $appState.logs.app as line}
-          <div class="whitespace-pre-wrap break-words py-0.5">
-            {#each parseAppLogLine(line) as part}
-              <span style={part.style}>{part.text}</span>
-            {/each}
-          </div>
-        {/each}
-      {/if}
-    {/if}
-  </div>
+    </div>
+  </ScrollArea>
 </Page>

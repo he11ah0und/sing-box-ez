@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
   import { ArrowLeft } from '@lucide/svelte';
+  import { Button } from '$lib/components/ui/button/index.js';
   import { setRootPage, currentLevel, subNav, enterSubNav, exitSubNav, goHome } from '../stores/navigation.js';
   import { tValue, locale } from '../stores/locale.js';
   import { pageRegistry } from '../pages/index.js';
@@ -8,7 +9,7 @@
   const currentPage = $derived(pageRegistry.find((p) => p.id === $currentLevel.id));
   const inSubNav = $derived(!!($subNav.pageId && $subNav.pageId === currentPage?.id && currentPage?.tabs?.length));
 
-  function navigate(id) {
+  function navigate(id: string) {
     const page = pageRegistry.find((p) => p.id === id);
     if (page?.tabs?.length) {
       enterSubNav(id, page.tabs);
@@ -24,24 +25,21 @@
   }
 </script>
 
-<nav class="h-16 border-t border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-around px-2 md:hidden shrink-0">
+<nav class="h-16 border-t border-border bg-card flex items-center justify-around px-2 md:hidden shrink-0">
   {#if inSubNav}
-    <button
-      class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-[var(--color-surface-variant)] transition-colors"
-      onclick={back}
-    >
+    <Button variant="ghost" class="gap-2" onclick={back}>
       <ArrowLeft size={22} />
       <span class="text-sm">{tValue($locale, 'common.back', 'Back')}</span>
-    </button>
+    </Button>
   {:else}
     {#each mainItems as item}
       {@const Icon = item.icon}
       <button
-        class="flex flex-col items-center p-2 rounded-lg hover:bg-[var(--color-surface-variant)] transition-colors"
-        class:text-[var(--color-primary)]={$currentLevel.id === item.id}
+        class="flex flex-col items-center p-2 rounded-lg hover:bg-accent transition-colors"
+        class:text-primary={$currentLevel.id === item.id}
         onclick={() => navigate(item.id)}
       >
-        <Icon size={22} />
+        {#if Icon}<Icon size={22} />{/if}
         <span class="text-xs mt-1">{tValue($locale, item.key, item.id)}</span>
       </button>
     {/each}

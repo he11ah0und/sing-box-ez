@@ -1,8 +1,11 @@
-<script>
+<script lang="ts">
   import { appState } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
+  import * as Card from '$lib/components/ui/card/index.js';
+  import { Button } from '$lib/components/ui/button/index.js';
+  import { cn } from '$lib/utils.js';
 
-  function selectMode(mode) {
+  function selectMode(mode: string) {
     appState.update((s) => ({ ...s, startup: { ...s.startup, selected: mode } }));
   }
 
@@ -11,29 +14,29 @@
   }
 </script>
 
-<div class="h-full flex flex-col items-center justify-center p-6 bg-[var(--color-bg)]">
-  <div class="w-full max-w-md bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6 shadow-xl">
-    <h1 class="text-2xl font-bold mb-2">{tValue($locale, 'startup.title', 'Startup')}</h1>
-    <p class="text-[var(--color-text-muted)] mb-6">{tValue($locale, 'startup.subtitle', 'Choose connection mode')}</p>
-
-    <div class="flex flex-col gap-3 mb-6">
-      {#each $appState.startup.options as option}
+<div class="h-full flex flex-col items-center justify-center p-6 bg-background">
+  <Card.Root class="w-full max-w-md shadow-xl">
+    <Card.Header>
+      <Card.Title class="text-2xl">{tValue($locale, 'startup.title', 'Startup')}</Card.Title>
+      <Card.Description>{tValue($locale, 'startup.subtitle', 'Choose connection mode')}</Card.Description>
+    </Card.Header>
+    <Card.Content class="flex flex-col gap-3">
+      {#each $appState.startup.options as option (option.id)}
         <button
-          class="px-4 py-3 rounded-lg border border-[var(--color-border)] text-left transition-colors"
-          class:bg-[var(--color-primary)]={$appState.startup.selected === option.id}
-          class:text-white={$appState.startup.selected === option.id}
+          class={cn(
+            'px-4 py-3 rounded-lg border border-border text-left transition-colors hover:bg-accent',
+            $appState.startup.selected === option.id && 'bg-primary text-primary-foreground hover:bg-primary/90 border-transparent'
+          )}
           onclick={() => selectMode(option.id)}
         >
           {option.label}
         </button>
       {/each}
-    </div>
-
-    <button
-      class="w-full py-3 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white font-semibold transition-colors"
-      onclick={continueStartup}
-    >
-      {tValue($locale, 'startup.continue', 'Continue')}
-    </button>
-  </div>
+    </Card.Content>
+    <Card.Footer>
+      <Button class="w-full" size="lg" onclick={continueStartup}>
+        {tValue($locale, 'startup.continue', 'Continue')}
+      </Button>
+    </Card.Footer>
+  </Card.Root>
 </div>

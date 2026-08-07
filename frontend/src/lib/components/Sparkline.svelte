@@ -1,7 +1,17 @@
-<script>
-  let { data = [], color = 'var(--color-primary)', height = 80, fill = false } = $props();
+<script lang="ts">
+  let {
+    data = [],
+    color = 'var(--color-primary)',
+    height = 80,
+    fill = false
+  }: {
+    data?: number[];
+    color?: string;
+    height?: number;
+    fill?: boolean;
+  } = $props();
 
-  function pathFor(values, w, h) {
+  function pathFor(values: number[], w: number, h: number): string {
     if (!values.length) return '';
     const max = Math.max(...values, 1);
     const step = w / (values.length - 1 || 1);
@@ -14,7 +24,7 @@
     return d;
   }
 
-  function areaPath(values, w, h) {
+  function areaPath(values: number[], w: number, h: number): string {
     if (!values.length) return '';
     const line = pathFor(values, w, h);
     if (!line) return '';
@@ -24,7 +34,7 @@
 
 <svg class="w-full" style="height: {height}px" preserveAspectRatio="none">
   {#if fill}
-    <path d={areaPath(data, 300, height)} fill="{color}" opacity="0.15" />
+    <path d={areaPath(data, 300, height)} fill={color} opacity="0.15" />
   {/if}
-  <path d={pathFor(data, 300, height)} fill="none" stroke="{color}" stroke-width="2" vector-effect="non-scaling-stroke" />
+  <path d={pathFor(data, 300, height)} fill="none" stroke={color} stroke-width="2" vector-effect="non-scaling-stroke" />
 </svg>

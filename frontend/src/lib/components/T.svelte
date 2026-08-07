@@ -1,7 +1,7 @@
-<script>
+<script lang="ts">
   import { locale, registerLocaleKey } from '../stores/locale.js';
 
-  let { id, fallback = '' } = $props();
+  let { id, fallback = '' }: { id: string; fallback?: string } = $props();
 
   registerLocaleKey(id);
 </script>

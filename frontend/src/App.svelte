@@ -1,16 +1,16 @@
-<script>
+<script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { initWailsEvents } from './lib/wails/bridge.js';
-  import { theme, applyTheme } from './lib/stores/theme.js';
-  import { signalLocaleReady } from './lib/stores/locale.js';
+  import { initWailsEvents } from '$lib/wails/bridge.js';
+  import { theme, applyTheme, colorScheme } from '$lib/stores/theme.js';
+  import { signalLocaleReady } from '$lib/stores/locale.js';
   import { GetTheme } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
-  import { currentLevel } from './lib/stores/navigation.js';
-  import { appState } from './lib/stores/appState.js';
-  import Shell from './lib/components/Shell.svelte';
-  import Modal from './lib/components/Modal.svelte';
-  import Notification from './lib/components/Notification.svelte';
-  import StartupPage from './lib/pages/StartupPage.svelte';
-  import { pageComponents } from './lib/pages/index.js';
+  import { currentLevel } from '$lib/stores/navigation.js';
+  import { appState } from '$lib/stores/appState.js';
+  import Shell from '$lib/components/Shell.svelte';
+  import StartupPage from '$lib/pages/StartupPage.svelte';
+  import { pageComponents } from '$lib/pages/index.js';
+  import { Toaster } from '$lib/components/ui/sonner/index.js';
+  import * as Dialog from '$lib/components/ui/dialog/index.js';
 
   let ActivePage = $derived(pageComponents[$currentLevel.id] ?? pageComponents.main);
 
@@ -37,6 +37,10 @@
       console.error('Failed to init Wails events:', err);
     }
   });
+
+  function closeDialog() {
+    appState.update((s) => ({ ...s, dialog: null }));
+  }
 </script>
 
 {#if $appState.startup.show}
@@ -47,10 +51,13 @@
   </Shell>
 {/if}
 
-{#if $appState.dialog}
-  <Modal title={$appState.dialog.title} onclose={() => appState.update((s) => ({ ...s, dialog: null }))}>
-    <p>{$appState.dialog.body}</p>
-  </Modal>
-{/if}
+<Dialog.Root open={$appState.dialog != null} onOpenChange={(open) => { if (!open) closeDialog(); }}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>{$appState.dialog?.title ?? ''}</Dialog.Title>
+    </Dialog.Header>
+    <p class="text-sm text-muted-foreground">{$appState.dialog?.body ?? ''}</p>
+  </Dialog.Content>
+</Dialog.Root>
 
-<Notification />
+<Toaster position="top-right" theme={$colorScheme} />

@@ -1,9 +1,9 @@
-<script module>
-  import { Settings } from '@lucide/svelte';
+<script module lang="ts">
+  import { Settings as SettingsIcon } from '@lucide/svelte';
   export const pageMeta = {
     id: 'settings',
     key: 'tab.settings',
-    icon: Settings,
+    icon: SettingsIcon,
     nav: true,
     bottomNav: true,
     order: 2,
@@ -14,20 +14,35 @@
   };
 </script>
 
-<script>
+<script lang="ts">
   import { Save, RotateCcw } from '@lucide/svelte';
   import { appState } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
   import { theme, applyTheme } from '../stores/theme.js';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
-  import { GetSettings, SaveSettings, GetTheme, GetThemeNames, GetAvailableLanguages, SetLanguage } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import * as Card from '$lib/components/ui/card/index.js';
+  import { Button } from '$lib/components/ui/button/index.js';
+  import { Input } from '$lib/components/ui/input/index.js';
+  import { Label } from '$lib/components/ui/label/index.js';
+  import * as Select from '$lib/components/ui/select/index.js';
+  import { Switch } from '$lib/components/ui/switch/index.js';
+  import {
+    GetSettings,
+    SaveSettings,
+    GetTheme,
+    GetThemeNames,
+    GetAvailableLanguages,
+    SetLanguage,
+    type Settings,
+    type LanguageOption
+  } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
   let processing = $state(false);
   let message = $state('');
   let saved = $state(false);
 
-  let form = $state({
+  let form = $state<Settings>({
     language: 'en',
     theme: 'default',
     themeMode: 'system',
@@ -41,8 +56,10 @@
     defaultIntervalHours: 24
   });
 
-  let themeNames = $state([]);
-  let languages = $state([]);
+  let themeNames = $state<string[]>([]);
+  let languages = $state<LanguageOption[]>([]);
+
+  const themeModeLabel = $derived(tValue($locale, `settings.theme_mode.${form.themeMode}`, form.themeMode));
 
   async function load() {
     try {
@@ -54,7 +71,7 @@
       form = { ...form, ...s };
       themeNames = names && names.length > 0 ? names : ['default'];
       languages = langs && langs.length > 0 ? langs : [{ code: 'en', name: 'English' }];
-      appState.update((state) => ({ ...state, settings: s }));
+      appState.update((state) => ({ ...state, settings: s as unknown as Record<string, unknown> }));
     } catch (err) {
       message = String(err);
     }
@@ -73,7 +90,7 @@
         applyTheme(t);
       }
       if (l) {
-        locale.set(l);
+        locale.set({ language: l.language, values: l.values ?? {} });
       }
       saved = true;
     } catch (err) {
@@ -93,100 +110,106 @@
   onLoad={load}
 >
   {#snippet actions()}
-    <button
-      class="flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-variant)] hover:bg-[var(--color-border)] transition"
-      onclick={reset}
-    >
+    <Button variant="outline" onclick={reset}>
       <RotateCcw size={16} />
       {tValue($locale, 'common.reset', 'Reset')}
-    </button>
-    <button
-      class="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--color-primary)] text-white disabled:opacity-50 hover:opacity-90 transition"
-      disabled={processing}
-      onclick={save}
-    >
+    </Button>
+    <Button disabled={processing} onclick={save}>
       <Save size={16} />
       {tValue($locale, 'common.save', 'Save')}
-    </button>
+    </Button>
   {/snippet}
 
-  <section class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm space-y-5">
-    {#if $subNav.activeTab === 'core'}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <label class="flex items-center gap-3 rounded-xl bg-[var(--color-bg)] p-3 cursor-pointer">
-          <input type="checkbox" bind:checked={form.autoStartCore} class="w-5 h-5 accent-[var(--color-primary)]" />
-          <span>{tValue($locale, 'core.start_on_launch', 'Start core on app launch')}</span>
-        </label>
-        <label class="flex items-center gap-3 rounded-xl bg-[var(--color-bg)] p-3 cursor-pointer">
-          <input type="checkbox" bind:checked={form.autoRestart} class="w-5 h-5 accent-[var(--color-primary)]" />
-          <span>{tValue($locale, 'core.auto_restart', 'Auto restart core')}</span>
-        </label>
-        <label class="flex items-center gap-3 rounded-xl bg-[var(--color-bg)] p-3 cursor-pointer">
-          <input type="checkbox" bind:checked={form.runAsAdmin} class="w-5 h-5 accent-[var(--color-primary)]" />
-          <span>{tValue($locale, 'settings.runAsAdmin', 'Run core as admin')}</span>
-        </label>
-      </div>
-    {:else}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <label class="block space-y-1">
-          <span class="text-sm text-[var(--color-text-muted)]">{tValue($locale, 'settings.language.title', 'Language')}</span>
-          <select bind:value={form.language} class="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
-            {#each languages as lang}
-              <option value={lang.code}>{lang.name}</option>
-            {/each}
-          </select>
-        </label>
+  <Card.Root>
+    <Card.Content class="space-y-5">
+      {#if $subNav.activeTab === 'core'}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
+            <Switch bind:checked={form.autoStartCore} />
+            <span>{tValue($locale, 'core.start_on_launch', 'Start core on app launch')}</span>
+          </Label>
+          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
+            <Switch bind:checked={form.autoRestart} />
+            <span>{tValue($locale, 'core.auto_restart', 'Auto restart core')}</span>
+          </Label>
+          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
+            <Switch bind:checked={form.runAsAdmin} />
+            <span>{tValue($locale, 'settings.runAsAdmin', 'Run core as admin')}</span>
+          </Label>
+        </div>
+      {:else}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div class="space-y-1">
+            <Label>{tValue($locale, 'settings.language.title', 'Language')}</Label>
+            <Select.Root type="single" bind:value={form.language}>
+              <Select.Trigger class="w-full">
+                {languages.find((l) => l.code === form.language)?.name ?? form.language}
+              </Select.Trigger>
+              <Select.Content>
+                {#each languages as lang (lang.code)}
+                  <Select.Item value={lang.code} label={lang.name} />
+                {/each}
+              </Select.Content>
+            </Select.Root>
+          </div>
 
-        <label class="block space-y-1">
-          <span class="text-sm text-[var(--color-text-muted)]">{tValue($locale, 'settings.theme.title', 'Theme')}</span>
-          <select bind:value={form.theme} class="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
-            {#each themeNames as name}
-              <option value={name}>{name}</option>
-            {/each}
-          </select>
-        </label>
+          <div class="space-y-1">
+            <Label>{tValue($locale, 'settings.theme.title', 'Theme')}</Label>
+            <Select.Root type="single" bind:value={form.theme}>
+              <Select.Trigger class="w-full">{form.theme}</Select.Trigger>
+              <Select.Content>
+                {#each themeNames as name (name)}
+                  <Select.Item value={name} label={name} />
+                {/each}
+              </Select.Content>
+            </Select.Root>
+          </div>
 
-        <label class="block space-y-1">
-          <span class="text-sm text-[var(--color-text-muted)]">{tValue($locale, 'settings.theme_mode.title', 'Theme mode')}</span>
-          <select bind:value={form.themeMode} class="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
-            <option value="system">{tValue($locale, 'settings.theme_mode.system', 'System')}</option>
-            <option value="dark">{tValue($locale, 'settings.theme_mode.dark', 'Dark')}</option>
-            <option value="light">{tValue($locale, 'settings.theme_mode.light', 'Light')}</option>
-          </select>
-        </label>
+          <div class="space-y-1">
+            <Label>{tValue($locale, 'settings.theme_mode.title', 'Theme mode')}</Label>
+            <Select.Root type="single" bind:value={form.themeMode}>
+              <Select.Trigger class="w-full">{themeModeLabel}</Select.Trigger>
+              <Select.Content>
+                <Select.Item value="system" label={tValue($locale, 'settings.theme_mode.system', 'System')} />
+                <Select.Item value="dark" label={tValue($locale, 'settings.theme_mode.dark', 'Dark')} />
+                <Select.Item value="light" label={tValue($locale, 'settings.theme_mode.light', 'Light')} />
+              </Select.Content>
+            </Select.Root>
+          </div>
 
-        <label class="block space-y-1">
-          <span class="text-sm text-[var(--color-text-muted)]">{tValue($locale, 'settings.log_limit.label', 'Log limit')}</span>
-          <input type="number" bind:value={form.logLimit} min="10" class="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2" />
-        </label>
+          <div class="space-y-1">
+            <Label for="settings-log-limit">{tValue($locale, 'settings.log_limit.label', 'Log limit')}</Label>
+            <Input id="settings-log-limit" type="number" min="10" bind:value={form.logLimit} />
+          </div>
 
-        <label class="block space-y-1">
-          <span class="text-sm text-[var(--color-text-muted)]">{tValue($locale, 'settings.default_interval.label', 'Default update interval (h)')}</span>
-          <input type="number" bind:value={form.defaultIntervalHours} min="1" class="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2" />
-        </label>
-      </div>
+          <div class="space-y-1">
+            <Label for="settings-interval">{tValue($locale, 'settings.default_interval.label', 'Default update interval (h)')}</Label>
+            <Input id="settings-interval" type="number" min="1" bind:value={form.defaultIntervalHours} />
+          </div>
+        </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <label class="flex items-center gap-3 rounded-xl bg-[var(--color-bg)] p-3 cursor-pointer">
-          <input type="checkbox" bind:checked={form.desktopNotifications} class="w-5 h-5 accent-[var(--color-primary)]" />
-          <span>{tValue($locale, 'settings.desktop_notifications', 'Desktop notifications')}</span>
-        </label>
-        <label class="flex items-center gap-3 rounded-xl bg-[var(--color-bg)] p-3 cursor-pointer">
-          <input type="checkbox" bind:checked={form.autoCheckCore} class="w-5 h-5 accent-[var(--color-primary)]" />
-          <span>{tValue($locale, 'settings.update_check.core', 'Auto-check core updates')}</span>
-        </label>
-        <label class="flex items-center gap-3 rounded-xl bg-[var(--color-bg)] p-3 cursor-pointer">
-          <input type="checkbox" bind:checked={form.autoCheckSelf} class="w-5 h-5 accent-[var(--color-primary)]" />
-          <span>{tValue($locale, 'settings.update_check.self', 'Auto-check app updates')}</span>
-        </label>
-      </div>
-    {/if}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
+            <Switch bind:checked={form.desktopNotifications} />
+            <span>{tValue($locale, 'settings.desktop_notifications', 'Desktop notifications')}</span>
+          </Label>
+          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
+            <Switch bind:checked={form.autoCheckCore} />
+            <span>{tValue($locale, 'settings.update_check.core', 'Auto-check core updates')}</span>
+          </Label>
+          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
+            <Switch bind:checked={form.autoCheckSelf} />
+            <span>{tValue($locale, 'settings.update_check.self', 'Auto-check app updates')}</span>
+          </Label>
+        </div>
+      {/if}
 
-    {#if saved}
-      <p class="text-sm text-green-500">{tValue($locale, 'settings.saved', 'Settings saved')}</p>
-    {/if}
-    {#if message}
-      <p class="text-sm text-[var(--color-danger)]">{message}</p>
-    {/if}
-  </section>
+      {#if saved}
+        <p class="text-sm text-[var(--color-success)]">{tValue($locale, 'settings.saved', 'Settings saved')}</p>
+      {/if}
+      {#if message}
+        <p class="text-sm text-destructive">{message}</p>
+      {/if}
+    </Card.Content>
+  </Card.Root>
 </Page>

@@ -1,18 +1,23 @@
-<script>
+<script lang="ts">
   import { ArrowLeft } from '@lucide/svelte';
+  import { Button } from '$lib/components/ui/button/index.js';
 
-  let { title = '', showBack = false, onBack = null } = $props();
+  let {
+    title = '',
+    showBack = false,
+    onBack = null
+  }: {
+    title?: string;
+    showBack?: boolean;
+    onBack?: (() => void) | null;
+  } = $props();
 </script>
 
-<header class="h-14 flex items-center gap-3 px-4 border-b border-[var(--color-border)] bg-[var(--color-surface)] shrink-0">
+<header class="h-14 flex items-center gap-3 px-4 border-b border-border bg-card shrink-0">
   {#if showBack}
-    <button
-      class="md:hidden p-1 -ml-1 rounded-lg hover:bg-[var(--color-surface-variant)] transition"
-      onclick={onBack}
-      aria-label="Back"
-    >
+    <Button variant="ghost" size="icon" class="md:hidden -ml-1" onclick={() => onBack?.()} aria-label="Back">
       <ArrowLeft size={20} />
-    </button>
+    </Button>
   {/if}
   <h1 class="text-lg font-semibold truncate">{title}</h1>
 </header>

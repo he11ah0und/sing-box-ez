@@ -1,5 +1,5 @@
-<script>
-  import { onMount } from 'svelte';
+<script lang="ts">
+  import { onMount, type Snippet } from 'svelte';
 
   let {
     title = '',
@@ -8,6 +8,13 @@
     extraClass = '',
     actions = null,
     children
+  }: {
+    title?: string;
+    onLoad?: (() => void) | null;
+    fullHeight?: boolean;
+    extraClass?: string;
+    actions?: Snippet | null;
+    children?: Snippet;
   } = $props();
 
   onMount(() => {

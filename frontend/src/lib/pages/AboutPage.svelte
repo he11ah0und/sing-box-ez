@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
   import { Info } from '@lucide/svelte';
   export const pageMeta = {
     id: 'about',
@@ -10,12 +10,16 @@
   };
 </script>
 
-<script>
+<script lang="ts">
   import { ExternalLink, FolderOpen, GitBranch, Download, FileText, RefreshCw } from '@lucide/svelte';
   import { appState } from '../stores/appState.js';
   import { locale, tValue } from '../stores/locale.js';
   import Page from '../components/Page.svelte';
-  import Modal from '../components/Modal.svelte';
+  import * as Card from '$lib/components/ui/card/index.js';
+  import { Button } from '$lib/components/ui/button/index.js';
+  import { Progress } from '$lib/components/ui/progress/index.js';
+  import * as Dialog from '$lib/components/ui/dialog/index.js';
+  import { cn } from '$lib/utils.js';
   import {
     GetVersionInfo,
     GetBranches,
@@ -23,13 +27,16 @@
     InstallSelfUpdate,
     OpenDataDir,
     OpenURL,
-    GetReleaseNotes
+    GetReleaseNotes,
+    type VersionInfo,
+    type UpdateChannel,
+    type SelfUpdateInfo
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
-  let version = $state(null);
-  let branches = $state([]);
+  let version = $state<VersionInfo | null>(null);
+  let branches = $state<UpdateChannel[]>([]);
   let currentBranch = $state('');
-  let selfUpdate = $state(null);
+  let selfUpdate = $state<SelfUpdateInfo | null>(null);
   let checking = $state(false);
   let installing = $state(false);
   let message = $state('');
@@ -97,7 +104,7 @@
     await OpenURL(`https://github.com/he11ah0und/sing-box-ez/releases/tag/${tag}`);
   }
 
-  function selectBranch(name) {
+  function selectBranch(name: string) {
     currentBranch = name;
     showBranchPicker = false;
     selfUpdate = null;
@@ -110,140 +117,144 @@
   onLoad={load}
 >
   {#if version}
-    <section class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm space-y-3">
-      <h3 class="font-medium">{tValue($locale, 'about.system.title', 'System')}</h3>
-      <p class="text-sm text-[var(--color-text-muted)]">{version.buildFlags}</p>
-      <p class="text-sm text-[var(--color-text-muted)]">
-        {tValue($locale, 'about.commit_info.prefix', 'Commit:')} {version.branch}
-        {#if version.commit}, {version.commit}{/if}
-        {#if version.commitDate}, {version.commitDate}{/if}
-      </p>
-      <p class="text-sm text-[var(--color-text-muted)]">
-        {tValue($locale, 'about.build_info.prefix', 'Build:')} {version.buildDate || '—'}
-      </p>
-      {#if version.isDev}
-        <p class="text-sm text-[var(--color-primary)]">{tValue($locale, 'about.dev_build.label', 'Development build')}</p>
-      {/if}
-
-      <div class="flex flex-wrap gap-3 pt-2">
-        <button class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-primary)] text-white hover:opacity-90 transition" onclick={openRepo}>
-          <ExternalLink size={16} />
-          {tValue($locale, 'about.btn.open_repo', 'Open repo')}
-        </button>
-        {#if !version.isDev}
-          <button class="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-variant)] hover:bg-[var(--color-border)] transition" onclick={fetchReleaseNotes}>
-            <FileText size={16} />
-            {tValue($locale, 'about.btn.release_notes', 'Release notes')}
-          </button>
-          <button class="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-variant)] hover:bg-[var(--color-border)] transition" onclick={openReleaseNotes}>
-            <ExternalLink size={16} />
-            {tValue($locale, 'about.btn.open_release_notes', 'Open release notes')}
-          </button>
+    <Card.Root>
+      <Card.Header>
+        <Card.Title>{tValue($locale, 'about.system.title', 'System')}</Card.Title>
+        <Card.Description>{version.buildFlags}</Card.Description>
+      </Card.Header>
+      <Card.Content class="space-y-3">
+        <p class="text-sm text-muted-foreground">
+          {tValue($locale, 'about.commit_info.prefix', 'Commit:')} {version.branch}
+          {#if version.commit}, {version.commit}{/if}
+          {#if version.commitDate}, {version.commitDate}{/if}
+        </p>
+        <p class="text-sm text-muted-foreground">
+          {tValue($locale, 'about.build_info.prefix', 'Build:')} {version.buildDate || '—'}
+        </p>
+        {#if version.isDev}
+          <p class="text-sm text-primary">{tValue($locale, 'about.dev_build.label', 'Development build')}</p>
         {/if}
-      </div>
-    </section>
+
+        <div class="flex flex-wrap gap-3 pt-2">
+          <Button onclick={openRepo}>
+            <ExternalLink size={16} />
+            {tValue($locale, 'about.btn.open_repo', 'Open repo')}
+          </Button>
+          {#if !version.isDev}
+            <Button variant="outline" onclick={fetchReleaseNotes}>
+              <FileText size={16} />
+              {tValue($locale, 'about.btn.release_notes', 'Release notes')}
+            </Button>
+            <Button variant="outline" onclick={openReleaseNotes}>
+              <ExternalLink size={16} />
+              {tValue($locale, 'about.btn.open_release_notes', 'Open release notes')}
+            </Button>
+          {/if}
+        </div>
+      </Card.Content>
+    </Card.Root>
   {/if}
 
-  <section class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h3 class="font-medium">{tValue($locale, 'about.update.title', 'App update')}</h3>
-        <p class="text-sm text-[var(--color-text-muted)]">{tValue($locale, 'about.branch.label', 'Branch:')} {currentBranch}</p>
-      </div>
-      <button
-        class="flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-variant)] hover:bg-[var(--color-border)] transition"
-        onclick={() => showBranchPicker = true}
-      >
-        <GitBranch size={16} />
-        {tValue($locale, 'about.btn.switch_branch', 'Switch branch')}
-      </button>
-    </div>
-
-    {#if selfUpdate}
-      <div class="rounded-xl bg-[var(--color-bg)] p-4 space-y-2">
-        <p class="text-sm">{tValue($locale, 'about.update.current_version', 'Current:')} {selfUpdate.current}</p>
-        <p class="text-sm">{tValue($locale, 'about.update.latest', 'Latest:')} {selfUpdate.latest}</p>
-        {#if selfUpdate.hasUpdate}
-          <p class="text-sm text-green-500">{tValue($locale, 'about.update.available', 'Update available')}</p>
-        {:else if selfUpdate.isDevBuild}
-          <p class="text-sm text-[var(--color-warning)]">{tValue($locale, 'about.update.dev_build', 'Development build')}</p>
-        {:else}
-          <p class="text-sm text-[var(--color-text-muted)]">{tValue($locale, 'about.update.up_to_date', 'Up to date')}</p>
-        {/if}
-      </div>
-    {/if}
-
-    {#if $appState.selfUpdate?.downloading}
-      <div class="space-y-1">
-        <div class="flex justify-between text-sm">
-          <span>{tValue($locale, 'about.update.downloading', 'Downloading…')}</span>
-          <span>{Math.round(($appState.selfUpdate.downloadProgress ?? 0) * 100)}%</span>
+  <Card.Root>
+    <Card.Header>
+      <div class="flex items-center justify-between">
+        <div>
+          <Card.Title>{tValue($locale, 'about.update.title', 'App update')}</Card.Title>
+          <Card.Description>{tValue($locale, 'about.branch.label', 'Branch:')} {currentBranch}</Card.Description>
         </div>
-        <div class="h-2 rounded-full bg-[var(--color-border)] overflow-hidden">
-          <div class="h-full bg-[var(--color-primary)] transition-all" style="width: {Math.round(($appState.selfUpdate.downloadProgress ?? 0) * 100)}%"></div>
-        </div>
+        <Button variant="outline" onclick={() => showBranchPicker = true}>
+          <GitBranch size={16} />
+          {tValue($locale, 'about.btn.switch_branch', 'Switch branch')}
+        </Button>
       </div>
-    {/if}
-
-    <div class="flex flex-wrap gap-3">
-      <button
-        class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-primary)] text-white disabled:opacity-50 hover:opacity-90 transition"
-        disabled={checking || installing}
-        onclick={checkUpdate}
-      >
-        {#if checking}
-          <RefreshCw size={16} class="animate-spin" />
-        {:else}
-          <RefreshCw size={16} />
-        {/if}
-        {tValue($locale, 'about.btn.check_update', 'Check update')}
-      </button>
-      {#if selfUpdate?.hasUpdate}
-        <button
-          class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-success)] text-white disabled:opacity-50 hover:opacity-90 transition"
-          disabled={installing}
-          onclick={installUpdate}
-        >
-          <Download size={16} />
-          {tValue($locale, 'about.btn.install_update', 'Install update')}
-        </button>
+    </Card.Header>
+    <Card.Content class="space-y-4">
+      {#if selfUpdate}
+        <div class="rounded-xl bg-background border border-border p-4 space-y-2">
+          <p class="text-sm">{tValue($locale, 'about.update.current_version', 'Current:')} {selfUpdate.current}</p>
+          <p class="text-sm">{tValue($locale, 'about.update.latest', 'Latest:')} {selfUpdate.latest}</p>
+          {#if selfUpdate.hasUpdate}
+            <p class="text-sm text-[var(--color-success)]">{tValue($locale, 'about.update.available', 'Update available')}</p>
+          {:else if selfUpdate.isDevBuild}
+            <p class="text-sm text-[var(--color-warning)]">{tValue($locale, 'about.update.dev_build', 'Development build')}</p>
+          {:else}
+            <p class="text-sm text-muted-foreground">{tValue($locale, 'about.update.up_to_date', 'Up to date')}</p>
+          {/if}
+        </div>
       {/if}
-    </div>
-  </section>
 
-  <section class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
-    <button
-      class="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-variant)] hover:bg-[var(--color-border)] transition"
-      onclick={openDataDir}
-    >
-      <FolderOpen size={16} />
-      {tValue($locale, 'about.btn.open_data', 'Open data folder')}
-    </button>
-  </section>
+      {#if $appState.selfUpdate?.downloading}
+        <div class="space-y-1">
+          <div class="flex justify-between text-sm">
+            <span>{tValue($locale, 'about.update.downloading', 'Downloading…')}</span>
+            <span>{Math.round(($appState.selfUpdate.downloadProgress ?? 0) * 100)}%</span>
+          </div>
+          <Progress value={($appState.selfUpdate.downloadProgress ?? 0) * 100} max={100} />
+        </div>
+      {/if}
+
+      <div class="flex flex-wrap gap-3">
+        <Button
+          disabled={checking || installing}
+          onclick={checkUpdate}
+        >
+          <RefreshCw size={16} class={checking ? 'animate-spin' : ''} />
+          {tValue($locale, 'about.btn.check_update', 'Check update')}
+        </Button>
+        {#if selfUpdate?.hasUpdate}
+          <Button
+            class="bg-[var(--color-success)] text-white hover:opacity-90"
+            disabled={installing}
+            onclick={installUpdate}
+          >
+            <Download size={16} />
+            {tValue($locale, 'about.btn.install_update', 'Install update')}
+          </Button>
+        {/if}
+      </div>
+    </Card.Content>
+  </Card.Root>
+
+  <Card.Root>
+    <Card.Content>
+      <Button variant="outline" onclick={openDataDir}>
+        <FolderOpen size={16} />
+        {tValue($locale, 'about.btn.open_data', 'Open data folder')}
+      </Button>
+    </Card.Content>
+  </Card.Root>
 
   {#if message}
-    <p class="text-sm text-[var(--color-danger)]">{message}</p>
+    <p class="text-sm text-destructive">{message}</p>
   {/if}
 </Page>
 
-{#if showNotes}
-  <Modal title={tValue($locale, 'about.release_notes.title', 'Release notes')} onclose={() => showNotes = false}>
-    <div class="prose prose-invert max-w-none whitespace-pre-wrap">{releaseNotes}</div>
-  </Modal>
-{/if}
+<Dialog.Root open={showNotes} onOpenChange={(open) => { if (!open) showNotes = false; }}>
+  <Dialog.Content class="sm:max-w-2xl">
+    <Dialog.Header>
+      <Dialog.Title>{tValue($locale, 'about.release_notes.title', 'Release notes')}</Dialog.Title>
+    </Dialog.Header>
+    <div class="max-w-none whitespace-pre-wrap overflow-auto max-h-[70vh] text-sm">{releaseNotes}</div>
+  </Dialog.Content>
+</Dialog.Root>
 
-{#if showBranchPicker}
-  <Modal title={tValue($locale, 'about.btn.switch_branch', 'Switch branch')} onclose={() => showBranchPicker = false}>
+<Dialog.Root open={showBranchPicker} onOpenChange={(open) => { if (!open) showBranchPicker = false; }}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>{tValue($locale, 'about.btn.switch_branch', 'Switch branch')}</Dialog.Title>
+    </Dialog.Header>
     <div class="flex flex-col gap-2">
       {#each branches as branch (branch.id)}
         <button
-          class="w-full text-left px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-variant)] hover:bg-[var(--color-border)] transition"
-          class:text-[var(--color-primary)]={branch.name === currentBranch}
+          class={cn(
+            'w-full text-left px-4 py-3 rounded-xl border border-border bg-secondary hover:bg-accent transition',
+            branch.name === currentBranch && 'text-primary'
+          )}
           onclick={() => selectBranch(branch.name)}
         >
           {branch.name} {#if branch.name === currentBranch}✓{/if}
         </button>
       {/each}
     </div>
-  </Modal>
-{/if}
+  </Dialog.Content>
+</Dialog.Root>
