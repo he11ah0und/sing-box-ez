@@ -1,8 +1,7 @@
 <script lang="ts">
   import { Trash2, RefreshCw, Copy } from '@lucide/svelte';
-  import { toast } from 'svelte-sonner';
   import { appState, clearLogs } from '../stores/appState.js';
-  import { locale, tValue } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.js';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -12,10 +11,17 @@
     GetAppLogs,
     GetCoreLogs,
     ClearAppLogs,
-    ClearCoreLogs
+    ClearCoreLogs,
+    CopyLogs
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
   let processing = $state(false);
+
+  const tabDebug = useLocale('tab.debug');
+  const logBtnCopy = useLocale('log.btn.copy');
+  const commonRefresh = useLocale('common.refresh');
+  const commonClear = useLocale('common.clear');
+  const logEmpty = useLocale('log.empty');
 
   function colorizeCore(line: string): AnsiPart[] {
     const ansi = parseANSILine(line);
@@ -53,19 +59,13 @@
   }
 
   async function copy() {
-    const lines = $subNav.activeTab === 'core' ? $appState.logs.core : $appState.logs.app;
-    const text = lines.map((line) => parseANSILine(line).map((p) => p.text).join('')).join('\n');
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success(tValue($locale, 'log.copied'));
-    } catch (err) {
-      toast.error(String(err));
-    }
+    // The backend copies the buffer as plain text and reports it with a toast.
+    await CopyLogs($subNav.activeTab === 'core' ? 'core' : 'app').catch(() => {});
   }
 </script>
 
 <Page
-  title={tValue($locale, 'tab.debug')}
+  title={$tabDebug}
   onLoad={load}
   fullHeight={true}
   extraClass="space-y-4"
@@ -73,15 +73,15 @@
   {#snippet actions()}
     <Button variant="outline" onclick={copy}>
       <Copy size={16} />
-      {tValue($locale, 'log.btn.copy')}
+      {$logBtnCopy}
     </Button>
     <Button variant="outline" onclick={load}>
       <RefreshCw size={16} />
-      {tValue($locale, 'common.refresh')}
+      {$commonRefresh}
     </Button>
     <Button variant="destructive" disabled={processing} onclick={clear}>
       <Trash2 size={16} />
-      {tValue($locale, 'common.clear')}
+      {$commonClear}
     </Button>
   {/snippet}
 
@@ -89,7 +89,7 @@
     <div class="p-4 font-mono text-sm">
       {#if $subNav.activeTab === 'core'}
         {#if $appState.logs.core.length === 0}
-          <p class="text-muted-foreground">{tValue($locale, 'log.empty')}</p>
+          <p class="text-muted-foreground">{$logEmpty}</p>
         {:else}
           {#each $appState.logs.core as line}
             <div class="whitespace-pre-wrap break-words py-0.5">
@@ -101,7 +101,7 @@
         {/if}
       {:else}
         {#if $appState.logs.app.length === 0}
-          <p class="text-muted-foreground">{tValue($locale, 'log.empty')}</p>
+          <p class="text-muted-foreground">{$logEmpty}</p>
         {:else}
           {#each $appState.logs.app as line}
             <div class="whitespace-pre-wrap break-words py-0.5">

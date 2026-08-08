@@ -81,9 +81,23 @@ func (b *Bindings) GetBranches() ([]UpdateChannel, error) {
 func (b *Bindings) CheckSelfUpdate(branch string) (SelfUpdateInfo, error) {
 	info, err := b.ic.CheckSelfUpdateForBranch(branch)
 	if err != nil {
+		b.toastErr(err)
 		return SelfUpdateInfo{}, err
 	}
-	return toSelfUpdateInfo(info), nil
+	result := toSelfUpdateInfo(info)
+	switch {
+	case result.HasUpdate:
+		b.toast("success",
+			fmt.Sprintf(b.t("about", "update", "available"), result.Latest),
+			b.t("about", "update", "current_version")+" "+result.Current+
+				" → "+b.t("about", "update", "latest")+" "+result.Latest)
+	case result.IsDevBuild:
+		b.toast("warning",
+			fmt.Sprintf(b.t("about", "update", "dev_build"), result.Current, result.Latest), "")
+	default:
+		b.toast("info", b.t("about", "update", "up_to_date"), "")
+	}
+	return result, nil
 }
 
 // toSelfUpdateInfo converts an updater result into the UI-facing form,
@@ -188,15 +202,18 @@ func (b *Bindings) checkCoreUpdateAvailable() {
 func (b *Bindings) InstallSelfUpdate(branch string) error {
 	u := b.ic.SelfUpdater()
 	if u == nil {
-		return fmt.Errorf("self updater not configured")
+		err := fmt.Errorf("self updater not configured")
+		b.toastErr(err)
+		return err
 	}
 	info, err := b.ic.CheckSelfUpdateForBranch(branch)
 	if err != nil {
+		b.toastErr(err)
 		return err
 	}
 	ctx, cancel := context.WithTimeout(b.ctx, 10*time.Minute)
 	defer cancel()
-	return u.Install(ctx, info, func(downloaded, total int64) {
+	err = u.Install(ctx, info, func(downloaded, total int64) {
 		progress := 0
 		if total > 0 {
 			progress = int(float64(downloaded) / float64(total) * 100)
@@ -207,16 +224,30 @@ func (b *Bindings) InstallSelfUpdate(branch string) error {
 			"progress":   int64(progress),
 		})
 	})
+	if err != nil {
+		b.toastErr(err)
+		return err
+	}
+	b.toastT("success", []string{"about", "update", "installed"})
+	return nil
 }
 
 // OpenDataDir opens the application data directory in the file manager.
 func (b *Bindings) OpenDataDir() error {
-	return b.app.Controller.OpenDataDir()
+	if err := b.app.Controller.OpenDataDir(); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // OpenURL opens a URL in the default browser.
 func (b *Bindings) OpenURL(url string) error {
-	return openurl.OpenURL(url)
+	if err := openurl.OpenURL(url); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // GetReleaseNotes fetches release notes for a specific version.
@@ -230,6 +261,7 @@ func humanDurationOrEmpty(t time.Time, err error) string {
 func (b *Bindings) GetReleaseNotes(ver string) (string, error) {
 	release, err := updater.GetReleaseByVersion(ver)
 	if err != nil {
+		b.toastT("error", []string{"about", "release_notes", "error"})
 		if release.Version == "" {
 			return "", fmt.Errorf("release notes not found")
 		}

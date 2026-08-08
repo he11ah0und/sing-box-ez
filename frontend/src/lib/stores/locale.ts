@@ -1,4 +1,4 @@
-import { writable, derived, get, type Readable } from 'svelte/store';
+import { writable, derived, type Readable } from 'svelte/store';
 import {
   RegisterLocaleKeys,
   LocaleReady
@@ -117,9 +117,4 @@ export function useLocale(key: string): Readable<string> {
     cells.set(key, cell);
   }
   return cell;
-}
-
-// getLocaleString registers a key and returns its current translation value.
-export function getLocaleString(key: string): string {
-  return get(useLocale(key));
 }

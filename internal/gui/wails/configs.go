@@ -23,6 +23,7 @@ func (b *Bindings) SetFallbackType(name, fallbackType string) error {
 		return nil
 	}
 	if err := b.app.Controller.SetFallbackType(name, fallbackType); err != nil {
+		b.toastErr(err)
 		return err
 	}
 	b.emitConfigsChanged()
@@ -34,12 +35,16 @@ func (b *Bindings) SetFallbackType(name, fallbackType string) error {
 func (b *Bindings) UpdateConfigNow(name string) error {
 	rec := b.app.Controller.Config().GetConfigByName(name)
 	if rec == nil {
-		return fmt.Errorf("profile not found: %s", name)
+		err := fmt.Errorf("profile not found: %s", name)
+		b.toastErr(err)
+		return err
 	}
 	if err := b.app.Controller.UpdateConfigNow(name, rec.URL); err != nil {
+		b.toastErr(err)
 		return err
 	}
 	b.emitConfigsChanged()
+	b.toastT("success", []string{"configs", "update_now", "done"})
 	return nil
 }
 
@@ -49,34 +54,50 @@ func (b *Bindings) UpdateConfigNow(name string) error {
 func (b *Bindings) UpdateAllConfigs() error {
 	_, _, err := b.app.Controller.UpdateAllConfigs(nil)
 	if err != nil {
+		b.toastErr(err)
 		return err
 	}
 	b.emitConfigsChanged()
+	b.toastT("success", []string{"configs", "update_all", "done"})
 	return nil
 }
 
 // ValidateConfig runs a deprecation/validation check for the named profile
 // against the installed sing-box core version.
 func (b *Bindings) ValidateConfig(name string) (singboxconfig.ValidationResult, error) {
-	return b.app.Controller.ValidateConfig(name)
+	result, err := b.app.Controller.ValidateConfig(name)
+	if err != nil {
+		b.toastErr(err)
+	}
+	return result, err
 }
 
 // OpenConfigFile opens the cached config file in the platform default editor.
 func (b *Bindings) OpenConfigFile(name string) error {
-	return b.app.Controller.OpenConfigFile(name)
+	if err := b.app.Controller.OpenConfigFile(name); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // OpenConfigDir opens the directory containing the cached config file.
 func (b *Bindings) OpenConfigDir(name string) error {
-	return b.app.Controller.OpenConfigDir(name)
+	if err := b.app.Controller.OpenConfigDir(name); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // RecreateLocalConfig recreates the config file of a local profile.
 func (b *Bindings) RecreateLocalConfig(name string) error {
 	if err := b.app.Controller.RecreateLocalConfig(name); err != nil {
+		b.toastErr(err)
 		return err
 	}
 	b.emitConfigsChanged()
+	b.toastT("success", []string{"configs", "recreate", "done"})
 	return nil
 }
 

@@ -28,6 +28,12 @@ interface LogLinePayload {
   line?: string;
 }
 
+interface ToastPayload {
+  level?: string;
+  text?: string;
+  description?: string;
+}
+
 interface TrafficPayload {
   up?: number;
   down?: number;
@@ -166,6 +172,26 @@ export function initWailsEvents() {
   Events.On('locale:changed', (event: WailsEvent<LocaleChangedPayload>) => {
     const data = event.data ?? {};
     locale.set({ language: data.language ?? 'en', values: data.values ?? {} });
+  });
+
+  // Backend-composed toasts: text arrives already localized, the frontend
+  // only displays it.
+  Events.On('toast', (event: WailsEvent<ToastPayload>) => {
+    const data = event.data ?? {};
+    const options = data.description ? { description: data.description } : undefined;
+    switch (data.level) {
+      case 'success':
+        toast.success(data.text ?? '', options);
+        break;
+      case 'warning':
+        toast.warning(data.text ?? '', options);
+        break;
+      case 'error':
+        toast.error(data.text ?? '', options);
+        break;
+      default:
+        toast(data.text ?? '', options);
+    }
   });
 
   Events.On('locale:keys_changed', (event: WailsEvent<Record<string, string>>) => {

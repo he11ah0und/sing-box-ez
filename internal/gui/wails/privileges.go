@@ -39,11 +39,19 @@ func (b *Bindings) GetPrivilegeTabState() PrivilegeTabState {
 // RestartAsAdmin restarts the application with administrator privileges.
 // It is a no-op on non-Windows platforms.
 func (b *Bindings) RestartAsAdmin() error {
-	return b.app.Controller.RestartAsAdmin()
+	if err := b.app.Controller.RestartAsAdmin(); err != nil {
+		b.toastErr(err, "core", "btn", "restart_admin")
+		return err
+	}
+	return nil
 }
 
 // ApplySetcap applies the cap_net_admin capability to the sing-box core binary
 // so TUN mode works without root (Linux).
 func (b *Bindings) ApplySetcap() error {
-	return b.app.Controller.ApplySetcap()
+	if err := b.app.Controller.ApplySetcap(); err != nil {
+		b.toastErr(err, "core", "btn", "apply_setcap")
+		return err
+	}
+	return nil
 }

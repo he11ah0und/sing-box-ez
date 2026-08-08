@@ -2,7 +2,7 @@
   import { Plus, Check, Trash2, Edit2, RefreshCw, ShieldCheck, FileText, FolderOpen, RotateCw, Copy } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState, type ConfigRecord } from '../stores/appState.js';
-  import { locale, tValue } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.js';
   import Page from '../components/Page.svelte';
   import ConfigFormModal from '../components/ConfigFormModal.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
@@ -24,12 +24,39 @@
     OpenConfigDir,
     ValidateConfig,
     IsConfigHashMismatch,
-    HasCachedConfig
+    HasCachedConfig,
+    CopyValidationReport
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type {
     DeprecatedField,
     ValidationResult
   } from '../../../bindings/sing-box-ez/internal/singboxconfig/models.js';
+
+  const commonCancel = useLocale('common.cancel');
+  const configsBadgeActive = useLocale('configs.badge.active');
+  const configsBadgeHashMismatchTooltip = useLocale('configs.badge.hash_mismatch_tooltip');
+  const configsBadgeModified = useLocale('configs.badge.modified');
+  const configsBtnAdd = useLocale('configs.btn.add');
+  const configsBtnDelete = useLocale('configs.btn.delete');
+  const configsBtnEdit = useLocale('configs.btn.edit');
+  const configsBtnUpdateAll = useLocale('configs.btn.update_all');
+  const configsConfirmDelete = useLocale('configs.confirmDelete');
+  const configsDialogBtnCopy = useLocale('configs.dialog.btn.copy');
+  const configsDialogBtnCreate = useLocale('configs.dialog.btn.create');
+  const configsDialogBtnOpen = useLocale('configs.dialog.btn.open');
+  const configsDialogBtnOpenDir = useLocale('configs.dialog.btn.open_dir');
+  const configsDialogBtnUpdateNow = useLocale('configs.dialog.btn.update_now');
+  const configsDialogBtnValidate = useLocale('configs.dialog.btn.validate');
+  const configsEmpty = useLocale('configs.empty');
+  const startupContinue = useLocale('startup.continue');
+  const tabConfigs = useLocale('tab.configs');
+  const validationErrorsTitle = useLocale('validation.errors_title');
+  const validationInfoTitle = useLocale('validation.info_title');
+  const validationOk = useLocale('validation.ok');
+  const validationWarningsTitle = useLocale('validation.warnings_title');
+  const validationFieldDeprecated = useLocale('validation.field.deprecated');
+  const validationFieldRemoved = useLocale('validation.field.removed');
+  const validationFieldReplacement = useLocale('validation.field.replacement');
 
   let processing = $state(false);
   let updatingAll = $state(false);
@@ -73,11 +100,11 @@
   async function updateAll() {
     updatingAll = true;
     try {
+      // Result and error toasts are emitted by the backend.
       await UpdateAllConfigs();
-      toast.success(tValue($locale, 'configs.update_all.done'));
       await load();
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     } finally {
       updatingAll = false;
     }
@@ -87,38 +114,28 @@
     updating = { ...updating, [name]: true };
     try {
       await UpdateConfigNow(name);
-      toast.success(tValue($locale, 'configs.update_now.done'));
       await load();
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     } finally {
       updating = { ...updating, [name]: false };
     }
   }
 
   async function openFile(name: string) {
-    try {
-      await OpenConfigFile(name);
-    } catch (err) {
-      toast.error(String(err));
-    }
+    await OpenConfigFile(name).catch(() => {});
   }
 
   async function openDir(name: string) {
-    try {
-      await OpenConfigDir(name);
-    } catch (err) {
-      toast.error(String(err));
-    }
+    await OpenConfigDir(name).catch(() => {});
   }
 
   async function recreate(name: string) {
     try {
       await RecreateLocalConfig(name);
-      toast.success(tValue($locale, 'configs.recreate.done'));
       await load();
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     }
   }
 
@@ -126,48 +143,24 @@
     try {
       const result = await ValidateConfig(name);
       validation = { name, result };
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     }
   }
 
+  // Display-only rendering of one validation field in the dialog.
   function fieldLine(f: DeprecatedField): string {
     const parts = [f.path];
-    if (f.deprecated) parts.push(`${tValue($locale, 'validation.field.deprecated')} ${f.deprecated}`);
-    if (f.removed) parts.push(`${tValue($locale, 'validation.field.removed')} ${f.removed}`);
-    if (f.replacement) parts.push(`${tValue($locale, 'validation.field.replacement')}: ${f.replacement}`);
+    if (f.deprecated) parts.push(`${$validationFieldDeprecated} ${f.deprecated}`);
+    if (f.removed) parts.push(`${$validationFieldRemoved} ${f.removed}`);
+    if (f.replacement) parts.push(`${$validationFieldReplacement}: ${f.replacement}`);
     return parts.join(' — ');
   }
 
-  function validationText(): string {
-    if (!validation) return '';
-    const { result } = validation;
-    const lines: string[] = [];
-    if (result.errors?.length) {
-      lines.push(tValue($locale, 'validation.errors_title').replace('%d', String(result.errors.length)));
-      result.errors.forEach((f) => lines.push(`- ${fieldLine(f)}`));
-    }
-    if (result.warnings?.length) {
-      lines.push(tValue($locale, 'validation.warnings_title').replace('%d', String(result.warnings.length)));
-      result.warnings.forEach((f) => lines.push(`- ${fieldLine(f)}`));
-    }
-    if (result.info?.length) {
-      lines.push(tValue($locale, 'validation.info_title'));
-      result.info.forEach((i) => lines.push(`- ${i}`));
-    }
-    if (lines.length === 0) {
-      lines.push(tValue($locale, 'validation.ok'));
-    }
-    return lines.join('\n');
-  }
-
   async function copyValidation() {
-    try {
-      await navigator.clipboard.writeText(validationText());
-      toast.success(tValue($locale, 'validation.copied'));
-    } catch (err) {
-      toast.error(String(err));
-    }
+    if (!validation) return;
+    // Formatting, clipboard and the result toast live in the backend.
+    await CopyValidationReport(validation.name).catch(() => {});
   }
 
   function startAdd() {
@@ -204,8 +197,8 @@
     try {
       await DeleteConfig(deleteTarget);
       await load();
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     } finally {
       processing = false;
       deleteTarget = null;
@@ -214,17 +207,17 @@
 </script>
 
 <Page
-  title={tValue($locale, 'tab.configs')}
+  title={$tabConfigs}
   onLoad={load}
 >
   {#snippet actions()}
     <Button variant="outline" disabled={updatingAll} onclick={updateAll}>
       <RefreshCw size={16} class={updatingAll ? 'animate-spin' : ''} />
-      {tValue($locale, 'configs.btn.update_all')}
+      {$configsBtnUpdateAll}
     </Button>
     <Button onclick={startAdd}>
       <Plus size={18} />
-      {tValue($locale, 'configs.btn.add')}
+      {$configsBtnAdd}
     </Button>
   {/snippet}
 
@@ -240,16 +233,16 @@
         <div class="flex flex-wrap gap-2 rounded-xl border border-border bg-background p-3">
           <Button variant="outline" size="sm" onclick={() => openFile(editing!)}>
             <FileText size={14} />
-            {tValue($locale, 'configs.dialog.btn.open')}
+            {$configsDialogBtnOpen}
           </Button>
           <Button variant="outline" size="sm" onclick={() => openDir(editing!)}>
             <FolderOpen size={14} />
-            {tValue($locale, 'configs.dialog.btn.open_dir')}
+            {$configsDialogBtnOpenDir}
           </Button>
           {#if editing && hasCached[editing] === false}
             <Button variant="outline" size="sm" onclick={() => recreate(editing!)}>
               <RotateCw size={14} />
-              {tValue($locale, 'configs.dialog.btn.create')}
+              {$configsDialogBtnCreate}
             </Button>
           {/if}
         </div>
@@ -260,7 +253,7 @@
   <Card.Root class="overflow-hidden py-0 gap-0">
     {#if $appState.configs.length === 0}
       <Card.Content class="py-6">
-        <p class="text-muted-foreground">{tValue($locale, 'configs.empty')}</p>
+        <p class="text-muted-foreground">{$configsEmpty}</p>
       </Card.Content>
     {:else}
       <ul class="divide-y divide-border">
@@ -274,7 +267,7 @@
               {#if $appState.activeConfig?.name === cfg.name}
                 <Badge variant="secondary" class="text-[var(--color-success)]">
                   <Check size={12} />
-                  {tValue($locale, 'configs.badge.active')}
+                  {$configsBadgeActive}
                 </Badge>
               {/if}
               {#if hashMismatch[cfg.name]}
@@ -282,12 +275,12 @@
                   <Tooltip.Trigger>
                     {#snippet child({ props })}
                       <Badge {...props} variant="secondary" class="text-[var(--color-warning)]">
-                        {tValue($locale, 'configs.badge.modified')}
+                        {$configsBadgeModified}
                       </Badge>
                     {/snippet}
                   </Tooltip.Trigger>
                   <Tooltip.Content>
-                    {tValue($locale, 'configs.badge.hash_mismatch_tooltip')}
+                    {$configsBadgeHashMismatchTooltip}
                   </Tooltip.Content>
                 </Tooltip.Root>
               {/if}
@@ -299,7 +292,7 @@
                         {...props}
                         variant="ghost"
                         size="icon"
-                        aria-label={tValue($locale, 'configs.dialog.btn.update_now')}
+                        aria-label={$configsDialogBtnUpdateNow}
                         disabled={updating[cfg.name]}
                         onclick={() => updateNow(cfg.name)}
                       >
@@ -307,7 +300,7 @@
                       </Button>
                     {/snippet}
                   </Tooltip.Trigger>
-                  <Tooltip.Content>{tValue($locale, 'configs.dialog.btn.update_now')}</Tooltip.Content>
+                  <Tooltip.Content>{$configsDialogBtnUpdateNow}</Tooltip.Content>
                 </Tooltip.Root>
               {/if}
               <Tooltip.Root>
@@ -317,14 +310,14 @@
                       {...props}
                       variant="ghost"
                       size="icon"
-                      aria-label={tValue($locale, 'configs.dialog.btn.validate')}
+                      aria-label={$configsDialogBtnValidate}
                       onclick={() => validate(cfg.name)}
                     >
                       <ShieldCheck size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{tValue($locale, 'configs.dialog.btn.validate')}</Tooltip.Content>
+                <Tooltip.Content>{$configsDialogBtnValidate}</Tooltip.Content>
               </Tooltip.Root>
               <Tooltip.Root>
                 <Tooltip.Trigger>
@@ -333,14 +326,14 @@
                       {...props}
                       variant="ghost"
                       size="icon"
-                      aria-label={tValue($locale, 'configs.btn.edit')}
+                      aria-label={$configsBtnEdit}
                       onclick={() => startEdit(cfg)}
                     >
                       <Edit2 size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{tValue($locale, 'configs.btn.edit')}</Tooltip.Content>
+                <Tooltip.Content>{$configsBtnEdit}</Tooltip.Content>
               </Tooltip.Root>
               <Tooltip.Root>
                 <Tooltip.Trigger>
@@ -350,14 +343,14 @@
                       variant="ghost"
                       size="icon"
                       class="text-destructive hover:bg-destructive/10"
-                      aria-label={tValue($locale, 'configs.btn.delete')}
+                      aria-label={$configsBtnDelete}
                       onclick={() => (deleteTarget = cfg.name)}
                     >
                       <Trash2 size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{tValue($locale, 'configs.btn.delete')}</Tooltip.Content>
+                <Tooltip.Content>{$configsBtnDelete}</Tooltip.Content>
               </Tooltip.Root>
             </div>
           </li>
@@ -369,19 +362,19 @@
   <AlertDialog.Root open={deleteTarget != null} onOpenChange={(open) => { if (!open) deleteTarget = null; }}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>{tValue($locale, 'configs.btn.delete')}</AlertDialog.Title>
+        <AlertDialog.Title>{$configsBtnDelete}</AlertDialog.Title>
         <AlertDialog.Description>
-          {tValue($locale, 'configs.confirmDelete')}
+          {$configsConfirmDelete}
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>{tValue($locale, 'common.cancel')}</AlertDialog.Cancel>
+        <AlertDialog.Cancel>{$commonCancel}</AlertDialog.Cancel>
         <AlertDialog.Action
           class="bg-destructive text-white hover:bg-destructive/90"
           disabled={processing}
           onclick={confirmDelete}
         >
-          {tValue($locale, 'startup.continue')}
+          {$startupContinue}
         </AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>
@@ -391,20 +384,20 @@
     <Dialog.Content class="sm:max-w-2xl">
       <Dialog.Header>
         <Dialog.Title>
-          {tValue($locale, 'configs.dialog.btn.validate')} — {validation?.name ?? ''}
+          {$configsDialogBtnValidate} — {validation?.name ?? ''}
         </Dialog.Title>
       </Dialog.Header>
       {#if validation}
         <div class="space-y-4 max-h-[60vh] overflow-auto text-sm">
           {#if !validation.result.errors?.length && !validation.result.warnings?.length && !validation.result.info?.length}
             <p class="text-[var(--color-success)]">
-              {tValue($locale, 'validation.ok')}
+              {$validationOk}
             </p>
           {:else}
             {#if validation.result.errors?.length}
               <div>
                 <p class="font-medium text-destructive mb-1">
-                  {tValue($locale, 'validation.errors_title').replace('%d', String(validation.result.errors.length))}
+                  {$validationErrorsTitle.replace('%d', String(validation.result.errors.length))}
                 </p>
                 <ul class="space-y-1">
                   {#each validation.result.errors as field (field.path)}
@@ -416,7 +409,7 @@
             {#if validation.result.warnings?.length}
               <div>
                 <p class="font-medium text-[var(--color-warning)] mb-1">
-                  {tValue($locale, 'validation.warnings_title').replace('%d', String(validation.result.warnings.length))}
+                  {$validationWarningsTitle.replace('%d', String(validation.result.warnings.length))}
                 </p>
                 <ul class="space-y-1">
                   {#each validation.result.warnings as field (field.path)}
@@ -427,7 +420,7 @@
             {/if}
             {#if validation.result.info?.length}
               <div>
-                <p class="font-medium mb-1">{tValue($locale, 'validation.info_title')}</p>
+                <p class="font-medium mb-1">{$validationInfoTitle}</p>
                 <ul class="space-y-1">
                   {#each validation.result.info as line}
                     <li class="whitespace-pre-wrap break-words text-muted-foreground">{line}</li>
@@ -441,7 +434,7 @@
       <Dialog.Footer>
         <Button variant="outline" onclick={copyValidation}>
           <Copy size={16} />
-          {tValue($locale, 'configs.dialog.btn.copy')}
+          {$configsDialogBtnCopy}
         </Button>
       </Dialog.Footer>
     </Dialog.Content>

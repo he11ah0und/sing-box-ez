@@ -237,11 +237,16 @@ func (b *Bindings) GetAPIMode() (string, error) {
 func (b *Bindings) SetAPIMode(mode string) error {
 	client, err := b.apiClient()
 	if err != nil {
+		b.toastErr(err)
 		return err
 	}
 	ctx, cancel := context.WithTimeout(b.ctx, 5*time.Second)
 	defer cancel()
-	return client.SetMode(ctx, mode)
+	if err := client.SetMode(ctx, mode); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // GetAPIGroups returns the configured outbound groups.
@@ -286,11 +291,16 @@ func (b *Bindings) GetAPIConnections() ([]APIConnection, error) {
 func (b *Bindings) SelectAPINode(group, node string) error {
 	client, err := b.apiClient()
 	if err != nil {
+		b.toastErr(err)
 		return err
 	}
 	ctx, cancel := context.WithTimeout(b.ctx, 5*time.Second)
 	defer cancel()
-	return client.SelectGroup(ctx, group, node)
+	if err := client.SelectGroup(ctx, group, node); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // URLTestResult maps outbound tags to latency in milliseconds.
@@ -315,6 +325,7 @@ func (b *Bindings) URLTestAPIGroup(group string) (URLTestResult, error) {
 	defer cancel()
 	results, err := client.URLTest(ctx, group, url, 5*time.Second)
 	if err != nil {
+		b.toastErr(err)
 		return URLTestResult{}, err
 	}
 	var total, count int
@@ -329,20 +340,30 @@ func (b *Bindings) URLTestAPIGroup(group string) (URLTestResult, error) {
 func (b *Bindings) CloseAPIConnections() error {
 	client, err := b.apiClient()
 	if err != nil {
+		b.toastErr(err)
 		return err
 	}
 	ctx, cancel := context.WithTimeout(b.ctx, 5*time.Second)
 	defer cancel()
-	return client.CloseConnections(ctx)
+	if err := client.CloseConnections(ctx); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // CloseAPIConnection closes a single connection by ID.
 func (b *Bindings) CloseAPIConnection(id string) error {
 	client, err := b.apiClient()
 	if err != nil {
+		b.toastErr(err)
 		return err
 	}
 	ctx, cancel := context.WithTimeout(b.ctx, 5*time.Second)
 	defer cancel()
-	return client.CloseConnection(ctx, id)
+	if err := client.CloseConnection(ctx, id); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }

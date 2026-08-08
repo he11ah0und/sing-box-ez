@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { locale, tValue } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.js';
   import type { ConfigRecord } from '../stores/appState.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
@@ -23,6 +23,19 @@
     onsave?: (rec: ConfigRecord) => void | Promise<void>;
     actions?: Snippet;
   } = $props();
+
+  const commonCancel = useLocale('common.cancel');
+  const commonSave = useLocale('common.save');
+  const commonSaving = useLocale('common.saving');
+  const configsBtnEdit = useLocale('configs.btn.edit');
+  const configsInterval = useLocale('configs.interval');
+  const configsLocal = useLocale('configs.local');
+  const configsName = useLocale('configs.name');
+  const configsNameRequired = useLocale('configs.nameRequired');
+  const configsNew = useLocale('configs.new');
+  const configsRemote = useLocale('configs.remote');
+  const configsType = useLocale('configs.type');
+  const configsUrl = useLocale('configs.url');
 
   let processing = $state(false);
   let error = $state('');
@@ -81,7 +94,7 @@
     };
 
     if (!rec.name) {
-      error = tValue($locale, 'configs.nameRequired');
+      error = $configsNameRequired;
       return;
     }
 
@@ -89,8 +102,8 @@
     try {
       await onsave(rec);
       onclose();
-    } catch (err) {
-      error = String(err);
+    } catch {
+      // The backend already reported the failure with a toast; keep the form open.
     } finally {
       processing = false;
     }
@@ -100,11 +113,7 @@
     if (!nextOpen) onclose();
   }
 
-  const typeLabel = $derived(
-    form.type === 'local'
-      ? tValue($locale, 'configs.local')
-      : tValue($locale, 'configs.remote')
-  );
+  const typeLabel = $derived(form.type === 'local' ? $configsLocal : $configsRemote);
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
@@ -112,8 +121,8 @@
     <Dialog.Header>
       <Dialog.Title>
         {mode === 'edit'
-          ? tValue($locale, 'configs.btn.edit')
-          : tValue($locale, 'configs.new')}
+          ? $configsBtnEdit
+          : $configsNew}
       </Dialog.Title>
     </Dialog.Header>
 
@@ -126,28 +135,28 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="space-y-1">
-          <Label for="config-name">{tValue($locale, 'configs.name')}</Label>
+          <Label for="config-name">{$configsName}</Label>
           <Input id="config-name" bind:value={form.name} />
         </div>
 
         <div class="space-y-1">
-          <Label for="config-type">{tValue($locale, 'configs.type')}</Label>
+          <Label for="config-type">{$configsType}</Label>
           <Select.Root type="single" bind:value={form.type}>
             <Select.Trigger id="config-type" class="w-full">{typeLabel}</Select.Trigger>
             <Select.Content>
-              <Select.Item value="remote" label={tValue($locale, 'configs.remote')} />
-              <Select.Item value="local" label={tValue($locale, 'configs.local')} />
+              <Select.Item value="remote" label={$configsRemote} />
+              <Select.Item value="local" label={$configsLocal} />
             </Select.Content>
           </Select.Root>
         </div>
 
         <div class="space-y-1 sm:col-span-2">
-          <Label for="config-url">{tValue($locale, 'configs.url')}</Label>
+          <Label for="config-url">{$configsUrl}</Label>
           <Input id="config-url" bind:value={form.url} />
         </div>
 
         <div class="space-y-1">
-          <Label for="config-interval">{tValue($locale, 'configs.interval')}</Label>
+          <Label for="config-interval">{$configsInterval}</Label>
           <Input id="config-interval" type="number" min="0" bind:value={form.update_interval_hours} />
         </div>
       </div>
@@ -159,12 +168,12 @@
 
     <Dialog.Footer>
       <Button variant="outline" onclick={onclose} disabled={processing}>
-        {tValue($locale, 'common.cancel')}
+        {$commonCancel}
       </Button>
       <Button onclick={submit} disabled={processing}>
         {processing
-          ? tValue($locale, 'common.saving')
-          : tValue($locale, 'common.save')}
+          ? $commonSaving
+          : $commonSave}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

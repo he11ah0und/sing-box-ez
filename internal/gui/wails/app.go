@@ -135,42 +135,72 @@ func (b *Bindings) GetActiveConfig() *config.ConfigRecord {
 
 // ActivateConfig sets the active profile by name.
 func (b *Bindings) ActivateConfig(name string) error {
-	return b.app.Controller.ActivateConfig(name)
+	if err := b.app.Controller.ActivateConfig(name); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // AddConfig creates a new profile.
 func (b *Bindings) AddConfig(rec config.ConfigRecord) error {
-	return b.app.Controller.AddConfig(rec)
+	if err := b.app.Controller.AddConfig(rec); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // EditConfig updates an existing profile.
 func (b *Bindings) EditConfig(oldName string, rec config.ConfigRecord) error {
-	return b.app.Controller.EditConfig(oldName, rec)
+	if err := b.app.Controller.EditConfig(oldName, rec); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // DeleteConfig removes a profile by name.
 func (b *Bindings) DeleteConfig(name string) error {
-	return b.app.Controller.DeleteConfig(name)
+	if err := b.app.Controller.DeleteConfig(name); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // Start prepares the active config and starts the sing-box core. It goes
 // through the interactive start flow (config refresh, hash-mismatch handling,
 // client-style check) so the button behaves like the legacy UI and the tray.
 func (b *Bindings) Start() error {
+	var err error
 	if b.ic == nil {
-		return b.app.Controller.Start()
+		err = b.app.Controller.Start()
+	} else {
+		err = b.ic.StartService()
 	}
-	return b.ic.StartService()
+	if err != nil {
+		b.toastErr(err, "main", "btn", "start")
+	}
+	return err
 }
 
 // Stop stops the sing-box core.
 func (b *Bindings) Stop() error {
-	return b.app.Controller.Stop()
+	if err := b.app.Controller.Stop(); err != nil {
+		b.toastErr(err, "main", "btn", "stop")
+		return err
+	}
+	return nil
 }
 
 // Restart restarts the sing-box core.
 func (b *Bindings) Restart() error {
-	return b.app.Controller.Restart()
+	if err := b.app.Controller.Restart(); err != nil {
+		b.toastErr(err, "main", "btn", "restart")
+		return err
+	}
+	return nil
 }
 
 // GetCoreInfo returns installed and latest core version information.
@@ -421,10 +451,12 @@ func (b *Bindings) SaveSettings(s Settings) error {
 	_ = cfg.MustGet("updates", "auto_restart_on_config_update").Update(s.AutoRestartOnConfigUpdate)
 	_ = cfg.MustGet("updates", "background_update_check_interval_hours").Update(s.BackgroundUpdateCheckIntervalHours)
 	if err := cfg.Save(); err != nil {
+		b.toastErr(err)
 		return err
 	}
 	b.emit("settings:changed", s)
 	b.emitTheme()
+	b.toastT("success", []string{"settings", "saved"})
 	return nil
 }
 

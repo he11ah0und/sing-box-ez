@@ -2,7 +2,7 @@
   import { ExternalLink, FolderOpen, GitBranch, Download, FileText, RefreshCw } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
-  import { locale, tValue } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.js';
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -36,6 +36,26 @@
   let showNotes = $state(false);
   let showBranchPicker = $state(false);
 
+  const tabAbout = useLocale('tab.about');
+  const aboutSystemTitle = useLocale('about.system.title');
+  const aboutCommitInfoPrefix = useLocale('about.commit_info.prefix');
+  const aboutBuildInfoPrefix = useLocale('about.build_info.prefix');
+  const aboutDevBuildLabel = useLocale('about.dev_build.label');
+  const aboutBtnOpenRepo = useLocale('about.btn.open_repo');
+  const aboutBtnReleaseNotes = useLocale('about.btn.release_notes');
+  const aboutBtnOpenReleaseNotes = useLocale('about.btn.open_release_notes');
+  const aboutUpdateTitle = useLocale('about.update.title');
+  const aboutBranchLabel = useLocale('about.branch.label');
+  const aboutBtnSwitchBranch = useLocale('about.btn.switch_branch');
+  const aboutUpdateDownloading = useLocale('about.update.downloading');
+  const aboutBtnCheckUpdate = useLocale('about.btn.check_update');
+  const aboutBtnInstallUpdate = useLocale('about.btn.install_update');
+  const aboutUpdateConfirm = useLocale('about.update.confirm');
+  const commonCancel = useLocale('common.cancel');
+  const startupContinue = useLocale('startup.continue');
+  const aboutBtnOpenData = useLocale('about.btn.open_data');
+  const aboutReleaseNotesTitle = useLocale('about.release_notes.title');
+
   async function load() {
     try {
       version = await GetVersionInfo();
@@ -58,18 +78,9 @@
   async function checkUpdate() {
     checking = true;
     try {
+      // Result and error toasts are emitted by the backend.
       selfUpdate = await CheckSelfUpdate(currentBranch);
-      if (selfUpdate?.hasUpdate) {
-        toast.success(tValue($locale, 'about.update.available'), {
-          description: `${tValue($locale, 'about.update.current_version')} ${selfUpdate.current} → ${tValue($locale, 'about.update.latest')} ${selfUpdate.latest}`
-        });
-      } else if (selfUpdate?.isDevBuild) {
-        toast.warning(tValue($locale, 'about.update.dev_build'));
-      } else if (selfUpdate) {
-        toast(tValue($locale, 'about.update.up_to_date'));
-      }
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
       selfUpdate = null;
     } finally {
       checking = false;
@@ -80,9 +91,8 @@
     installing = true;
     try {
       await InstallSelfUpdate(currentBranch);
-      toast.success(tValue($locale, 'about.update.installed'));
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     } finally {
       installing = false;
     }
@@ -101,8 +111,8 @@
       const body = await GetReleaseNotes(version?.commit || 'latest');
       releaseNotes = body;
       showNotes = true;
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     }
   }
 
@@ -120,41 +130,41 @@
 </script>
 
 <Page
-  title={tValue($locale, 'tab.about')}
+  title={$tabAbout}
   onLoad={load}
 >
   {#if version}
     <Card.Root>
       <Card.Header>
-        <Card.Title>{tValue($locale, 'about.system.title')}</Card.Title>
+        <Card.Title>{$aboutSystemTitle}</Card.Title>
         <Card.Description>{version.buildFlags}</Card.Description>
       </Card.Header>
       <Card.Content class="space-y-3">
         <p class="text-sm text-muted-foreground">
-          {tValue($locale, 'about.commit_info.prefix')} {version.branch}
+          {$aboutCommitInfoPrefix} {version.branch}
           {#if version.commit}, {version.commit}{/if}
           {#if version.commitDate}, {version.commitDate}{/if}
         </p>
         <p class="text-sm text-muted-foreground">
-          {tValue($locale, 'about.build_info.prefix')} {version.buildDate || '—'}
+          {$aboutBuildInfoPrefix} {version.buildDate || '—'}
         </p>
         {#if version.isDev}
-          <p class="text-sm text-primary">{tValue($locale, 'about.dev_build.label')}</p>
+          <p class="text-sm text-primary">{$aboutDevBuildLabel}</p>
         {/if}
 
         <div class="flex flex-wrap gap-3 pt-2">
           <Button onclick={openRepo}>
             <ExternalLink size={16} />
-            {tValue($locale, 'about.btn.open_repo')}
+            {$aboutBtnOpenRepo}
           </Button>
           {#if !version.isDev}
             <Button variant="outline" onclick={fetchReleaseNotes}>
               <FileText size={16} />
-              {tValue($locale, 'about.btn.release_notes')}
+              {$aboutBtnReleaseNotes}
             </Button>
             <Button variant="outline" onclick={openReleaseNotes}>
               <ExternalLink size={16} />
-              {tValue($locale, 'about.btn.open_release_notes')}
+              {$aboutBtnOpenReleaseNotes}
             </Button>
           {/if}
         </div>
@@ -166,12 +176,12 @@
     <Card.Header>
       <div class="flex items-center justify-between">
         <div>
-          <Card.Title>{tValue($locale, 'about.update.title')}</Card.Title>
-          <Card.Description>{tValue($locale, 'about.branch.label')} {currentBranch}</Card.Description>
+          <Card.Title>{$aboutUpdateTitle}</Card.Title>
+          <Card.Description>{$aboutBranchLabel} {currentBranch}</Card.Description>
         </div>
         <Button variant="outline" onclick={() => showBranchPicker = true}>
           <GitBranch size={16} />
-          {tValue($locale, 'about.btn.switch_branch')}
+          {$aboutBtnSwitchBranch}
         </Button>
       </div>
     </Card.Header>
@@ -179,7 +189,7 @@
       {#if $appState.selfUpdate?.downloading}
         <div class="space-y-1">
           <div class="flex justify-between text-sm">
-            <span>{tValue($locale, 'about.update.downloading')}</span>
+            <span>{$aboutUpdateDownloading}</span>
             <span>{Math.round(($appState.selfUpdate.downloadProgress ?? 0) * 100)}%</span>
           </div>
           <Progress value={($appState.selfUpdate.downloadProgress ?? 0) * 100} max={100} />
@@ -192,7 +202,7 @@
           onclick={checkUpdate}
         >
           <RefreshCw size={16} class={checking ? 'animate-spin' : ''} />
-          {tValue($locale, 'about.btn.check_update')}
+          {$aboutBtnCheckUpdate}
         </Button>
         {#if selfUpdate?.hasUpdate}
           <AlertDialog.Root bind:open={showInstallConfirm}>
@@ -204,21 +214,21 @@
                   disabled={installing}
                 >
                   <Download size={16} />
-                  {tValue($locale, 'about.btn.install_update')}
+                  {$aboutBtnInstallUpdate}
                 </Button>
               {/snippet}
             </AlertDialog.Trigger>
             <AlertDialog.Content>
               <AlertDialog.Header>
-                <AlertDialog.Title>{tValue($locale, 'about.btn.install_update')}</AlertDialog.Title>
+                <AlertDialog.Title>{$aboutBtnInstallUpdate}</AlertDialog.Title>
                 <AlertDialog.Description>
-                  {tValue($locale, 'about.update.confirm')}
+                  {$aboutUpdateConfirm}
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <AlertDialog.Footer>
-                <AlertDialog.Cancel>{tValue($locale, 'common.cancel')}</AlertDialog.Cancel>
+                <AlertDialog.Cancel>{$commonCancel}</AlertDialog.Cancel>
                 <AlertDialog.Action onclick={installUpdate}>
-                  {tValue($locale, 'startup.continue')}
+                  {$startupContinue}
                 </AlertDialog.Action>
               </AlertDialog.Footer>
             </AlertDialog.Content>
@@ -232,7 +242,7 @@
     <Card.Content>
       <Button variant="outline" onclick={openDataDir}>
         <FolderOpen size={16} />
-        {tValue($locale, 'about.btn.open_data')}
+        {$aboutBtnOpenData}
       </Button>
     </Card.Content>
   </Card.Root>
@@ -241,7 +251,7 @@
 <Dialog.Root open={showNotes} onOpenChange={(open) => { if (!open) showNotes = false; }}>
   <Dialog.Content class="sm:max-w-2xl">
     <Dialog.Header>
-      <Dialog.Title>{tValue($locale, 'about.release_notes.title')}</Dialog.Title>
+      <Dialog.Title>{$aboutReleaseNotesTitle}</Dialog.Title>
     </Dialog.Header>
     <div class="max-w-none whitespace-pre-wrap overflow-auto max-h-[70vh] text-sm">{releaseNotes}</div>
   </Dialog.Content>
@@ -250,7 +260,7 @@
 <Dialog.Root open={showBranchPicker} onOpenChange={(open) => { if (!open) showBranchPicker = false; }}>
   <Dialog.Content>
     <Dialog.Header>
-      <Dialog.Title>{tValue($locale, 'about.btn.switch_branch')}</Dialog.Title>
+      <Dialog.Title>{$aboutBtnSwitchBranch}</Dialog.Title>
     </Dialog.Header>
     <div class="flex flex-col gap-2">
       {#each branches as branch (branch.id)}
