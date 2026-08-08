@@ -40,7 +40,7 @@ export const pageRegistry: PageMeta[] = [
   },
   {
     id: 'debug',
-    key: 'tab.debug',
+    key: 'common.debug',
     icon: Bug,
     nav: true,
     bottomNav: true,

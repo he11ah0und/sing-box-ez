@@ -3,7 +3,6 @@ tab:
   configs: Конфиги
   core: Ядро
   settings: Настройки
-  debug: Дебаг
   about: О программе
   menu: 'Меню'
   groups: Группы
@@ -42,7 +41,10 @@ main:
     connections: 'Соединения:'
     close_connections: Закрыть все соединения
     unavailable: Управление через API недоступно для этого режима подключения.
-    connecting: 'Подключение…'
+  phase:
+    starting: Запуск…
+    stopping: Остановка…
+    waiting_api: Ожидание API…
   dashboard:
     upload: Отправка
     download: Приём
@@ -191,7 +193,6 @@ validation:
     removed: 'Удалено в %s: %s. Замена: %s'
     deprecated: 'Устарело с %s, удалят в %s: %s. Замена: %s'
     deprecated_no_removal: 'Устарело с %s: %s. Замена: %s'
-  info_title: Инфо
   field:
     deprecated: устарело с
     removed: удалено в
@@ -204,8 +205,6 @@ settings:
     label: 'Лимит строк лога (0=без ограничений):'
   log_level:
     label: 'Уровень журнала:'
-    debug: Отладка
-    info: Информация
     warn: Предупреждение
     error: Ошибка
   update_check:
@@ -456,3 +455,5 @@ common:
   clear: Очистить
   rule: Правило
   system: Система
+  debug: Отладка
+  info: Информация

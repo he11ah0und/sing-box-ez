@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import { Square, RefreshCw, ChevronDown, ChevronUp, Zap } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
@@ -25,24 +24,19 @@
     GetCoreInfo,
     GetSettings,
     ActivateConfig,
-    GetAPIMode,
     SetAPIMode,
-    GetAPIGroups,
-    GetAPIConnections,
-    GetAPIStatus,
-    GetAPIInfo,
     SelectAPINode,
     URLTestAPIGroup,
     CloseAPIConnections,
     CloseAPIConnection
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type {
-    APIStatus,
-    APIInfo,
-    APIGroup,
-    APINode,
-    APIConnection
-  } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+    Status as APIStatus,
+    Info as APIInfo,
+    Group as APIGroup,
+    Node as APINode,
+    Connection as APIConnection
+  } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
   import { formatBytes, formatSpeed, formatTime, splitHostPort, ipVersionLabel } from '../utils/format.js';
 
   const tabs = [
@@ -71,7 +65,6 @@
   const mainBtnStop = useLocale('main.btn.stop');
   const mainBtnRestart = useLocale('main.btn.restart');
   const mainActiveLabel = useLocale('main.active.label');
-  const mainApiConnecting = useLocale('main.api.connecting');
   const mainDashboardUpload = useLocale('main.dashboard.upload');
   const mainDashboardDownload = useLocale('main.dashboard.download');
   const mainDashboardMin = useLocale('main.dashboard.min');
@@ -102,16 +95,18 @@
 
   let activeTab = $state('overview');
   let processing = $state(false);
-  let apiStatus = $state<APIStatus | null>(null);
-  let apiInfo = $state<APIInfo | null>(null);
-  let apiMode = $state('');
-  let apiGroups = $state<APIGroup[]>([]);
-  let apiConnections = $state<APIConnection[]>([]);
+  // Core API state arrives from the backend via api:state events; the page
+  // never polls. phase: stopped | starting | waiting_api | connected.
+  const apiPhase = $derived($appState.api.phase);
+  const apiStatus = $derived($appState.api.status);
+  const apiInfo = $derived($appState.api.info);
+  const apiMode = $derived($appState.api.mode);
+  const apiGroups = $derived($appState.api.groups);
+  const apiConnections = $derived($appState.api.connections);
   let expandedGroups = $state<Set<string>>(new Set());
   let testingGroups = $state<Set<string>>(new Set());
   let groupDelays = $state<Record<string, Record<string, number>>>({});
   let selectedConn = $state<APIConnection | null>(null);
-  let pollTimer = $state<ReturnType<typeof setInterval> | null>(null);
 
   const statusLabel = $derived(
     $appState.status.running
@@ -134,14 +129,6 @@
     apiGroups.filter((g) => g.type !== 'Fallback' && g.type !== 'LoadBalance')
   );
 
-  onMount(() => {
-    pollTimer = setInterval(pollAPI, 2000);
-  });
-
-  onDestroy(() => {
-    if (pollTimer) clearInterval(pollTimer);
-  });
-
   async function loadInitial() {
     try {
       const [status, configs, active, coreInfo, settings] = await Promise.all([
@@ -159,35 +146,8 @@
         coreInfo: { ...s.coreInfo, ...coreInfo },
         settings
       }));
-      if (status.running) await pollAPI();
     } catch (err) {
       toast.error(String(err));
-    }
-  }
-
-  async function pollAPI() {
-    if (!$appState.status.running) {
-      apiStatus = null;
-      apiInfo = null;
-      apiGroups = [];
-      apiConnections = [];
-      return;
-    }
-    try {
-      const [status, info, mode, groups, conns] = await Promise.all([
-        GetAPIStatus().catch(() => null),
-        GetAPIInfo().catch(() => null),
-        GetAPIMode().catch(() => ''),
-        GetAPIGroups().catch(() => []),
-        GetAPIConnections().catch(() => [])
-      ]);
-      apiStatus = status;
-      apiInfo = info;
-      apiMode = mode;
-      apiGroups = groups ?? [];
-      apiConnections = conns ?? [];
-    } catch {
-      // Suppress repeated polling errors; they are visible when the API is down.
     }
   }
 
@@ -223,7 +183,6 @@
         await Restart();
       }
       await loadInitial();
-      await pollAPI();
     } catch {
       // The backend already reported the failure with a toast.
     } finally {
@@ -234,7 +193,6 @@
   async function setMode(mode: string) {
     try {
       await SetAPIMode(mode);
-      await pollAPI();
     } catch {
       // The backend already reported the failure with a toast.
     }
@@ -243,7 +201,6 @@
   async function selectNode(group: string, node: string) {
     try {
       await SelectAPINode(group, node);
-      await pollAPI();
     } catch {
       // The backend already reported the failure with a toast.
     }
@@ -273,7 +230,6 @@
   async function closeConnections() {
     try {
       await CloseAPIConnections();
-      await pollAPI();
     } catch {
       // The backend already reported the failure with a toast.
     }
@@ -283,7 +239,6 @@
     try {
       await CloseAPIConnection(id);
       selectedConn = null;
-      await pollAPI();
     } catch {
       // The backend already reported the failure with a toast.
     }
@@ -383,7 +338,7 @@
 </script>
 
 <Page onLoad={loadInitial} fullHeight>
-  {#if !$appState.status.running}
+  {#if apiPhase === 'stopped'}
     <!-- Stopped state -->
     <div class="flex flex-col items-center justify-center min-h-[40vh] gap-8">
       <button
@@ -418,8 +373,15 @@
         </Select.Root>
       </Card.Content>
     </Card.Root>
+  {:else if apiPhase === 'starting' || apiPhase === 'stopping' || apiPhase === 'waiting_api'}
+    <!-- Loading state: core process spawning/stopping or waiting for its API -->
+    <div class="flex flex-col items-center justify-center min-h-[40vh] gap-4">
+      <RefreshCw size={32} class="animate-spin text-muted-foreground" />
+      <p class="font-medium">{activeName}</p>
+      <p class="text-sm text-muted-foreground">{tValue($locale, `main.phase.${apiPhase}`)}</p>
+    </div>
   {:else}
-    <!-- Running state -->
+    <!-- Connected state -->
     <Tabs.Root bind:value={activeTab} class="flex flex-col flex-1 min-h-0 gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
         <Tabs.List>
@@ -436,8 +398,6 @@
                 <p>{apiStatus.connectedAgo}</p>
               {/if}
             {/if}
-          {:else}
-            <p>{$mainApiConnecting}</p>
           {/if}
         </div>
       </div>

@@ -3,7 +3,6 @@ tab:
   configs: Configs
   core: Core
   settings: Settings
-  debug: Debug
   about: About
   menu: Menu
   groups: Groups
@@ -42,7 +41,10 @@ main:
     connections: 'Connections:'
     close_connections: Close all connections
     unavailable: API control is not available for this connection mode.
-    connecting: Connecting…
+  phase:
+    starting: Starting…
+    stopping: Stopping…
+    waiting_api: Waiting for API…
   dashboard:
     upload: Upload
     download: Download
@@ -191,7 +193,6 @@ validation:
     removed: 'Removed in %s: %s. Replacement: %s'
     deprecated: 'Deprecated in %s, removed in %s: %s. Replacement: %s'
     deprecated_no_removal: 'Deprecated in %s: %s. Replacement: %s'
-  info_title: Info
   field:
     deprecated: deprecated in
     removed: removed in
@@ -210,8 +211,6 @@ settings:
     label: 'Log limit (lines, 0=unlimited):'
   log_level:
     label: 'Log level:'
-    debug: Debug
-    info: Info
     warn: Warn
     error: Error
   show_logs: Show logs
@@ -233,7 +232,7 @@ settings:
     title: Theme
   theme_mode:
     title: Theme mode
-    system_based: System
+    system_based: System-based
     dark: Dark
     light: Light
   plugins:
@@ -456,3 +455,5 @@ common:
   clear: Clear
   rule: Rule
   system: System
+  debug: Debug
+  info: Info

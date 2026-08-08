@@ -3,7 +3,6 @@ tab:
   configs: 配置
   core: 核心
   settings: 设置
-  debug: 调试
   about: 关于
   menu: '菜单'
   groups: 分组
@@ -42,7 +41,10 @@ main:
     connections: 连接：
     close_connections: 关闭所有连接
     unavailable: 当前连接模式不支持 API 控制。
-    connecting: '连接中…'
+  phase:
+    starting: 启动中…
+    stopping: 停止中…
+    waiting_api: 等待 API…
   dashboard:
     upload: 上传
     download: 下载
@@ -191,7 +193,6 @@ validation:
     removed: 在 %s 中已删除：%s。替代方案：%s
     deprecated: 自 %s 起已弃用，将在 %s 中删除：%s。替代方案：%s
     deprecated_no_removal: 自 %s 起已弃用：%s。替代方案：%s
-  info_title: 信息
   field:
     deprecated: 弃用于
     removed: 删除于
@@ -204,8 +205,6 @@ settings:
     label: 日志行数限制（0=无限制）：
   log_level:
     label: 日志级别：
-    debug: 调试
-    info: 信息
     warn: 警告
     error: 错误
   update_check:
@@ -456,3 +455,5 @@ common:
   clear: 清空
   rule: 规则
   system: 系统
+  debug: 调试
+  info: 信息

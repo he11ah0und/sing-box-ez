@@ -51,7 +51,7 @@
   const startupContinue = useLocale('startup.continue');
   const tabConfigs = useLocale('tab.configs');
   const validationErrorsTitle = useLocale('validation.errors_title');
-  const validationInfoTitle = useLocale('validation.info_title');
+  const validationInfoTitle = useLocale('common.info');
   const validationOk = useLocale('validation.ok');
   const validationWarningsTitle = useLocale('validation.warnings_title');
   const validationFieldDeprecated = useLocale('validation.field.deprecated');

@@ -90,8 +90,8 @@
   const coreBtnApplySetcap = useLocale('core.btn.apply_setcap');
   const coreModeSetcapPrompt = useLocale('core.mode.setcap_prompt');
   const settingsRunAsAdmin = useLocale('settings.runAsAdmin');
-  const settingsLogLevelDebug = useLocale('settings.log_level.debug');
-  const settingsLogLevelInfo = useLocale('settings.log_level.info');
+  const settingsLogLevelDebug = useLocale('common.debug');
+  const settingsLogLevelInfo = useLocale('common.info');
   const settingsLogLevelWarn = useLocale('settings.log_level.warn');
   const settingsLogLevelError = useLocale('settings.log_level.error');
   const settingsSystemMode = useLocale('settings.system.mode');

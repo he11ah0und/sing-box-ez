@@ -4,7 +4,8 @@ import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../sto
 import { locale, setLocaleValues } from '../stores/locale.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
 import type { ActiveConfig, SelfUpdateInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
-import { GetTrafficHistory } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+import type { Update as APIStateUpdate } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
+import { GetAPIState, GetTrafficHistory } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -70,6 +71,21 @@ interface StyleCheckPayload {
   style?: string;
 }
 
+// applyApiState stores the latest backend-pushed core API snapshot.
+function applyApiState(data: APIStateUpdate | null | undefined) {
+  appState.update((s) => ({
+    ...s,
+    api: {
+      phase: data?.phase ?? 'stopped',
+      status: data?.status ?? null,
+      info: data?.info ?? null,
+      mode: data?.mode ?? '',
+      groups: data?.groups ?? [],
+      connections: data?.connections ?? []
+    }
+  }));
+}
+
 function showNotification(data: NotificationPayload) {
   const title = data.title ?? '';
   const description = data.body ?? data.message;
@@ -110,6 +126,17 @@ export function initWailsEvents() {
     .catch((err: unknown) => {
       console.warn('GetTrafficHistory failed:', err);
     });
+
+  // Seed the core API snapshot; api:state events keep it fresh afterwards.
+  GetAPIState()
+    .then((st) => applyApiState(st))
+    .catch((err: unknown) => {
+      console.warn('GetAPIState failed:', err);
+    });
+
+  Events.On('api:state', (event: WailsEvent<APIStateUpdate>) => {
+    applyApiState(event.data);
+  });
 
   Events.On('status:changed', (event: WailsEvent<StatusChangedPayload>) => {
     const data = event.data ?? {};

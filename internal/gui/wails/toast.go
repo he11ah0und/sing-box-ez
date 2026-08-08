@@ -119,7 +119,7 @@ func (b *Bindings) validationReportText(r singboxconfig.ValidationResult) string
 		}
 	}
 	if len(r.Info) > 0 {
-		lines = append(lines, b.t("validation", "info_title"))
+		lines = append(lines, b.t("common", "info"))
 		for _, i := range r.Info {
 			lines = append(lines, "- "+i)
 		}

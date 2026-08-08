@@ -17,7 +17,7 @@
 
   let processing = $state(false);
 
-  const tabDebug = useLocale('tab.debug');
+  const tabDebug = useLocale('common.debug');
   const logBtnCopy = useLocale('log.btn.copy');
   const commonRefresh = useLocale('common.refresh');
   const commonClear = useLocale('common.clear');

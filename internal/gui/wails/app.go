@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
+	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -20,8 +20,8 @@ import (
 	"sing-box-ez/internal/app/themes"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core"
-	"sing-box-ez/internal/core/api"
 	"sing-box-ez/internal/core/inboundstyle"
+	"sing-box-ez/internal/core/state"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/tray"
 )
@@ -98,14 +98,17 @@ type Bindings struct {
 	localeMissingWarns map[string]struct{}
 	localeMu           sync.Mutex
 
-	// apiMu guards apiConnectedAt.
-	apiMu sync.Mutex
-	// apiConnectedAt is when the core API first answered after the last
-	// failure; the frontend shows it as the connection session start.
-	apiConnectedAt time.Time
+	// core is the background core state poller holding the graph history and
+	// the last known API state (phase, groups, connections).
+	core *state.Poller
 
-	// poller is the background traffic poller holding the graph history.
-	poller *trafficPoller
+	// coreStarting is set while the core process is being spawned so the
+	// poller can report the "starting" phase before the API answers.
+	coreStarting atomic.Bool
+
+	// coreStopping is set while the core process is being stopped so the
+	// poller can report the "stopping" phase instead of "waiting_api".
+	coreStopping atomic.Bool
 
 	// styleCheckMu guards pendingStyleChecks.
 	styleCheckMu sync.Mutex
@@ -200,6 +203,8 @@ func (b *Bindings) DeleteConfig(name string) error {
 // through the interactive start flow (config refresh, hash-mismatch handling,
 // client-style check) so the button behaves like the legacy UI and the tray.
 func (b *Bindings) Start() error {
+	b.coreStarting.Store(true)
+	defer b.coreStarting.Store(false)
 	var err error
 	if b.ic == nil {
 		err = b.app.Controller.Start()
@@ -214,6 +219,8 @@ func (b *Bindings) Start() error {
 
 // Stop stops the sing-box core.
 func (b *Bindings) Stop() error {
+	b.coreStopping.Store(true)
+	defer b.coreStopping.Store(false)
 	if err := b.app.Controller.Stop(); err != nil {
 		b.toastErr(err, "main", "btn", "stop")
 		return err
@@ -223,6 +230,8 @@ func (b *Bindings) Stop() error {
 
 // Restart restarts the sing-box core.
 func (b *Bindings) Restart() error {
+	b.coreStarting.Store(true)
+	defer b.coreStarting.Store(false)
 	if err := b.app.Controller.Restart(); err != nil {
 		b.toastErr(err, "main", "btn", "restart")
 		return err
@@ -536,19 +545,6 @@ func (b *Bindings) ClearCoreLogs() {
 	b.app.Controller.ClearCoreLogs()
 }
 
-// GetTraffic returns a one-shot snapshot of core traffic and connections.
-func (b *Bindings) GetTraffic() api.Status {
-	client := b.app.Controller.APIClient()
-	if client == nil {
-		return api.Status{}
-	}
-	status, err := client.Status(b.ctx)
-	if err != nil {
-		return api.Status{}
-	}
-	return *status
-}
-
 // emit sends an event to the frontend if a Wails application reference is available.
 func (b *Bindings) emit(name string, data any) {
 	if wailsAppInstance != nil {
@@ -731,8 +727,9 @@ func (w *WailsApp) Run() error {
 		})
 	}
 
-	// Start the background traffic poller that emits live traffic events.
-	bindings.startTrafficPoller()
+	// Start the background core poller that emits live traffic events and
+	// pushes api:state updates.
+	bindings.startCorePoller()
 
 	return wailsApp.Run()
 }
