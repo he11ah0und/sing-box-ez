@@ -86,6 +86,8 @@ func (c *Collection) loadUser() error {
 			continue
 		}
 		path := filepath.Join(userDir, e.Name())
+		// #nosec G304 -- e.Name() is a base name from os.ReadDir inside the
+		// fixed app themes dir; it cannot escape userDir.
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read user theme %q: %w", e.Name(), err)

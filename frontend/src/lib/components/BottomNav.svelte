@@ -29,7 +29,7 @@
   {#if inSubNav}
     <Button variant="ghost" class="gap-2" onclick={back}>
       <ArrowLeft size={22} />
-      <span class="text-sm">{tValue($locale, 'common.back', 'Back')}</span>
+      <span class="text-sm">{tValue($locale, 'common.back')}</span>
     </Button>
   {:else}
     {#each mainItems as item}
@@ -40,7 +40,7 @@
         onclick={() => navigate(item.id)}
       >
         {#if Icon}<Icon size={22} />{/if}
-        <span class="text-xs mt-1">{tValue($locale, item.key, item.id)}</span>
+        <span class="text-xs mt-1">{tValue($locale, item.key)}</span>
       </button>
     {/each}
   {/if}

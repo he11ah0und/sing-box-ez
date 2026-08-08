@@ -74,7 +74,7 @@
     updatingAll = true;
     try {
       await UpdateAllConfigs();
-      toast.success(tValue($locale, 'configs.update_all.done', 'All configs updated'));
+      toast.success(tValue($locale, 'configs.update_all.done'));
       await load();
     } catch (err) {
       toast.error(String(err));
@@ -87,7 +87,7 @@
     updating = { ...updating, [name]: true };
     try {
       await UpdateConfigNow(name);
-      toast.success(tValue($locale, 'configs.update_now.done', 'Config updated'));
+      toast.success(tValue($locale, 'configs.update_now.done'));
       await load();
     } catch (err) {
       toast.error(String(err));
@@ -115,7 +115,7 @@
   async function recreate(name: string) {
     try {
       await RecreateLocalConfig(name);
-      toast.success(tValue($locale, 'configs.recreate.done', 'Config file recreated'));
+      toast.success(tValue($locale, 'configs.recreate.done'));
       await load();
     } catch (err) {
       toast.error(String(err));
@@ -133,9 +133,9 @@
 
   function fieldLine(f: DeprecatedField): string {
     const parts = [f.path];
-    if (f.deprecated) parts.push(`${tValue($locale, 'validation.field.deprecated', 'deprecated in')} ${f.deprecated}`);
-    if (f.removed) parts.push(`${tValue($locale, 'validation.field.removed', 'removed in')} ${f.removed}`);
-    if (f.replacement) parts.push(`${tValue($locale, 'validation.field.replacement', 'replacement')}: ${f.replacement}`);
+    if (f.deprecated) parts.push(`${tValue($locale, 'validation.field.deprecated')} ${f.deprecated}`);
+    if (f.removed) parts.push(`${tValue($locale, 'validation.field.removed')} ${f.removed}`);
+    if (f.replacement) parts.push(`${tValue($locale, 'validation.field.replacement')}: ${f.replacement}`);
     return parts.join(' — ');
   }
 
@@ -144,19 +144,19 @@
     const { result } = validation;
     const lines: string[] = [];
     if (result.errors?.length) {
-      lines.push(tValue($locale, 'validation.errors_title', 'Errors (%d)').replace('%d', String(result.errors.length)));
+      lines.push(tValue($locale, 'validation.errors_title').replace('%d', String(result.errors.length)));
       result.errors.forEach((f) => lines.push(`- ${fieldLine(f)}`));
     }
     if (result.warnings?.length) {
-      lines.push(tValue($locale, 'validation.warnings_title', 'Warnings (%d)').replace('%d', String(result.warnings.length)));
+      lines.push(tValue($locale, 'validation.warnings_title').replace('%d', String(result.warnings.length)));
       result.warnings.forEach((f) => lines.push(`- ${fieldLine(f)}`));
     }
     if (result.info?.length) {
-      lines.push(tValue($locale, 'validation.info_title', 'Info'));
+      lines.push(tValue($locale, 'validation.info_title'));
       result.info.forEach((i) => lines.push(`- ${i}`));
     }
     if (lines.length === 0) {
-      lines.push(tValue($locale, 'validation.ok', 'No deprecated or removed fields detected.'));
+      lines.push(tValue($locale, 'validation.ok'));
     }
     return lines.join('\n');
   }
@@ -164,7 +164,7 @@
   async function copyValidation() {
     try {
       await navigator.clipboard.writeText(validationText());
-      toast.success(tValue($locale, 'validation.copied', 'Validation result copied'));
+      toast.success(tValue($locale, 'validation.copied'));
     } catch (err) {
       toast.error(String(err));
     }
@@ -214,17 +214,17 @@
 </script>
 
 <Page
-  title={tValue($locale, 'tab.configs', 'Configs')}
+  title={tValue($locale, 'tab.configs')}
   onLoad={load}
 >
   {#snippet actions()}
     <Button variant="outline" disabled={updatingAll} onclick={updateAll}>
       <RefreshCw size={16} class={updatingAll ? 'animate-spin' : ''} />
-      {tValue($locale, 'configs.btn.update_all', 'Update all')}
+      {tValue($locale, 'configs.btn.update_all')}
     </Button>
     <Button onclick={startAdd}>
       <Plus size={18} />
-      {tValue($locale, 'configs.btn.add', 'Add')}
+      {tValue($locale, 'configs.btn.add')}
     </Button>
   {/snippet}
 
@@ -240,16 +240,16 @@
         <div class="flex flex-wrap gap-2 rounded-xl border border-border bg-background p-3">
           <Button variant="outline" size="sm" onclick={() => openFile(editing!)}>
             <FileText size={14} />
-            {tValue($locale, 'configs.dialog.btn.open', 'Open')}
+            {tValue($locale, 'configs.dialog.btn.open')}
           </Button>
           <Button variant="outline" size="sm" onclick={() => openDir(editing!)}>
             <FolderOpen size={14} />
-            {tValue($locale, 'configs.dialog.btn.open_dir', 'Open location')}
+            {tValue($locale, 'configs.dialog.btn.open_dir')}
           </Button>
           {#if editing && hasCached[editing] === false}
             <Button variant="outline" size="sm" onclick={() => recreate(editing!)}>
               <RotateCw size={14} />
-              {tValue($locale, 'configs.dialog.btn.create', 'Create again')}
+              {tValue($locale, 'configs.dialog.btn.create')}
             </Button>
           {/if}
         </div>
@@ -260,7 +260,7 @@
   <Card.Root class="overflow-hidden py-0 gap-0">
     {#if $appState.configs.length === 0}
       <Card.Content class="py-6">
-        <p class="text-muted-foreground">{tValue($locale, 'configs.empty', 'No configs yet.')}</p>
+        <p class="text-muted-foreground">{tValue($locale, 'configs.empty')}</p>
       </Card.Content>
     {:else}
       <ul class="divide-y divide-border">
@@ -274,7 +274,7 @@
               {#if $appState.activeConfig?.name === cfg.name}
                 <Badge variant="secondary" class="text-[var(--color-success)]">
                   <Check size={12} />
-                  {tValue($locale, 'configs.badge.active', 'Active')}
+                  {tValue($locale, 'configs.badge.active')}
                 </Badge>
               {/if}
               {#if hashMismatch[cfg.name]}
@@ -282,12 +282,12 @@
                   <Tooltip.Trigger>
                     {#snippet child({ props })}
                       <Badge {...props} variant="secondary" class="text-[var(--color-warning)]">
-                        {tValue($locale, 'configs.badge.modified', 'modified')}
+                        {tValue($locale, 'configs.badge.modified')}
                       </Badge>
                     {/snippet}
                   </Tooltip.Trigger>
                   <Tooltip.Content>
-                    {tValue($locale, 'configs.badge.hash_mismatch_tooltip', 'Cached content differs from the stored hash')}
+                    {tValue($locale, 'configs.badge.hash_mismatch_tooltip')}
                   </Tooltip.Content>
                 </Tooltip.Root>
               {/if}
@@ -299,7 +299,7 @@
                         {...props}
                         variant="ghost"
                         size="icon"
-                        aria-label={tValue($locale, 'configs.dialog.btn.update_now', 'Update now')}
+                        aria-label={tValue($locale, 'configs.dialog.btn.update_now')}
                         disabled={updating[cfg.name]}
                         onclick={() => updateNow(cfg.name)}
                       >
@@ -307,7 +307,7 @@
                       </Button>
                     {/snippet}
                   </Tooltip.Trigger>
-                  <Tooltip.Content>{tValue($locale, 'configs.dialog.btn.update_now', 'Update now')}</Tooltip.Content>
+                  <Tooltip.Content>{tValue($locale, 'configs.dialog.btn.update_now')}</Tooltip.Content>
                 </Tooltip.Root>
               {/if}
               <Tooltip.Root>
@@ -317,14 +317,14 @@
                       {...props}
                       variant="ghost"
                       size="icon"
-                      aria-label={tValue($locale, 'configs.dialog.btn.validate', 'Validate')}
+                      aria-label={tValue($locale, 'configs.dialog.btn.validate')}
                       onclick={() => validate(cfg.name)}
                     >
                       <ShieldCheck size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{tValue($locale, 'configs.dialog.btn.validate', 'Validate')}</Tooltip.Content>
+                <Tooltip.Content>{tValue($locale, 'configs.dialog.btn.validate')}</Tooltip.Content>
               </Tooltip.Root>
               <Tooltip.Root>
                 <Tooltip.Trigger>
@@ -333,14 +333,14 @@
                       {...props}
                       variant="ghost"
                       size="icon"
-                      aria-label={tValue($locale, 'configs.btn.edit', 'Edit config')}
+                      aria-label={tValue($locale, 'configs.btn.edit')}
                       onclick={() => startEdit(cfg)}
                     >
                       <Edit2 size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{tValue($locale, 'configs.btn.edit', 'Edit config')}</Tooltip.Content>
+                <Tooltip.Content>{tValue($locale, 'configs.btn.edit')}</Tooltip.Content>
               </Tooltip.Root>
               <Tooltip.Root>
                 <Tooltip.Trigger>
@@ -350,14 +350,14 @@
                       variant="ghost"
                       size="icon"
                       class="text-destructive hover:bg-destructive/10"
-                      aria-label={tValue($locale, 'configs.btn.delete', 'Delete')}
+                      aria-label={tValue($locale, 'configs.btn.delete')}
                       onclick={() => (deleteTarget = cfg.name)}
                     >
                       <Trash2 size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{tValue($locale, 'configs.btn.delete', 'Delete')}</Tooltip.Content>
+                <Tooltip.Content>{tValue($locale, 'configs.btn.delete')}</Tooltip.Content>
               </Tooltip.Root>
             </div>
           </li>
@@ -369,19 +369,19 @@
   <AlertDialog.Root open={deleteTarget != null} onOpenChange={(open) => { if (!open) deleteTarget = null; }}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>{tValue($locale, 'configs.btn.delete', 'Delete')}</AlertDialog.Title>
+        <AlertDialog.Title>{tValue($locale, 'configs.btn.delete')}</AlertDialog.Title>
         <AlertDialog.Description>
-          {tValue($locale, 'configs.confirmDelete', 'Delete this config?')}
+          {tValue($locale, 'configs.confirmDelete')}
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>{tValue($locale, 'common.cancel', 'Cancel')}</AlertDialog.Cancel>
+        <AlertDialog.Cancel>{tValue($locale, 'common.cancel')}</AlertDialog.Cancel>
         <AlertDialog.Action
           class="bg-destructive text-white hover:bg-destructive/90"
           disabled={processing}
           onclick={confirmDelete}
         >
-          {tValue($locale, 'startup.continue', 'Continue')}
+          {tValue($locale, 'startup.continue')}
         </AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>
@@ -391,20 +391,20 @@
     <Dialog.Content class="sm:max-w-2xl">
       <Dialog.Header>
         <Dialog.Title>
-          {tValue($locale, 'configs.dialog.btn.validate', 'Validate')} — {validation?.name ?? ''}
+          {tValue($locale, 'configs.dialog.btn.validate')} — {validation?.name ?? ''}
         </Dialog.Title>
       </Dialog.Header>
       {#if validation}
         <div class="space-y-4 max-h-[60vh] overflow-auto text-sm">
           {#if !validation.result.errors?.length && !validation.result.warnings?.length && !validation.result.info?.length}
             <p class="text-[var(--color-success)]">
-              {tValue($locale, 'validation.ok', 'No deprecated or removed fields detected.')}
+              {tValue($locale, 'validation.ok')}
             </p>
           {:else}
             {#if validation.result.errors?.length}
               <div>
                 <p class="font-medium text-destructive mb-1">
-                  {tValue($locale, 'validation.errors_title', 'Errors (%d)').replace('%d', String(validation.result.errors.length))}
+                  {tValue($locale, 'validation.errors_title').replace('%d', String(validation.result.errors.length))}
                 </p>
                 <ul class="space-y-1">
                   {#each validation.result.errors as field (field.path)}
@@ -416,7 +416,7 @@
             {#if validation.result.warnings?.length}
               <div>
                 <p class="font-medium text-[var(--color-warning)] mb-1">
-                  {tValue($locale, 'validation.warnings_title', 'Warnings (%d)').replace('%d', String(validation.result.warnings.length))}
+                  {tValue($locale, 'validation.warnings_title').replace('%d', String(validation.result.warnings.length))}
                 </p>
                 <ul class="space-y-1">
                   {#each validation.result.warnings as field (field.path)}
@@ -427,7 +427,7 @@
             {/if}
             {#if validation.result.info?.length}
               <div>
-                <p class="font-medium mb-1">{tValue($locale, 'validation.info_title', 'Info')}</p>
+                <p class="font-medium mb-1">{tValue($locale, 'validation.info_title')}</p>
                 <ul class="space-y-1">
                   {#each validation.result.info as line}
                     <li class="whitespace-pre-wrap break-words text-muted-foreground">{line}</li>
@@ -441,7 +441,7 @@
       <Dialog.Footer>
         <Button variant="outline" onclick={copyValidation}>
           <Copy size={16} />
-          {tValue($locale, 'configs.dialog.btn.copy', 'Copy')}
+          {tValue($locale, 'configs.dialog.btn.copy')}
         </Button>
       </Dialog.Footer>
     </Dialog.Content>

@@ -1,4 +1,4 @@
-.PHONY: all build build-nogui run run-nogui dev clean deps test vet fmt fmt-check lint ineffassign-check security complexity outdated analyze help
+.PHONY: all build build-nogui run run-nogui dev clean deps test vet fmt fmt-check lint ineffassign-check security complexity outdated analyze i18n-hardcode i18n-hardcode-update help
 
 APP_NAME := sing-box-ez
 BUILD_DIR := ./build
@@ -98,6 +98,8 @@ help:
 	@echo "  complexity         Run gocyclo complexity check"
 	@echo "  outdated           List outdated Go modules"
 	@echo "  analyze            Run fmt-check, vet, test, lint, ineffassign-check, complexity and security"
+	@echo "  i18n-hardcode      Fail on new hardcoded Cyrillic/CJK strings in Go/TS sources"
+	@echo "  i18n-hardcode-update  Rewrite .hardcode-scan.allow with the current scan"
 	@echo "  proto              Generate protobuf Go bindings"
 	@echo "  schema             Generate sing-box schema YAML"
 	@echo "  docs               Generate and serve documentation"
@@ -143,6 +145,7 @@ setup-arch:
 	go install github.com/gordonklaus/ineffassign@latest
 	go install github.com/segmentio/golines@latest
 	go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+	go install github.com/he11ah0und/hardcode-scan@latest
 
 # ---------------------------------------------------------------------------
 # Dependencies & tests
@@ -178,10 +181,24 @@ security:
 complexity:
 	$(GO_BIN)/gocyclo -over 15 .
 
+# Ratchet guard against hardcoded non-ASCII (and, opt-in, English) text in
+# Go, TS and Svelte sources (he11ah0und/hardcode-scan). The allowlist
+# records known debt; the scan fails if the debt grows (new strings) or
+# the allowlist goes stale. -latin enables English UI-text detection for
+# the frontend only: logs/errors are English by policy (see AGENTS.md)
+# and the vendored shadcn components/ui debt is allowlisted once.
+i18n-hardcode:
+	$(GO_BIN)/hardcode-scan -root . -allow .hardcode-scan.allow \
+		-go . -ts frontend/src -svelte frontend/src -latin frontend/src
+
+i18n-hardcode-update:
+	$(GO_BIN)/hardcode-scan -root . -allow .hardcode-scan.allow \
+		-go . -ts frontend/src -svelte frontend/src -latin frontend/src -update
+
 outdated:
 	$(GO) list -m -u all | grep '\['
 
-analyze: fmt-check vet test lint ineffassign-check complexity security
+analyze: fmt-check vet test lint ineffassign-check complexity security i18n-hardcode
 	@echo "Full analysis complete"
 
 # ---------------------------------------------------------------------------

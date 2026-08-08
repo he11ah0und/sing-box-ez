@@ -12,7 +12,7 @@
 </script>
 
 <div class="p-4">
-  <h2 class="text-2xl font-bold mb-4">{tValue($locale, 'tab.menu', 'Menu')}</h2>
+  <h2 class="text-2xl font-bold mb-4">{tValue($locale, 'tab.menu')}</h2>
   <div class="flex flex-col gap-2">
     {#each items as item (item.id)}
       {@const Icon = item.icon}
@@ -24,7 +24,7 @@
         onclick={() => navigate(item.id)}
       >
         {#if Icon}<Icon size={20} />{/if}
-        {tValue($locale, item.key, item.id)}
+        {tValue($locale, item.key)}
       </button>
     {/each}
   </div>

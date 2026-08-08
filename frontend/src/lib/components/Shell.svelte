@@ -46,10 +46,10 @@
         <button
           class="w-full text-left px-4 py-3 hover:bg-accent flex items-center gap-3 text-muted-foreground"
           onclick={back}
-          aria-label={tValue($locale, 'common.back', 'Back')}
+          aria-label={tValue($locale, 'common.back')}
         >
           <ArrowLeft size={20} />
-          <span>{tValue($locale, 'common.back', 'Back')}</span>
+          <span>{tValue($locale, 'common.back')}</span>
         </button>
         {#each subTabs as tab}
           <button
@@ -57,7 +57,7 @@
             class:bg-secondary={$subNav.activeTab === tab.id}
             onclick={() => selectTab(tab.id)}
           >
-            <span>{tValue($locale, tab.key, tab.id)}</span>
+            <span>{tValue($locale, tab.key)}</span>
           </button>
         {/each}
       {:else}
@@ -69,7 +69,7 @@
             onclick={() => navigate(item.id)}
           >
             {#if Icon}<Icon size={20} />{/if}
-            <span>{tValue($locale, item.key, item.id)}</span>
+            <span>{tValue($locale, item.key)}</span>
           </button>
         {/each}
       {/if}
@@ -79,7 +79,7 @@
   <!-- Main area -->
   <div class="flex flex-col flex-1 min-w-0">
     <TopBar
-      title={tValue($locale, currentPage?.key ?? $currentLevel.id, $currentLevel.id)}
+      title={tValue($locale, currentPage?.key ?? $currentLevel.id)}
       showBack={inSubNav}
       onBack={back}
     />
@@ -95,7 +95,7 @@
             class:bg-secondary={$subNav.activeTab !== tab.id}
             onclick={() => selectTab(tab.id)}
           >
-            {tValue($locale, tab.key, tab.id)}
+            {tValue($locale, tab.key)}
           </button>
         {/each}
       </div>

@@ -81,7 +81,7 @@
     };
 
     if (!rec.name) {
-      error = tValue($locale, 'configs.nameRequired', 'Name is required');
+      error = tValue($locale, 'configs.nameRequired');
       return;
     }
 
@@ -102,8 +102,8 @@
 
   const typeLabel = $derived(
     form.type === 'local'
-      ? tValue($locale, 'configs.local', 'Local')
-      : tValue($locale, 'configs.remote', 'Remote')
+      ? tValue($locale, 'configs.local')
+      : tValue($locale, 'configs.remote')
   );
 </script>
 
@@ -112,8 +112,8 @@
     <Dialog.Header>
       <Dialog.Title>
         {mode === 'edit'
-          ? tValue($locale, 'configs.btn.edit', 'Edit config')
-          : tValue($locale, 'configs.new', 'New config')}
+          ? tValue($locale, 'configs.btn.edit')
+          : tValue($locale, 'configs.new')}
       </Dialog.Title>
     </Dialog.Header>
 
@@ -126,28 +126,28 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="space-y-1">
-          <Label for="config-name">{tValue($locale, 'configs.name', 'Name')}</Label>
+          <Label for="config-name">{tValue($locale, 'configs.name')}</Label>
           <Input id="config-name" bind:value={form.name} />
         </div>
 
         <div class="space-y-1">
-          <Label for="config-type">{tValue($locale, 'configs.type', 'Type')}</Label>
+          <Label for="config-type">{tValue($locale, 'configs.type')}</Label>
           <Select.Root type="single" bind:value={form.type}>
             <Select.Trigger id="config-type" class="w-full">{typeLabel}</Select.Trigger>
             <Select.Content>
-              <Select.Item value="remote" label={tValue($locale, 'configs.remote', 'Remote')} />
-              <Select.Item value="local" label={tValue($locale, 'configs.local', 'Local')} />
+              <Select.Item value="remote" label={tValue($locale, 'configs.remote')} />
+              <Select.Item value="local" label={tValue($locale, 'configs.local')} />
             </Select.Content>
           </Select.Root>
         </div>
 
         <div class="space-y-1 sm:col-span-2">
-          <Label for="config-url">{tValue($locale, 'configs.url', 'URL / Path')}</Label>
+          <Label for="config-url">{tValue($locale, 'configs.url')}</Label>
           <Input id="config-url" bind:value={form.url} />
         </div>
 
         <div class="space-y-1">
-          <Label for="config-interval">{tValue($locale, 'configs.interval', 'Update interval (h)')}</Label>
+          <Label for="config-interval">{tValue($locale, 'configs.interval')}</Label>
           <Input id="config-interval" type="number" min="0" bind:value={form.update_interval_hours} />
         </div>
       </div>
@@ -159,12 +159,12 @@
 
     <Dialog.Footer>
       <Button variant="outline" onclick={onclose} disabled={processing}>
-        {tValue($locale, 'common.cancel', 'Cancel')}
+        {tValue($locale, 'common.cancel')}
       </Button>
       <Button onclick={submit} disabled={processing}>
         {processing
-          ? tValue($locale, 'common.saving', 'Saving...')
-          : tValue($locale, 'common.save', 'Save')}
+          ? tValue($locale, 'common.saving')
+          : tValue($locale, 'common.save')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

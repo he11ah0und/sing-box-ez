@@ -26,13 +26,13 @@
             size="icon"
             class="md:hidden -ml-1"
             onclick={() => onBack?.()}
-            aria-label={tValue($locale, 'common.back', 'Back')}
+            aria-label={tValue($locale, 'common.back')}
           >
             <ArrowLeft size={20} />
           </Button>
         {/snippet}
       </Tooltip.Trigger>
-      <Tooltip.Content>{tValue($locale, 'common.back', 'Back')}</Tooltip.Content>
+      <Tooltip.Content>{tValue($locale, 'common.back')}</Tooltip.Content>
     </Tooltip.Root>
   {/if}
   <h1 class="text-lg font-semibold truncate">{title}</h1>

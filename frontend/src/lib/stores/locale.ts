@@ -68,23 +68,39 @@ export function setLocale(language: string, values?: Record<string, string> | nu
 
 // tValue reads a registered key from a locale snapshot.
 // Calling it automatically registers the key for backend delivery.
-export function tValue(localeData: LocaleState | null | undefined, key: string, fallback = ''): string {
+// A missing value renders the key itself — English fallbacks in code are
+// forbidden (the hardcode-scan guard flags them); the single source of
+// truth is internal/app/locales/*.yaml.
+export function tValue(localeData: LocaleState | null | undefined, key: string): string {
   if (key) registerLocaleKey(key);
-  return localeData?.values?.[key] ?? fallback;
+  return (key && localeData?.values?.[key]) || key;
+}
+
+// tValues tries keys in order and returns the first resolved value; all
+// keys are registered. When nothing resolves, the last key is returned.
+export function tValues(localeData: LocaleState | null | undefined, keys: string[]): string {
+  for (const key of keys) {
+    if (key) registerLocaleKey(key);
+  }
+  for (const key of keys) {
+    const v = key && localeData?.values?.[key];
+    if (v) return v;
+  }
+  return keys[keys.length - 1] ?? '';
 }
 
 // t returns a Svelte store with the translation for a registered key.
-export function t(key: string, fallback = ''): Readable<string> {
-  return derived(locale, ($locale) => $locale.values[key] ?? fallback);
+export function t(key: string): Readable<string> {
+  return derived(locale, ($locale) => $locale.values[key] ?? key);
 }
 
 // useLocale registers a key and returns a reactive store for its translation.
-export function useLocale(key: string, fallback = ''): Readable<string> {
+export function useLocale(key: string): Readable<string> {
   registerLocaleKey(key);
-  return t(key, fallback);
+  return t(key);
 }
 
 // getLocaleString registers a key and returns its current translation value.
-export function getLocaleString(key: string, fallback = ''): string {
-  return get(useLocale(key, fallback));
+export function getLocaleString(key: string): string {
+  return get(useLocale(key));
 }

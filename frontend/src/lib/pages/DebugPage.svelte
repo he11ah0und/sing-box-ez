@@ -57,7 +57,7 @@
     const text = lines.map((line) => parseANSILine(line).map((p) => p.text).join('')).join('\n');
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(tValue($locale, 'log.copied', 'Logs copied'));
+      toast.success(tValue($locale, 'log.copied'));
     } catch (err) {
       toast.error(String(err));
     }
@@ -65,7 +65,7 @@
 </script>
 
 <Page
-  title={tValue($locale, 'tab.debug', 'Debug')}
+  title={tValue($locale, 'tab.debug')}
   onLoad={load}
   fullHeight={true}
   extraClass="space-y-4"
@@ -73,15 +73,15 @@
   {#snippet actions()}
     <Button variant="outline" onclick={copy}>
       <Copy size={16} />
-      {tValue($locale, 'log.btn.copy', 'Copy all')}
+      {tValue($locale, 'log.btn.copy')}
     </Button>
     <Button variant="outline" onclick={load}>
       <RefreshCw size={16} />
-      {tValue($locale, 'common.refresh', 'Refresh')}
+      {tValue($locale, 'common.refresh')}
     </Button>
     <Button variant="destructive" disabled={processing} onclick={clear}>
       <Trash2 size={16} />
-      {tValue($locale, 'common.clear', 'Clear')}
+      {tValue($locale, 'common.clear')}
     </Button>
   {/snippet}
 
@@ -89,7 +89,7 @@
     <div class="p-4 font-mono text-sm">
       {#if $subNav.activeTab === 'core'}
         {#if $appState.logs.core.length === 0}
-          <p class="text-muted-foreground">{tValue($locale, 'log.empty', 'No logs yet.')}</p>
+          <p class="text-muted-foreground">{tValue($locale, 'log.empty')}</p>
         {:else}
           {#each $appState.logs.core as line}
             <div class="whitespace-pre-wrap break-words py-0.5">
@@ -101,7 +101,7 @@
         {/if}
       {:else}
         {#if $appState.logs.app.length === 0}
-          <p class="text-muted-foreground">{tValue($locale, 'log.empty', 'No logs yet.')}</p>
+          <p class="text-muted-foreground">{tValue($locale, 'log.empty')}</p>
         {:else}
           {#each $appState.logs.app as line}
             <div class="whitespace-pre-wrap break-words py-0.5">

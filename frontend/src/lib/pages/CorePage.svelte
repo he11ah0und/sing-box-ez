@@ -38,7 +38,7 @@
 </script>
 
 <Page
-  title={tValue($locale, 'tab.core', 'Core')}
+  title={tValue($locale, 'tab.core')}
   onLoad={load}
 >
   <Card.Root>
@@ -51,11 +51,11 @@
       {:else}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="rounded-xl bg-background border border-border p-4">
-            <p class="text-sm text-muted-foreground">{tValue($locale, 'core.installed', 'Installed version')}</p>
+            <p class="text-sm text-muted-foreground">{tValue($locale, 'core.installed')}</p>
             <p class="text-lg font-medium">{$appState.coreInfo.installedVersion || '—'}</p>
           </div>
           <div class="rounded-xl bg-background border border-border p-4">
-            <p class="text-sm text-muted-foreground">{tValue($locale, 'core.latest', 'Latest version')}</p>
+            <p class="text-sm text-muted-foreground">{tValue($locale, 'core.latest')}</p>
             <p class="text-lg font-medium">{$appState.coreInfo.latestVersion || '—'}</p>
           </div>
         </div>
@@ -64,7 +64,7 @@
       {#if $appState.coreInfo.downloading}
         <div class="space-y-1">
           <div class="flex justify-between text-sm">
-            <span>{tValue($locale, 'core.update.downloading', 'Downloading…')}</span>
+            <span>{tValue($locale, 'core.update.downloading')}</span>
             <span>{Math.round(($appState.coreInfo.downloadProgress ?? 0) * 100)}%</span>
           </div>
           <Progress value={($appState.coreInfo.downloadProgress ?? 0) * 100} max={100} />
@@ -77,11 +77,11 @@
           onclick={download}
         >
           <Download size={18} />
-          {tValue($locale, 'core.btn.download', 'Download / update core')}
+          {tValue($locale, 'core.btn.download')}
         </Button>
         <Button variant="outline" onclick={load}>
           <RefreshCw size={18} />
-          {tValue($locale, 'common.refresh', 'Refresh')}
+          {tValue($locale, 'common.refresh')}
         </Button>
       </div>
     </Card.Content>

@@ -17,8 +17,8 @@
 <div class="h-full flex flex-col items-center justify-center p-6 bg-background">
   <Card.Root class="w-full max-w-md shadow-xl">
     <Card.Header>
-      <Card.Title class="text-2xl">{tValue($locale, 'startup.title', 'Startup')}</Card.Title>
-      <Card.Description>{tValue($locale, 'startup.subtitle', 'Choose connection mode')}</Card.Description>
+      <Card.Title class="text-2xl">{tValue($locale, 'startup.title')}</Card.Title>
+      <Card.Description>{tValue($locale, 'startup.subtitle')}</Card.Description>
     </Card.Header>
     <Card.Content class="flex flex-col gap-3">
       {#each $appState.startup.options as option (option.id)}
@@ -35,7 +35,7 @@
     </Card.Content>
     <Card.Footer>
       <Button class="w-full" size="lg" onclick={continueStartup}>
-        {tValue($locale, 'startup.continue', 'Continue')}
+        {tValue($locale, 'startup.continue')}
       </Button>
     </Card.Footer>
   </Card.Root>

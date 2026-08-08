@@ -68,8 +68,8 @@
 
   const statusLabel = $derived(
     $appState.status.running
-      ? tValue($locale, 'main.running', 'Running')
-      : tValue($locale, 'main.stopped', 'Stopped')
+      ? tValue($locale, 'main.running')
+      : tValue($locale, 'main.stopped')
   );
   const activeName = $derived($appState.activeConfig?.name ?? '—');
   const activeBadge = $derived($appState.activeConfig?.type ?? '');
@@ -78,10 +78,10 @@
   const configSelectLabel = $derived(
     $appState.activeConfig?.name
       ?? ($appState.configs.length
-        ? tValue($locale, 'main.active.placeholder', 'Select active config')
-        : tValue($locale, 'configs.empty', 'No configs'))
+        ? tValue($locale, 'main.active.placeholder')
+        : tValue($locale, 'configs.empty'))
   );
-  const modeLabel = $derived(tValue($locale, `main.api.mode_${apiMode}`, apiMode));
+  const modeLabel = $derived(tValue($locale, `main.api.mode_${apiMode}`));
 
   const visibleGroups = $derived(
     apiGroups.filter((g) => g.type !== 'Fallback' && g.type !== 'LoadBalance')
@@ -162,13 +162,13 @@
   }
 
   function handleStart() {
-    callBinding(Start(), tValue($locale, 'main.btn.start', 'Start'));
+    callBinding(Start(), tValue($locale, 'main.btn.start'));
   }
   function handleStop() {
-    callBinding(Stop(), tValue($locale, 'main.btn.stop', 'Stop'));
+    callBinding(Stop(), tValue($locale, 'main.btn.stop'));
   }
   function handleRestart() {
-    callBinding(Restart(), tValue($locale, 'main.btn.restart', 'Restart'));
+    callBinding(Restart(), tValue($locale, 'main.btn.restart'));
   }
 
   async function activateConfig(name: string) {
@@ -350,7 +350,7 @@
         {#if processing}
           <RefreshCw size={32} class="animate-spin" />
         {:else}
-          {tValue($locale, 'main.btn.start', 'Start')}
+          {tValue($locale, 'main.btn.start')}
         {/if}
       </button>
       <p class="text-muted-foreground">{statusLabel}</p>
@@ -358,7 +358,7 @@
 
     <Card.Root>
       <Card.Content class="space-y-2">
-        <p class="text-sm text-muted-foreground">{tValue($locale, 'main.active.label', 'Active config')}</p>
+        <p class="text-sm text-muted-foreground">{tValue($locale, 'main.active.label')}</p>
         <Select.Root
           type="single"
           value={$appState.activeConfig?.name ?? ''}
@@ -380,7 +380,7 @@
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <Tabs.List>
           {#each tabs as tab (tab.id)}
-            <Tabs.Trigger value={tab.id}>{tValue($locale, tab.key, tab.id)}</Tabs.Trigger>
+            <Tabs.Trigger value={tab.id}>{tValue($locale, tab.key)}</Tabs.Trigger>
           {/each}
         </Tabs.List>
         <div class="text-right text-sm text-muted-foreground">
@@ -390,7 +390,7 @@
               <p>{formatTime(new Date(connectedAt))}</p>
             {/if}
           {:else}
-            <p>{tValue($locale, 'main.api.connecting', 'Connecting…')}</p>
+            <p>{tValue($locale, 'main.api.connecting')}</p>
           {/if}
         </div>
       </div>
@@ -402,26 +402,26 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="rounded-xl bg-background border border-border p-4 space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm text-muted-foreground">{tValue($locale, 'main.dashboard.upload', 'Upload')}</span>
+                  <span class="text-sm text-muted-foreground">{tValue($locale, 'main.dashboard.upload')}</span>
                   <span class="text-sm font-medium">{$appState.traffic.upRate}</span>
                 </div>
                 <Sparkline data={$appState.traffic.history.up} color="var(--color-success)" fill />
                 <p class="text-xs text-muted-foreground">
-                  {tValue($locale, 'main.dashboard.min', 'Min')}: {formatSpeed(upStats.min)}
-                  &nbsp;{tValue($locale, 'main.dashboard.max', 'Max')}: {formatSpeed(upStats.max)}
-                  &nbsp;{tValue($locale, 'main.dashboard.avg', 'Avg')}: {formatSpeed(upStats.avg)}
+                  {tValue($locale, 'main.dashboard.min')}: {formatSpeed(upStats.min)}
+                  &nbsp;{tValue($locale, 'main.dashboard.max')}: {formatSpeed(upStats.max)}
+                  &nbsp;{tValue($locale, 'main.dashboard.avg')}: {formatSpeed(upStats.avg)}
                 </p>
               </div>
               <div class="rounded-xl bg-background border border-border p-4 space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm text-muted-foreground">{tValue($locale, 'main.dashboard.download', 'Download')}</span>
+                  <span class="text-sm text-muted-foreground">{tValue($locale, 'main.dashboard.download')}</span>
                   <span class="text-sm font-medium">{$appState.traffic.downRate}</span>
                 </div>
                 <Sparkline data={$appState.traffic.history.down} color="var(--color-primary)" fill />
                 <p class="text-xs text-muted-foreground">
-                  {tValue($locale, 'main.dashboard.min', 'Min')}: {formatSpeed(downStats.min)}
-                  &nbsp;{tValue($locale, 'main.dashboard.max', 'Max')}: {formatSpeed(downStats.max)}
-                  &nbsp;{tValue($locale, 'main.dashboard.avg', 'Avg')}: {formatSpeed(downStats.avg)}
+                  {tValue($locale, 'main.dashboard.min')}: {formatSpeed(downStats.min)}
+                  &nbsp;{tValue($locale, 'main.dashboard.max')}: {formatSpeed(downStats.max)}
+                  &nbsp;{tValue($locale, 'main.dashboard.avg')}: {formatSpeed(downStats.avg)}
                 </p>
               </div>
             </div>
@@ -455,12 +455,12 @@
           <!-- Mode selector -->
           <Card.Root>
             <Card.Content class="space-y-2">
-              <p class="text-sm text-muted-foreground">{tValue($locale, 'main.api.mode', 'Mode')}</p>
+              <p class="text-sm text-muted-foreground">{tValue($locale, 'main.api.mode')}</p>
               <Select.Root type="single" value={apiMode} onValueChange={(v) => { if (v) setMode(v); }}>
                 <Select.Trigger class="w-full">{modeLabel}</Select.Trigger>
                 <Select.Content>
                   {#each modes as m (m)}
-                    <Select.Item value={m} label={tValue($locale, `main.api.mode_${m}`, m)} />
+                    <Select.Item value={m} label={tValue($locale, `main.api.mode_${m}`)} />
                   {/each}
                 </Select.Content>
               </Select.Root>
@@ -471,7 +471,7 @@
           <Card.Root>
             <Card.Content class="space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-sm text-muted-foreground">{tValue($locale, 'main.dashboard.profile', 'Profile')}</span>
+                <span class="text-sm text-muted-foreground">{tValue($locale, 'main.dashboard.profile')}</span>
                 {#if activeBadge}
                   <Badge variant="outline">{activeBadge}</Badge>
                 {/if}
@@ -500,11 +500,11 @@
         <div class="flex flex-wrap gap-3">
           <Button variant="destructive" size="lg" class="flex-1" disabled={processing} onclick={handleStop}>
             <Square size={18} />
-            {tValue($locale, 'main.btn.stop', 'Stop')}
+            {tValue($locale, 'main.btn.stop')}
           </Button>
           <Button variant="secondary" size="lg" class="flex-1" disabled={processing} onclick={handleRestart}>
             <RefreshCw size={18} />
-            {tValue($locale, 'main.btn.restart', 'Restart')}
+            {tValue($locale, 'main.btn.restart')}
           </Button>
         </div>
       </Tabs.Content>
@@ -512,7 +512,7 @@
       <Tabs.Content value="groups">
         <Card.Root>
           <Card.Header>
-            <Card.Title>{tValue($locale, 'main.groups.title', 'Groups')}</Card.Title>
+            <Card.Title>{tValue($locale, 'main.groups.title')}</Card.Title>
           </Card.Header>
           <Card.Content class="space-y-4">
             {#if !apiStatus}
@@ -522,7 +522,7 @@
                 <Skeleton class="h-16 w-full rounded-xl" />
               </div>
             {:else if !visibleGroups.length}
-              <p class="text-muted-foreground">{tValue($locale, 'main.groups.empty', 'No groups')}</p>
+              <p class="text-muted-foreground">{tValue($locale, 'main.groups.empty')}</p>
             {:else}
               {#each visibleGroups as group (group.tag)}
                 <div class="rounded-xl border border-border bg-background overflow-hidden">
@@ -592,16 +592,16 @@
           <Card.Header>
             <div class="flex items-center justify-between">
               <Card.Title>
-                {tValue($locale, 'main.api.connections', 'Connections')} ({apiConnections.length})
+                {tValue($locale, 'main.api.connections')} ({apiConnections.length})
               </Card.Title>
               <Button variant="outline" size="sm" onclick={closeConnections}>
-                {tValue($locale, 'main.api.close_connections', 'Close all')}
+                {tValue($locale, 'main.api.close_connections')}
               </Button>
             </div>
           </Card.Header>
           <Card.Content>
             {#if !apiConnections.length}
-              <p class="text-muted-foreground">{tValue($locale, 'main.connections.empty', 'No active connections')}</p>
+              <p class="text-muted-foreground">{tValue($locale, 'main.connections.empty')}</p>
             {:else}
               <div class="space-y-2">
                 {#each apiConnections as conn (conn.id)}
@@ -631,7 +631,7 @@
 <Dialog.Root open={selectedConn != null} onOpenChange={(open) => { if (!open) selectedConn = null; }}>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>{tValue($locale, 'connection_details.title', 'Connection')}</Dialog.Title>
+      <Dialog.Title>{tValue($locale, 'connection_details.title')}</Dialog.Title>
     </Dialog.Header>
     {#if selectedConn}
       {@const c = selectedConn}
@@ -639,25 +639,25 @@
       {@const outbound = c.outbound || c.outboundType || '—'}
       <div class="space-y-3 text-sm">
         {@render DetailRow('ID', c.id)}
-        {@render DetailRow(tValue($locale, 'connection_details.inbound', 'Inbound'), inbound)}
-        {@render DetailRow(tValue($locale, 'connection_details.network', 'Network'), c.network)}
-        {@render DetailRow(tValue($locale, 'connection_details.source', 'Source'), c.source)}
-        {@render DetailRow(tValue($locale, 'connection_details.destination', 'Destination'), c.destination)}
-        {@render DetailRow(tValue($locale, 'connection_details.domain', 'Domain'), c.domain)}
-        {@render DetailRow(tValue($locale, 'connection_details.rule', 'Rule'), c.rule)}
-        {@render DetailRow(tValue($locale, 'connection_details.outbound', 'Outbound'), outbound)}
-        {@render DetailRow(tValue($locale, 'connection_details.chain', 'Chain'), c.chain?.join(' → '))}
-        {@render DetailRow(tValue($locale, 'connection_details.uplink', 'Uplink'), `${formatSpeed(c.uplink)} (${formatBytes(c.uplinkTotal)})`)}
-        {@render DetailRow(tValue($locale, 'connection_details.downlink', 'Downlink'), `${formatSpeed(c.downlink)} (${formatBytes(c.downlinkTotal)})`)}
-        {@render DetailRow(tValue($locale, 'connection_details.created', 'Created'), formatTime(c.createdAt))}
+        {@render DetailRow(tValue($locale, 'connection_details.inbound'), inbound)}
+        {@render DetailRow(tValue($locale, 'connection_details.network'), c.network)}
+        {@render DetailRow(tValue($locale, 'connection_details.source'), c.source)}
+        {@render DetailRow(tValue($locale, 'connection_details.destination'), c.destination)}
+        {@render DetailRow(tValue($locale, 'connection_details.domain'), c.domain)}
+        {@render DetailRow(tValue($locale, 'connection_details.rule'), c.rule)}
+        {@render DetailRow(tValue($locale, 'connection_details.outbound'), outbound)}
+        {@render DetailRow(tValue($locale, 'connection_details.chain'), c.chain?.join(' → '))}
+        {@render DetailRow(tValue($locale, 'connection_details.uplink'), `${formatSpeed(c.uplink)} (${formatBytes(c.uplinkTotal)})`)}
+        {@render DetailRow(tValue($locale, 'connection_details.downlink'), `${formatSpeed(c.downlink)} (${formatBytes(c.downlinkTotal)})`)}
+        {@render DetailRow(tValue($locale, 'connection_details.created'), formatTime(c.createdAt))}
         {#if c.processInfo?.userName}
-          {@render DetailRow(tValue($locale, 'connection_details.user', 'User'), c.processInfo.userName)}
-          {@render DetailRow(tValue($locale, 'connection_details.process', 'Process'), c.processInfo.processPath)}
+          {@render DetailRow(tValue($locale, 'connection_details.user'), c.processInfo.userName)}
+          {@render DetailRow(tValue($locale, 'connection_details.process'), c.processInfo.processPath)}
         {/if}
       </div>
       <Dialog.Footer>
         <Button variant="destructive" onclick={() => closeConnection(c.id)}>
-          {tValue($locale, 'connection_details.close_connection', 'Close connection')}
+          {tValue($locale, 'connection_details.close_connection')}
         </Button>
       </Dialog.Footer>
     {/if}

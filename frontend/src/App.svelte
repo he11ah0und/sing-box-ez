@@ -3,7 +3,7 @@
   import type { Component } from 'svelte';
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
-  import { signalLocaleReady, locale, tValue } from '$lib/stores/locale.js';
+  import { signalLocaleReady, locale, tValue, tValues } from '$lib/stores/locale.js';
   import { GetTheme, SetFallbackType } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import { currentLevel } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
@@ -69,20 +69,18 @@
 
   const styleCheckTitle = $derived(
     $appState.styleCheck
-      ? tValue(
-          $locale,
+      ? tValues($locale, [
           `dialog.config_style.${$appState.styleCheck.style}_title`,
-          tValue($locale, 'dialog.config_style.unknown_title', 'Unknown config type')
-        )
+          'dialog.config_style.unknown_title'
+        ])
       : ''
   );
   const styleCheckBody = $derived(
     $appState.styleCheck
-      ? tValue(
-          $locale,
+      ? tValues($locale, [
           `dialog.config_style.${$appState.styleCheck.style}_body`,
-          tValue($locale, 'dialog.config_style.unknown_body', 'Could not determine the config type.')
-        )
+          'dialog.config_style.unknown_body'
+        ])
       : ''
   );
 </script>
@@ -119,13 +117,13 @@
       </AlertDialog.Header>
       <AlertDialog.Footer>
         <Button variant="outline" onclick={clearStyleCheck}>
-          {tValue($locale, 'dialog.config_style.btn.cancel', 'Cancel')}
+          {tValue($locale, 'dialog.config_style.btn.cancel')}
         </Button>
         <Button variant="outline" onclick={() => resolveStyleCheck($appState.styleCheck!, 'ignore')}>
-          {tValue($locale, 'dialog.config_style.btn.ignore', 'Run anyway')}
+          {tValue($locale, 'dialog.config_style.btn.ignore')}
         </Button>
         <Button onclick={() => resolveStyleCheck($appState.styleCheck!, 'to_client')}>
-          {tValue($locale, 'dialog.config_style.btn.to_client', 'Convert to client')}
+          {tValue($locale, 'dialog.config_style.btn.to_client')}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>
