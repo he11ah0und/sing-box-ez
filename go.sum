@@ -1,9 +1,7 @@
 github.com/he11ah0und/config v0.2.0 h1:YLpbdGN729zMOdGbnYd6CcojJFsnpa8hu7tSExVpKBs=
 github.com/he11ah0und/config v0.2.0/go.mod h1:W3s8iXzRdFD80lDPWsRnlYAGM1+hazPJ9O2GfFvdZvI=
-github.com/he11ah0und/localengine v0.2.0 h1:xuJBHzqfpRfEv1tXfYIlRjsb7hPPGx18lT/sOYDkNaI=
-github.com/he11ah0und/localengine v0.2.0/go.mod h1:9SWOVaublc17NPDdv6Xjo86sAW2WmAquTBLvT+53x+o=
-github.com/he11ah0und/localengine v0.2.1 h1:VbfTnT9vPh7k0NnhWNqOuHmWJaz2Uq55MCZtB8gf6Ug=
-github.com/he11ah0und/localengine v0.2.1/go.mod h1:9SWOVaublc17NPDdv6Xjo86sAW2WmAquTBLvT+53x+o=
+github.com/he11ah0und/localengine v0.3.0 h1:gJLFUds0JDqbAoDCIrHTn5w9FnaMIVfWXLEkFpSQCpI=
+github.com/he11ah0und/localengine v0.3.0/go.mod h1:9SWOVaublc17NPDdv6Xjo86sAW2WmAquTBLvT+53x+o=
 github.com/he11ah0und/logger v0.1.0 h1:zPsFl5Jv01CL0RMiq81At7YRvLPHIP0XKHZ8WjhVh84=
 github.com/he11ah0und/logger v0.1.0/go.mod h1:Cw1itUc65HC+D1OfN37t3Fr+EsNvPuaIHznokz+ZKp0=
 github.com/he11ah0und/yamltree v0.1.0 h1:Y/gsJgJd/NfOhrPK3EgH7q6rLt2oqxWCr75HMv1QfUw=

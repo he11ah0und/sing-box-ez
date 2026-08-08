@@ -5,7 +5,7 @@
   import { Button } from '$lib/components/ui/button/index.js';
   import { cn } from '$lib/utils.js';
 
-  const startupTitle = useLocale('startup.title');
+  const appTitle = useLocale('app.title');
   const startupSubtitle = useLocale('startup.subtitle');
   const startupContinue = useLocale('startup.continue');
 
@@ -21,7 +21,7 @@
 <div class="h-full flex flex-col items-center justify-center p-6 bg-background">
   <Card.Root class="w-full max-w-md shadow-xl">
     <Card.Header>
-      <Card.Title class="text-2xl">{$startupTitle}</Card.Title>
+      <Card.Title class="text-2xl">{$appTitle}</Card.Title>
       <Card.Description>{$startupSubtitle}</Card.Description>
     </Card.Header>
     <Card.Content class="flex flex-col gap-3">

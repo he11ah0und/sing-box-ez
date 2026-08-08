@@ -91,7 +91,7 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 			Actions: []PrivilegeAction{
 				{
 					ID:    "restart_admin",
-					Label: localengine.T("dialog", "privileges", "btn_restart_admin"),
+					Label: localengine.T("core", "btn", "restart_admin"),
 					Handler: func() error {
 						return restartFn()
 					},

@@ -617,7 +617,7 @@ func (w *WailsApp) Run() error {
 	}
 
 	win := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "sing-box-ez",
+		Title:            localengine.T("app", "title"),
 		Width:            1024,
 		Height:           768,
 		BackgroundColour: application.NewRGB(15, 23, 42),
@@ -672,13 +672,13 @@ func (w *WailsApp) Run() error {
 		bindings.runUpdateChecks()
 	}
 	ic.OnCoreMissing = func() {
-		title := localengine.T("notify", "core_missing", "title")
+		title := localengine.T("app", "title")
 		body := localengine.T("notify", "core_missing", "body")
 		bindings.notify(title, body)
 		bindings.showDialog(title, body)
 	}
 	ic.OnConfigMissing = func() {
-		title := localengine.T("notify", "config_missing", "title")
+		title := localengine.T("app", "title")
 		body := localengine.T("notify", "config_missing", "body")
 		bindings.notify(title, body)
 		bindings.showDialog(title, body)

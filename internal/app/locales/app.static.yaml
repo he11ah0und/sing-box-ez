@@ -1,0 +1,22 @@
+# Static names that are never translated (brand, technical terms).
+# Loaded by localengine as a static bundle: always available, not a
+# selectable language. Keys must not be repeated in any locale file.
+app:
+  title: Sing-box EZ
+configs:
+  dialog:
+    url: URL
+connection_details:
+  id: ID
+core:
+  mode:
+    setcap: Setcap
+startup:
+  mode_dummy: dummy
+  mode_embed: embed
+  mode_npipe: npipe
+  mode_openrc: openrc
+  mode_systemd: systemd
+  mode_sysv: sysv
+  mode_tcp: tcp
+  mode_unix: unix

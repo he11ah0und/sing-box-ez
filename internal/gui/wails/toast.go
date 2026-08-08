@@ -26,13 +26,11 @@ func (b *Bindings) toast(level, text, description string) {
 	b.emit("toast", Toast{Level: level, Text: text, Description: description})
 }
 
-// t resolves a locale key for the current language, falling back to English
-// and finally to the key itself (mirroring the frontend missing-key rule).
+// t resolves a locale key for the current language, falling back to English,
+// static bundles and finally to the key itself (mirroring the frontend
+// missing-key rule).
 func (b *Bindings) t(path ...string) string {
 	if v, ok := localengine.LookupString(localengine.CurrentLanguage(), path...); ok {
-		return v
-	}
-	if v, ok := localengine.LookupString("en", path...); ok {
 		return v
 	}
 	return strings.Join(path, ".")

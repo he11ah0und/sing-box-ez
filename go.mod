@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/he11ah0und/config v0.2.0
-	github.com/he11ah0und/localengine v0.2.1
+	github.com/he11ah0und/localengine v0.3.0
 	github.com/he11ah0und/logger v0.1.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gogpu/systray v0.1.0
