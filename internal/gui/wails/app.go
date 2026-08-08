@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -21,6 +22,7 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/core/api"
 	"sing-box-ez/internal/core/inboundstyle"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/gui/tray"
 )
 
@@ -96,6 +98,12 @@ type Bindings struct {
 	localeMissingWarns map[string]struct{}
 	localeMu           sync.Mutex
 
+	// apiMu guards apiConnectedAt.
+	apiMu sync.Mutex
+	// apiConnectedAt is when the core API first answered after the last
+	// failure; the frontend shows it as the connection session start.
+	apiConnectedAt time.Time
+
 	// styleCheckMu guards pendingStyleChecks.
 	styleCheckMu sync.Mutex
 	// pendingStyleChecks holds the choose callbacks of in-flight config style
@@ -129,8 +137,24 @@ func (b *Bindings) GetConfigs() []config.ConfigRecord {
 }
 
 // GetActiveConfig returns the currently active profile, or nil.
-func (b *Bindings) GetActiveConfig() *config.ConfigRecord {
-	return b.app.Controller.GetActiveConfig()
+// ActiveConfig pairs the active profile with UI-facing computed fields.
+type ActiveConfig struct {
+	*config.ConfigRecord
+	// LastUpdateAgo is the localized human-readable form of the elapsed time
+	// since the profile was last updated.
+	LastUpdateAgo string `json:"lastUpdateAgo"`
+}
+
+// GetActiveConfig returns the active profile.
+func (b *Bindings) GetActiveConfig() *ActiveConfig {
+	rec := b.app.Controller.GetActiveConfig()
+	if rec == nil {
+		return nil
+	}
+	return &ActiveConfig{
+		ConfigRecord:  rec,
+		LastUpdateAgo: version.HumanDuration(rec.LastUpdate.Time),
+	}
 }
 
 // ActivateConfig sets the active profile by name.
@@ -546,7 +570,7 @@ func (b *Bindings) showDialog(title, body string) {
 func (b *Bindings) emitConfigsChanged() {
 	b.emit("configs:changed", map[string]any{
 		"configs": b.app.Controller.GetConfigs(),
-		"active":  b.app.Controller.GetActiveConfig(),
+		"active":  b.GetActiveConfig(),
 	})
 }
 

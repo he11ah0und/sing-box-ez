@@ -37,7 +37,7 @@
   let showBranchPicker = $state(false);
 
   const tabAbout = useLocale('tab.about');
-  const aboutSystemTitle = useLocale('about.system.title');
+  const aboutSystemTitle = useLocale('common.system');
   const aboutCommitInfoPrefix = useLocale('about.commit_info.prefix');
   const aboutBuildInfoPrefix = useLocale('about.build_info.prefix');
   const aboutDevBuildLabel = useLocale('about.dev_build.label');

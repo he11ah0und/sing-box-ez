@@ -43,7 +43,7 @@
     APINode,
     APIConnection
   } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
-  import { formatBytes, formatSpeed, formatRelative, formatTime, splitHostPort, ipVersionLabel } from '../utils/format.js';
+  import { formatBytes, formatSpeed, formatTime, splitHostPort, ipVersionLabel } from '../utils/format.js';
 
   const tabs = [
     { id: 'overview', key: 'main.tabs.overview' },
@@ -51,6 +51,17 @@
     { id: 'connections', key: 'tab.connections' }
   ];
   const modes = ['rule', 'global', 'direct'];
+  // Proxy mode labels: "rule" is shared with connection details via
+  // common.rule; the rest keep their own keys.
+  const modeKeys: Record<string, string> = {
+    rule: 'common.rule',
+    global: 'main.api.mode_global',
+    direct: 'main.api.mode_direct'
+  };
+
+  function modeKey(mode: string): string {
+    return modeKeys[mode] ?? `main.api.mode_${mode}`;
+  }
 
   const mainRunning = useLocale('main.running');
   const mainStopped = useLocale('main.stopped');
@@ -79,7 +90,7 @@
   const connectionDetailsSource = useLocale('connection_details.source');
   const connectionDetailsDestination = useLocale('connection_details.destination');
   const connectionDetailsDomain = useLocale('connection_details.domain');
-  const connectionDetailsRule = useLocale('connection_details.rule');
+  const connectionDetailsRule = useLocale('common.rule');
   const connectionDetailsOutbound = useLocale('connection_details.outbound');
   const connectionDetailsChain = useLocale('connection_details.chain');
   const connectionDetailsUplink = useLocale('connection_details.uplink');
@@ -101,7 +112,6 @@
   let groupDelays = $state<Record<string, Record<string, number>>>({});
   let selectedConn = $state<APIConnection | null>(null);
   let pollTimer = $state<ReturnType<typeof setInterval> | null>(null);
-  let connectedAt = $state<number | null>(null);
 
   const statusLabel = $derived(
     $appState.status.running
@@ -110,7 +120,7 @@
   );
   const activeName = $derived($appState.activeConfig?.name ?? '—');
   const activeBadge = $derived($appState.activeConfig?.type ?? '');
-  const activeUpdated = $derived(formatRelative($appState.activeConfig?.last_update));
+  const activeUpdated = $derived($appState.activeConfig?.lastUpdateAgo ?? '');
 
   const configSelectLabel = $derived(
     $appState.activeConfig?.name
@@ -118,7 +128,7 @@
         ? $mainActivePlaceholder
         : $configsEmpty)
   );
-  const modeLabel = $derived(tValue($locale, `main.api.mode_${apiMode}`));
+  const modeLabel = $derived(tValue($locale, modeKey(apiMode)));
 
   const visibleGroups = $derived(
     apiGroups.filter((g) => g.type !== 'Fallback' && g.type !== 'LoadBalance')
@@ -171,11 +181,6 @@
         GetAPIGroups().catch(() => []),
         GetAPIConnections().catch(() => [])
       ]);
-      if (status?.version) {
-        if (!connectedAt) connectedAt = Date.now();
-      } else {
-        connectedAt = null;
-      }
       apiStatus = status;
       apiInfo = info;
       apiMode = mode;
@@ -370,13 +375,13 @@
     } else {
       sub = `↑${formatBytes(conn.uplinkTotal)} ↓${formatBytes(conn.downlinkTotal)}`;
     }
-    if (conn.createdAt) sub += ` · ${formatRelative(conn.createdAt)}`;
+    if (conn.createdAgo) sub += ` · ${conn.createdAgo}`;
     if (outbound) sub += ` · ${outbound}`;
     return sub;
   }
 </script>
 
-<Page onLoad={loadInitial}>
+<Page onLoad={loadInitial} fullHeight>
   {#if !$appState.status.running}
     <!-- Stopped state -->
     <div class="flex flex-col items-center justify-center min-h-[40vh] gap-8">
@@ -414,8 +419,8 @@
     </Card.Root>
   {:else}
     <!-- Running state -->
-    <Tabs.Root bind:value={activeTab} class="space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <Tabs.Root bind:value={activeTab} class="flex flex-col flex-1 min-h-0 gap-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
         <Tabs.List>
           {#each tabs as tab (tab.id)}
             <Tabs.Trigger value={tab.id}>{tValue($locale, tab.key)}</Tabs.Trigger>
@@ -424,8 +429,11 @@
         <div class="text-right text-sm text-muted-foreground">
           {#if apiStatus}
             <p>{apiInfo?.backend ?? ''} {apiStatus.version}</p>
-            {#if connectedAt}
-              <p>{formatTime(new Date(connectedAt))}</p>
+            {#if apiStatus.connectedAt}
+              <p>{formatTime(new Date(apiStatus.connectedAt))}</p>
+              {#if apiStatus.connectedAgo}
+                <p>{apiStatus.connectedAgo}</p>
+              {/if}
             {/if}
           {:else}
             <p>{$mainApiConnecting}</p>
@@ -433,7 +441,7 @@
         </div>
       </div>
 
-      <Tabs.Content value="overview" class="space-y-6">
+      <Tabs.Content value="overview" class="flex-1 min-h-0 overflow-y-auto space-y-6">
         <!-- Traffic graphs -->
         <Card.Root>
           <Card.Content>
@@ -498,7 +506,7 @@
                 <Select.Trigger class="w-full">{modeLabel}</Select.Trigger>
                 <Select.Content>
                   {#each modes as m (m)}
-                    <Select.Item value={m} label={tValue($locale, `main.api.mode_${m}`)} />
+                    <Select.Item value={m} label={tValue($locale, modeKey(m))} />
                   {/each}
                 </Select.Content>
               </Select.Root>
@@ -547,7 +555,7 @@
         </div>
       </Tabs.Content>
 
-      <Tabs.Content value="groups">
+      <Tabs.Content value="groups" class="flex-1 min-h-0 overflow-y-auto">
         <Card.Root>
           <Card.Header>
             <Card.Title>{$tabGroups}</Card.Title>
@@ -625,7 +633,7 @@
         </Card.Root>
       </Tabs.Content>
 
-      <Tabs.Content value="connections">
+      <Tabs.Content value="connections" class="flex-1 min-h-0 overflow-y-auto">
         <Card.Root>
           <Card.Header>
             <div class="flex items-center justify-between">
@@ -687,7 +695,7 @@
         {@render DetailRow($connectionDetailsChain, c.chain?.join(' → '))}
         {@render DetailRow($connectionDetailsUplink, `${formatSpeed(c.uplink)} (${formatBytes(c.uplinkTotal)})`)}
         {@render DetailRow($connectionDetailsDownlink, `${formatSpeed(c.downlink)} (${formatBytes(c.downlinkTotal)})`)}
-        {@render DetailRow($connectionDetailsCreated, formatTime(c.createdAt))}
+        {@render DetailRow($connectionDetailsCreated, formatTime(c.createdAt) + (c.createdAgo ? ` (${c.createdAgo})` : ''))}
         {#if c.processInfo?.userName}
           {@render DetailRow($connectionDetailsUser, c.processInfo.userName)}
           {@render DetailRow($connectionDetailsProcess, c.processInfo.processPath)}

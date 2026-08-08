@@ -67,7 +67,11 @@
   let confirmSetcap = $state(false);
   let confirmReset = $state(false);
 
-  const themeModeLabel = $derived(tValue($locale, `settings.theme_mode.${form.themeMode}`));
+  // Theme mode "system" maps to the system_based locale key; the config
+  // value itself stays "system".
+  const themeModeLabel = $derived(
+    tValue($locale, `settings.theme_mode.${form.themeMode === 'system' ? 'system_based' : form.themeMode}`)
+  );
   const coreLogLevelLabel = $derived(tValue($locale, `settings.log_level.${form.coreLogLevel}`));
 
   const tabSettings = useLocale('tab.settings');
@@ -99,7 +103,7 @@
   const settingsLanguageTitle = useLocale('settings.language.title');
   const settingsThemeTitle = useLocale('settings.theme.title');
   const settingsThemeModeTitle = useLocale('settings.theme_mode.title');
-  const settingsThemeModeSystem = useLocale('settings.theme_mode.system');
+  const settingsThemeModeSystem = useLocale('settings.theme_mode.system_based');
   const settingsThemeModeDark = useLocale('settings.theme_mode.dark');
   const settingsThemeModeLight = useLocale('settings.theme_mode.light');
   const settingsLogLimitLabel = useLocale('settings.log_limit.label');

@@ -32,7 +32,6 @@ main:
     mode: 模式
     current_mode: 模式：
     backend: 后端：
-    mode_rule: 规则
     mode_global: 全局
     mode_direct: 直连
     node: 节点
@@ -40,7 +39,7 @@ main:
     url_test_empty: 无结果
     url_test_error: 失败：%v
     url_test_result: 平均 %d 毫秒（%d 个节点）
-    connections: 连接数：%d
+    connections: 连接：
     close_connections: 关闭所有连接
     unavailable: 当前连接模式不支持 API 控制。
     connecting: '连接中…'
@@ -73,7 +72,6 @@ connection_details:
   source: 来源
   destination: 目标
   domain: 域名
-  rule: 规则
   outbound: 出站
   chain: 链路
   uplink: 上行
@@ -202,7 +200,6 @@ validation:
 settings:
   tab:
     general: 常规
-    system: 系统
   log_limit:
     label: 日志行数限制（0=无限制）：
   log_level:
@@ -236,7 +233,7 @@ settings:
     title: 主题
   theme_mode:
     title: 主题模式
-    system: 跟随系统
+    system_based: 跟随系统
     dark: 深色
     light: 浅色
   plugins:
@@ -277,8 +274,6 @@ log:
     copy: 复制全部
   copied: 日志已复制
 about:
-  system:
-    title: 系统
   commit_info:
     prefix: 提交：
   build_info:
@@ -459,3 +454,5 @@ common:
   refresh: 刷新
   reset: 重置
   clear: 清空
+  rule: 规则
+  system: 系统

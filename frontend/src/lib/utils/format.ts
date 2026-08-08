@@ -26,15 +26,6 @@ export function formatSpeed(v: unknown): string {
   return `${f.toFixed(1)} ${units[i]}`;
 }
 
-export function formatRelative(date: string | number | Date | null | undefined): string {
-  if (!date) return '';
-  const d = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (d < 60) return 'just now';
-  if (d < 3600) return `${Math.floor(d / 60)} min ago`;
-  if (d < 86400) return `${Math.floor(d / 3600)} h ago`;
-  return `${Math.floor(d / 86400)} d ago`;
-}
-
 export function formatTime(date: string | number | Date | null | undefined): string {
   if (!date) return '';
   const d = new Date(date);

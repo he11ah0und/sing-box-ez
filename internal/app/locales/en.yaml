@@ -32,7 +32,6 @@ main:
     mode: Mode
     current_mode: 'Mode: '
     backend: 'Backend: '
-    mode_rule: Rule
     mode_global: Global
     mode_direct: Direct
     node: Node
@@ -40,7 +39,7 @@ main:
     url_test_empty: no results
     url_test_error: 'failed: %v'
     url_test_result: avg %d ms (%d nodes)
-    connections: 'Connections: %d'
+    connections: 'Connections:'
     close_connections: Close all connections
     unavailable: API control is not available for this connection mode.
     connecting: Connecting…
@@ -73,7 +72,6 @@ connection_details:
   source: Source
   destination: Destination
   domain: Domain
-  rule: Rule
   outbound: Outbound
   chain: Chain
   uplink: Uplink
@@ -202,7 +200,6 @@ validation:
 settings:
   tab:
     general: General
-    system: System
   update_check:
     title: Update Checks
     self: Check for app updates on startup
@@ -236,7 +233,7 @@ settings:
     title: Theme
   theme_mode:
     title: Theme mode
-    system: System
+    system_based: System
     dark: Dark
     light: Light
   plugins:
@@ -277,8 +274,6 @@ log:
     copy: Copy all
   copied: Logs copied
 about:
-  system:
-    title: System
   commit_info:
     prefix: 'Commit: '
   build_info:
@@ -459,3 +454,5 @@ common:
   refresh: Refresh
   reset: Reset
   clear: Clear
+  rule: Rule
+  system: System

@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import type { ConfigRecord } from '../../../bindings/sing-box-ez/internal/config/models.js';
 import type {
+  ActiveConfig,
   CoreInfo,
   SelfUpdateInfo,
   Settings
@@ -68,7 +69,7 @@ export interface StyleCheckState {
 export interface AppState {
   status: CoreStatus;
   configs: ConfigRecord[];
-  activeConfig: ConfigRecord | null;
+  activeConfig: ActiveConfig | null;
   settings: Settings;
   coreInfo: CoreInfo;
   logs: LogsState;

@@ -32,7 +32,6 @@ main:
     mode: Режим
     current_mode: 'Режим: '
     backend: 'Бэкенд: '
-    mode_rule: Правило
     mode_global: Глобальный
     mode_direct: Прямой
     node: Узел
@@ -40,7 +39,7 @@ main:
     url_test_empty: нет результатов
     url_test_error: 'ошибка: %v'
     url_test_result: средн. %d мс (%d узлов)
-    connections: 'Соединения: %d'
+    connections: 'Соединения:'
     close_connections: Закрыть все соединения
     unavailable: Управление через API недоступно для этого режима подключения.
     connecting: 'Подключение…'
@@ -73,7 +72,6 @@ connection_details:
   source: Источник
   destination: Назначение
   domain: Домен
-  rule: Правило
   outbound: Исходящий
   chain: Цепочка
   uplink: Отправлено
@@ -202,7 +200,6 @@ validation:
 settings:
   tab:
     general: Основные
-    system: Система
   log_limit:
     label: 'Лимит строк лога (0=без ограничений):'
   log_level:
@@ -236,7 +233,7 @@ settings:
     title: Тема
   theme_mode:
     title: Режим темы
-    system: Системная
+    system_based: Системная
     dark: Тёмная
     light: Светлая
   plugins:
@@ -277,8 +274,6 @@ log:
     copy: Копировать всё
   copied: Логи скопированы
 about:
-  system:
-    title: Система
   commit_info:
     prefix: 'Коммит: '
   build_info:
@@ -459,3 +454,5 @@ common:
   refresh: Обновить
   reset: Сбросить
   clear: Очистить
+  rule: Правило
+  system: Система

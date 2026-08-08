@@ -3,7 +3,7 @@ import { toast } from 'svelte-sonner';
 import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../stores/appState.js';
 import { locale, setLocaleValues } from '../stores/locale.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
-import type { SelfUpdateInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+import type { ActiveConfig, SelfUpdateInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -16,7 +16,7 @@ interface StatusChangedPayload {
 
 interface ConfigsChangedPayload {
   configs?: ConfigRecord[];
-  active?: ConfigRecord | null;
+  active?: ActiveConfig | null;
 }
 
 interface CoreVersionPayload {

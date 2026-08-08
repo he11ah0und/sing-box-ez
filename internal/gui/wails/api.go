@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"sing-box-ez/internal/core/api"
+	"sing-box-ez/internal/framework/version"
 )
 
 // APIInfo describes the runtime connection parameters for the active core API.
@@ -20,17 +21,22 @@ type APIInfo struct {
 
 // APIStatus is a UI-facing snapshot of api.Status.
 type APIStatus struct {
-	Version          string `json:"version"`
-	Uptime           string `json:"uptime"`
-	Memory           uint64 `json:"memory"`
-	Goroutines       int32  `json:"goroutines"`
-	ConnectionsIn    int32  `json:"connectionsIn"`
-	ConnectionsOut   int32  `json:"connectionsOut"`
-	TrafficAvailable bool   `json:"trafficAvailable"`
-	Uplink           int64  `json:"uplink"`
-	Downlink         int64  `json:"downlink"`
-	UplinkTotal      int64  `json:"uplinkTotal"`
-	DownlinkTotal    int64  `json:"downlinkTotal"`
+	Version          string    `json:"version"`
+	Uptime           string    `json:"uptime"`
+	Memory           uint64    `json:"memory"`
+	Goroutines       int32     `json:"goroutines"`
+	ConnectionsIn    int32     `json:"connectionsIn"`
+	ConnectionsOut   int32     `json:"connectionsOut"`
+	TrafficAvailable bool      `json:"trafficAvailable"`
+	Uplink           int64     `json:"uplink"`
+	Downlink         int64     `json:"downlink"`
+	UplinkTotal      int64     `json:"uplinkTotal"`
+	DownlinkTotal    int64     `json:"downlinkTotal"`
+	// ConnectedAt is when the core API first answered after the last failure.
+	ConnectedAt time.Time `json:"connectedAt"`
+	// ConnectedAgo is the localized human-readable form of the elapsed time
+	// since ConnectedAt.
+	ConnectedAgo string `json:"connectedAgo"`
 }
 
 // APINode is a UI-facing snapshot of api.Node.
@@ -81,9 +87,12 @@ type APIConnection struct {
 	DownlinkTotal int64          `json:"downlinkTotal"`
 	Rule          string         `json:"rule"`
 	CreatedAt     time.Time      `json:"createdAt"`
-	ClosedAt      time.Time      `json:"closedAt"`
-	ProcessInfo   APIProcessInfo `json:"processInfo"`
-	Metadata      map[string]any `json:"metadata"`
+	// CreatedAgo is the localized human-readable form of the elapsed time
+	// since CreatedAt.
+	CreatedAgo  string         `json:"createdAgo"`
+	ClosedAt    time.Time      `json:"closedAt"`
+	ProcessInfo APIProcessInfo `json:"processInfo"`
+	Metadata    map[string]any `json:"metadata"`
 }
 
 func toAPIInfo(info *api.Info) *APIInfo {
@@ -107,7 +116,7 @@ func toAPIInfo(info *api.Info) *APIInfo {
 	}
 }
 
-func toAPIStatus(s *api.Status) APIStatus {
+func toAPIStatus(s *api.Status, connectedAt time.Time) APIStatus {
 	if s == nil {
 		return APIStatus{}
 	}
@@ -123,6 +132,8 @@ func toAPIStatus(s *api.Status) APIStatus {
 		Downlink:         s.Downlink,
 		UplinkTotal:      s.UplinkTotal,
 		DownlinkTotal:    s.DownlinkTotal,
+		ConnectedAt:      connectedAt,
+		ConnectedAgo:     version.HumanDuration(connectedAt),
 	}
 }
 
@@ -187,6 +198,7 @@ func toAPIConnection(c api.Connection) APIConnection {
 		DownlinkTotal: c.DownlinkTotal,
 		Rule:          c.Rule,
 		CreatedAt:     c.CreatedAt,
+		CreatedAgo:    version.HumanDuration(c.CreatedAt),
 		ClosedAt:      c.ClosedAt,
 		ProcessInfo:   toAPIProcessInfo(c.ProcessInfo),
 		Metadata:      metadata,
@@ -211,15 +223,35 @@ func (b *Bindings) GetAPIInfo() *APIInfo {
 func (b *Bindings) GetAPIStatus() (APIStatus, error) {
 	client, err := b.apiClient()
 	if err != nil {
+		b.resetAPIConnectedAt()
 		return APIStatus{}, err
 	}
 	ctx, cancel := context.WithTimeout(b.ctx, 5*time.Second)
 	defer cancel()
 	status, err := client.Status(ctx)
 	if err != nil {
+		b.resetAPIConnectedAt()
 		return APIStatus{}, err
 	}
-	return toAPIStatus(status), nil
+	return toAPIStatus(status, b.markAPIConnected()), nil
+}
+
+// markAPIConnected records the first successful API answer after a failure
+// and returns the time the current connection session started.
+func (b *Bindings) markAPIConnected() time.Time {
+	b.apiMu.Lock()
+	defer b.apiMu.Unlock()
+	if b.apiConnectedAt.IsZero() {
+		b.apiConnectedAt = time.Now()
+	}
+	return b.apiConnectedAt
+}
+
+// resetAPIConnectedAt drops the connection session start on API failure.
+func (b *Bindings) resetAPIConnectedAt() {
+	b.apiMu.Lock()
+	b.apiConnectedAt = time.Time{}
+	b.apiMu.Unlock()
 }
 
 // GetAPIMode returns the current proxy mode (rule / global / direct).
