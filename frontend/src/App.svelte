@@ -3,7 +3,7 @@
   import type { Component } from 'svelte';
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
-  import { signalLocaleReady, locale, tValue, tValues } from '$lib/stores/locale.js';
+  import { signalLocaleReady, locale, tValues, useLocale } from '$lib/stores/locale.js';
   import { GetTheme, SetFallbackType } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import { currentLevel } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
@@ -83,6 +83,10 @@
         ])
       : ''
   );
+
+  const dialogConfigStyleBtnCancel = useLocale('dialog.config_style.btn.cancel');
+  const dialogConfigStyleBtnIgnore = useLocale('dialog.config_style.btn.ignore');
+  const dialogConfigStyleBtnToClient = useLocale('dialog.config_style.btn.to_client');
 </script>
 
 <Tooltip.Provider>
@@ -117,13 +121,13 @@
       </AlertDialog.Header>
       <AlertDialog.Footer>
         <Button variant="outline" onclick={clearStyleCheck}>
-          {tValue($locale, 'dialog.config_style.btn.cancel')}
+          {$dialogConfigStyleBtnCancel}
         </Button>
         <Button variant="outline" onclick={() => resolveStyleCheck($appState.styleCheck!, 'ignore')}>
-          {tValue($locale, 'dialog.config_style.btn.ignore')}
+          {$dialogConfigStyleBtnIgnore}
         </Button>
         <Button onclick={() => resolveStyleCheck($appState.styleCheck!, 'to_client')}>
-          {tValue($locale, 'dialog.config_style.btn.to_client')}
+          {$dialogConfigStyleBtnToClient}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

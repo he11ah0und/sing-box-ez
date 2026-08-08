@@ -5,10 +5,12 @@
   import TopBar from './TopBar.svelte';
   import BottomNav from './BottomNav.svelte';
   import { currentLevel, subNav, setRootPage, setSubTab, enterSubNav, exitSubNav, goHome } from '../stores/navigation.js';
-  import { tValue, locale } from '../stores/locale.js';
+  import { tValue, locale, useLocale } from '../stores/locale.js';
   import { pageRegistry } from '../pages/index.js';
 
   let { children }: { children?: Snippet } = $props();
+
+  const commonBack = useLocale('common.back');
 
   const mainNavItems = pageRegistry.filter((page) => page.nav);
   const currentPage = $derived(pageRegistry.find((i) => i.id === $currentLevel.id));
@@ -46,10 +48,10 @@
         <button
           class="w-full text-left px-4 py-3 hover:bg-accent flex items-center gap-3 text-muted-foreground"
           onclick={back}
-          aria-label={tValue($locale, 'common.back')}
+          aria-label={$commonBack}
         >
           <ArrowLeft size={20} />
-          <span>{tValue($locale, 'common.back')}</span>
+          <span>{$commonBack}</span>
         </button>
         {#each subTabs as tab}
           <button

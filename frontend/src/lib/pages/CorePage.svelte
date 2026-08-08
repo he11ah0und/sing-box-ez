@@ -2,7 +2,7 @@
   import { Download, RefreshCw } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
-  import { locale, tValue } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.js';
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -12,6 +12,13 @@
 
   let processing = $state(false);
   let loaded = $state(false);
+
+  const tabCore = useLocale('tab.core');
+  const coreInstalled = useLocale('core.installed');
+  const coreLatest = useLocale('core.latest');
+  const coreUpdateDownloading = useLocale('core.update.downloading');
+  const coreBtnDownload = useLocale('core.btn.download');
+  const commonRefresh = useLocale('common.refresh');
 
   async function load() {
     try {
@@ -38,7 +45,7 @@
 </script>
 
 <Page
-  title={tValue($locale, 'tab.core')}
+  title={$tabCore}
   onLoad={load}
 >
   <Card.Root>
@@ -51,11 +58,11 @@
       {:else}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="rounded-xl bg-background border border-border p-4">
-            <p class="text-sm text-muted-foreground">{tValue($locale, 'core.installed')}</p>
+            <p class="text-sm text-muted-foreground">{$coreInstalled}</p>
             <p class="text-lg font-medium">{$appState.coreInfo.installedVersion || '—'}</p>
           </div>
           <div class="rounded-xl bg-background border border-border p-4">
-            <p class="text-sm text-muted-foreground">{tValue($locale, 'core.latest')}</p>
+            <p class="text-sm text-muted-foreground">{$coreLatest}</p>
             <p class="text-lg font-medium">{$appState.coreInfo.latestVersion || '—'}</p>
           </div>
         </div>
@@ -64,7 +71,7 @@
       {#if $appState.coreInfo.downloading}
         <div class="space-y-1">
           <div class="flex justify-between text-sm">
-            <span>{tValue($locale, 'core.update.downloading')}</span>
+            <span>{$coreUpdateDownloading}</span>
             <span>{Math.round(($appState.coreInfo.downloadProgress ?? 0) * 100)}%</span>
           </div>
           <Progress value={($appState.coreInfo.downloadProgress ?? 0) * 100} max={100} />
@@ -77,11 +84,11 @@
           onclick={download}
         >
           <Download size={18} />
-          {tValue($locale, 'core.btn.download')}
+          {$coreBtnDownload}
         </Button>
         <Button variant="outline" onclick={load}>
           <RefreshCw size={18} />
-          {tValue($locale, 'common.refresh')}
+          {$commonRefresh}
         </Button>
       </div>
     </Card.Content>

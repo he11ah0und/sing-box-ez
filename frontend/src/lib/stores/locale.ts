@@ -15,6 +15,10 @@ export const locale = writable<LocaleState>({
   values: {}
 });
 
+// registeredKeys remembers every key ever sent to the backend so a key
+// is registered exactly once per session, no matter how many components
+// subscribe to it.
+const registeredKeys = new Set<string>();
 const pendingKeys = new Set<string>();
 let ready = false;
 let flushScheduled = false;
@@ -34,7 +38,8 @@ function flush() {
 }
 
 export function registerLocaleKey(key: string) {
-  if (!key || pendingKeys.has(key)) return;
+  if (!key || registeredKeys.has(key)) return;
+  registeredKeys.add(key);
   pendingKeys.add(key);
   if (!flushScheduled) {
     flushScheduled = true;
@@ -66,8 +71,10 @@ export function setLocale(language: string, values?: Record<string, string> | nu
   locale.set({ language, values: values || {} });
 }
 
-// tValue reads a registered key from a locale snapshot.
-// Calling it automatically registers the key for backend delivery.
+// tValue reads a key from a locale snapshot. Calling it automatically
+// registers the key for backend delivery. Use it only for dynamic keys
+// (computed at render time); static keys must be declared once per
+// component via useLocale and subscribed as {$cell}.
 // A missing value renders the key itself — English fallbacks in code are
 // forbidden (the hardcode-scan guard flags them); the single source of
 // truth is internal/app/locales/*.yaml.
@@ -94,10 +101,22 @@ export function t(key: string): Readable<string> {
   return derived(locale, ($locale) => $locale.values[key] ?? key);
 }
 
-// useLocale registers a key and returns a reactive store for its translation.
+// cells memoizes one derived store per key so repeated useLocale calls
+// for the same key share a single subscription.
+const cells = new Map<string, Readable<string>>();
+
+// useLocale registers a key and returns its memoized reactive cell.
+// Declare cells once at component init and subscribe in markup as {$cell};
+// values flow in via the locale:keys_changed / locale:changed events and
+// the RegisterLocaleKeys response.
 export function useLocale(key: string): Readable<string> {
   registerLocaleKey(key);
-  return t(key);
+  let cell = cells.get(key);
+  if (!cell) {
+    cell = t(key);
+    cells.set(key, cell);
+  }
+  return cell;
 }
 
 // getLocaleString registers a key and returns its current translation value.
