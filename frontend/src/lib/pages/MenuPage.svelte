@@ -1,12 +1,13 @@
 <script lang="ts">
   import { setRootPage, currentLevel } from '../stores/navigation.js';
-  import { locale, tValue, useLocale } from '../stores/locale.js';
+  import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
   import { pageRegistry } from '../pages/index.js';
   import { cn } from '$lib/utils.js';
 
-  const tabMenu = useLocale('tab.menu');
+  const L = useLocale(['tab.menu']);
 
   const items = pageRegistry.filter((page) => page.nav && !page.bottomNav);
+  const R = useLocaleRecord(items.map((item) => item.key));
 
   function navigate(id: string) {
     setRootPage(id);
@@ -14,7 +15,7 @@
 </script>
 
 <div class="p-4">
-  <h2 class="text-2xl font-bold mb-4">{$tabMenu}</h2>
+  <h2 class="text-2xl font-bold mb-4">{L.tabMenu}</h2>
   <div class="flex flex-col gap-2">
     {#each items as item (item.id)}
       {@const Icon = item.icon}
@@ -26,7 +27,7 @@
         onclick={() => navigate(item.id)}
       >
         {#if Icon}<Icon size={20} />{/if}
-        {tValue($locale, item.key)}
+        {R[item.key]}
       </button>
     {/each}
   </div>

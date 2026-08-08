@@ -5,18 +5,23 @@
   import TopBar from './TopBar.svelte';
   import BottomNav from './BottomNav.svelte';
   import { currentLevel, subNav, setRootPage, setSubTab, enterSubNav, exitSubNav, goHome } from '../stores/navigation.js';
-  import { tValue, locale, useLocale } from '../stores/locale.js';
+  import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
   import { pageRegistry } from '../pages/index.js';
 
   let { children }: { children?: Snippet } = $props();
 
-  const commonBack = useLocale('common.back');
-  const appTitle = useLocale('app.title');
+  const L = useLocale(['common.back', 'app.title']);
 
   const mainNavItems = pageRegistry.filter((page) => page.nav);
   const currentPage = $derived(pageRegistry.find((i) => i.id === $currentLevel.id));
   const inSubNav = $derived(!!($subNav.pageId && $subNav.pageId === currentPage?.id && currentPage?.tabs?.length));
   const subTabs = $derived(inSubNav ? (currentPage?.tabs ?? []) : []);
+
+  // Every nav label key is known upfront from the page registry.
+  const R = useLocaleRecord(
+    pageRegistry.flatMap((page) => [page.key, ...(page.tabs ?? []).map((tab) => tab.key)])
+  );
+  const title = $derived(currentPage ? R[currentPage.key] : $currentLevel.id);
 
   function navigate(id: string) {
     const page = pageRegistry.find((p) => p.id === id);
@@ -42,17 +47,17 @@
   <!-- Desktop side rail -->
   <aside class="hidden md:flex w-56 flex-col border-r border-border bg-card">
     <div class="h-14 flex items-center px-4 font-semibold border-b border-border">
-      {$appTitle}
+      {L.appTitle}
     </div>
     <nav class="flex-1 overflow-auto py-2">
       {#if inSubNav}
         <button
           class="w-full text-left px-4 py-3 hover:bg-accent flex items-center gap-3 text-muted-foreground"
           onclick={back}
-          aria-label={$commonBack}
+          aria-label={L.commonBack}
         >
           <ArrowLeft size={20} />
-          <span>{$commonBack}</span>
+          <span>{L.commonBack}</span>
         </button>
         {#each subTabs as tab}
           <button
@@ -60,7 +65,7 @@
             class:bg-secondary={$subNav.activeTab === tab.id}
             onclick={() => selectTab(tab.id)}
           >
-            <span>{tValue($locale, tab.key)}</span>
+            <span>{R[tab.key]}</span>
           </button>
         {/each}
       {:else}
@@ -72,7 +77,7 @@
             onclick={() => navigate(item.id)}
           >
             {#if Icon}<Icon size={20} />{/if}
-            <span>{tValue($locale, item.key)}</span>
+            <span>{R[item.key]}</span>
           </button>
         {/each}
       {/if}
@@ -82,7 +87,7 @@
   <!-- Main area -->
   <div class="flex flex-col flex-1 min-w-0">
     <TopBar
-      title={tValue($locale, currentPage?.key ?? $currentLevel.id)}
+      {title}
       showBack={inSubNav}
       onBack={back}
     />
@@ -98,7 +103,7 @@
             class:bg-secondary={$subNav.activeTab !== tab.id}
             onclick={() => selectTab(tab.id)}
           >
-            {tValue($locale, tab.key)}
+            {R[tab.key]}
           </button>
         {/each}
       </div>

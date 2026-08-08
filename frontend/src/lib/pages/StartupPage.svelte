@@ -1,13 +1,11 @@
 <script lang="ts">
   import { appState } from '../stores/appState.js';
-  import { useLocale } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.svelte.js';
   import * as Card from '$lib/components/ui/card/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { cn } from '$lib/utils.js';
 
-  const appTitle = useLocale('app.title');
-  const startupSubtitle = useLocale('startup.subtitle');
-  const startupContinue = useLocale('startup.continue');
+  const L = useLocale(['app.title', 'startup.subtitle', 'startup.continue']);
 
   function selectMode(mode: string) {
     appState.update((s) => ({ ...s, startup: { ...s.startup, selected: mode } }));
@@ -21,8 +19,8 @@
 <div class="h-full flex flex-col items-center justify-center p-6 bg-background">
   <Card.Root class="w-full max-w-md shadow-xl">
     <Card.Header>
-      <Card.Title class="text-2xl">{$appTitle}</Card.Title>
-      <Card.Description>{$startupSubtitle}</Card.Description>
+      <Card.Title class="text-2xl">{L.appTitle}</Card.Title>
+      <Card.Description>{L.startupSubtitle}</Card.Description>
     </Card.Header>
     <Card.Content class="flex flex-col gap-3">
       {#each $appState.startup.options as option (option.id)}
@@ -39,7 +37,7 @@
     </Card.Content>
     <Card.Footer>
       <Button class="w-full" size="lg" onclick={continueStartup}>
-        {$startupContinue}
+        {L.startupContinue}
       </Button>
     </Card.Footer>
   </Card.Root>

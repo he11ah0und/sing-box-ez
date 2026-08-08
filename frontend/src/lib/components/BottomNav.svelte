@@ -2,14 +2,15 @@
   import { ArrowLeft } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import { setRootPage, currentLevel, subNav, enterSubNav, exitSubNav, goHome } from '../stores/navigation.js';
-  import { tValue, locale, useLocale } from '../stores/locale.js';
+  import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
   import { pageRegistry } from '../pages/index.js';
 
   const mainItems = pageRegistry.filter((page) => page.bottomNav);
-  const currentPage = $derived(pageRegistry.find((p) => p.id === $currentLevel.id));
+  const currentPage = $derived(pageRegistry.find((i) => i.id === $currentLevel.id));
   const inSubNav = $derived(!!($subNav.pageId && $subNav.pageId === currentPage?.id && currentPage?.tabs?.length));
 
-  const commonBack = useLocale('common.back');
+  const L = useLocale(['common.back']);
+  const R = useLocaleRecord(mainItems.map((item) => item.key));
 
   function navigate(id: string) {
     const page = pageRegistry.find((p) => p.id === id);
@@ -31,7 +32,7 @@
   {#if inSubNav}
     <Button variant="ghost" class="gap-2" onclick={back}>
       <ArrowLeft size={22} />
-      <span class="text-sm">{$commonBack}</span>
+      <span class="text-sm">{L.commonBack}</span>
     </Button>
   {:else}
     {#each mainItems as item}
@@ -42,7 +43,7 @@
         onclick={() => navigate(item.id)}
       >
         {#if Icon}<Icon size={22} />{/if}
-        <span class="text-xs mt-1">{tValue($locale, item.key)}</span>
+        <span class="text-xs mt-1">{R[item.key]}</span>
       </button>
     {/each}
   {/if}

@@ -1,7 +1,7 @@
 import { Events } from '@wailsio/runtime';
 import { toast } from 'svelte-sonner';
 import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../stores/appState.js';
-import { locale, setLocaleValues } from '../stores/locale.js';
+import { locale, setLocaleValues } from '../stores/locale.svelte.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
 import type { ActiveConfig, SelfUpdateInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 import type { Update as APIStateUpdate } from '../../../bindings/sing-box-ez/internal/core/state/models.js';

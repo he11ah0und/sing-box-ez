@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Trash2, RefreshCw, Copy } from '@lucide/svelte';
   import { appState, clearLogs } from '../stores/appState.js';
-  import { useLocale } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.svelte.js';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -17,11 +17,13 @@
 
   let processing = $state(false);
 
-  const tabDebug = useLocale('common.debug');
-  const logBtnCopy = useLocale('log.btn.copy');
-  const commonRefresh = useLocale('common.refresh');
-  const commonClear = useLocale('common.clear');
-  const logEmpty = useLocale('log.empty');
+  const L = useLocale([
+    'common.debug',
+    'log.btn.copy',
+    'common.refresh',
+    'common.clear',
+    'log.empty'
+  ]);
 
   function colorizeCore(line: string): AnsiPart[] {
     const ansi = parseANSILine(line);
@@ -65,7 +67,7 @@
 </script>
 
 <Page
-  title={$tabDebug}
+  title={L.commonDebug}
   onLoad={load}
   fullHeight={true}
   extraClass="space-y-4"
@@ -73,15 +75,15 @@
   {#snippet actions()}
     <Button variant="outline" onclick={copy}>
       <Copy size={16} />
-      {$logBtnCopy}
+      {L.logBtnCopy}
     </Button>
     <Button variant="outline" onclick={load}>
       <RefreshCw size={16} />
-      {$commonRefresh}
+      {L.commonRefresh}
     </Button>
     <Button variant="destructive" disabled={processing} onclick={clear}>
       <Trash2 size={16} />
-      {$commonClear}
+      {L.commonClear}
     </Button>
   {/snippet}
 
@@ -89,7 +91,7 @@
     <div class="p-4 font-mono text-sm">
       {#if $subNav.activeTab === 'core'}
         {#if $appState.logs.core.length === 0}
-          <p class="text-muted-foreground">{$logEmpty}</p>
+          <p class="text-muted-foreground">{L.logEmpty}</p>
         {:else}
           {#each $appState.logs.core as line}
             <div class="whitespace-pre-wrap break-words py-0.5">
@@ -101,7 +103,7 @@
         {/if}
       {:else}
         {#if $appState.logs.app.length === 0}
-          <p class="text-muted-foreground">{$logEmpty}</p>
+          <p class="text-muted-foreground">{L.logEmpty}</p>
         {:else}
           {#each $appState.logs.app as line}
             <div class="whitespace-pre-wrap break-words py-0.5">

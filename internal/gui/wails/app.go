@@ -94,8 +94,10 @@ type Bindings struct {
 	ic                 *core.InteractiveController
 	theme              *themes.Collection
 	localeKeys         map[string]struct{}
+	// localeWildcards holds registered wildcard prefixes (without the ".*"
+	// suffix); they expand to all matching leaf paths of the current language.
+	localeWildcards      map[string]struct{}
 	localeReady        bool
-	localeMissingWarns map[string]struct{}
 	localeMu           sync.Mutex
 
 	// core is the background core state poller holding the graph history and
@@ -314,21 +316,33 @@ func (b *Bindings) SetLanguage(code string) Locale {
 }
 
 // RegisterLocaleKeys registers UI locale keys and returns their current values.
+// A key ending in ".*" is a wildcard: it registers every leaf path under
+// that prefix (expanded per current language, so language switches
+// re-expand it). Missing keys are reported by the localengine lookup
+// itself when the values are resolved below.
 func (b *Bindings) RegisterLocaleKeys(keys []string) map[string]string {
 	b.localeMu.Lock()
 	defer b.localeMu.Unlock()
 	for _, k := range keys {
+		if prefix, ok := strings.CutSuffix(k, ".*"); ok {
+			if _, known := b.localeWildcards[prefix]; !known {
+				b.localeWildcards[prefix] = struct{}{}
+				if !b.wildcardMatchesLocked(prefix) {
+					b.app.Logger.Root.Warnf("locale wildcard %q matched no keys", k)
+				}
+			}
+			continue
+		}
 		b.localeKeys[k] = struct{}{}
 	}
 	return b.localeKeyValuesLocked()
 }
 
 // LocaleReady tells the backend that the initial set of UI keys is registered.
-// It warns about missing/object keys and refreshes registered values.
+// It refreshes registered values so late subscribers get them in one event.
 func (b *Bindings) LocaleReady() {
 	b.localeMu.Lock()
 	b.localeReady = true
-	b.warnLocaleKeysLocked()
 	values := b.localeKeyValuesLocked()
 	b.localeMu.Unlock()
 	if len(values) > 0 {
@@ -348,40 +362,47 @@ func (b *Bindings) emitLocaleKeyValues() {
 
 func (b *Bindings) localeKeyValuesLocked() map[string]string {
 	values := make(map[string]string, len(b.localeKeys))
+	lang := localengine.CurrentLanguage()
 	for k := range b.localeKeys {
-		if v, ok := localengine.LookupString(localengine.CurrentLanguage(), strings.Split(k, ".")...); ok {
+		if v, ok := localengine.LookupString(lang, strings.Split(k, ".")...); ok {
 			values[k] = v
+		}
+	}
+	for prefix := range b.localeWildcards {
+		// LeafPaths does not cover static bundles, so wildcards only expand
+		// over real translations (current language, then English for keys the
+		// language lacks). LookupString resolves the value with the usual
+		// language → en → static order.
+		seen := make(map[string]struct{})
+		for _, code := range []string{lang, "en"} {
+			for _, p := range localengine.LeafPaths(code) {
+				if !strings.HasPrefix(p, prefix+".") {
+					continue
+				}
+				if _, dup := seen[p]; dup {
+					continue
+				}
+				seen[p] = struct{}{}
+				if v, ok := localengine.LookupString(lang, strings.Split(p, ".")...); ok {
+					values[p] = v
+				}
+			}
 		}
 	}
 	return values
 }
 
-func (b *Bindings) warnLocaleKeysLocked() {
-	lang := localengine.CurrentLanguage()
-	// Warn once per missing/object key.
-	for k := range b.localeKeys {
-		if _, warned := b.localeMissingWarns[k]; warned {
-			continue
-		}
-		path := strings.Split(k, ".")
-		v, ok := localengine.Lookup(lang, path...)
-		if !ok {
-			// Try English fallback before warning.
-			v, ok = localengine.Lookup("en", path...)
-		}
-		if !ok {
-			b.app.Logger.Root.Warnf("locale key %q not found", k)
-			b.localeMissingWarns[k] = struct{}{}
-			continue
-		}
-		if _, isString := v.(string); !isString {
-			b.app.Logger.Root.Warnf("locale key %q resolves to an object, not a string", k)
-			b.localeMissingWarns[k] = struct{}{}
+// wildcardMatchesLocked reports whether any leaf path of the current
+// language or English sits under the wildcard prefix.
+func (b *Bindings) wildcardMatchesLocked(prefix string) bool {
+	for _, code := range []string{localengine.CurrentLanguage(), "en"} {
+		for _, p := range localengine.LeafPaths(code) {
+			if strings.HasPrefix(p, prefix+".") {
+				return true
+			}
 		}
 	}
-	// Optional: warn about unused leaf paths in the current locale.
-	// Disabled by default because the bundled locales contain many keys from the
-	// legacy Gio UI that are not used by the Wails frontend yet.
+	return false
 }
 
 // GetThemeNames returns the sorted list of available theme names.
@@ -608,7 +629,7 @@ func (w *WailsApp) Run() error {
 		app:                w.app,
 		ctx:                context.Background(),
 		localeKeys:         make(map[string]struct{}),
-		localeMissingWarns: make(map[string]struct{}),
+		localeWildcards:    make(map[string]struct{}),
 		pendingStyleChecks: make(map[string]func(string)),
 	}
 

@@ -2,9 +2,9 @@
   import { ArrowLeft } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-  import { useLocale } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.svelte.js';
 
-  const commonBack = useLocale('common.back');
+  const L = useLocale(['common.back']);
 
   let {
     title = '',
@@ -28,13 +28,13 @@
             size="icon"
             class="md:hidden -ml-1"
             onclick={() => onBack?.()}
-            aria-label={$commonBack}
+            aria-label={L.commonBack}
           >
             <ArrowLeft size={20} />
           </Button>
         {/snippet}
       </Tooltip.Trigger>
-      <Tooltip.Content>{$commonBack}</Tooltip.Content>
+      <Tooltip.Content>{L.commonBack}</Tooltip.Content>
     </Tooltip.Root>
   {/if}
   <h1 class="text-lg font-semibold truncate">{title}</h1>

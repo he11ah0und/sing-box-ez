@@ -2,7 +2,7 @@
   import { ExternalLink, FolderOpen, GitBranch, Download, FileText, RefreshCw } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
-  import { useLocale } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.svelte.js';
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
@@ -37,25 +37,27 @@
   let showNotes = $state(false);
   let showBranchPicker = $state(false);
 
-  const tabAbout = useLocale('tab.about');
-  const aboutSystemTitle = useLocale('common.system');
-  const aboutCommitInfoPrefix = useLocale('about.commit_info.prefix');
-  const aboutBuildInfoPrefix = useLocale('about.build_info.prefix');
-  const aboutDevBuildLabel = useLocale('about.dev_build.label');
-  const aboutBtnOpenRepo = useLocale('about.btn.open_repo');
-  const aboutBtnReleaseNotes = useLocale('about.btn.release_notes');
-  const aboutBtnOpenReleaseNotes = useLocale('about.btn.open_release_notes');
-  const aboutUpdateTitle = useLocale('about.update.title');
-  const aboutBranchLabel = useLocale('about.branch.label');
-  const aboutBtnSwitchBranch = useLocale('about.btn.switch_branch');
-  const aboutUpdateDownloading = useLocale('about.update.downloading');
-  const aboutBtnCheckUpdate = useLocale('about.btn.check_update');
-  const aboutBtnInstallUpdate = useLocale('about.btn.install_update');
-  const aboutUpdateConfirm = useLocale('about.update.confirm');
-  const commonCancel = useLocale('common.cancel');
-  const startupContinue = useLocale('startup.continue');
-  const aboutBtnOpenData = useLocale('about.btn.open_data');
-  const aboutReleaseNotesTitle = useLocale('about.release_notes.title');
+  const L = useLocale([
+    'tab.about',
+    'common.system',
+    'about.commit_info.prefix',
+    'about.build_info.prefix',
+    'about.dev_build.label',
+    'about.btn.open_repo',
+    'about.btn.release_notes',
+    'about.btn.open_release_notes',
+    'about.update.title',
+    'about.branch.label',
+    'about.btn.switch_branch',
+    'about.update.downloading',
+    'about.btn.check_update',
+    'about.btn.install_update',
+    'about.update.confirm',
+    'common.cancel',
+    'startup.continue',
+    'about.btn.open_data',
+    'about.release_notes.title'
+  ]);
 
   async function load() {
     try {
@@ -131,41 +133,41 @@
 </script>
 
 <Page
-  title={$tabAbout}
+  title={L.tabAbout}
   onLoad={load}
 >
   {#if version}
     <Card.Root>
       <Card.Header>
-        <Card.Title>{$aboutSystemTitle}</Card.Title>
+        <Card.Title>{L.commonSystem}</Card.Title>
         <Card.Description>{version.buildFlags}</Card.Description>
       </Card.Header>
       <Card.Content class="space-y-3">
         <p class="text-sm text-muted-foreground">
-          {$aboutCommitInfoPrefix} {version.branch}
+          {L.aboutCommit_infoPrefix} {version.branch}
           {#if version.commit}, {version.commit}{/if}
           {#if version.commitDate}, {version.commitDate}{/if}
         </p>
         <p class="text-sm text-muted-foreground">
-          {$aboutBuildInfoPrefix} {version.buildDate || '—'}
+          {L.aboutBuild_infoPrefix} {version.buildDate || '—'}
         </p>
         {#if version.isDev}
-          <p class="text-sm text-primary">{$aboutDevBuildLabel}</p>
+          <p class="text-sm text-primary">{L.aboutDev_buildLabel}</p>
         {/if}
 
         <div class="flex flex-wrap gap-3 pt-2">
           <Button onclick={openRepo}>
             <ExternalLink size={16} />
-            {$aboutBtnOpenRepo}
+            {L.aboutBtnOpen_repo}
           </Button>
           {#if !version.isDev}
             <Button variant="outline" onclick={fetchReleaseNotes}>
               <FileText size={16} />
-              {$aboutBtnReleaseNotes}
+              {L.aboutBtnRelease_notes}
             </Button>
             <Button variant="outline" onclick={openReleaseNotes}>
               <ExternalLink size={16} />
-              {$aboutBtnOpenReleaseNotes}
+              {L.aboutBtnOpen_release_notes}
             </Button>
           {/if}
         </div>
@@ -177,12 +179,12 @@
     <Card.Header>
       <div class="flex items-center justify-between">
         <div>
-          <Card.Title>{$aboutUpdateTitle}</Card.Title>
-          <Card.Description>{$aboutBranchLabel} {currentBranch}</Card.Description>
+          <Card.Title>{L.aboutUpdateTitle}</Card.Title>
+          <Card.Description>{L.aboutBranchLabel} {currentBranch}</Card.Description>
         </div>
         <Button variant="outline" onclick={() => showBranchPicker = true}>
           <GitBranch size={16} />
-          {$aboutBtnSwitchBranch}
+          {L.aboutBtnSwitch_branch}
         </Button>
       </div>
     </Card.Header>
@@ -190,7 +192,7 @@
       {#if $appState.selfUpdate?.downloading}
         <div class="space-y-1">
           <div class="flex justify-between text-sm">
-            <span>{$aboutUpdateDownloading}</span>
+            <span>{L.aboutUpdateDownloading}</span>
             <span>{Math.round(($appState.selfUpdate.downloadProgress ?? 0) * 100)}%</span>
           </div>
           <Progress value={($appState.selfUpdate.downloadProgress ?? 0) * 100} max={100} />
@@ -203,7 +205,7 @@
           onclick={checkUpdate}
         >
           <RefreshCw size={16} class={checking ? 'animate-spin' : ''} />
-          {$aboutBtnCheckUpdate}
+          {L.aboutBtnCheck_update}
         </Button>
         {#if selfUpdate?.hasUpdate}
           <AlertDialog.Root bind:open={showInstallConfirm}>
@@ -215,21 +217,21 @@
                   disabled={installing}
                 >
                   <Download size={16} />
-                  {$aboutBtnInstallUpdate}
+                  {L.aboutBtnInstall_update}
                 </Button>
               {/snippet}
             </AlertDialog.Trigger>
             <AlertDialog.Content>
               <AlertDialog.Header>
-                <AlertDialog.Title>{$aboutBtnInstallUpdate}</AlertDialog.Title>
+                <AlertDialog.Title>{L.aboutBtnInstall_update}</AlertDialog.Title>
                 <AlertDialog.Description>
-                  {$aboutUpdateConfirm}
+                  {L.aboutUpdateConfirm}
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <AlertDialog.Footer>
-                <AlertDialog.Cancel>{$commonCancel}</AlertDialog.Cancel>
+                <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
                 <AlertDialog.Action onclick={installUpdate}>
-                  {$startupContinue}
+                  {L.startupContinue}
                 </AlertDialog.Action>
               </AlertDialog.Footer>
             </AlertDialog.Content>
@@ -243,7 +245,7 @@
     <Card.Content>
       <Button variant="outline" onclick={openDataDir}>
         <FolderOpen size={16} />
-        {$aboutBtnOpenData}
+        {L.aboutBtnOpen_data}
       </Button>
     </Card.Content>
   </Card.Root>
@@ -252,7 +254,7 @@
 <Dialog.Root open={showNotes} onOpenChange={(open) => { if (!open) showNotes = false; }}>
   <Dialog.Content class="sm:max-w-2xl">
     <Dialog.Header>
-      <Dialog.Title>{$aboutReleaseNotesTitle}</Dialog.Title>
+      <Dialog.Title>{L.aboutRelease_notesTitle}</Dialog.Title>
     </Dialog.Header>
     <div class="max-w-none whitespace-pre-wrap overflow-auto max-h-[70vh] text-sm">{releaseNotes}</div>
   </Dialog.Content>
@@ -261,7 +263,7 @@
 <Dialog.Root open={showBranchPicker} onOpenChange={(open) => { if (!open) showBranchPicker = false; }}>
   <Dialog.Content>
     <Dialog.Header>
-      <Dialog.Title>{$aboutBtnSwitchBranch}</Dialog.Title>
+      <Dialog.Title>{L.aboutBtnSwitch_branch}</Dialog.Title>
     </Dialog.Header>
     <div class="flex flex-col gap-2">
       {#each branches as branch (branch.id)}

@@ -2,7 +2,7 @@
   import { Save, RotateCcw, ShieldCheck, Trash2 } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
-  import { locale, tValue, useLocale } from '../stores/locale.js';
+  import { locale, useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
   import { theme, applyTheme, fromThemePayload } from '../stores/theme.js';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
@@ -72,55 +72,73 @@
   let confirmReset = $state(false);
 
   // Theme mode "system" maps to the system_based locale key; the config
-  // value itself stays "system".
-  const themeModeLabel = $derived(
-    tValue($locale, `settings.theme_mode.${form.themeMode === 'system' ? 'system_based' : form.themeMode}`)
-  );
-  const coreLogLevelLabel = $derived(tValue($locale, `settings.log_level.${form.coreLogLevel}`));
+  // value itself stays "system". Log levels debug/info live in common.*.
+  const logLevelKeys: Record<string, string> = {
+    debug: 'common.debug',
+    info: 'common.info',
+    warn: 'settings.log_level.warn',
+    error: 'settings.log_level.error'
+  };
 
-  const tabSettings = useLocale('tab.settings');
-  const commonReset = useLocale('common.reset');
-  const commonSave = useLocale('common.save');
-  const commonCancel = useLocale('common.cancel');
-  const dialogBtnConfirm = useLocale('dialog.btn.confirm');
-  const coreStartOnLaunch = useLocale('core.start_on_launch');
-  const coreAutoRestart = useLocale('core.auto_restart');
-  const coreProxyEnabled = useLocale('core.proxy.enabled');
-  const coreUrlTestUrlLabel = useLocale('core.url_test_url.label');
-  const coreLogLevel = useLocale('core.log.level');
-  const coreGraphHistoryLabel = useLocale('core.graph_history.label');
-  const corePrivilegesTitle = useLocale('core.privileges.title');
-  const coreBtnRestartAdmin = useLocale('core.btn.restart_admin');
-  const coreBtnApplySetcap = useLocale('core.btn.apply_setcap');
-  const coreModeSetcapPrompt = useLocale('core.mode.setcap_prompt');
-  const settingsRunAsAdmin = useLocale('settings.runAsAdmin');
-  const settingsLogLevelDebug = useLocale('common.debug');
-  const settingsLogLevelInfo = useLocale('common.info');
-  const settingsLogLevelWarn = useLocale('settings.log_level.warn');
-  const settingsLogLevelError = useLocale('settings.log_level.error');
-  const settingsSystemMode = useLocale('settings.system.mode');
-  const settingsSystemRestartAdminConfirm = useLocale('settings.system.restart_admin_confirm');
-  const settingsResetTitle = useLocale('settings.reset.title');
-  const settingsResetBtn = useLocale('settings.reset.btn');
-  const settingsResetConfirmTitle = useLocale('settings.reset.confirm_title');
-  const settingsResetConfirmMsg = useLocale('settings.reset.confirm_msg');
-  const settingsLanguageTitle = useLocale('settings.language.title');
-  const settingsThemeTitle = useLocale('settings.theme.title');
-  const settingsThemeModeTitle = useLocale('settings.theme_mode.title');
-  const settingsThemeModeSystem = useLocale('settings.theme_mode.system_based');
-  const settingsThemeModeDark = useLocale('settings.theme_mode.dark');
-  const settingsThemeModeLight = useLocale('settings.theme_mode.light');
-  const settingsLogLimitLabel = useLocale('settings.log_limit.label');
-  const settingsDefaultIntervalLabel = useLocale('settings.default_interval.label');
-  const settingsConfigUpdateInterval = useLocale('settings.config_update.interval');
-  const settingsConfigUpdateBackgroundInterval = useLocale('settings.config_update.background_interval');
-  const settingsDesktopNotifications = useLocale('settings.desktop_notifications');
-  const settingsShowLogs = useLocale('settings.show_logs');
-  const settingsUpdateCheckCore = useLocale('settings.update_check.core');
-  const settingsUpdateCheckSelf = useLocale('settings.update_check.self');
-  const settingsConfigUpdateAuto = useLocale('settings.config_update.auto');
-  const settingsConfigUpdateHashMismatch = useLocale('settings.config_update.hash_mismatch');
-  const settingsConfigUpdateAutoRestart = useLocale('settings.config_update.auto_restart');
+  const R = useLocaleRecord([
+    'settings.theme_mode.system_based',
+    'settings.theme_mode.dark',
+    'settings.theme_mode.light',
+    ...Object.values(logLevelKeys)
+  ]);
+
+  const themeModeLabel = $derived(
+    R[`settings.theme_mode.${form.themeMode === 'system' ? 'system_based' : form.themeMode}`]
+  );
+  const coreLogLevelLabel = $derived(
+    R[logLevelKeys[form.coreLogLevel] ?? `settings.log_level.${form.coreLogLevel}`]
+  );
+
+  const L = useLocale([
+    'tab.settings',
+    'common.reset',
+    'common.save',
+    'common.cancel',
+    'dialog.btn.confirm',
+    'core.start_on_launch',
+    'core.auto_restart',
+    'core.proxy.enabled',
+    'core.url_test_url.label',
+    'core.log.level',
+    'core.graph_history.label',
+    'core.privileges.title',
+    'core.btn.restart_admin',
+    'core.btn.apply_setcap',
+    'core.mode.setcap_prompt',
+    'settings.runAsAdmin',
+    'common.debug',
+    'common.info',
+    'settings.log_level.warn',
+    'settings.log_level.error',
+    'settings.system.mode',
+    'settings.system.restart_admin_confirm',
+    'settings.reset.title',
+    'settings.reset.btn',
+    'settings.reset.confirm_title',
+    'settings.reset.confirm_msg',
+    'settings.language.title',
+    'settings.theme.title',
+    'settings.theme_mode.title',
+    'settings.theme_mode.system_based',
+    'settings.theme_mode.dark',
+    'settings.theme_mode.light',
+    'settings.log_limit.label',
+    'settings.default_interval.label',
+    'settings.config_update.interval',
+    'settings.config_update.background_interval',
+    'settings.desktop_notifications',
+    'settings.show_logs',
+    'settings.update_check.core',
+    'settings.update_check.self',
+    'settings.config_update.auto',
+    'settings.config_update.hash_mismatch',
+    'settings.config_update.auto_restart'
+  ]);
 
   function colorStyle(color: string): string {
     if (color === 'green') return 'color: var(--color-success)';
@@ -214,17 +232,17 @@
 </script>
 
 <Page
-  title={$tabSettings}
+  title={L.tabSettings}
   onLoad={load}
 >
   {#snippet actions()}
     <Button variant="outline" onclick={reset}>
       <RotateCcw size={16} />
-      {$commonReset}
+      {L.commonReset}
     </Button>
     <Button disabled={processing} onclick={save}>
       <Save size={16} />
-      {$commonSave}
+      {L.commonSave}
     </Button>
   {/snippet}
 
@@ -234,43 +252,43 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.autoStartCore} />
-            <span>{$coreStartOnLaunch}</span>
+            <span>{L.coreStart_on_launch}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.autoRestart} />
-            <span>{$coreAutoRestart}</span>
+            <span>{L.coreAuto_restart}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.runAsAdmin} />
-            <span>{$settingsRunAsAdmin}</span>
+            <span>{L.settingsRunAsAdmin}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.proxyEnabled} />
-            <span>{$coreProxyEnabled}</span>
+            <span>{L.coreProxyEnabled}</span>
           </Label>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div class="space-y-1 sm:col-span-2">
-            <Label for="settings-url-test">{$coreUrlTestUrlLabel}</Label>
+            <Label for="settings-url-test">{L.coreUrl_test_urlLabel}</Label>
             <Input id="settings-url-test" bind:value={form.urlTestURL} />
           </div>
 
           <div class="space-y-1">
-            <Label>{$coreLogLevel}</Label>
+            <Label>{L.coreLogLevel}</Label>
             <Select.Root type="single" bind:value={form.coreLogLevel}>
               <Select.Trigger class="w-full">{coreLogLevelLabel}</Select.Trigger>
               <Select.Content>
-                <Select.Item value="debug" label={$settingsLogLevelDebug} />
-                <Select.Item value="info" label={$settingsLogLevelInfo} />
-                <Select.Item value="warn" label={$settingsLogLevelWarn} />
-                <Select.Item value="error" label={$settingsLogLevelError} />
+                <Select.Item value="debug" label={L.commonDebug} />
+                <Select.Item value="info" label={L.commonInfo} />
+                <Select.Item value="warn" label={L.settingsLog_levelWarn} />
+                <Select.Item value="error" label={L.settingsLog_levelError} />
               </Select.Content>
             </Select.Root>
           </div>
 
           <div class="space-y-1">
-            <Label>{$coreGraphHistoryLabel}</Label>
+            <Label>{L.coreGraph_historyLabel}</Label>
             <Select.Root
               type="single"
               value={String(form.trafficGraphHistory)}
@@ -289,11 +307,11 @@
         <div class="space-y-3">
           <p class="font-medium flex items-center gap-2">
             <ShieldCheck size={16} />
-            {$corePrivilegesTitle}
+            {L.corePrivilegesTitle}
           </p>
           {#if privState}
             <p class="text-sm text-muted-foreground">
-              {$settingsSystemMode}: {privState.mode}
+              {L.settingsSystemMode}: {privState.mode}
             </p>
             {#if privState.adminStatusText}
               <p class="text-sm" style={colorStyle(privState.adminStatusColor)}>{privState.adminStatusText}</p>
@@ -308,12 +326,12 @@
               <div class="flex flex-wrap gap-2 pt-1">
                 {#if privState.showRestartAdminBtn}
                   <Button variant="outline" disabled={privProcessing} onclick={() => (confirmRestartAdmin = true)}>
-                    {$coreBtnRestartAdmin}
+                    {L.coreBtnRestart_admin}
                   </Button>
                 {/if}
                 {#if privState.showSetcapBtn}
                   <Button variant="outline" disabled={privProcessing} onclick={() => (confirmSetcap = true)}>
-                    {$coreBtnApplySetcap}
+                    {L.coreBtnApply_setcap}
                   </Button>
                 {/if}
               </div>
@@ -326,16 +344,16 @@
         <Separator />
 
         <div class="space-y-3">
-          <p class="font-medium text-destructive">{$settingsResetTitle}</p>
+          <p class="font-medium text-destructive">{L.settingsResetTitle}</p>
           <Button variant="destructive" onclick={() => (confirmReset = true)}>
             <Trash2 size={16} />
-            {$settingsResetBtn}
+            {L.settingsResetBtn}
           </Button>
         </div>
       {:else}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div class="space-y-1">
-            <Label>{$settingsLanguageTitle}</Label>
+            <Label>{L.settingsLanguageTitle}</Label>
             <Select.Root type="single" bind:value={form.language}>
               <Select.Trigger class="w-full">
                 {languages.find((l) => l.code === form.language)?.name ?? form.language}
@@ -349,7 +367,7 @@
           </div>
 
           <div class="space-y-1">
-            <Label>{$settingsThemeTitle}</Label>
+            <Label>{L.settingsThemeTitle}</Label>
             <Select.Root type="single" bind:value={form.theme}>
               <Select.Trigger class="w-full">{form.theme}</Select.Trigger>
               <Select.Content>
@@ -361,34 +379,34 @@
           </div>
 
           <div class="space-y-1">
-            <Label>{$settingsThemeModeTitle}</Label>
+            <Label>{L.settingsTheme_modeTitle}</Label>
             <Select.Root type="single" bind:value={form.themeMode}>
               <Select.Trigger class="w-full">{themeModeLabel}</Select.Trigger>
               <Select.Content>
-                <Select.Item value="system" label={$settingsThemeModeSystem} />
-                <Select.Item value="dark" label={$settingsThemeModeDark} />
-                <Select.Item value="light" label={$settingsThemeModeLight} />
+                <Select.Item value="system" label={L.settingsTheme_modeSystem_based} />
+                <Select.Item value="dark" label={L.settingsTheme_modeDark} />
+                <Select.Item value="light" label={L.settingsTheme_modeLight} />
               </Select.Content>
             </Select.Root>
           </div>
 
           <div class="space-y-1">
-            <Label for="settings-log-limit">{$settingsLogLimitLabel}</Label>
+            <Label for="settings-log-limit">{L.settingsLog_limitLabel}</Label>
             <Input id="settings-log-limit" type="number" min="10" bind:value={form.logLimit} />
           </div>
 
           <div class="space-y-1">
-            <Label for="settings-interval">{$settingsDefaultIntervalLabel}</Label>
+            <Label for="settings-interval">{L.settingsDefault_intervalLabel}</Label>
             <Input id="settings-interval" type="number" min="1" bind:value={form.defaultIntervalHours} />
           </div>
 
           <div class="space-y-1">
-            <Label for="settings-config-interval">{$settingsConfigUpdateInterval}</Label>
+            <Label for="settings-config-interval">{L.settingsConfig_updateInterval}</Label>
             <Input id="settings-config-interval" type="number" min="1" bind:value={form.autoUpdateConfigsIntervalHours} />
           </div>
 
           <div class="space-y-1">
-            <Label for="settings-bg-interval">{$settingsConfigUpdateBackgroundInterval}</Label>
+            <Label for="settings-bg-interval">{L.settingsConfig_updateBackground_interval}</Label>
             <Input id="settings-bg-interval" type="number" min="1" bind:value={form.backgroundUpdateCheckIntervalHours} />
           </div>
         </div>
@@ -398,31 +416,31 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.desktopNotifications} />
-            <span>{$settingsDesktopNotifications}</span>
+            <span>{L.settingsDesktop_notifications}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.showLogs} />
-            <span>{$settingsShowLogs}</span>
+            <span>{L.settingsShow_logs}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.autoCheckCore} />
-            <span>{$settingsUpdateCheckCore}</span>
+            <span>{L.settingsUpdate_checkCore}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.autoCheckSelf} />
-            <span>{$settingsUpdateCheckSelf}</span>
+            <span>{L.settingsUpdate_checkSelf}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.autoUpdateConfigs} />
-            <span>{$settingsConfigUpdateAuto}</span>
+            <span>{L.settingsConfig_updateAuto}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.autoUpdateOnHashMismatch} />
-            <span>{$settingsConfigUpdateHashMismatch}</span>
+            <span>{L.settingsConfig_updateHash_mismatch}</span>
           </Label>
           <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
             <Switch bind:checked={form.autoRestartOnConfigUpdate} />
-            <span>{$settingsConfigUpdateAutoRestart}</span>
+            <span>{L.settingsConfig_updateAuto_restart}</span>
           </Label>
         </div>
       {/if}
@@ -432,15 +450,15 @@
   <AlertDialog.Root bind:open={confirmRestartAdmin}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>{$coreBtnRestartAdmin}</AlertDialog.Title>
+        <AlertDialog.Title>{L.coreBtnRestart_admin}</AlertDialog.Title>
         <AlertDialog.Description>
-          {$settingsSystemRestartAdminConfirm}
+          {L.settingsSystemRestart_admin_confirm}
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>{$commonCancel}</AlertDialog.Cancel>
+        <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
         <AlertDialog.Action onclick={restartAsAdmin}>
-          {$dialogBtnConfirm}
+          {L.dialogBtnConfirm}
         </AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>
@@ -449,15 +467,15 @@
   <AlertDialog.Root bind:open={confirmSetcap}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>{$coreBtnApplySetcap}</AlertDialog.Title>
+        <AlertDialog.Title>{L.coreBtnApply_setcap}</AlertDialog.Title>
         <AlertDialog.Description>
-          {$coreModeSetcapPrompt}
+          {L.coreModeSetcap_prompt}
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>{$commonCancel}</AlertDialog.Cancel>
+        <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
         <AlertDialog.Action onclick={applySetcap}>
-          {$dialogBtnConfirm}
+          {L.dialogBtnConfirm}
         </AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>
@@ -466,18 +484,18 @@
   <AlertDialog.Root bind:open={confirmReset}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>{$settingsResetConfirmTitle}</AlertDialog.Title>
+        <AlertDialog.Title>{L.settingsResetConfirm_title}</AlertDialog.Title>
         <AlertDialog.Description class="whitespace-pre-wrap">
-          {$settingsResetConfirmMsg}
+          {L.settingsResetConfirm_msg}
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>{$commonCancel}</AlertDialog.Cancel>
+        <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
         <AlertDialog.Action
           class="bg-destructive text-white hover:bg-destructive/90"
           onclick={resetData}
         >
-          {$settingsResetBtn}
+          {L.settingsResetBtn}
         </AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>

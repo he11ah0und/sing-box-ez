@@ -3,7 +3,7 @@
   import type { Component } from 'svelte';
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
-  import { signalLocaleReady, locale, tValues, useLocale } from '$lib/stores/locale.js';
+  import { signalLocaleReady, useLocale, useLocaleRecord } from '$lib/stores/locale.svelte.js';
   import { GetTheme, SetFallbackType } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import { currentLevel } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
@@ -67,26 +67,35 @@
     }
   }
 
-  const styleCheckTitle = $derived(
-    $appState.styleCheck
-      ? tValues($locale, [
-          `dialog.config_style.${$appState.styleCheck.style}_title`,
-          'dialog.config_style.unknown_title'
-        ])
-      : ''
-  );
-  const styleCheckBody = $derived(
-    $appState.styleCheck
-      ? tValues($locale, [
-          `dialog.config_style.${$appState.styleCheck.style}_body`,
-          'dialog.config_style.unknown_body'
-        ])
-      : ''
-  );
+  // Config style texts: the style set is fixed (server/undefined), anything
+  // else falls back to the unknown_* keys.
+  const R = useLocaleRecord([
+    'dialog.config_style.server_title',
+    'dialog.config_style.server_body',
+    'dialog.config_style.undefined_title',
+    'dialog.config_style.undefined_body',
+    'dialog.config_style.unknown_title',
+    'dialog.config_style.unknown_body'
+  ]);
 
-  const commonCancel = useLocale('common.cancel');
-  const dialogConfigStyleBtnIgnore = useLocale('dialog.config_style.btn.ignore');
-  const dialogConfigStyleBtnToClient = useLocale('dialog.config_style.btn.to_client');
+  function styleText(suffix: 'title' | 'body'): string {
+    const check = $appState.styleCheck;
+    if (!check) return '';
+    const specific = `dialog.config_style.${check.style}_${suffix}`;
+    const value = R[specific];
+    return value !== undefined && value !== specific
+      ? value
+      : R[`dialog.config_style.unknown_${suffix}`];
+  }
+
+  const styleCheckTitle = $derived.by(() => styleText('title'));
+  const styleCheckBody = $derived.by(() => styleText('body'));
+
+  const L = useLocale([
+    'common.cancel',
+    'dialog.config_style.btn.ignore',
+    'dialog.config_style.btn.to_client'
+  ]);
 </script>
 
 <Tooltip.Provider>
@@ -121,13 +130,13 @@
       </AlertDialog.Header>
       <AlertDialog.Footer>
         <Button variant="outline" onclick={clearStyleCheck}>
-          {$commonCancel}
+          {L.commonCancel}
         </Button>
         <Button variant="outline" onclick={() => resolveStyleCheck($appState.styleCheck!, 'ignore')}>
-          {$dialogConfigStyleBtnIgnore}
+          {L.dialogConfig_styleBtnIgnore}
         </Button>
         <Button onclick={() => resolveStyleCheck($appState.styleCheck!, 'to_client')}>
-          {$dialogConfigStyleBtnToClient}
+          {L.dialogConfig_styleBtnTo_client}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

@@ -2,7 +2,7 @@
   import { Square, RefreshCw, ChevronDown, ChevronUp, Zap } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
-  import { locale, tValue, useLocale } from '../stores/locale.js';
+  import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
 
   import Page from '../components/Page.svelte';
   import Sparkline from '../components/Sparkline.svelte';
@@ -57,39 +57,55 @@
     return modeKeys[mode] ?? `main.api.mode_${mode}`;
   }
 
-  const mainActivePlaceholder = useLocale('main.active.placeholder');
-  const configsEmpty = useLocale('configs.empty');
-  const mainBtnStart = useLocale('main.btn.start');
-  const mainBtnStop = useLocale('main.btn.stop');
-  const mainBtnRestart = useLocale('main.btn.restart');
-  const mainActiveLabel = useLocale('main.active.label');
-  const mainDashboardUpload = useLocale('main.dashboard.upload');
-  const mainDashboardDownload = useLocale('main.dashboard.download');
-  const mainDashboardMin = useLocale('main.dashboard.min');
-  const mainDashboardMax = useLocale('main.dashboard.max');
-  const mainDashboardAvg = useLocale('main.dashboard.avg');
-  const mainDashboardProfile = useLocale('main.dashboard.profile');
-  const mainApiMode = useLocale('main.api.mode');
-  const tabGroups = useLocale('tab.groups');
-  const mainGroupsEmpty = useLocale('main.groups.empty');
-  const mainApiConnections = useLocale('main.api.connections');
-  const mainApiCloseConnections = useLocale('main.api.close_connections');
-  const mainConnectionsEmpty = useLocale('main.connections.empty');
-  const connectionDetailsTitle = useLocale('connection_details.title');
-  const connectionDetailsInbound = useLocale('connection_details.inbound');
-  const connectionDetailsNetwork = useLocale('connection_details.network');
-  const connectionDetailsSource = useLocale('connection_details.source');
-  const connectionDetailsDestination = useLocale('connection_details.destination');
-  const connectionDetailsDomain = useLocale('connection_details.domain');
-  const connectionDetailsRule = useLocale('common.rule');
-  const connectionDetailsOutbound = useLocale('connection_details.outbound');
-  const connectionDetailsChain = useLocale('connection_details.chain');
-  const connectionDetailsUplink = useLocale('connection_details.uplink');
-  const connectionDetailsDownlink = useLocale('connection_details.downlink');
-  const connectionDetailsCreated = useLocale('connection_details.created');
-  const connectionDetailsUser = useLocale('connection_details.user');
-  const connectionDetailsProcess = useLocale('connection_details.process');
-  const connectionDetailsCloseConnection = useLocale('connection_details.close_connection');
+  // Property names are derived from the keys: dots camelize, underscores
+  // stay ("connection_details.title" → L.connection_detailsTitle).
+  const L = useLocale([
+    'main.active.placeholder',
+    'configs.empty',
+    'main.btn.start',
+    'main.btn.stop',
+    'main.btn.restart',
+    'main.active.label',
+    'main.dashboard.upload',
+    'main.dashboard.download',
+    'main.dashboard.min',
+    'main.dashboard.max',
+    'main.dashboard.avg',
+    'main.dashboard.profile',
+    'main.api.mode',
+    'tab.groups',
+    'main.groups.empty',
+    'main.api.connections',
+    'main.api.close_connections',
+    'main.connections.empty',
+    'connection_details.title',
+    'connection_details.inbound',
+    'connection_details.network',
+    'connection_details.source',
+    'connection_details.destination',
+    'connection_details.domain',
+    'common.rule',
+    'connection_details.outbound',
+    'connection_details.chain',
+    'connection_details.uplink',
+    'connection_details.downlink',
+    'connection_details.created',
+    'connection_details.user',
+    'connection_details.process',
+    'connection_details.close_connection'
+  ]);
+
+  // Dynamic-key access (tab triggers, mode selector, phase label) reads
+  // through a record; the phase namespace is registered via a wildcard.
+  const R = useLocaleRecord([
+    'main.tabs.overview',
+    'tab.groups',
+    'tab.connections',
+    'common.rule',
+    'main.api.mode_global',
+    'main.api.mode_direct',
+    'main.phase.*'
+  ]);
 
   let activeTab = $state('overview');
   let processing = $state(false);
@@ -116,17 +132,16 @@
   let groupDelays = $state<Record<string, Record<string, number>>>({});
   let selectedConn = $state<APIConnection | null>(null);
 
-  const activeName = $derived($appState.activeConfig?.name ?? '—');
   const activeBadge = $derived($appState.activeConfig?.type ?? '');
   const activeUpdated = $derived($appState.activeConfig?.lastUpdateAgo ?? '');
 
   const configSelectLabel = $derived(
     $appState.activeConfig?.name
       ?? ($appState.configs.length
-        ? $mainActivePlaceholder
-        : $configsEmpty)
+        ? L.mainActivePlaceholder
+        : L.configsEmpty)
   );
-  const modeLabel = $derived(tValue($locale, modeKey(apiMode)));
+  const modeLabel = $derived(R[modeKey(apiMode)]);
 
   const visibleGroups = $derived(
     apiGroups.filter((g) => g.type !== 'Fallback' && g.type !== 'LoadBalance')
@@ -357,18 +372,17 @@
           {#if processing || busy}
             <RefreshCw size={32} class="animate-spin" />
           {:else}
-            {$mainBtnStart}
+            {L.mainBtnStart}
           {/if}
         </button>
         {#if busy}
-          <p class="font-medium">{activeName}</p>
-          <p class="text-sm text-muted-foreground">{tValue($locale, `main.phase.${apiPhase}`)}</p>
+          <p class="text-sm text-muted-foreground">{R.mainPhase[apiPhase]}</p>
         {/if}
       </div>
 
       <Card.Root class="shrink-0">
         <Card.Content class="space-y-2">
-          <p class="text-sm text-muted-foreground">{$mainActiveLabel}</p>
+          <p class="text-sm text-muted-foreground">{L.mainActiveLabel}</p>
           <Select.Root
             type="single"
             value={$appState.activeConfig?.name ?? ''}
@@ -391,7 +405,7 @@
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
         <Tabs.List>
           {#each tabs as tab (tab.id)}
-            <Tabs.Trigger value={tab.id}>{tValue($locale, tab.key)}</Tabs.Trigger>
+            <Tabs.Trigger value={tab.id}>{R[tab.key]}</Tabs.Trigger>
           {/each}
         </Tabs.List>
         <div class="text-right text-sm text-muted-foreground">
@@ -414,7 +428,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="rounded-xl bg-background border border-border p-4 space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm text-muted-foreground">{$mainDashboardUpload}</span>
+                  <span class="text-sm text-muted-foreground">{L.mainDashboardUpload}</span>
                   <span class="text-sm font-medium">{$appState.traffic.upRate}</span>
                 </div>
                 <Sparkline
@@ -425,14 +439,14 @@
                   fill
                 />
                 <p class="text-xs text-muted-foreground">
-                  {$mainDashboardMin}: {formatSpeed(upStats.min)}
-                  &nbsp;{$mainDashboardMax}: {formatSpeed(upStats.max)}
-                  &nbsp;{$mainDashboardAvg}: {formatSpeed(upStats.avg)}
+                  {L.mainDashboardMin}: {formatSpeed(upStats.min)}
+                  &nbsp;{L.mainDashboardMax}: {formatSpeed(upStats.max)}
+                  &nbsp;{L.mainDashboardAvg}: {formatSpeed(upStats.avg)}
                 </p>
               </div>
               <div class="rounded-xl bg-background border border-border p-4 space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm text-muted-foreground">{$mainDashboardDownload}</span>
+                  <span class="text-sm text-muted-foreground">{L.mainDashboardDownload}</span>
                   <span class="text-sm font-medium">{$appState.traffic.downRate}</span>
                 </div>
                 <Sparkline
@@ -443,9 +457,9 @@
                   fill
                 />
                 <p class="text-xs text-muted-foreground">
-                  {$mainDashboardMin}: {formatSpeed(downStats.min)}
-                  &nbsp;{$mainDashboardMax}: {formatSpeed(downStats.max)}
-                  &nbsp;{$mainDashboardAvg}: {formatSpeed(downStats.avg)}
+                  {L.mainDashboardMin}: {formatSpeed(downStats.min)}
+                  &nbsp;{L.mainDashboardMax}: {formatSpeed(downStats.max)}
+                  &nbsp;{L.mainDashboardAvg}: {formatSpeed(downStats.avg)}
                 </p>
               </div>
             </div>
@@ -479,12 +493,12 @@
           <!-- Mode selector -->
           <Card.Root>
             <Card.Content class="space-y-2">
-              <p class="text-sm text-muted-foreground">{$mainApiMode}</p>
+              <p class="text-sm text-muted-foreground">{L.mainApiMode}</p>
               <Select.Root type="single" value={apiMode} onValueChange={(v) => { if (v) setMode(v); }}>
                 <Select.Trigger class="w-full">{modeLabel}</Select.Trigger>
                 <Select.Content>
                   {#each modes as m (m)}
-                    <Select.Item value={m} label={tValue($locale, modeKey(m))} />
+                    <Select.Item value={m} label={R[modeKey(m)]} />
                   {/each}
                 </Select.Content>
               </Select.Root>
@@ -495,7 +509,7 @@
           <Card.Root>
             <Card.Content class="space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-sm text-muted-foreground">{$mainDashboardProfile}</span>
+                <span class="text-sm text-muted-foreground">{L.mainDashboardProfile}</span>
                 {#if activeBadge}
                   <Badge variant="outline">{activeBadge}</Badge>
                 {/if}
@@ -524,11 +538,11 @@
         <div class="flex flex-wrap gap-3">
           <Button variant="destructive" size="lg" class="flex-1" disabled={processing} onclick={handleStop}>
             <Square size={18} />
-            {$mainBtnStop}
+            {L.mainBtnStop}
           </Button>
           <Button variant="secondary" size="lg" class="flex-1" disabled={processing} onclick={handleRestart}>
             <RefreshCw size={18} />
-            {$mainBtnRestart}
+            {L.mainBtnRestart}
           </Button>
         </div>
       </Tabs.Content>
@@ -536,7 +550,7 @@
       <Tabs.Content value="groups" class="flex-1 min-h-0 overflow-y-auto">
         <Card.Root>
           <Card.Header>
-            <Card.Title>{$tabGroups}</Card.Title>
+            <Card.Title>{L.tabGroups}</Card.Title>
           </Card.Header>
           <Card.Content class="space-y-4">
             {#if !apiStatus}
@@ -546,7 +560,7 @@
                 <Skeleton class="h-16 w-full rounded-xl" />
               </div>
             {:else if !visibleGroups.length}
-              <p class="text-muted-foreground">{$mainGroupsEmpty}</p>
+              <p class="text-muted-foreground">{L.mainGroupsEmpty}</p>
             {:else}
               {#each visibleGroups as group (group.tag)}
                 <div class="rounded-xl border border-border bg-background overflow-hidden">
@@ -616,16 +630,16 @@
           <Card.Header>
             <div class="flex items-center justify-between">
               <Card.Title>
-                {$mainApiConnections} ({apiConnections.length})
+                {L.mainApiConnections} ({apiConnections.length})
               </Card.Title>
               <Button variant="outline" size="sm" onclick={closeConnections}>
-                {$mainApiCloseConnections}
+                {L.mainApiClose_connections}
               </Button>
             </div>
           </Card.Header>
           <Card.Content>
             {#if !apiConnections.length}
-              <p class="text-muted-foreground">{$mainConnectionsEmpty}</p>
+              <p class="text-muted-foreground">{L.mainConnectionsEmpty}</p>
             {:else}
               <div class="space-y-2">
                 {#each apiConnections as conn (conn.id)}
@@ -655,7 +669,7 @@
 <Dialog.Root open={selectedConn != null} onOpenChange={(open) => { if (!open) selectedConn = null; }}>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>{$connectionDetailsTitle}</Dialog.Title>
+      <Dialog.Title>{L.connection_detailsTitle}</Dialog.Title>
     </Dialog.Header>
     {#if selectedConn}
       {@const c = selectedConn}
@@ -663,25 +677,25 @@
       {@const outbound = c.outbound || c.outboundType || '—'}
       <div class="space-y-3 text-sm">
         {@render DetailRow('ID', c.id)}
-        {@render DetailRow($connectionDetailsInbound, inbound)}
-        {@render DetailRow($connectionDetailsNetwork, c.network)}
-        {@render DetailRow($connectionDetailsSource, c.source)}
-        {@render DetailRow($connectionDetailsDestination, c.destination)}
-        {@render DetailRow($connectionDetailsDomain, c.domain)}
-        {@render DetailRow($connectionDetailsRule, c.rule)}
-        {@render DetailRow($connectionDetailsOutbound, outbound)}
-        {@render DetailRow($connectionDetailsChain, c.chain?.join(' → '))}
-        {@render DetailRow($connectionDetailsUplink, `${formatSpeed(c.uplink)} (${formatBytes(c.uplinkTotal)})`)}
-        {@render DetailRow($connectionDetailsDownlink, `${formatSpeed(c.downlink)} (${formatBytes(c.downlinkTotal)})`)}
-        {@render DetailRow($connectionDetailsCreated, formatTime(c.createdAt) + (c.createdAgo ? ` (${c.createdAgo})` : ''))}
+        {@render DetailRow(L.connection_detailsInbound, inbound)}
+        {@render DetailRow(L.connection_detailsNetwork, c.network)}
+        {@render DetailRow(L.connection_detailsSource, c.source)}
+        {@render DetailRow(L.connection_detailsDestination, c.destination)}
+        {@render DetailRow(L.connection_detailsDomain, c.domain)}
+        {@render DetailRow(L.commonRule, c.rule)}
+        {@render DetailRow(L.connection_detailsOutbound, outbound)}
+        {@render DetailRow(L.connection_detailsChain, c.chain?.join(' → '))}
+        {@render DetailRow(L.connection_detailsUplink, `${formatSpeed(c.uplink)} (${formatBytes(c.uplinkTotal)})`)}
+        {@render DetailRow(L.connection_detailsDownlink, `${formatSpeed(c.downlink)} (${formatBytes(c.downlinkTotal)})`)}
+        {@render DetailRow(L.connection_detailsCreated, formatTime(c.createdAt) + (c.createdAgo ? ` (${c.createdAgo})` : ''))}
         {#if c.processInfo?.userName}
-          {@render DetailRow($connectionDetailsUser, c.processInfo.userName)}
-          {@render DetailRow($connectionDetailsProcess, c.processInfo.processPath)}
+          {@render DetailRow(L.connection_detailsUser, c.processInfo.userName)}
+          {@render DetailRow(L.connection_detailsProcess, c.processInfo.processPath)}
         {/if}
       </div>
       <Dialog.Footer>
         <Button variant="destructive" onclick={() => closeConnection(c.id)}>
-          {$connectionDetailsCloseConnection}
+          {L.connection_detailsClose_connection}
         </Button>
       </Dialog.Footer>
     {/if}

@@ -2,7 +2,7 @@
   import { Plus, Check, Trash2, Edit2, RefreshCw, ShieldCheck, FileText, FolderOpen, RotateCw, Copy } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState, type ConfigRecord } from '../stores/appState.js';
-  import { useLocale } from '../stores/locale.js';
+  import { useLocale } from '../stores/locale.svelte.js';
   import Page from '../components/Page.svelte';
   import ConfigFormModal from '../components/ConfigFormModal.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
@@ -32,31 +32,33 @@
     ValidationResult
   } from '../../../bindings/sing-box-ez/internal/singboxconfig/models.js';
 
-  const commonCancel = useLocale('common.cancel');
-  const configsBadgeActive = useLocale('configs.badge.active');
-  const configsBadgeHashMismatchTooltip = useLocale('configs.badge.hash_mismatch_tooltip');
-  const configsBadgeModified = useLocale('configs.badge.modified');
-  const configsBtnAdd = useLocale('configs.btn.add');
-  const configsBtnDelete = useLocale('configs.btn.delete');
-  const configsBtnEdit = useLocale('configs.btn.edit');
-  const configsBtnUpdateAll = useLocale('configs.btn.update_all');
-  const configsConfirmDelete = useLocale('configs.confirmDelete');
-  const configsDialogBtnCopy = useLocale('configs.dialog.btn.copy');
-  const configsDialogBtnCreate = useLocale('configs.dialog.btn.create');
-  const configsDialogBtnOpen = useLocale('configs.dialog.btn.open');
-  const configsDialogBtnOpenDir = useLocale('configs.dialog.btn.open_dir');
-  const configsDialogBtnUpdateNow = useLocale('configs.dialog.btn.update_now');
-  const configsDialogBtnValidate = useLocale('configs.dialog.btn.validate');
-  const configsEmpty = useLocale('configs.empty');
-  const startupContinue = useLocale('startup.continue');
-  const tabConfigs = useLocale('tab.configs');
-  const validationErrorsTitle = useLocale('validation.errors_title');
-  const validationInfoTitle = useLocale('common.info');
-  const validationOk = useLocale('validation.ok');
-  const validationWarningsTitle = useLocale('validation.warnings_title');
-  const validationFieldDeprecated = useLocale('validation.field.deprecated');
-  const validationFieldRemoved = useLocale('validation.field.removed');
-  const validationFieldReplacement = useLocale('validation.field.replacement');
+  const L = useLocale([
+    'common.cancel',
+    'configs.badge.active',
+    'configs.badge.hash_mismatch_tooltip',
+    'configs.badge.modified',
+    'configs.btn.add',
+    'configs.btn.delete',
+    'configs.btn.edit',
+    'configs.btn.update_all',
+    'configs.confirmDelete',
+    'configs.dialog.btn.copy',
+    'configs.dialog.btn.create',
+    'configs.dialog.btn.open',
+    'configs.dialog.btn.open_dir',
+    'configs.dialog.btn.update_now',
+    'configs.dialog.btn.validate',
+    'configs.empty',
+    'startup.continue',
+    'tab.configs',
+    'validation.errors_title',
+    'common.info',
+    'validation.ok',
+    'validation.warnings_title',
+    'validation.field.deprecated',
+    'validation.field.removed',
+    'validation.field.replacement'
+  ]);
 
   let processing = $state(false);
   let updatingAll = $state(false);
@@ -151,9 +153,9 @@
   // Display-only rendering of one validation field in the dialog.
   function fieldLine(f: DeprecatedField): string {
     const parts = [f.path];
-    if (f.deprecated) parts.push(`${$validationFieldDeprecated} ${f.deprecated}`);
-    if (f.removed) parts.push(`${$validationFieldRemoved} ${f.removed}`);
-    if (f.replacement) parts.push(`${$validationFieldReplacement}: ${f.replacement}`);
+    if (f.deprecated) parts.push(`${L.validationFieldDeprecated} ${f.deprecated}`);
+    if (f.removed) parts.push(`${L.validationFieldRemoved} ${f.removed}`);
+    if (f.replacement) parts.push(`${L.validationFieldReplacement}: ${f.replacement}`);
     return parts.join(' — ');
   }
 
@@ -207,17 +209,17 @@
 </script>
 
 <Page
-  title={$tabConfigs}
+  title={L.tabConfigs}
   onLoad={load}
 >
   {#snippet actions()}
     <Button variant="outline" disabled={updatingAll} onclick={updateAll}>
       <RefreshCw size={16} class={updatingAll ? 'animate-spin' : ''} />
-      {$configsBtnUpdateAll}
+      {L.configsBtnUpdate_all}
     </Button>
     <Button onclick={startAdd}>
       <Plus size={18} />
-      {$configsBtnAdd}
+      {L.configsBtnAdd}
     </Button>
   {/snippet}
 
@@ -233,16 +235,16 @@
         <div class="flex flex-wrap gap-2 rounded-xl border border-border bg-background p-3">
           <Button variant="outline" size="sm" onclick={() => openFile(editing!)}>
             <FileText size={14} />
-            {$configsDialogBtnOpen}
+            {L.configsDialogBtnOpen}
           </Button>
           <Button variant="outline" size="sm" onclick={() => openDir(editing!)}>
             <FolderOpen size={14} />
-            {$configsDialogBtnOpenDir}
+            {L.configsDialogBtnOpen_dir}
           </Button>
           {#if editing && hasCached[editing] === false}
             <Button variant="outline" size="sm" onclick={() => recreate(editing!)}>
               <RotateCw size={14} />
-              {$configsDialogBtnCreate}
+              {L.configsDialogBtnCreate}
             </Button>
           {/if}
         </div>
@@ -253,7 +255,7 @@
   <Card.Root class="overflow-hidden py-0 gap-0">
     {#if $appState.configs.length === 0}
       <Card.Content class="py-6">
-        <p class="text-muted-foreground">{$configsEmpty}</p>
+        <p class="text-muted-foreground">{L.configsEmpty}</p>
       </Card.Content>
     {:else}
       <ul class="divide-y divide-border">
@@ -267,7 +269,7 @@
               {#if $appState.activeConfig?.name === cfg.name}
                 <Badge variant="secondary" class="text-[var(--color-success)]">
                   <Check size={12} />
-                  {$configsBadgeActive}
+                  {L.configsBadgeActive}
                 </Badge>
               {/if}
               {#if hashMismatch[cfg.name]}
@@ -275,12 +277,12 @@
                   <Tooltip.Trigger>
                     {#snippet child({ props })}
                       <Badge {...props} variant="secondary" class="text-[var(--color-warning)]">
-                        {$configsBadgeModified}
+                        {L.configsBadgeModified}
                       </Badge>
                     {/snippet}
                   </Tooltip.Trigger>
                   <Tooltip.Content>
-                    {$configsBadgeHashMismatchTooltip}
+                    {L.configsBadgeHash_mismatch_tooltip}
                   </Tooltip.Content>
                 </Tooltip.Root>
               {/if}
@@ -292,7 +294,7 @@
                         {...props}
                         variant="ghost"
                         size="icon"
-                        aria-label={$configsDialogBtnUpdateNow}
+                        aria-label={L.configsDialogBtnUpdate_now}
                         disabled={updating[cfg.name]}
                         onclick={() => updateNow(cfg.name)}
                       >
@@ -300,7 +302,7 @@
                       </Button>
                     {/snippet}
                   </Tooltip.Trigger>
-                  <Tooltip.Content>{$configsDialogBtnUpdateNow}</Tooltip.Content>
+                  <Tooltip.Content>{L.configsDialogBtnUpdate_now}</Tooltip.Content>
                 </Tooltip.Root>
               {/if}
               <Tooltip.Root>
@@ -310,14 +312,14 @@
                       {...props}
                       variant="ghost"
                       size="icon"
-                      aria-label={$configsDialogBtnValidate}
+                      aria-label={L.configsDialogBtnValidate}
                       onclick={() => validate(cfg.name)}
                     >
                       <ShieldCheck size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{$configsDialogBtnValidate}</Tooltip.Content>
+                <Tooltip.Content>{L.configsDialogBtnValidate}</Tooltip.Content>
               </Tooltip.Root>
               <Tooltip.Root>
                 <Tooltip.Trigger>
@@ -326,14 +328,14 @@
                       {...props}
                       variant="ghost"
                       size="icon"
-                      aria-label={$configsBtnEdit}
+                      aria-label={L.configsBtnEdit}
                       onclick={() => startEdit(cfg)}
                     >
                       <Edit2 size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{$configsBtnEdit}</Tooltip.Content>
+                <Tooltip.Content>{L.configsBtnEdit}</Tooltip.Content>
               </Tooltip.Root>
               <Tooltip.Root>
                 <Tooltip.Trigger>
@@ -343,14 +345,14 @@
                       variant="ghost"
                       size="icon"
                       class="text-destructive hover:bg-destructive/10"
-                      aria-label={$configsBtnDelete}
+                      aria-label={L.configsBtnDelete}
                       onclick={() => (deleteTarget = cfg.name)}
                     >
                       <Trash2 size={16} />
                     </Button>
                   {/snippet}
                 </Tooltip.Trigger>
-                <Tooltip.Content>{$configsBtnDelete}</Tooltip.Content>
+                <Tooltip.Content>{L.configsBtnDelete}</Tooltip.Content>
               </Tooltip.Root>
             </div>
           </li>
@@ -362,19 +364,19 @@
   <AlertDialog.Root open={deleteTarget != null} onOpenChange={(open) => { if (!open) deleteTarget = null; }}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>{$configsBtnDelete}</AlertDialog.Title>
+        <AlertDialog.Title>{L.configsBtnDelete}</AlertDialog.Title>
         <AlertDialog.Description>
-          {$configsConfirmDelete}
+          {L.configsConfirmDelete}
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>{$commonCancel}</AlertDialog.Cancel>
+        <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
         <AlertDialog.Action
           class="bg-destructive text-white hover:bg-destructive/90"
           disabled={processing}
           onclick={confirmDelete}
         >
-          {$startupContinue}
+          {L.startupContinue}
         </AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>
@@ -384,20 +386,20 @@
     <Dialog.Content class="sm:max-w-2xl">
       <Dialog.Header>
         <Dialog.Title>
-          {$configsDialogBtnValidate} — {validation?.name ?? ''}
+          {L.configsDialogBtnValidate} — {validation?.name ?? ''}
         </Dialog.Title>
       </Dialog.Header>
       {#if validation}
         <div class="space-y-4 max-h-[60vh] overflow-auto text-sm">
           {#if !validation.result.errors?.length && !validation.result.warnings?.length && !validation.result.info?.length}
             <p class="text-[var(--color-success)]">
-              {$validationOk}
+              {L.validationOk}
             </p>
           {:else}
             {#if validation.result.errors?.length}
               <div>
                 <p class="font-medium text-destructive mb-1">
-                  {$validationErrorsTitle.replace('%d', String(validation.result.errors.length))}
+                  {L.validationErrors_title.replace('%d', String(validation.result.errors.length))}
                 </p>
                 <ul class="space-y-1">
                   {#each validation.result.errors as field (field.path)}
@@ -409,7 +411,7 @@
             {#if validation.result.warnings?.length}
               <div>
                 <p class="font-medium text-[var(--color-warning)] mb-1">
-                  {$validationWarningsTitle.replace('%d', String(validation.result.warnings.length))}
+                  {L.validationWarnings_title.replace('%d', String(validation.result.warnings.length))}
                 </p>
                 <ul class="space-y-1">
                   {#each validation.result.warnings as field (field.path)}
@@ -420,7 +422,7 @@
             {/if}
             {#if validation.result.info?.length}
               <div>
-                <p class="font-medium mb-1">{$validationInfoTitle}</p>
+                <p class="font-medium mb-1">{L.commonInfo}</p>
                 <ul class="space-y-1">
                   {#each validation.result.info as line}
                     <li class="whitespace-pre-wrap break-words text-muted-foreground">{line}</li>
@@ -434,7 +436,7 @@
       <Dialog.Footer>
         <Button variant="outline" onclick={copyValidation}>
           <Copy size={16} />
-          {$configsDialogBtnCopy}
+          {L.configsDialogBtnCopy}
         </Button>
       </Dialog.Footer>
     </Dialog.Content>

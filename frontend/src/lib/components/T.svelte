@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { locale, registerLocaleKey } from '../stores/locale.js';
+  import { locale, registerLocaleKey } from '../stores/locale.svelte.js';
 
   let { id, fallback = '' }: { id: string; fallback?: string } = $props();
 
