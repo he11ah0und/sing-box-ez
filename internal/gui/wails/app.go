@@ -88,17 +88,17 @@ type LanguageOption struct {
 
 // Bindings exposes Go methods that can be called from the frontend.
 type Bindings struct {
-	ctx                context.Context
-	app                *apppkg.App
-	ws                 *wsServer
-	ic                 *core.InteractiveController
-	theme              *themes.Collection
-	localeKeys         map[string]struct{}
+	ctx        context.Context
+	app        *apppkg.App
+	ws         *wsServer
+	ic         *core.InteractiveController
+	theme      *themes.Collection
+	localeKeys map[string]struct{}
 	// localeWildcards holds registered wildcard prefixes (without the ".*"
 	// suffix); they expand to all matching leaf paths of the current language.
-	localeWildcards      map[string]struct{}
-	localeReady        bool
-	localeMu           sync.Mutex
+	localeWildcards map[string]struct{}
+	localeReady     bool
+	localeMu        sync.Mutex
 
 	// core is the background core state poller holding the graph history and
 	// the last known API state (phase, groups, connections).
@@ -465,60 +465,61 @@ func (b *Bindings) applyWindowBackground(win application.Window) {
 
 // GetSettings returns the current application settings.
 func (b *Bindings) GetSettings() Settings {
-	cfg := b.app.Controller.Config()
+	acc := b.app.Controller.Config().Acc
 	return Settings{
-		Language:             cfg.MustGet("ui", "language").String(),
-		Theme:                cfg.MustGet("ui", "theme").String(),
-		ThemeMode:            cfg.MustGet("ui", "theme_mode").String(),
-		AutoStartCore:        cfg.MustGet("core", "start_on_launch").Bool(),
-		AutoRestart:          cfg.MustGet("core", "auto_restart").Bool(),
-		RunAsAdmin:           cfg.MustGet("privileges", "run_as_admin").Bool(),
-		LogLimit:             cfg.MustGet("log", "limit").Int(),
-		DesktopNotifications: cfg.MustGet("ui", "desktop_notifications").Bool(),
-		AutoCheckCore:        cfg.MustGet("updates", "auto_check_core").Bool(),
-		AutoCheckSelf:        cfg.MustGet("updates", "auto_check_self").Bool(),
-		DefaultIntervalHours: cfg.MustGet("updates", "default_interval_hours").Int(),
+		Language:             acc.UI.Language.String(),
+		Theme:                acc.UI.Theme.String(),
+		ThemeMode:            acc.UI.ThemeMode.String(),
+		AutoStartCore:        acc.Core.StartOnLaunch.Bool(),
+		AutoRestart:          acc.Core.AutoRestart.Bool(),
+		RunAsAdmin:           acc.Privileges.RunAsAdmin.Bool(),
+		LogLimit:             acc.Log.Limit.Int(),
+		DesktopNotifications: acc.UI.DesktopNotifications.Bool(),
+		AutoCheckCore:        acc.Updates.AutoCheckCore.Bool(),
+		AutoCheckSelf:        acc.Updates.AutoCheckSelf.Bool(),
+		DefaultIntervalHours: acc.Updates.DefaultIntervalHours.Int(),
 
-		ProxyEnabled:        cfg.MustGet("core", "proxy", "enabled").Bool(),
-		URLTestURL:          cfg.MustGet("core", "url_test_url").String(),
-		CoreLogLevel:        cfg.MustGet("core", "log", "level").String(),
-		TrafficGraphHistory: cfg.MustGet("core", "traffic_graph_history").Int(),
-		ShowLogs:            cfg.MustGet("ui", "show_logs").Bool(),
+		ProxyEnabled:        acc.Core.Proxy.Enabled.Bool(),
+		URLTestURL:          acc.Core.URLTestURL.String(),
+		CoreLogLevel:        acc.Core.Log.Level.String(),
+		TrafficGraphHistory: acc.Core.TrafficGraphHistory.Int(),
+		ShowLogs:            acc.UI.ShowLogs.Bool(),
 
-		AutoUpdateConfigs:                  cfg.MustGet("updates", "auto_update_configs").Bool(),
-		AutoUpdateConfigsIntervalHours:     cfg.MustGet("updates", "auto_update_configs_interval_hours").Int(),
-		AutoUpdateOnHashMismatch:           cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool(),
-		AutoRestartOnConfigUpdate:          cfg.MustGet("updates", "auto_restart_on_config_update").Bool(),
-		BackgroundUpdateCheckIntervalHours: cfg.MustGet("updates", "background_update_check_interval_hours").Int(),
+		AutoUpdateConfigs:                  acc.Updates.AutoUpdateConfigs.Bool(),
+		AutoUpdateConfigsIntervalHours:     acc.Updates.AutoUpdateConfigsIntervalHours.Int(),
+		AutoUpdateOnHashMismatch:           acc.Updates.AutoUpdateOnHashMismatch.Bool(),
+		AutoRestartOnConfigUpdate:          acc.Updates.AutoRestartOnConfigUpdate.Bool(),
+		BackgroundUpdateCheckIntervalHours: acc.Updates.BackgroundUpdateCheckIntervalHours.Int(),
 	}
 }
 
 // SaveSettings persists the provided settings.
 func (b *Bindings) SaveSettings(s Settings) error {
 	cfg := b.app.Controller.Config()
-	_ = cfg.MustGet("ui", "language").Update(s.Language)
-	_ = cfg.MustGet("ui", "theme").Update(s.Theme)
-	_ = cfg.MustGet("ui", "theme_mode").Update(s.ThemeMode)
-	_ = cfg.MustGet("core", "start_on_launch").Update(s.AutoStartCore)
-	_ = cfg.MustGet("core", "auto_restart").Update(s.AutoRestart)
-	_ = cfg.MustGet("privileges", "run_as_admin").Update(s.RunAsAdmin)
-	_ = cfg.MustGet("log", "limit").Update(s.LogLimit)
-	_ = cfg.MustGet("ui", "desktop_notifications").Update(s.DesktopNotifications)
-	_ = cfg.MustGet("updates", "auto_check_core").Update(s.AutoCheckCore)
-	_ = cfg.MustGet("updates", "auto_check_self").Update(s.AutoCheckSelf)
-	_ = cfg.MustGet("updates", "default_interval_hours").Update(s.DefaultIntervalHours)
+	acc := cfg.Acc
+	_ = acc.UI.Language.Update(s.Language)
+	_ = acc.UI.Theme.Update(s.Theme)
+	_ = acc.UI.ThemeMode.Update(s.ThemeMode)
+	_ = acc.Core.StartOnLaunch.Update(s.AutoStartCore)
+	_ = acc.Core.AutoRestart.Update(s.AutoRestart)
+	_ = acc.Privileges.RunAsAdmin.Update(s.RunAsAdmin)
+	_ = acc.Log.Limit.Update(s.LogLimit)
+	_ = acc.UI.DesktopNotifications.Update(s.DesktopNotifications)
+	_ = acc.Updates.AutoCheckCore.Update(s.AutoCheckCore)
+	_ = acc.Updates.AutoCheckSelf.Update(s.AutoCheckSelf)
+	_ = acc.Updates.DefaultIntervalHours.Update(s.DefaultIntervalHours)
 
-	_ = cfg.MustGet("core", "proxy", "enabled").Update(s.ProxyEnabled)
-	_ = cfg.MustGet("core", "url_test_url").Update(s.URLTestURL)
-	_ = cfg.MustGet("core", "log", "level").Update(s.CoreLogLevel)
-	_ = cfg.MustGet("core", "traffic_graph_history").Update(s.TrafficGraphHistory)
-	_ = cfg.MustGet("ui", "show_logs").Update(s.ShowLogs)
+	_ = acc.Core.Proxy.Enabled.Update(s.ProxyEnabled)
+	_ = acc.Core.URLTestURL.Update(s.URLTestURL)
+	_ = acc.Core.Log.Level.Update(s.CoreLogLevel)
+	_ = acc.Core.TrafficGraphHistory.Update(s.TrafficGraphHistory)
+	_ = acc.UI.ShowLogs.Update(s.ShowLogs)
 
-	_ = cfg.MustGet("updates", "auto_update_configs").Update(s.AutoUpdateConfigs)
-	_ = cfg.MustGet("updates", "auto_update_configs_interval_hours").Update(s.AutoUpdateConfigsIntervalHours)
-	_ = cfg.MustGet("updates", "auto_update_on_hash_mismatch").Update(s.AutoUpdateOnHashMismatch)
-	_ = cfg.MustGet("updates", "auto_restart_on_config_update").Update(s.AutoRestartOnConfigUpdate)
-	_ = cfg.MustGet("updates", "background_update_check_interval_hours").Update(s.BackgroundUpdateCheckIntervalHours)
+	_ = acc.Updates.AutoUpdateConfigs.Update(s.AutoUpdateConfigs)
+	_ = acc.Updates.AutoUpdateConfigsIntervalHours.Update(s.AutoUpdateConfigsIntervalHours)
+	_ = acc.Updates.AutoUpdateOnHashMismatch.Update(s.AutoUpdateOnHashMismatch)
+	_ = acc.Updates.AutoRestartOnConfigUpdate.Update(s.AutoRestartOnConfigUpdate)
+	_ = acc.Updates.BackgroundUpdateCheckIntervalHours.Update(s.BackgroundUpdateCheckIntervalHours)
 	if err := cfg.Save(); err != nil {
 		b.toastErr(err)
 		return err

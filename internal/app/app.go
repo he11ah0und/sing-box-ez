@@ -47,7 +47,6 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 	fwApp, err := framework.NewApp(framework.Config{
 		Args:           args,
 		DefaultDataDir: func() string { return framework.DefaultDataDir("sing-box-ez") },
-		RegisterConfig: registerConfig,
 		LoadConfig:     config.Load,
 		GetLoggerLimit: func(conf fwconfig.Config) int {
 			cfg := conf.(*config.AppConfig)
@@ -168,48 +167,4 @@ func findUpdater(managers []*updater.Manager, name string) *updater.Manager {
 		}
 	}
 	return nil
-}
-
-// registerConfig defines the sing-box-ez configuration schema.
-func registerConfig(sheet *fwconfig.Sheet) {
-	sheet.Register([]string{"core", "auto_restart"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"core", "traffic_graph_history"}, fwconfig.TypeInt, 60)
-	sheet.Register([]string{"core", "url_test_url"}, fwconfig.TypeString, "http://cp.cloudflare.com/generate_204")
-	sheet.Register([]string{"core", "start_on_launch"}, fwconfig.TypeBool, false)
-
-	sheet.Register([]string{"core", "log", "level"}, fwconfig.TypeString, "error")
-	sheet.Register([]string{"core", "proxy", "enabled"}, fwconfig.TypeBool, true)
-
-	sheet.Register([]string{"log", "level"}, fwconfig.TypeString, "info")
-	sheet.Register([]string{"log", "limit"}, fwconfig.TypeInt, 100)
-
-	sheet.Register([]string{"ui", "show_logs"}, fwconfig.TypeBool, false)
-	sheet.Register([]string{"ui", "language"}, fwconfig.TypeString, "")
-	sheet.Register([]string{"ui", "desktop_notifications"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"ui", "theme"}, fwconfig.TypeString, "default")
-	sheet.Register([]string{"ui", "theme_mode"}, fwconfig.TypeString, "system")
-
-	sheet.Register([]string{"privileges", "run_as_admin"}, fwconfig.TypeBool, false)
-
-	sheet.Register([]string{"updates", "auto_check_self"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"updates", "auto_check_core"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"updates", "auto_update_configs"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"updates", "auto_update_configs_interval_hours"}, fwconfig.TypeInt, 1)
-	sheet.Register([]string{"updates", "auto_update_on_hash_mismatch"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"updates", "auto_restart_on_config_update"}, fwconfig.TypeBool, true)
-	sheet.Register([]string{"updates", "background_update_check_interval_hours"}, fwconfig.TypeInt, 2)
-	sheet.Register([]string{"updates", "default_interval_hours"}, fwconfig.TypeInt, 24)
-
-	sheet.Register([]string{"plugins", "enabled"}, fwconfig.TypeBool, false, fwconfig.WithDisabled(true))
-	sheet.Register([]string{"plugins", "developer"}, fwconfig.TypeBool, false, fwconfig.WithDisabled(true))
-
-	sheet.Register([]string{"service", "backend"}, fwconfig.TypeString, "embedded")
-	sheet.Register([]string{"service", "start_on_app_launch"}, fwconfig.TypeBool, false)
-	sheet.Register([]string{"service", "stop_on_app_exit"}, fwconfig.TypeBool, true, fwconfig.WithDisabled(true))
-
-	sheet.Register([]string{"remote", "default_transport"}, fwconfig.TypeString, "auto", fwconfig.WithDisabled(true))
-	sheet.Register([]string{"remote", "last_tcp_address"}, fwconfig.TypeString, "", fwconfig.WithDisabled(true))
-	sheet.Register([]string{"remote", "last_connection_mode"}, fwconfig.TypeString, "embedded", fwconfig.WithDisabled(true))
-	sheet.Register([]string{"remote", "remember_connection_mode"}, fwconfig.TypeBool, true, fwconfig.WithDisabled(true))
-	sheet.Register([]string{"remote", "last_passphrase"}, fwconfig.TypeString, "", fwconfig.WithDisabled(true))
 }

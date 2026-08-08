@@ -8,18 +8,10 @@ import (
 	"sing-box-ez/internal/framework/updater"
 )
 
-// buildUpdatersFromSpec loads the declarative project spec and constructs
-// updater managers from its declarations. BASE_DIR and DATA_DIR both resolve
-// to the app's data directory. A spec error is a build-time developer
-// mistake, so every problem is reported in the returned error.
-func (a *App) buildUpdatersFromSpec(doc []byte, loadInstallScript func(string) []byte) ([]*updater.Manager, error) {
-	spec, err := projectspec.Load(doc, projectspec.Vars{
-		"BASE_DIR": a.BaseDir,
-		"DATA_DIR": a.BaseDir,
-	})
-	if err != nil {
-		return nil, err
-	}
+// buildUpdatersFromSpec constructs updater managers from the parsed project
+// spec. A spec error is a build-time developer mistake, so every problem is
+// reported in the returned error.
+func (a *App) buildUpdatersFromSpec(spec *projectspec.Spec, loadInstallScript func(string) []byte) ([]*updater.Manager, error) {
 
 	managers := make([]*updater.Manager, 0, len(spec.Updaters))
 	for _, u := range spec.Updaters {

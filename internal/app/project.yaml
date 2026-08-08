@@ -2,6 +2,167 @@
 # Embedded into the binary; validated at startup (all problems are printed
 # and the app refuses to start on any error).
 
+# Application config schema: the framework registers these entries into the
+# fwconfig Sheet in document order, and projectspec-gen generates a typed
+# accessor from them (internal/config/accessor_gen.go). control/options/
+# min/max are UI hints only; disabled entries keep their default and are not
+# persisted.
+config:
+  core:
+    auto_restart:
+      type: bool
+      default: true
+      control: switch
+    traffic_graph_history:
+      type: int
+      default: 60
+      control: select
+      options: [30, 60, 120, 300]
+    url_test_url:
+      type: string
+      default: "http://cp.cloudflare.com/generate_204"
+      control: text
+    start_on_launch:
+      type: bool
+      default: false
+      control: switch
+    log:
+      level:
+        type: string
+        default: error
+        control: select
+        options: [debug, info, warn, error]
+    proxy:
+      enabled:
+        type: bool
+        default: true
+        control: switch
+
+  log:
+    # Rendered by a custom UI block (not shown in the settings UI).
+    level:
+      type: string
+      default: info
+    limit:
+      type: int
+      default: 100
+      control: number
+      min: 10
+
+  ui:
+    show_logs:
+      type: bool
+      default: false
+      control: switch
+    # Rendered by a custom UI block with dynamic options.
+    language:
+      type: string
+      default: ""
+    desktop_notifications:
+      type: bool
+      default: true
+      control: switch
+    # Rendered by a custom UI block with dynamic options.
+    theme:
+      type: string
+      default: default
+    theme_mode:
+      type: string
+      default: system
+      control: select
+      options: [system, dark, light]
+
+  privileges:
+    run_as_admin:
+      type: bool
+      default: false
+      control: switch
+
+  updates:
+    auto_check_self:
+      type: bool
+      default: true
+      control: switch
+    auto_check_core:
+      type: bool
+      default: true
+      control: switch
+    auto_update_configs:
+      type: bool
+      default: true
+      control: switch
+    auto_update_configs_interval_hours:
+      type: int
+      default: 1
+      control: number
+      min: 1
+    auto_update_on_hash_mismatch:
+      type: bool
+      default: true
+      control: switch
+    auto_restart_on_config_update:
+      type: bool
+      default: true
+      control: switch
+    background_update_check_interval_hours:
+      type: int
+      default: 2
+      control: number
+      min: 1
+    default_interval_hours:
+      type: int
+      default: 24
+      control: number
+      min: 1
+
+  plugins:
+    enabled:
+      type: bool
+      default: false
+      disabled: true
+    developer:
+      type: bool
+      default: false
+      disabled: true
+
+  service:
+    # Dead key kept for config-file compatibility.
+    backend:
+      type: string
+      default: embedded
+      disabled: true
+    # Dead key kept for config-file compatibility.
+    start_on_app_launch:
+      type: bool
+      default: false
+      disabled: true
+    stop_on_app_exit:
+      type: bool
+      default: true
+      disabled: true
+
+  remote:
+    default_transport:
+      type: string
+      default: auto
+      disabled: true
+    last_tcp_address:
+      type: string
+      default: ""
+      disabled: true
+    last_connection_mode:
+      type: string
+      default: embedded
+      disabled: true
+    remember_connection_mode:
+      type: bool
+      default: true
+      disabled: true
+    last_passphrase:
+      type: string
+      default: ""
+      disabled: true
+
 updaters:
   # App self-updater (asset is a raw binary).
   - name: updater

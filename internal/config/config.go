@@ -4,6 +4,8 @@
 // config.yaml. Profiles (subscription records) are stored in profiles.yaml.
 package config
 
+//go:generate go run github.com/he11ah0und/projectspec/cmd/projectspec-gen -spec ../app/project.yaml -out accessor_gen.go -pkg config
+
 import (
 	"errors"
 	"os"
@@ -144,6 +146,8 @@ type AppConfig struct {
 	Root     fs.Directory
 	DataDir  string
 	Profiles *Profiles
+	// Acc is the generated typed accessor over the sheet, bound after Load.
+	Acc *Accessor
 }
 
 // Load reads settings and profiles from root and returns the loaded config.
@@ -162,6 +166,7 @@ func Load(root fs.Directory, dataDir string, sheet *fwconfig.Sheet) (fwconfig.Co
 		Root:     root,
 		DataDir:  dataDir,
 		Profiles: profiles,
+		Acc:      NewAccessor(sheet),
 	}, nil
 }
 

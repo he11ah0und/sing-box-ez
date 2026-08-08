@@ -18,6 +18,7 @@ import (
 	"github.com/he11ah0und/config"
 	"github.com/he11ah0und/localengine"
 	"github.com/he11ah0und/logger"
+	"github.com/he11ah0und/projectspec"
 )
 
 // App is the framework-level application container. It owns cross-cutting
@@ -51,6 +52,8 @@ type Config struct {
 	// provided. Required.
 	DefaultDataDir func() string
 	// RegisterConfig registers the configuration schema on a fresh Sheet.
+	// It is used only as a fallback when ProjectSpec declares no config
+	// section; spec entries take precedence.
 	RegisterConfig func(*config.Sheet)
 	// LoadConfig loads persisted settings into the Sheet and returns the
 	// application-specific config object. Required.
@@ -99,6 +102,19 @@ func ensureSubdir(root fs.Directory, name string, perm os.FileMode) (fs.Director
 	return d, nil
 }
 
+// registerSpecConfig registers the config entries declared in the project
+// spec into the Sheet, preserving declaration order. UI hints (control,
+// options, min/max) are not registered — they are frontend metadata.
+func registerSpecConfig(sheet *config.Sheet, entries []projectspec.ConfigEntry) {
+	for _, e := range entries {
+		var opts []config.Option
+		if e.Disabled {
+			opts = append(opts, config.WithDisabled(true))
+		}
+		sheet.Register(e.Path, config.Type(e.Type), e.Default, opts...)
+	}
+}
+
 func parseDataDir(args []string, extraFlags []cli.Flag, defaultFn func() string) (string, []string, *cli.Engine[*App], error) {
 	engine := cli.New[*App]()
 	engine.AddGlobalFlag(cli.Flag{
@@ -135,6 +151,21 @@ func NewApp(cfg Config) (*App, error) {
 		return nil, err
 	}
 
+	// Parse the declarative project spec once, early: the config schema is
+	// registered from it and updater managers are built from it below. A spec
+	// error aborts construction with the full problem list.
+	var spec *projectspec.Spec
+	if len(cfg.ProjectSpec) > 0 {
+		var err error
+		spec, err = projectspec.Load(cfg.ProjectSpec, projectspec.Vars{
+			"BASE_DIR": dataDir,
+			"DATA_DIR": dataDir,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	tmpLog := logger.NewLogger(1000)
 	tmpFS := fs.NewOSWithLog(dataDir, tmpLog.Root)
 	tmpRoot := tmpFS.Root()
@@ -144,7 +175,9 @@ func NewApp(cfg Config) (*App, error) {
 
 	sheet := config.NewSheet(config.SheetOptions{})
 	sheet.SetLogger(tmpLog.Root.Allocate("config"))
-	if cfg.RegisterConfig != nil {
+	if spec != nil && len(spec.Config) > 0 {
+		registerSpecConfig(sheet, spec.Config)
+	} else if cfg.RegisterConfig != nil {
 		cfg.RegisterConfig(sheet)
 	}
 
@@ -187,8 +220,8 @@ func NewApp(cfg Config) (*App, error) {
 		runGUI:        cfg.RunGUI,
 	}
 
-	if len(cfg.ProjectSpec) > 0 {
-		updaters, err := app.buildUpdatersFromSpec(cfg.ProjectSpec, cfg.LoadInstallScript)
+	if spec != nil {
+		updaters, err := app.buildUpdatersFromSpec(spec, cfg.LoadInstallScript)
 		if err != nil {
 			return nil, err
 		}
