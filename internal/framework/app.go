@@ -65,10 +65,19 @@ type Config struct {
 	// loader multiple times for different sources.
 	// If nil, localengine is only initialised with a logger.
 	LoadLocales func(load func(fsys iofs.FS) error) error
+	// ProjectSpec is the declarative project.yaml document (usually embedded).
+	// When set, the framework loads it with projectspec and builds updater
+	// managers from its declarations; a spec error aborts app construction.
+	// Takes precedence over BuildUpdaters.
+	ProjectSpec []byte
+	// LoadInstallScript returns the Lua post-install script by name for
+	// updater declarations with a "files" apply backend. Required when the
+	// spec uses install_script.
+	LoadInstallScript func(name string) []byte
 	// BuildUpdaters returns the list of updater managers that should be
 	// registered in the app. The framework passes the constructed App so the
-	// implementation can access the config, logger and file system. If nil,
-	// no updaters are registered.
+	// implementation can access the config, logger and file system. If nil
+	// and ProjectSpec is not set, no updaters are registered.
 	BuildUpdaters func(*App) []*updater.Manager
 	// RegisterCommands registers CLI commands on the engine.
 	RegisterCommands func(*cli.Engine[*App])
@@ -178,13 +187,19 @@ func NewApp(cfg Config) (*App, error) {
 		runGUI:        cfg.RunGUI,
 	}
 
-	if cfg.BuildUpdaters != nil {
+	if len(cfg.ProjectSpec) > 0 {
+		updaters, err := app.buildUpdatersFromSpec(cfg.ProjectSpec, cfg.LoadInstallScript)
+		if err != nil {
+			return nil, err
+		}
+		app.Updaters = updaters
+	} else if cfg.BuildUpdaters != nil {
 		app.Updaters = cfg.BuildUpdaters(app)
-		for _, mgr := range app.Updaters {
-			if mgr.Apply != nil {
-				updater.SetManager(mgr)
-				break
-			}
+	}
+	for _, mgr := range app.Updaters {
+		if mgr.Apply != nil {
+			updater.SetManager(mgr)
+			break
 		}
 	}
 

@@ -66,9 +66,6 @@ func (b *Bindings) URLTestAPIGroup(group string) (URLTestResult, error) {
 	}
 	cfg := b.app.Controller.Config()
 	url := cfg.String("core", "url_test_url")
-	if url == "" {
-		url = "http://cp.cloudflare.com/generate_204"
-	}
 	ctx, cancel := context.WithTimeout(b.ctx, 15*time.Second)
 	defer cancel()
 	results, err := client.URLTest(ctx, group, url, 5*time.Second)

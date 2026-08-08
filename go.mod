@@ -1,6 +1,6 @@
 module sing-box-ez
 
-go 1.25.0
+go 1.26.5
 
 require (
 	github.com/he11ah0und/config v0.2.0
@@ -20,6 +20,7 @@ require (
 )
 
 require (
+	github.com/he11ah0und/projectspec v0.1.0
 	github.com/he11ah0und/yamltree v0.1.0 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
@@ -36,3 +37,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
+
+replace github.com/he11ah0und/projectspec => ../projectspec

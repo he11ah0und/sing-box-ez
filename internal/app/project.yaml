@@ -1,0 +1,26 @@
+# Declarative project data for sing-box-ez, loaded by he11ah0und/projectspec.
+# Embedded into the binary; validated at startup (all problems are printed
+# and the app refuses to start on any error).
+
+updaters:
+  # App self-updater (asset is a raw binary).
+  - name: updater
+    source:
+      backend: github
+      owner: he11ah0und
+      repo: sing-box-ez
+    apply:
+      backend: self
+      base_dir: $BASE_DIR
+
+  # Core updater (downloads sing-box core release archive).
+  - name: core-updater
+    source:
+      backend: github
+      owner: SagerNet
+      repo: sing-box
+      asset_tags: [$GOARCH, $GOOS]
+    apply:
+      backend: files
+      base_dir: $DATA_DIR
+      install_script: core.lua

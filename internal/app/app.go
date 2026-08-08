@@ -8,7 +8,6 @@ import (
 	iofs "io/fs"
 	"os"
 	"os/signal"
-	"runtime"
 
 	fwconfig "github.com/he11ah0und/config"
 	"sing-box-ez/internal/cli"
@@ -16,7 +15,6 @@ import (
 	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/framework"
 	fwcli "sing-box-ez/internal/framework/cli"
-	"sing-box-ez/internal/framework/fs"
 	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
 )
@@ -27,12 +25,8 @@ var localesFS embed.FS
 //go:embed installers/*.lua
 var installersFS embed.FS
 
-// GitHub coordinates of the application repository: used by the self-updater
-// and by the GUI "open in browser" actions.
-const (
-	GitHubOwner = "he11ah0und"
-	GitHubRepo  = "sing-box-ez"
-)
+//go:embed project.yaml
+var projectYAML []byte
 
 // App is the concrete sing-box-ez application. It extends framework.App with
 // the loaded configuration, core controller, and updater references.
@@ -66,8 +60,9 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 			}
 			return load(sub)
 		},
-		BuildUpdaters:    buildUpdaters,
-		RegisterCommands: cli.RegisterCommands,
+		ProjectSpec:       projectYAML,
+		LoadInstallScript: loadInstallScript,
+		RegisterCommands:  cli.RegisterCommands,
 		ExtraGlobalFlags: []fwcli.Flag{
 			{
 				Name: "remote",
@@ -173,27 +168,6 @@ func findUpdater(managers []*updater.Manager, name string) *updater.Manager {
 		}
 	}
 	return nil
-}
-
-func buildUpdaters(app *framework.App) []*updater.Manager {
-	cfg := app.Config.(*config.AppConfig)
-	log := app.Logger
-
-	// App self-updater (asset is a raw binary).
-	appMgr := updater.NewManager(log.Root, "updater")
-	appMgr.Source = updater.NewGitHubBackend(appMgr.Log, GitHubOwner, GitHubRepo)
-	appMgr.Apply = updater.NewSelfUpdateApply(appMgr.Log, fs.NewOSWithLog(app.BaseDir, appMgr.Log.Allocate("fs")))
-
-	// Core updater (downloads sing-box core release archive).
-	coreMgr := updater.NewManager(log.Root, "core-updater")
-	coreMgr.Source = updater.NewGitHubBackend(coreMgr.Log, "SagerNet", "sing-box")
-	coreMgr.AssetCriteria = updater.AssetCriteria{Tags: []string{runtime.GOARCH, runtime.GOOS}}
-	coreApply := updater.NewFilesUpdateApply(coreMgr.Log, fs.NewOSWithLog(cfg.DataDir, coreMgr.Log.Allocate("fs")))
-	coreApply.BaseDir = cfg.DataDir
-	coreApply.InstallScript = loadInstallScript("core.lua")
-	coreMgr.Apply = coreApply
-
-	return []*updater.Manager{appMgr, coreMgr}
 }
 
 // registerConfig defines the sing-box-ez configuration schema.
