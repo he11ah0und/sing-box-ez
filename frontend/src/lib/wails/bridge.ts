@@ -4,6 +4,7 @@ import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../sto
 import { locale, setLocaleValues } from '../stores/locale.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
 import type { ActiveConfig, SelfUpdateInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+import { GetTrafficHistory } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -89,6 +90,27 @@ function showNotification(data: NotificationPayload) {
 }
 
 export function initWailsEvents() {
+  // Seed the graph with the history the backend accumulated so the chart
+  // does not start empty when the UI (re)opens.
+  GetTrafficHistory()
+    .then((h) => {
+      const points = h?.points ?? [];
+      appState.update((s) => ({
+        ...s,
+        traffic: {
+          ...s.traffic,
+          history: {
+            times: points.map((p) => Date.parse(p.at)),
+            up: points.map((p) => p.up ?? 0),
+            down: points.map((p) => p.down ?? 0)
+          }
+        }
+      }));
+    })
+    .catch((err: unknown) => {
+      console.warn('GetTrafficHistory failed:', err);
+    });
+
   Events.On('status:changed', (event: WailsEvent<StatusChangedPayload>) => {
     const data = event.data ?? {};
     appState.update((s) => ({
@@ -146,7 +168,8 @@ export function initWailsEvents() {
   Events.On('traffic:updated', (event: WailsEvent<TrafficPayload>) => {
     const data = event.data ?? {};
     appState.update((s) => {
-      const maxPoints = 60;
+      const maxPoints = Math.max(2, s.settings?.trafficGraphHistory || 60);
+      const times = [...s.traffic.history.times, Date.now()].slice(-maxPoints);
       const upHistory = [...s.traffic.history.up, data.up ?? 0].slice(-maxPoints);
       const downHistory = [...s.traffic.history.down, data.down ?? 0].slice(-maxPoints);
       return {
@@ -163,7 +186,7 @@ export function initWailsEvents() {
           backend: data.backend ?? '',
           version: data.version ?? '',
           connections: data.connections ?? 0,
-          history: { up: upHistory, down: downHistory }
+          history: { times, up: upHistory, down: downHistory }
         }
       };
     });

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -132,6 +133,12 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 		}
 		groups = append(groups, g)
 	}
+	// The Clash API returns proxies as a JSON object, so the order is
+	// unspecified; sort by tag to keep the group list stable for all
+	// consumers (GUI, CLI, future TUI).
+	sort.Slice(groups, func(i, j int) bool {
+		return strings.ToLower(groups[i].Tag) < strings.ToLower(groups[j].Tag)
+	})
 	return groups, nil
 }
 

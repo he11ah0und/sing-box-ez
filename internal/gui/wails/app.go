@@ -104,6 +104,9 @@ type Bindings struct {
 	// failure; the frontend shows it as the connection session start.
 	apiConnectedAt time.Time
 
+	// poller is the background traffic poller holding the graph history.
+	poller *trafficPoller
+
 	// styleCheckMu guards pendingStyleChecks.
 	styleCheckMu sync.Mutex
 	// pendingStyleChecks holds the choose callbacks of in-flight config style

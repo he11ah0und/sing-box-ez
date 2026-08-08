@@ -352,6 +352,7 @@
   const outboundChain = $derived(buildOutboundChain(apiGroups));
   const upStats = $derived(sparkStats($appState.traffic.history.up));
   const downStats = $derived(sparkStats($appState.traffic.history.down));
+  const graphSpan = $derived(Math.max(1, $appState.settings?.trafficGraphHistory || 60));
 
   function formatConnectionTarget(conn: APIConnection): string {
     if (conn.domain) {
@@ -451,7 +452,13 @@
                   <span class="text-sm text-muted-foreground">{$mainDashboardUpload}</span>
                   <span class="text-sm font-medium">{$appState.traffic.upRate}</span>
                 </div>
-                <Sparkline data={$appState.traffic.history.up} color="var(--color-success)" fill />
+                <Sparkline
+                  data={$appState.traffic.history.up}
+                  times={$appState.traffic.history.times}
+                  span={graphSpan}
+                  color="var(--color-success)"
+                  fill
+                />
                 <p class="text-xs text-muted-foreground">
                   {$mainDashboardMin}: {formatSpeed(upStats.min)}
                   &nbsp;{$mainDashboardMax}: {formatSpeed(upStats.max)}
@@ -463,7 +470,13 @@
                   <span class="text-sm text-muted-foreground">{$mainDashboardDownload}</span>
                   <span class="text-sm font-medium">{$appState.traffic.downRate}</span>
                 </div>
-                <Sparkline data={$appState.traffic.history.down} color="var(--color-primary)" fill />
+                <Sparkline
+                  data={$appState.traffic.history.down}
+                  times={$appState.traffic.history.times}
+                  span={graphSpan}
+                  color="var(--color-primary)"
+                  fill
+                />
                 <p class="text-xs text-muted-foreground">
                   {$mainDashboardMin}: {formatSpeed(downStats.min)}
                   &nbsp;{$mainDashboardMax}: {formatSpeed(downStats.max)}

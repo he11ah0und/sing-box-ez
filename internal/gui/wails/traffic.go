@@ -5,6 +5,7 @@ package wails
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"sing-box-ez/internal/core/api"
@@ -24,8 +25,22 @@ type TrafficUpdate struct {
 	Connections int    `json:"connections"`
 }
 
+// TrafficPoint is a single traffic rate sample kept for the graph history.
+type TrafficPoint struct {
+	At   time.Time `json:"at"`
+	Up   int64     `json:"up"`
+	Down int64     `json:"down"`
+}
+
+// TrafficHistory is a snapshot of the retained traffic samples.
+type TrafficHistory struct {
+	Points []TrafficPoint `json:"points"`
+}
+
 // trafficPoller subscribes to the core status stream and emits traffic
 // updates to the frontend. It restarts automatically when the core restarts.
+// It also retains a rolling history of rate samples so the frontend can
+// render a full graph without accumulating points itself.
 type trafficPoller struct {
 	b             *Bindings
 	lastClient    api.CoreAPIClient
@@ -33,6 +48,11 @@ type trafficPoller struct {
 	lastDownTotal int64
 	lastTrafficAt time.Time
 	backoff       time.Duration
+
+	// historyMu guards history: the poller goroutine appends while
+	// GetTrafficHistory reads from another goroutine.
+	historyMu sync.Mutex
+	history   []TrafficPoint
 }
 
 func newTrafficPoller(b *Bindings) *trafficPoller {
@@ -41,7 +61,8 @@ func newTrafficPoller(b *Bindings) *trafficPoller {
 
 // startTrafficPoller starts the poller in a background goroutine.
 func (b *Bindings) startTrafficPoller() {
-	go newTrafficPoller(b).run()
+	b.poller = newTrafficPoller(b)
+	go b.poller.run()
 }
 
 func (p *trafficPoller) run() {
@@ -80,6 +101,12 @@ func (p *trafficPoller) reset(full bool) {
 	if full && p.lastClient != nil {
 		p.lastClient = nil
 		p.b.emit("traffic:updated", TrafficUpdate{Connected: false})
+	}
+	if full {
+		// The core stopped: the retained samples describe a dead session.
+		p.historyMu.Lock()
+		p.history = nil
+		p.historyMu.Unlock()
 	}
 	p.lastUpTotal = 0
 	p.lastDownTotal = 0
@@ -184,6 +211,8 @@ func (p *trafficPoller) handleEvent(ev *api.StatusEvent) {
 	p.lastDownTotal = ev.Status.DownlinkTotal
 	p.lastTrafficAt = now
 
+	p.appendHistory(TrafficPoint{At: now, Up: ev.Status.Uplink, Down: ev.Status.Downlink})
+
 	backend := ""
 	if info := p.b.app.Controller.APIInfo(); info != nil {
 		backend = string(info.Backend)
@@ -201,6 +230,39 @@ func (p *trafficPoller) handleEvent(ev *api.StatusEvent) {
 		Version:     ev.Status.Version,
 		Connections: int(ev.Status.ConnectionsIn + ev.Status.ConnectionsOut),
 	})
+}
+
+// appendHistory retains a rate sample, trimming the window to the configured
+// graph history length (in seconds, one sample per second).
+func (p *trafficPoller) appendHistory(pt TrafficPoint) {
+	limit := p.historyLimit()
+	p.historyMu.Lock()
+	p.history = append(p.history, pt)
+	if len(p.history) > limit {
+		p.history = p.history[len(p.history)-limit:]
+	}
+	p.historyMu.Unlock()
+}
+
+// historyLimit returns the configured number of retained samples.
+func (p *trafficPoller) historyLimit() int {
+	n := p.b.app.Controller.Config().MustGet("core", "traffic_graph_history").Int()
+	if n < 2 {
+		n = 60
+	}
+	return n
+}
+
+// GetTrafficHistory returns the retained traffic rate samples.
+func (b *Bindings) GetTrafficHistory() TrafficHistory {
+	if b.poller == nil {
+		return TrafficHistory{}
+	}
+	b.poller.historyMu.Lock()
+	defer b.poller.historyMu.Unlock()
+	points := make([]TrafficPoint, len(b.poller.history))
+	copy(points, b.poller.history)
+	return TrafficHistory{Points: points}
 }
 
 func (p *trafficPoller) deriveRates(s api.Status, now time.Time) (upRate, dnRate float64) {

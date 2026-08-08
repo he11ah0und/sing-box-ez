@@ -17,6 +17,9 @@ export interface CoreStatus {
 }
 
 export interface TrafficHistory {
+  // times holds per-sample timestamps (ms); up/down are rate samples aligned
+  // with it. Points enter at the right edge of the graph and drift left.
+  times: number[];
   up: number[];
   down: number[];
 }
@@ -104,7 +107,7 @@ export const appState = writable<AppState>({
     backend: '',
     version: '',
     connections: 0,
-    history: { up: [], down: [] }
+    history: { times: [], up: [], down: [] }
   },
   dialog: null,
   startup: { show: false, options: [], selected: null },

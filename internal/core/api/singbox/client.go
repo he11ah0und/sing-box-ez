@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
+	"strings"
 	"time"
 
 	"sing-box-ez/internal/core/api"
@@ -265,6 +267,10 @@ func groupsFromProto(g *pb.Groups) []api.Group {
 		}
 		out = append(out, item)
 	}
+	// Keep the group order stable across polls, same as the Clash backend.
+	sort.Slice(out, func(i, j int) bool {
+		return strings.ToLower(out[i].Tag) < strings.ToLower(out[j].Tag)
+	})
 	return out
 }
 
