@@ -8,7 +8,7 @@ tab:
   debug: Дебаг
   plugins: Плагины
   about: О программе
-  menu: Menu
+  menu: 'Меню'
 main:
   status:
     stopped: 'Статус: остановлен'
@@ -18,7 +18,7 @@ main:
     none: 'Активный конфиг: (нет)'
     label: Активный конфиг
     prefix: 'Активный конфиг: '
-    placeholder: Select active config
+    placeholder: 'Выберите активный конфиг'
   'no':
     config: Конфиг не выбран — выберите во вкладке Конфиги
   btn:
@@ -49,7 +49,7 @@ main:
     connections: 'Соединения: %d'
     close_connections: Закрыть все соединения
     unavailable: Управление через API недоступно для этого режима подключения.
-    connecting: Connecting…
+    connecting: 'Подключение…'
   dashboard:
     upload: Отправка
     download: Приём
@@ -75,8 +75,8 @@ main:
     sort_traffic: Трафик
     sort_total: Весь трафик
     search: Поиск
-  running: Running
-  stopped: Stopped
+  running: 'Работает'
+  stopped: 'Остановлен'
 connection_details:
   title: Детали соединения
   id: ID
@@ -104,7 +104,7 @@ core:
   version:
     installed: 'Ядро: v'
     not_installed: 'Ядро: не установлено'
-  latest: Latest version
+  latest: 'Последняя версия'
   btn:
     download: Скачать последнее ядро sing-box
     check: Проверить последнюю версию
@@ -146,7 +146,7 @@ core:
     address: Адрес
     secret: Секрет
     copy: Скопировать данные подключения
-  installed: Installed version
+  installed: 'Установленная версия'
 configs:
   title: Конфиги
   btn:
@@ -175,7 +175,7 @@ configs:
     server: server
     undefined: undefined
     not_recommended: не рекомендуется
-    active: Active
+    active: 'Активный'
     hash_mismatch_tooltip: Содержимое кэша отличается от сохранённого хэша
   dialog:
     title: Конфиг
@@ -200,16 +200,16 @@ configs:
       copy: Копировать
     delete_title: Удаление
     delete_msg: Удалить конфиг
-  nameRequired: Name is required
-  new: New config
-  name: Name
-  type: Type
-  remote: Remote
-  local: Local
-  url: URL / Path
-  interval: Update interval (h)
-  empty: No configs yet.
-  confirmDelete: Delete this config?
+  nameRequired: 'Укажите название'
+  new: 'Новый конфиг'
+  name: 'Название'
+  type: 'Тип'
+  remote: 'Удалённый'
+  local: 'Локальный'
+  url: 'URL / Путь'
+  interval: 'Интервал обновления (ч)'
+  empty: 'Конфигов пока нет.'
+  confirmDelete: 'Удалить этот конфиг?'
   update_all:
     done: Все конфиги обновлены
   update_now:
@@ -364,8 +364,8 @@ about:
     load_branches: Загрузить ветки
     check_branch: Проверить обновление для ветки
     switch_branch: Сменить ветку
-    check_update: Check update
-    install_update: Install update
+    check_update: 'Проверить обновление'
+    install_update: 'Установить обновление'
   branch:
     label: 'Ветка: '
     load_error: 'Не удалось загрузить ветки: '
@@ -379,12 +379,12 @@ about:
     dev_build: 'Dev-сборка: текущая %s, удалённая %s'
     dev_build_confirm_title: Обновление dev-сборки
     dev_build_confirm_body: Вы используете dev-сборку (%s), новее последнего релиза (%s). Обновление откатит версию. Продолжить?
-    confirm: Install update?
-    installed: Update installed
-    title: App update
-    latest: 'Latest:'
-    up_to_date: Up to date
-    downloading: Downloading…
+    confirm: 'Установить обновление?'
+    installed: 'Обновление установлено'
+    title: 'Обновление приложения'
+    latest: 'Последняя:'
+    up_to_date: 'Установлена последняя версия'
+    downloading: 'Загрузка…'
   release_notes:
     title: Примечания к релизу
     error: Не удалось загрузить примечания к релизу

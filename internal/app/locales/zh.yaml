@@ -8,7 +8,7 @@ tab:
   debug: 调试
   plugins: 插件
   about: 关于
-  menu: Menu
+  menu: '菜单'
 main:
   status:
     stopped: 状态：已停止
@@ -18,7 +18,7 @@ main:
     none: 活动配置：（无）
     label: 活动配置
     prefix: 活动配置：
-    placeholder: Select active config
+    placeholder: '选择活动配置'
   'no':
     config: 未选择配置 — 请在配置标签页中选择一个
   btn:
@@ -49,7 +49,7 @@ main:
     connections: 连接数：%d
     close_connections: 关闭所有连接
     unavailable: 当前连接模式不支持 API 控制。
-    connecting: Connecting…
+    connecting: '连接中…'
   dashboard:
     upload: 上传
     download: 下载
@@ -75,8 +75,8 @@ main:
     sort_traffic: 流量
     sort_total: 总流量
     search: 搜索
-  running: Running
-  stopped: Stopped
+  running: '运行中'
+  stopped: '已停止'
 connection_details:
   title: 连接详情
   id: ID
@@ -104,7 +104,7 @@ core:
   version:
     installed: 核心：v
     not_installed: 核心：未安装
-  latest: Latest version
+  latest: '最新版本'
   btn:
     download: 下载最新 sing-box 核心
     check: 检查最新版本
@@ -146,7 +146,7 @@ core:
     address: 地址
     secret: 密钥
     copy: 复制连接数据
-  installed: Installed version
+  installed: '已安装版本'
 configs:
   title: 配置
   btn:
@@ -175,7 +175,7 @@ configs:
     server: server
     undefined: undefined
     not_recommended: 不推荐
-    active: Active
+    active: '当前'
     hash_mismatch_tooltip: 缓存内容与存储的哈希不一致
   dialog:
     title: 配置
@@ -200,16 +200,16 @@ configs:
       copy: 复制
     delete_title: 删除
     delete_msg: 删除配置
-  nameRequired: Name is required
-  new: New config
-  name: Name
-  type: Type
-  remote: Remote
-  local: Local
-  url: URL / Path
-  interval: Update interval (h)
-  empty: No configs yet.
-  confirmDelete: Delete this config?
+  nameRequired: '请填写名称'
+  new: '新建配置'
+  name: '名称'
+  type: '类型'
+  remote: '远程'
+  local: '本地'
+  url: 'URL / 路径'
+  interval: '更新间隔（小时）'
+  empty: '暂无配置。'
+  confirmDelete: '删除此配置？'
   update_all:
     done: 所有配置已更新
   update_now:
@@ -364,8 +364,8 @@ about:
     load_branches: 加载分支
     check_branch: 检查分支更新
     switch_branch: 切换分支
-    check_update: Check update
-    install_update: Install update
+    check_update: '检查更新'
+    install_update: '安装更新'
   branch:
     label: 分支：
     load_error: 加载分支失败：
@@ -379,12 +379,12 @@ about:
     dev_build: 开发版本：当前 %s，远程 %s
     dev_build_confirm_title: 开发版本更新
     dev_build_confirm_body: 您正在使用比最新发布版本 (%s) 更新的开发版本 (%s)。更新将降级版本。继续？
-    confirm: Install update?
-    installed: Update installed
-    title: App update
-    latest: 'Latest:'
-    up_to_date: Up to date
-    downloading: Downloading…
+    confirm: '安装更新？'
+    installed: '更新已安装'
+    title: '应用更新'
+    latest: '最新：'
+    up_to_date: '已是最新版本'
+    downloading: '正在下载…'
   release_notes:
     title: 发布说明
     error: 获取发布说明失败
