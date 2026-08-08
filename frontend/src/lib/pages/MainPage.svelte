@@ -47,8 +47,8 @@
 
   const tabs = [
     { id: 'overview', key: 'main.tabs.overview' },
-    { id: 'groups', key: 'main.tabs.groups' },
-    { id: 'connections', key: 'main.tabs.connections' }
+    { id: 'groups', key: 'tab.groups' },
+    { id: 'connections', key: 'tab.connections' }
   ];
   const modes = ['rule', 'global', 'direct'];
 
@@ -68,7 +68,7 @@
   const mainDashboardAvg = useLocale('main.dashboard.avg');
   const mainDashboardProfile = useLocale('main.dashboard.profile');
   const mainApiMode = useLocale('main.api.mode');
-  const mainGroupsTitle = useLocale('main.groups.title');
+  const tabGroups = useLocale('tab.groups');
   const mainGroupsEmpty = useLocale('main.groups.empty');
   const mainApiConnections = useLocale('main.api.connections');
   const mainApiCloseConnections = useLocale('main.api.close_connections');
@@ -550,7 +550,7 @@
       <Tabs.Content value="groups">
         <Card.Root>
           <Card.Header>
-            <Card.Title>{$mainGroupsTitle}</Card.Title>
+            <Card.Title>{$tabGroups}</Card.Title>
           </Card.Header>
           <Card.Content class="space-y-4">
             {#if !apiStatus}

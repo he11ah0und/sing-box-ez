@@ -1,19 +1,17 @@
-app:
-  title: Sing-box EZ
 tab:
   main: Главная
   configs: Конфиги
   core: Ядро
   settings: Настройки
   debug: Дебаг
-  plugins: Плагины
   about: О программе
   menu: 'Меню'
+  groups: Группы
+  connections: Соединения
 main:
   status:
     stopped: 'Статус: остановлен'
     running: 'Статус: запущен'
-    connecting: Подключение…
   active:
     none: 'Активный конфиг: (нет)'
     label: Активный конфиг
@@ -28,8 +26,6 @@ main:
     switch: Переключить
   tabs:
     overview: Обзор
-    groups: Группы
-    connections: Соединения
   api:
     title: Управление ядром
     status: 'Версия: %s  Время работы: %s'
@@ -39,9 +35,7 @@ main:
     mode_rule: Правило
     mode_global: Глобальный
     mode_direct: Прямой
-    group: Группа
     node: Узел
-    url_test: Тест URL
     url_test_testing: Тестирование…
     url_test_empty: нет результатов
     url_test_error: 'ошибка: %v'
@@ -55,20 +49,15 @@ main:
     download: Приём
     memory: Память
     goroutines: Горутины
-    inbound: Входящие
-    outbound: Исходящие
     profile: Профиль
     started: Запущено
     min: мин
     max: макс
     avg: сред
   groups:
-    title: Группы
     empty: Нет outbound-групп
   connections:
-    title: Соединения
     empty: Нет активных соединений
-    filter_active: Активные
     filter_all: Все
     filter_closed: Закрытые
     sort_date: Дата
@@ -79,7 +68,6 @@ main:
   stopped: 'Остановлен'
 connection_details:
   title: Детали соединения
-  id: ID
   inbound: Входящий
   network: Сеть
   source: Источник
@@ -93,14 +81,12 @@ connection_details:
   created: Создано
   user: Пользователь
   process: Процесс
-  close: Закрыть
   close_connection: Закрыть соединение
 core:
   update:
     checking: Проверка версии...
     downloading: Загрузка...
     available: Скачать %s
-    current_version: 'Текущая версия: '
   version:
     installed: 'Ядро: v'
     not_installed: 'Ядро: не установлено'
@@ -110,7 +96,6 @@ core:
     check: Проверить последнюю версию
     restart_admin: Перезапустить от администратора
     apply_setcap: Применить setcap (TUN без root)
-    apply: Применить
   auto_restart: Авто-перезапуск ядра при фатальных ошибках
   start_on_launch: Запускать ядро при старте программы
   proxy:
@@ -129,7 +114,6 @@ core:
     label_root_pkexec: Запускать от root (pkexec, для TUN)
   mode:
     admin: Админ
-    setcap: Setcap
     setcap_prompt: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
   log:
     title: Лог ядра
@@ -137,18 +121,15 @@ core:
   graph_history:
     label: История графика трафика
   url_test_url:
-    title: URL-тест
     label: URL для URL-теста
   api:
     title: Подключение к API
     not_running: Ядро не запущено
-    type: Тип
     address: Адрес
     secret: Секрет
     copy: Скопировать данные подключения
   installed: 'Установленная версия'
 configs:
-  title: Конфиги
   btn:
     add: Добавить
     edit: Изменить
@@ -156,49 +137,35 @@ configs:
     activate: Активировать
     update_all: Обновить все
   table:
-    name: Название
-    source: Источник
     last_update: Последнее обновление
     next_update: Следующее обновление
     period: Период
     cached: Кэш
-    user: пользователь
     never: никогда
     now: сейчас
     'yes': да
     'no': нет
   badge:
-    local: локальный
-    remote: удалённый
+    client: клиент
+    server: сервер
+    undefined: не определён
     modified: изменён
-    client: client
-    server: server
-    undefined: undefined
     not_recommended: не рекомендуется
     active: 'Активный'
     hash_mismatch_tooltip: Содержимое кэша отличается от сохранённого хэша
   dialog:
-    title: Конфиг
-    name: Название
-    url: URL
-    type: Тип
-    type_remote: Удалённый
-    type_local: Локальный
     period: Период (часов)
     auto_update: Автообновление
     validation_result: Результат проверки
     validation_error: Ошибка проверки
     file_missing: Файл конфига отсутствует
     btn:
-      save: Сохранить
       update_now: Обновить сейчас
-      delete: Удалить
       open: Открыть
       validate: Проверить
       open_dir: Открыть расположение
       create: Создать заново
       copy: Копировать
-    delete_title: Удаление
     delete_msg: Удалить конфиг
   nameRequired: 'Укажите название'
   new: 'Новый конфиг'
@@ -235,12 +202,7 @@ validation:
 settings:
   tab:
     general: Основные
-    interface: Интерфейс
-    configs: Конфиги
-    core: Ядро
     system: Система
-  logging:
-    title: Логирование
   log_limit:
     label: 'Лимит строк лога (0=без ограничений):'
   log_level:
@@ -249,8 +211,6 @@ settings:
     info: Информация
     warn: Предупреждение
     error: Ошибка
-  btn:
-    save: Сохранить
   update_check:
     title: Проверка обновлений
     self: Проверять обновления приложения при запуске
@@ -261,8 +221,6 @@ settings:
   system:
     mode: Платформа
     restart_admin_confirm: Перезапустить приложение с правами администратора?
-  config:
-    title: Конфиг
   config_update:
     title: Обновление конфигов
     auto: Автообновление конфигов в фоне
@@ -281,27 +239,10 @@ settings:
     system: Системная
     dark: Тёмная
     light: Светлая
-  startup:
-    title: Запуск
-    mode_label: Режим запуска по умолчанию
-    mode_embed: embed
-    mode_remote: удалённый
-    mode_systemd: systemd
-    mode_openrc: openrc
-    mode_sysv: sysv
-    mode_windows: служба Windows
-    mode_systemd-user: systemd пользовательская
-    mode_dummy: dummy
-    mode_unix: remote
-    mode_tcp: remote
-    mode_npipe: remote
-    show_dialog: Показывать диалог выбора режима при запуске
   plugins:
-    title: Плагины
     enabled: Функция плагинов
     developer: Режим разработчика плагинов
   reload_ui:
-    title: Интерфейс
     btn: Перезагрузить интерфейс
   reset:
     title: Опасная зона
@@ -318,35 +259,22 @@ settings:
   runAsAdmin: Запускать ядро от имени администратора
   saved: Настройки сохранены
 startup:
-  title: sing-box-ez
   subtitle: Выберите режим запуска
   remember: Запомнить выбор
   continue: Продолжить
   status_online: онлайн
   status_offline: офлайн
-  mode_embed: embed
-  mode_remote: удалённый
-  mode_systemd: systemd
-  mode_openrc: openrc
-  mode_sysv: sysv
   mode_windows: служба Windows
   mode_systemd-user: systemd пользовательская
-  mode_dummy: dummy
   remote_address_placeholder: TCP-адрес (например, 127.0.0.1:8080)
   service_start: Запустить службу
   service_stop: Остановить службу
-  mode_unix: remote
-  mode_tcp: remote
-  mode_npipe: remote
 log:
-  title: Лог
   tab:
     app: Приложение
-    core: Ядро
   empty: Нет записей
   btn:
     copy: Копировать всё
-    clear: Очистить
   copied: Логи скопированы
 about:
   system:
@@ -360,7 +288,6 @@ about:
     open_release_notes: Открыть примечания к релизу
     open_repo: Открыть репозиторий
     open_data: Открыть папку данных
-    check_updates: Проверить обновления
     load_branches: Загрузить ветки
     check_branch: Проверить обновление для ветки
     switch_branch: Сменить ветку
@@ -372,7 +299,6 @@ about:
   dev_build:
     label: Сборка разработки — заметки к релизу недоступны
   update:
-    checking: Проверка обновления
     updating: Обновление...
     available: Обновить до %s
     current_version: 'Текущая версия: '
@@ -396,13 +322,9 @@ about:
       Возможно, это dev-сборка?'
     released: 'Выпущено: '
   dialog:
-    close: Закрыть
 dialog:
   btn:
-    close: Закрыть
-    cancel: Отмена
     confirm: Подтвердить
-    update: Обновить
     ignore: Пропустить
   core_update:
     title: Доступно обновление ядра
@@ -419,7 +341,6 @@ dialog:
     title: Проверка версии
     core_not_installed: Ядро не установлено.
     latest: 'Последняя версия: v'
-    current: 'Текущая: v'
     latest_installed: ✓ Установлена последняя версия
     update_available: ✗ Доступно обновление
   download_complete:
@@ -429,8 +350,6 @@ dialog:
       Расположение: %s'
   self_update:
     title: Доступно обновление
-    current: 'Текущая: '
-    latest: 'Последняя: '
     behind: 'Отставание: %s'
     changelog: 'Список изменений:'
   unknown: неизвестно
@@ -444,7 +363,6 @@ dialog:
     unknown_title: Неизвестный тип конфига
     unknown_body: Не удалось определить тип конфигурации.
     btn:
-      cancel: Отмена
       ignore: Всё равно запустить
       to_client: Конвертировать в client
   privileges:
@@ -459,7 +377,6 @@ dialog:
       Пожалуйста, перезапустите приложение от администратора.'
     btn_setcap: Применить setcap (рекомендуется)
     btn_run_as_admin: Включить запуск от администратора
-    btn_restart_admin: Перезапустить от администратора
 progress:
   initializing: Инициализация...
   checking_updates: Проверка обновлений...
@@ -472,28 +389,23 @@ progress:
   applying_setcap: Применение setcap...
 plugins:
   btn:
-    refresh: Обновить
     check_all_updates: Проверить все обновления
     install_from_url: Установить по URL
     generate_api_docs: Сгенерировать документацию API
     generate_vscode_defs: Сгенерировать определения VS Code
     generate_template: Сгенерировать шаблон
-    check_update: Проверить обновление
     enable: Включить
     disable: Отключить
     unload: Выгрузить
     install: Установить
     generate: Сгенерировать
   info:
-    name: Название
     version: Версия
     latest_remote: Последняя (удалённая)
     author: Автор
     description: Описание
     entrypoint: Точка входа
-    source: Источник
     package_url: URL пакета
-    relation: Связь
     update_url: URL обновления
     status: Статус
   status:
@@ -508,23 +420,14 @@ plugins:
     title: Установить плагин
   template:
     name: Название плагина
-    relation: Связь
     title: Сгенерировать шаблон плагина
 notify:
-  core_started:
-    title: Sing-box EZ
-    body: Ядро успешно запущено
-  core_stopped:
-    title: Sing-box EZ
-    body: Ядро остановлено
   core_crashed:
     title: Sing-box EZ — авария ядра
     body: Обнаружена фатальная ошибка. Авто-перезапуск...
   core_missing:
-    title: Sing-box EZ
     body: Ядро sing-box не установлено. Загрузите его на вкладке ядра в настройках.
   config_missing:
-    title: Sing-box EZ
     body: Нет активного конфига. Добавьте и активируйте конфиг на странице конфигов.
 duration:
   seconds: '%dс'

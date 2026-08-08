@@ -1,19 +1,17 @@
-app:
-  title: Sing-box EZ
 tab:
   main: Main
   configs: Configs
   core: Core
   settings: Settings
   debug: Debug
-  plugins: Plugins
   about: About
   menu: Menu
+  groups: Groups
+  connections: Connections
 main:
   status:
     stopped: 'Status: stopped'
     running: 'Status: running'
-    connecting: Connecting…
   active:
     none: 'Active config: (none)'
     label: Active config
@@ -28,8 +26,6 @@ main:
     switch: Switch
   tabs:
     overview: Overview
-    groups: Groups
-    connections: Connections
   api:
     title: Core control
     status: 'Version: %s  Uptime: %s'
@@ -39,9 +35,7 @@ main:
     mode_rule: Rule
     mode_global: Global
     mode_direct: Direct
-    group: Group
     node: Node
-    url_test: URL test
     url_test_testing: Testing…
     url_test_empty: no results
     url_test_error: 'failed: %v'
@@ -55,20 +49,15 @@ main:
     download: Download
     memory: Memory
     goroutines: Goroutines
-    inbound: Inbound
-    outbound: Outbound
     profile: Profile
     started: Started
     min: min
     max: max
     avg: avg
   groups:
-    title: Groups
     empty: No outbound groups
   connections:
-    title: Connections
     empty: No active connections
-    filter_active: Active
     filter_all: All
     filter_closed: Closed
     sort_date: Date
@@ -79,7 +68,6 @@ main:
   stopped: Stopped
 connection_details:
   title: Connection Details
-  id: ID
   inbound: Inbound
   network: Network
   source: Source
@@ -93,14 +81,12 @@ connection_details:
   created: Created
   user: User
   process: Process
-  close: Close
   close_connection: Close connection
 core:
   update:
     checking: Checking version...
     downloading: Downloading...
     available: Download %s
-    current_version: 'Current version: '
   version:
     installed: 'Core: v'
     not_installed: 'Core: not installed'
@@ -110,7 +96,6 @@ core:
     check: Check latest version
     restart_admin: Restart as administrator
     apply_setcap: Apply setcap (TUN without root)
-    apply: Apply
   auto_restart: Auto-restart core on fatal errors
   start_on_launch: Start core on launch
   proxy:
@@ -129,7 +114,6 @@ core:
     label_root_pkexec: Run as root (pkexec, for TUN)
   mode:
     admin: Admin
-    setcap: Setcap
     setcap_prompt: setcap is not applied to the core binary. Apply it now to enable TUN without root?
   log:
     title: Core log
@@ -137,18 +121,15 @@ core:
   graph_history:
     label: Traffic graph history
   url_test_url:
-    title: URL test
     label: URL-test URL
   api:
     title: API connection
     not_running: Core is not running
-    type: Type
     address: Address
     secret: Secret
     copy: Copy connection data
   installed: Installed version
 configs:
-  title: Configs
   btn:
     add: Add
     edit: Edit
@@ -156,49 +137,35 @@ configs:
     activate: Activate
     update_all: Update all
   table:
-    name: Name
-    source: Source
     last_update: Last Update
     next_update: Next Update
     period: Period
     cached: Cached
-    user: user
     never: never
     now: now
     'yes': 'yes'
     'no': 'no'
   badge:
-    local: local
-    remote: remote
-    modified: modified
     client: client
     server: server
     undefined: undefined
+    modified: modified
     not_recommended: not recommended
     active: Active
     hash_mismatch_tooltip: Cached content differs from the stored hash
   dialog:
-    title: Config
-    name: Name
-    url: URL
-    type: Type
-    type_remote: Remote
-    type_local: Local
     period: Period (hours)
     auto_update: Auto-update
     validation_result: Validation result
     validation_error: Validation failed
     file_missing: Config file missing
     btn:
-      save: Save
       update_now: Update now
-      delete: Delete
       open: Open
       validate: Validate
       open_dir: Open location
       create: Create again
       copy: Copy
-    delete_title: Delete
     delete_msg: Delete config
   nameRequired: Name is required
   new: New config
@@ -235,12 +202,7 @@ validation:
 settings:
   tab:
     general: General
-    interface: Interface
-    configs: Configs
-    core: Core
     system: System
-  logging:
-    title: Logging
   update_check:
     title: Update Checks
     self: Check for app updates on startup
@@ -255,14 +217,10 @@ settings:
     info: Info
     warn: Warn
     error: Error
-  btn:
-    save: Save
   show_logs: Show logs
   system:
     mode: Platform
     restart_admin_confirm: Restart the application with administrator privileges?
-  config:
-    title: Config
   config_update:
     title: Config Updates
     auto: Auto-update configs in background
@@ -281,27 +239,10 @@ settings:
     system: System
     dark: Dark
     light: Light
-  startup:
-    title: Startup
-    mode_label: Default startup mode
-    mode_embed: embed
-    mode_remote: remote
-    mode_systemd: systemd
-    mode_openrc: openrc
-    mode_sysv: sysv
-    mode_windows: windows service
-    mode_systemd-user: systemd user
-    mode_dummy: dummy
-    mode_unix: remote
-    mode_tcp: remote
-    mode_npipe: remote
-    show_dialog: Show mode selection dialog at startup
   plugins:
-    title: Plugins
     enabled: Plugins feature
     developer: Plugins developer
   reload_ui:
-    title: Interface
     btn: Reload UI
   reset:
     title: Danger Zone
@@ -318,35 +259,22 @@ settings:
   runAsAdmin: Run core as admin
   saved: Settings saved
 startup:
-  title: sing-box-ez
   subtitle: Choose how to run
   remember: Remember my choice
   continue: Continue
   status_online: online
   status_offline: offline
-  mode_embed: embed
-  mode_remote: remote
-  mode_systemd: systemd
-  mode_openrc: openrc
-  mode_sysv: sysv
   mode_windows: windows service
   mode_systemd-user: systemd user
-  mode_dummy: dummy
   remote_address_placeholder: TCP address (e.g. 127.0.0.1:8080)
   service_start: Start service
   service_stop: Stop service
-  mode_unix: remote
-  mode_tcp: remote
-  mode_npipe: remote
 log:
-  title: Log
   tab:
     app: App
-    core: Core
   empty: No log entries
   btn:
     copy: Copy all
-    clear: Clear
   copied: Logs copied
 about:
   system:
@@ -360,7 +288,6 @@ about:
     open_release_notes: Open release notes
     open_repo: Open repo
     open_data: Open data folder
-    check_updates: Check for updates
     load_branches: Load branches
     check_branch: Check update for branch
     switch_branch: Switch branch
@@ -372,7 +299,6 @@ about:
   dev_build:
     label: Development build — release notes unavailable
   update:
-    checking: Checking update
     updating: Updating...
     available: Update to %s
     current_version: 'Current version: '
@@ -396,13 +322,9 @@ about:
       Maybe this is a dev build?'
     released: 'Released: '
   dialog:
-    close: Close
 dialog:
   btn:
-    close: Close
-    cancel: Cancel
     confirm: Confirm
-    update: Update
     ignore: Ignore
   core_update:
     title: Core Update Available
@@ -419,7 +341,6 @@ dialog:
     title: Version Check
     core_not_installed: Core is not installed.
     latest: 'Latest version: '
-    current: 'Current: '
     latest_installed: ✓ Latest version installed
     update_available: ✗ Update available
   download_complete:
@@ -429,8 +350,6 @@ dialog:
       Location: %s'
   self_update:
     title: Update Available
-    current: 'Current: '
-    latest: 'Latest: '
     behind: 'Behind by: %s'
     changelog: 'Changelog:'
   unknown: unknown
@@ -444,7 +363,6 @@ dialog:
     unknown_title: Unknown config type
     unknown_body: Could not determine the config type.
     btn:
-      cancel: Cancel
       ignore: Run anyway
       to_client: Convert to client
   privileges:
@@ -459,7 +377,6 @@ dialog:
       Please restart the application as administrator.'
     btn_setcap: Apply setcap (recommended)
     btn_run_as_admin: Enable run as admin
-    btn_restart_admin: Restart as administrator
 progress:
   initializing: Initializing...
   checking_updates: Checking for updates...
@@ -472,28 +389,23 @@ progress:
   applying_setcap: Applying setcap...
 plugins:
   btn:
-    refresh: Refresh
     check_all_updates: Check All Updates
     install_from_url: Install from URL
     generate_api_docs: Generate API Docs
     generate_vscode_defs: Generate VS Code Defs
     generate_template: Generate Template
-    check_update: Check Update
     enable: Enable
     disable: Disable
     unload: Unload
     install: Install
     generate: Generate
   info:
-    name: Name
     version: Version
     latest_remote: Latest (remote)
     author: Author
     description: Description
     entrypoint: Entrypoint
-    source: Source
     package_url: Package URL
-    relation: Relation
     update_url: Update URL
     status: Status
   status:
@@ -508,23 +420,14 @@ plugins:
     title: Install Plugin
   template:
     name: Plugin name
-    relation: Relation
     title: Generate Plugin Template
 notify:
-  core_started:
-    title: Sing-box EZ
-    body: Core started successfully
-  core_stopped:
-    title: Sing-box EZ
-    body: Core stopped
   core_crashed:
     title: Sing-box EZ — Core Crashed
     body: A fatal error was detected. Auto-restarting...
   core_missing:
-    title: Sing-box EZ
     body: Sing-box core is not installed. Download it from the Core settings tab.
   config_missing:
-    title: Sing-box EZ
     body: No active config. Add and activate a config on the Configs page.
 duration:
   seconds: '%ds'

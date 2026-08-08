@@ -84,7 +84,7 @@
       : ''
   );
 
-  const dialogConfigStyleBtnCancel = useLocale('dialog.config_style.btn.cancel');
+  const commonCancel = useLocale('common.cancel');
   const dialogConfigStyleBtnIgnore = useLocale('dialog.config_style.btn.ignore');
   const dialogConfigStyleBtnToClient = useLocale('dialog.config_style.btn.to_client');
 </script>
@@ -121,7 +121,7 @@
       </AlertDialog.Header>
       <AlertDialog.Footer>
         <Button variant="outline" onclick={clearStyleCheck}>
-          {$dialogConfigStyleBtnCancel}
+          {$commonCancel}
         </Button>
         <Button variant="outline" onclick={() => resolveStyleCheck($appState.styleCheck!, 'ignore')}>
           {$dialogConfigStyleBtnIgnore}
