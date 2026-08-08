@@ -8,9 +8,6 @@ tab:
   groups: 分组
   connections: 连接
 main:
-  status:
-    stopped: 状态：已停止
-    running: 状态：运行中
   active:
     none: 活动配置：（无）
     label: 活动配置
@@ -42,6 +39,8 @@ main:
     close_connections: 关闭所有连接
     unavailable: 当前连接模式不支持 API 控制。
   phase:
+    preparing_config: 准备配置…
+    checking_config: 检查配置…
     starting: 启动中…
     stopping: 停止中…
     waiting_api: 等待 API…
@@ -65,8 +64,6 @@ main:
     sort_traffic: 流量
     sort_total: 总流量
     search: 搜索
-  running: '运行中'
-  stopped: '已停止'
 connection_details:
   title: 连接详情
   inbound: 入站

@@ -27,6 +27,13 @@ var localesFS embed.FS
 //go:embed installers/*.lua
 var installersFS embed.FS
 
+// GitHub coordinates of the application repository: used by the self-updater
+// and by the GUI "open in browser" actions.
+const (
+	GitHubOwner = "he11ah0und"
+	GitHubRepo  = "sing-box-ez"
+)
+
 // App is the concrete sing-box-ez application. It extends framework.App with
 // the loaded configuration, core controller, and updater references.
 type App struct {
@@ -174,7 +181,7 @@ func buildUpdaters(app *framework.App) []*updater.Manager {
 
 	// App self-updater (asset is a raw binary).
 	appMgr := updater.NewManager(log.Root, "updater")
-	appMgr.Source = updater.NewGitHubBackend(appMgr.Log, "he11ah0und", "sing-box-ez")
+	appMgr.Source = updater.NewGitHubBackend(appMgr.Log, GitHubOwner, GitHubRepo)
 	appMgr.Apply = updater.NewSelfUpdateApply(appMgr.Log, fs.NewOSWithLog(app.BaseDir, appMgr.Log.Allocate("fs")))
 
 	// Core updater (downloads sing-box core release archive).

@@ -88,6 +88,26 @@ func (b *GitHubBackend) apiBranchesURL() string {
 // Name returns the backend identifier.
 func (b *GitHubBackend) Name() string { return "github" }
 
+// webBase returns the browser-facing origin derived from the API base URL.
+func (b *GitHubBackend) webBase() string {
+	base := b.apiBase()
+	if base == defaultGitHubAPI {
+		return "https://github.com"
+	}
+	// GitHub Enterprise serves the API under /api/v3.
+	return strings.TrimSuffix(strings.TrimSuffix(base, "/api/v3"), "/")
+}
+
+// ProjectURL implements Linker.
+func (b *GitHubBackend) ProjectURL() string {
+	return b.webBase() + "/" + b.slug()
+}
+
+// ReleaseURL implements Linker.
+func (b *GitHubBackend) ReleaseURL(tag string) string {
+	return b.ProjectURL() + "/releases/tag/" + tag
+}
+
 func (b *GitHubBackend) netClient() *net.Client {
 	if b.Net != nil {
 		return b.Net

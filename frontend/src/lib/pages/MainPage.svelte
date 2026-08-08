@@ -57,8 +57,6 @@
     return modeKeys[mode] ?? `main.api.mode_${mode}`;
   }
 
-  const mainRunning = useLocale('main.running');
-  const mainStopped = useLocale('main.stopped');
   const mainActivePlaceholder = useLocale('main.active.placeholder');
   const configsEmpty = useLocale('configs.empty');
   const mainBtnStart = useLocale('main.btn.start');
@@ -96,8 +94,18 @@
   let activeTab = $state('overview');
   let processing = $state(false);
   // Core API state arrives from the backend via api:state events; the page
-  // never polls. phase: stopped | starting | waiting_api | connected.
+  // never polls. phase: stopped | preparing_config | checking_config |
+  // starting | stopping | waiting_api | connected.
   const apiPhase = $derived($appState.api.phase);
+  // processing covers the window between the button click and the first
+  // phase event; a phase transition (or a binding failure) releases it.
+  let lastPhase = $state('');
+  $effect(() => {
+    if (apiPhase !== lastPhase) {
+      lastPhase = apiPhase;
+      processing = false;
+    }
+  });
   const apiStatus = $derived($appState.api.status);
   const apiInfo = $derived($appState.api.info);
   const apiMode = $derived($appState.api.mode);
@@ -108,11 +116,6 @@
   let groupDelays = $state<Record<string, Record<string, number>>>({});
   let selectedConn = $state<APIConnection | null>(null);
 
-  const statusLabel = $derived(
-    $appState.status.running
-      ? $mainRunning
-      : $mainStopped
-  );
   const activeName = $derived($appState.activeConfig?.name ?? '—');
   const activeBadge = $derived($appState.activeConfig?.type ?? '');
   const activeUpdated = $derived($appState.activeConfig?.lastUpdateAgo ?? '');
@@ -151,16 +154,16 @@
     }
   }
 
-  // Errors are reported by the backend with localized toasts.
+  // Errors are reported by the backend with localized toasts. On success the
+  // processing flag is released by the next phase transition (see $effect).
   async function callBinding(promise: Promise<unknown>) {
     processing = true;
     try {
       await promise;
       await loadInitial();
     } catch {
-      // The backend already reported the failure with a toast.
-    } finally {
       processing = false;
+      // The backend already reported the failure with a toast.
     }
   }
 
@@ -338,47 +341,49 @@
 </script>
 
 <Page onLoad={loadInitial} fullHeight>
-  {#if apiPhase === 'stopped'}
-    <!-- Stopped state -->
-    <div class="flex flex-col items-center justify-center min-h-[40vh] gap-8">
-      <button
-        class="w-32 h-32 rounded-full bg-primary text-primary-foreground text-lg font-semibold shadow-lg disabled:opacity-50 hover:opacity-90 transition flex items-center justify-center"
-        disabled={processing}
-        onclick={handleStart}
-      >
-        {#if processing}
-          <RefreshCw size={32} class="animate-spin" />
-        {:else}
-          {$mainBtnStart}
-        {/if}
-      </button>
-      <p class="text-muted-foreground">{statusLabel}</p>
-    </div>
-
-    <Card.Root>
-      <Card.Content class="space-y-2">
-        <p class="text-sm text-muted-foreground">{$mainActiveLabel}</p>
-        <Select.Root
-          type="single"
-          value={$appState.activeConfig?.name ?? ''}
-          onValueChange={(v) => { if (v) activateConfig(v); }}
-          disabled={!$appState.configs.length}
+  {#if apiPhase !== 'connected'}
+    <!-- Button frame: stopped shows an active start button; the transition
+         phases (preparing/checking/starting/stopping/waiting) keep the same
+         frame with the button busy and the phase label below. The active
+         config picker is pinned to the bottom and locked during transitions. -->
+    {@const busy = apiPhase !== 'stopped'}
+    <div class="flex flex-col flex-1 min-h-0 gap-6">
+      <div class="flex flex-1 flex-col items-center justify-center gap-4">
+        <button
+          class="w-32 h-32 rounded-full bg-primary text-primary-foreground text-lg font-semibold shadow-lg disabled:opacity-50 hover:opacity-90 transition flex items-center justify-center"
+          disabled={processing || busy}
+          onclick={handleStart}
         >
-          <Select.Trigger class="w-full">{configSelectLabel}</Select.Trigger>
-          <Select.Content>
-            {#each $appState.configs as cfg (cfg.name)}
-              <Select.Item value={cfg.name} label={cfg.name} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </Card.Content>
-    </Card.Root>
-  {:else if apiPhase === 'starting' || apiPhase === 'stopping' || apiPhase === 'waiting_api'}
-    <!-- Loading state: core process spawning/stopping or waiting for its API -->
-    <div class="flex flex-col items-center justify-center min-h-[40vh] gap-4">
-      <RefreshCw size={32} class="animate-spin text-muted-foreground" />
-      <p class="font-medium">{activeName}</p>
-      <p class="text-sm text-muted-foreground">{tValue($locale, `main.phase.${apiPhase}`)}</p>
+          {#if processing || busy}
+            <RefreshCw size={32} class="animate-spin" />
+          {:else}
+            {$mainBtnStart}
+          {/if}
+        </button>
+        {#if busy}
+          <p class="font-medium">{activeName}</p>
+          <p class="text-sm text-muted-foreground">{tValue($locale, `main.phase.${apiPhase}`)}</p>
+        {/if}
+      </div>
+
+      <Card.Root class="shrink-0">
+        <Card.Content class="space-y-2">
+          <p class="text-sm text-muted-foreground">{$mainActiveLabel}</p>
+          <Select.Root
+            type="single"
+            value={$appState.activeConfig?.name ?? ''}
+            onValueChange={(v) => { if (v) activateConfig(v); }}
+            disabled={!$appState.configs.length || busy}
+          >
+            <Select.Trigger class="w-full">{configSelectLabel}</Select.Trigger>
+            <Select.Content>
+              {#each $appState.configs as cfg (cfg.name)}
+                <Select.Item value={cfg.name} label={cfg.name} />
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </Card.Content>
+      </Card.Root>
     </div>
   {:else}
     <!-- Connected state -->

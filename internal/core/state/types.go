@@ -16,6 +16,11 @@ import (
 const (
 	// PhaseStopped: the core process is not running.
 	PhaseStopped = "stopped"
+	// PhasePreparingConfig: the active config is being checked/downloaded
+	// before the core starts.
+	PhasePreparingConfig = "preparing_config"
+	// PhaseCheckingConfig: the config style is being detected before start.
+	PhaseCheckingConfig = "checking_config"
 	// PhaseStarting: a start/restart was requested, the process is spawning.
 	PhaseStarting = "starting"
 	// PhaseStopping: a stop was requested, the process is shutting down.

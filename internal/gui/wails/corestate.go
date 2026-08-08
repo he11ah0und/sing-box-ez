@@ -10,11 +10,10 @@ import (
 // forwards its pushes as Wails events.
 func (b *Bindings) startCorePoller() {
 	b.core = state.New(state.Deps{
-		IsRunning:  b.app.Controller.IsRunning,
-		IsStarting: b.coreStarting.Load,
-		IsStopping: b.coreStopping.Load,
-		Client:     b.app.Controller.APIClient,
-		Info:       b.app.Controller.APIInfo,
+		IsRunning: b.app.Controller.IsRunning,
+		PhaseHint: b.phaseHint,
+		Client:    b.app.Controller.APIClient,
+		Info:      b.app.Controller.APIInfo,
 		HistoryLimit: func() int {
 			return b.app.Controller.Config().MustGet("core", "traffic_graph_history").Int()
 		},

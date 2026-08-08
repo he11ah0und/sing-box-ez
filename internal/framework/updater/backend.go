@@ -79,6 +79,16 @@ type Source interface {
 // compatibility; new code should use Source.
 type Backend = Source
 
+// Linker is an optional Source capability: the backend knows the
+// browser-facing URLs of the project it serves updates for, so callers never
+// hardcode repository links themselves.
+type Linker interface {
+	// ProjectURL returns the browser URL of the project page.
+	ProjectURL() string
+	// ReleaseURL returns the browser URL of the release with the given tag.
+	ReleaseURL(tag string) string
+}
+
 // UpdateFile describes a single non-self file to update.
 type UpdateFile struct {
 	Asset    Asset

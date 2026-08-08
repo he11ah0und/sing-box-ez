@@ -14,10 +14,10 @@ import (
 type Deps struct {
 	// IsRunning reports whether the core process is alive.
 	IsRunning func() bool
-	// IsStarting reports whether a start/restart is in flight.
-	IsStarting func() bool
-	// IsStopping reports whether a stop is in flight.
-	IsStopping func() bool
+	// PhaseHint returns the current lifecycle stage reported by the start/stop
+	// flow (e.g. PhasePreparingConfig, PhaseStarting, PhaseStopping), or an
+	// empty string when no transition is in flight.
+	PhaseHint func() string
 	// Client returns the current core API client, or nil when unavailable.
 	Client func() api.CoreAPIClient
 	// Info returns the runtime API connection parameters, or nil.
@@ -115,23 +115,28 @@ func (p *Poller) Run(ctx context.Context) {
 	}
 }
 
-// disconnectedPhase picks the phase for a dead core process.
+// disconnectedPhase picks the phase for a dead core process: an explicit
+// lifecycle hint from the start/stop flow wins over the plain stopped phase.
 func (p *Poller) disconnectedPhase() string {
-	if p.d.IsStarting() {
-		return PhaseStarting
-	}
-	if p.d.IsStopping() {
-		return PhaseStopping
+	if hint := p.phaseHint(); hint != "" {
+		return hint
 	}
 	return PhaseStopped
 }
 
 // waitingPhase picks the phase for a live process with a dead API.
 func (p *Poller) waitingPhase() string {
-	if p.d.IsStopping() {
-		return PhaseStopping
+	if hint := p.phaseHint(); hint != "" {
+		return hint
 	}
 	return PhaseWaiting
+}
+
+func (p *Poller) phaseHint() string {
+	if p.d.PhaseHint == nil {
+		return ""
+	}
+	return p.d.PhaseHint()
 }
 
 // setPhase switches the connection phase, dropping the API snapshot and the

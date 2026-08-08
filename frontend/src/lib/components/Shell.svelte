@@ -11,6 +11,7 @@
   let { children }: { children?: Snippet } = $props();
 
   const commonBack = useLocale('common.back');
+  const appTitle = useLocale('app.title');
 
   const mainNavItems = pageRegistry.filter((page) => page.nav);
   const currentPage = $derived(pageRegistry.find((i) => i.id === $currentLevel.id));
@@ -41,7 +42,7 @@
   <!-- Desktop side rail -->
   <aside class="hidden md:flex w-56 flex-col border-r border-border bg-card">
     <div class="h-14 flex items-center px-4 font-semibold border-b border-border">
-      sing-box-ez
+      {$appTitle}
     </div>
     <nav class="flex-1 overflow-auto py-2">
       {#if inSubNav}

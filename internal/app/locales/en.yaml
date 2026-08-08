@@ -8,9 +8,6 @@ tab:
   groups: Groups
   connections: Connections
 main:
-  status:
-    stopped: 'Status: stopped'
-    running: 'Status: running'
   active:
     none: 'Active config: (none)'
     label: Active config
@@ -42,6 +39,8 @@ main:
     close_connections: Close all connections
     unavailable: API control is not available for this connection mode.
   phase:
+    preparing_config: Preparing config…
+    checking_config: Checking config…
     starting: Starting…
     stopping: Stopping…
     waiting_api: Waiting for API…
@@ -65,8 +64,6 @@ main:
     sort_traffic: Traffic
     sort_total: Total Traffic
     search: Search
-  running: Running
-  stopped: Stopped
 connection_details:
   title: Connection Details
   inbound: Inbound

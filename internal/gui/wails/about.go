@@ -250,6 +250,26 @@ func (b *Bindings) OpenURL(url string) error {
 	return nil
 }
 
+// OpenProjectURL opens the application repository page in the default
+// browser. The URL comes from the self-updater source, not from a literal.
+func (b *Bindings) OpenProjectURL() error {
+	l, ok := b.app.SelfUpdater.Source.(updater.Linker)
+	if !ok {
+		return fmt.Errorf("self-updater source %q does not expose project URLs", b.app.SelfUpdater.Source.Name())
+	}
+	return b.OpenURL(l.ProjectURL())
+}
+
+// OpenReleaseURL opens the release page for the given tag in the default
+// browser. The URL comes from the self-updater source, not from a literal.
+func (b *Bindings) OpenReleaseURL(tag string) error {
+	l, ok := b.app.SelfUpdater.Source.(updater.Linker)
+	if !ok {
+		return fmt.Errorf("self-updater source %q does not expose project URLs", b.app.SelfUpdater.Source.Name())
+	}
+	return b.OpenURL(l.ReleaseURL(tag))
+}
+
 // GetReleaseNotes fetches release notes for a specific version.
 func humanDurationOrEmpty(t time.Time, err error) string {
 	if err != nil {

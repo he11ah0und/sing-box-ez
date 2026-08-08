@@ -5,7 +5,7 @@ import { locale, setLocaleValues } from '../stores/locale.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
 import type { ActiveConfig, SelfUpdateInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 import type { Update as APIStateUpdate } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
-import { GetAPIState, GetTrafficHistory } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+import { GetAPIState, GetTrafficHistory, GetSettings } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -134,6 +134,16 @@ export function initWailsEvents() {
       console.warn('GetAPIState failed:', err);
     });
 
+  // Seed the settings snapshot once; settings:changed events (and explicit
+  // page reloads) keep it fresh afterwards.
+  GetSettings()
+    .then((s) => {
+      appState.update((st) => ({ ...st, settings: s ?? st.settings, settingsLoaded: true }));
+    })
+    .catch((err: unknown) => {
+      console.warn('GetSettings failed:', err);
+    });
+
   Events.On('api:state', (event: WailsEvent<APIStateUpdate>) => {
     applyApiState(event.data);
   });
@@ -170,7 +180,7 @@ export function initWailsEvents() {
   });
 
   Events.On('settings:changed', (event: WailsEvent<Settings>) => {
-    appState.update((s) => ({ ...s, settings: event.data ?? {} as Settings }));
+    appState.update((s) => ({ ...s, settings: event.data ?? {} as Settings, settingsLoaded: true }));
   });
 
   Events.On('core:version', (event: WailsEvent<CoreVersionPayload>) => {

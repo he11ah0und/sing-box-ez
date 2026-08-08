@@ -8,9 +8,6 @@ tab:
   groups: Группы
   connections: Соединения
 main:
-  status:
-    stopped: 'Статус: остановлен'
-    running: 'Статус: запущен'
   active:
     none: 'Активный конфиг: (нет)'
     label: Активный конфиг
@@ -42,6 +39,8 @@ main:
     close_connections: Закрыть все соединения
     unavailable: Управление через API недоступно для этого режима подключения.
   phase:
+    preparing_config: Подготовка конфига…
+    checking_config: Проверка конфига…
     starting: Запуск…
     stopping: Остановка…
     waiting_api: Ожидание API…
@@ -65,8 +64,6 @@ main:
     sort_traffic: Трафик
     sort_total: Весь трафик
     search: Поиск
-  running: 'Работает'
-  stopped: 'Остановлен'
 connection_details:
   title: Детали соединения
   inbound: Входящий

@@ -35,7 +35,10 @@
 
   let processing = $state(false);
 
-  let form = $state<Settings>({
+  // The form seeds from the cached settings snapshot (fetched once by the
+  // bridge) so revisits render instantly; GetSettings runs again only when
+  // the snapshot is missing or the user hits Reset.
+  const defaultSettings: Settings = {
     language: 'en',
     theme: 'default',
     themeMode: 'system',
@@ -57,7 +60,8 @@
     autoUpdateOnHashMismatch: false,
     autoRestartOnConfigUpdate: false,
     backgroundUpdateCheckIntervalHours: 2
-  });
+  };
+  let form = $state<Settings>({ ...defaultSettings, ...$appState.settings });
 
   let themeNames = $state<string[]>([]);
   let languages = $state<LanguageOption[]>([]);
@@ -136,17 +140,20 @@
     if ($subNav.activeTab === 'system') loadPrivileges();
   });
 
-  async function load() {
+  async function load(force = false) {
     try {
+      const needSettings = force || !$appState.settingsLoaded;
       const [s, names, langs] = await Promise.all([
-        GetSettings(),
+        needSettings ? GetSettings() : Promise.resolve(null),
         GetThemeNames(),
         GetAvailableLanguages()
       ]);
-      form = { ...form, ...s };
+      if (s) {
+        form = { ...form, ...s };
+        appState.update((state) => ({ ...state, settings: s, settingsLoaded: true }));
+      }
       themeNames = names && names.length > 0 ? names : ['default'];
       languages = langs && langs.length > 0 ? langs : [{ code: 'en', name: 'English' }];
-      appState.update((state) => ({ ...state, settings: s }));
     } catch (err) {
       toast.error(String(err));
     }
@@ -174,7 +181,7 @@
   }
 
   function reset() {
-    load();
+    load(true);
   }
 
   async function restartAsAdmin() {

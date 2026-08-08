@@ -16,7 +16,8 @@
     CheckSelfUpdate,
     InstallSelfUpdate,
     OpenDataDir,
-    OpenURL,
+    OpenProjectURL,
+    OpenReleaseURL,
     GetReleaseNotes
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type {
@@ -99,7 +100,7 @@
   }
 
   async function openRepo() {
-    await OpenURL('https://github.com/he11ah0und/sing-box-ez');
+    await OpenProjectURL();
   }
 
   async function openDataDir() {
@@ -118,7 +119,7 @@
 
   async function openReleaseNotes() {
     const tag = version?.commit || 'latest';
-    await OpenURL(`https://github.com/he11ah0und/sing-box-ez/releases/tag/${tag}`);
+    await OpenReleaseURL(tag);
   }
 
   function selectBranch(name: string) {

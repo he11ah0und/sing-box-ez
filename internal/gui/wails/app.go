@@ -102,13 +102,10 @@ type Bindings struct {
 	// the last known API state (phase, groups, connections).
 	core *state.Poller
 
-	// coreStarting is set while the core process is being spawned so the
-	// poller can report the "starting" phase before the API answers.
-	coreStarting atomic.Bool
-
-	// coreStopping is set while the core process is being stopped so the
-	// poller can report the "stopping" phase instead of "waiting_api".
-	coreStopping atomic.Bool
+	// corePhaseHint holds the current core lifecycle stage reported by the
+	// start/stop flow (see the Phase* constants in internal/core/state), so
+	// the poller can show granular progress phases. Empty when idle.
+	corePhaseHint atomic.Value // string
 
 	// styleCheckMu guards pendingStyleChecks.
 	styleCheckMu sync.Mutex
@@ -203,8 +200,8 @@ func (b *Bindings) DeleteConfig(name string) error {
 // through the interactive start flow (config refresh, hash-mismatch handling,
 // client-style check) so the button behaves like the legacy UI and the tray.
 func (b *Bindings) Start() error {
-	b.coreStarting.Store(true)
-	defer b.coreStarting.Store(false)
+	b.setPhaseHint(state.PhasePreparingConfig)
+	defer b.setPhaseHint("")
 	var err error
 	if b.ic == nil {
 		err = b.app.Controller.Start()
@@ -217,10 +214,25 @@ func (b *Bindings) Start() error {
 	return err
 }
 
+// setPhaseHint stores the current core lifecycle stage for the state poller.
+func (b *Bindings) setPhaseHint(phase string) {
+	b.corePhaseHint.Store(phase)
+}
+
+// phaseHint returns the current core lifecycle stage, or "" when idle.
+func (b *Bindings) phaseHint() string {
+	if v := b.corePhaseHint.Load(); v != nil {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 // Stop stops the sing-box core.
 func (b *Bindings) Stop() error {
-	b.coreStopping.Store(true)
-	defer b.coreStopping.Store(false)
+	b.setPhaseHint(state.PhaseStopping)
+	defer b.setPhaseHint("")
 	if err := b.app.Controller.Stop(); err != nil {
 		b.toastErr(err, "main", "btn", "stop")
 		return err
@@ -230,8 +242,8 @@ func (b *Bindings) Stop() error {
 
 // Restart restarts the sing-box core.
 func (b *Bindings) Restart() error {
-	b.coreStarting.Store(true)
-	defer b.coreStarting.Store(false)
+	b.setPhaseHint(state.PhaseStarting)
+	defer b.setPhaseHint("")
 	if err := b.app.Controller.Restart(); err != nil {
 		b.toastErr(err, "main", "btn", "restart")
 		return err
@@ -714,6 +726,9 @@ func (w *WailsApp) Run() error {
 			"config": rec.Name,
 			"style":  string(style),
 		})
+	}
+	ic.OnPhaseChange = func(phase string) {
+		bindings.setPhaseHint(phase)
 	}
 
 	// Run the startup update checks (self-update, then core update), mirroring

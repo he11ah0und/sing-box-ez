@@ -9,6 +9,7 @@ import (
 	"github.com/he11ah0und/localengine"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core/inboundstyle"
+	"sing-box-ez/internal/core/state"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/svcman"
 	"sing-box-ez/internal/framework/updater"
@@ -49,6 +50,10 @@ type InteractiveController struct {
 	// client config and no fallback_type has been chosen. The GUI should show a
 	// dialog and call choose with "ignore" or "to_client".
 	OnConfigStyleCheck func(style inboundstyle.Style, rec *config.ConfigRecord, choose func(string))
+	// OnPhaseChange is invoked with the current start-flow stage (see the
+	// Phase* constants in internal/core/state) so the UI can show granular
+	// progress while StartService runs.
+	OnPhaseChange func(phase string)
 
 	stopped bool
 	stopMu  sync.Mutex
@@ -146,7 +151,10 @@ func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 
 // StartService prepares the active config and starts the core. It mirrors the
 // main page start button action so other UI surfaces (e.g. tray) can reuse it.
+// Stages are reported through OnPhaseChange.
 func (ic *InteractiveController) StartService() error {
+	ic.reportPhase(state.PhasePreparingConfig)
+	defer ic.reportPhase("")
 	rec, err := ic.backend.PrepareConfig()
 	if err != nil {
 		ic.handlePrepareConfigError(err)
@@ -154,12 +162,21 @@ func (ic *InteractiveController) StartService() error {
 	}
 
 	if ic.Controller != nil && rec != nil {
+		ic.reportPhase(state.PhaseCheckingConfig)
 		if err := ic.checkClientStyle(rec); err != nil {
 			return err
 		}
 	}
 
+	ic.reportPhase(state.PhaseStarting)
 	return ic.startBackend()
+}
+
+// reportPhase forwards the start-flow stage to the UI callback, if set.
+func (ic *InteractiveController) reportPhase(phase string) {
+	if ic.OnPhaseChange != nil {
+		ic.OnPhaseChange(phase)
+	}
 }
 
 func (ic *InteractiveController) handlePrepareConfigError(err error) {

@@ -92,6 +92,9 @@ export interface AppState {
   configs: ConfigRecord[];
   activeConfig: ActiveConfig | null;
   settings: Settings;
+  // settingsLoaded marks that settings were fetched at least once, so pages
+  // render from the store instead of re-fetching on every mount.
+  settingsLoaded: boolean;
   coreInfo: CoreInfo;
   logs: LogsState;
   traffic: TrafficState;
@@ -108,6 +111,7 @@ export const appState = writable<AppState>({
   configs: [],
   activeConfig: null,
   settings: {} as Settings,
+  settingsLoaded: false,
   coreInfo: {
     installedVersion: '',
     latestVersion: '',
