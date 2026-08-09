@@ -30,12 +30,12 @@
     'common.saving',
     'configs.btn.edit',
     'configs.interval',
-    'configs.local',
     'configs.name',
     'configs.nameRequired',
     'configs.new',
-    'configs.remote',
-    'configs.type',
+    'configs.type.label',
+    'configs.type.local',
+    'configs.type.remote',
     'configs.url'
   ]);
 
@@ -115,7 +115,7 @@
     if (!nextOpen) onclose();
   }
 
-  const typeLabel = $derived(form.type === 'local' ? L.configsLocal : L.configsRemote);
+  const typeLabel = $derived(form.type === 'local' ? L.configsTypeLocal : L.configsTypeRemote);
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
@@ -142,12 +142,12 @@
         </div>
 
         <div class="space-y-1">
-          <Label for="config-type">{L.configsType}</Label>
+          <Label for="config-type">{L.configsTypeLabel}</Label>
           <Select.Root type="single" bind:value={form.type}>
             <Select.Trigger id="config-type" class="w-full">{typeLabel}</Select.Trigger>
             <Select.Content>
-              <Select.Item value="remote" label={L.configsRemote} />
-              <Select.Item value="local" label={L.configsLocal} />
+              <Select.Item value="remote" label={L.configsTypeRemote} />
+              <Select.Item value="local" label={L.configsTypeLocal} />
             </Select.Content>
           </Select.Root>
         </div>

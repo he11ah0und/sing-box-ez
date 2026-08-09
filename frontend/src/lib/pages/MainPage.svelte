@@ -92,7 +92,9 @@
     'connection_details.created',
     'connection_details.user',
     'connection_details.process',
-    'connection_details.close_connection'
+    'connection_details.close_connection',
+    'configs.type.remote',
+    'configs.type.local'
   ]);
 
   // Dynamic-key access (tab triggers, mode selector, phase label) reads
@@ -130,9 +132,23 @@
   let expandedGroups = $state<Set<string>>(new Set());
   let testingGroups = $state<Set<string>>(new Set());
   let groupDelays = $state<Record<string, Record<string, number>>>({});
-  let selectedConn = $state<APIConnection | null>(null);
+  let selectedConnId = $state<string | null>(null);
+  let selectedConnSnapshot = $state<APIConnection | null>(null);
+  // The open dialog follows the live connection from the store so traffic
+  // counters refresh while it is open; the snapshot remains as a fallback
+  // once the connection is gone from the list (closed).
+  const selectedConn = $derived(
+    (selectedConnId != null && apiConnections.find((c) => c.id === selectedConnId)) ||
+      selectedConnSnapshot
+  );
 
-  const activeBadge = $derived($appState.activeConfig?.type ?? '');
+  const configTypeLabels: Record<string, string> = {
+    remote: L.configsTypeRemote,
+    local: L.configsTypeLocal
+  };
+  const activeBadge = $derived(
+    $appState.activeConfig ? (configTypeLabels[$appState.activeConfig.type] ?? '') : ''
+  );
   const activeUpdated = $derived($appState.activeConfig?.lastUpdateAgo ?? '');
 
   const configSelectLabel = $derived(
@@ -257,7 +273,8 @@
   async function closeConnection(id: string) {
     try {
       await CloseAPIConnection(id);
-      selectedConn = null;
+      selectedConnId = null;
+      selectedConnSnapshot = null;
     } catch {
       // The backend already reported the failure with a toast.
     }
@@ -646,7 +663,10 @@
                 {#each apiConnections as conn (conn.id)}
                   <button
                     class="w-full text-left rounded-xl border border-border bg-background p-3 hover:bg-accent transition"
-                    onclick={() => selectedConn = conn}
+                    onclick={() => {
+                      selectedConnId = conn.id;
+                      selectedConnSnapshot = conn;
+                    }}
                   >
                     <div class="flex items-center justify-between gap-3">
                       <span class="font-medium truncate">{formatConnectionTarget(conn)}</span>
@@ -667,7 +687,7 @@
 
 </Page>
 
-<Dialog.Root open={selectedConn != null} onOpenChange={(open) => { if (!open) selectedConn = null; }}>
+<Dialog.Root open={selectedConn != null} onOpenChange={(open) => { if (!open) { selectedConnId = null; selectedConnSnapshot = null; } }}>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
       <Dialog.Title>{L.connection_detailsTitle}</Dialog.Title>

@@ -1,7 +1,7 @@
 frontend/src/App.svelte:          console.warn('Failed to fetch initial theme:', err);
 frontend/src/App.svelte:      console.error('Failed to init Wails events:', err);
 frontend/src/App.svelte:      console.error('SetFallbackType failed:', err);
-frontend/src/lib/components/Shell.svelte:      sing-box-ez
+frontend/src/lib/components/Shell.svelte:    const mql = window.matchMedia('(min-width: 640px)');
 frontend/src/lib/components/ui/alert-dialog/alert-dialog-content.svelte:			"gap-4 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 duration-100 data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 outline-none",
 frontend/src/lib/components/ui/alert-dialog/alert-dialog-description.svelte:	class={cn("text-sm text-balance text-muted-foreground md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground", className)}
 frontend/src/lib/components/ui/alert-dialog/alert-dialog-footer.svelte:		"-mx-4 -mb-4 rounded-b-xl border-t bg-muted/50 p-4 flex flex-col-reverse gap-2 group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end",
@@ -43,6 +43,16 @@ frontend/src/lib/components/ui/dialog/dialog-footer.svelte:	class={cn("-mx-4 -mb
 frontend/src/lib/components/ui/dialog/dialog-header.svelte:	class={cn("gap-2 flex flex-col", className)}
 frontend/src/lib/components/ui/dialog/dialog-overlay.svelte:	class={cn("bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 fixed inset-0 isolate z-50", className)}
 frontend/src/lib/components/ui/dialog/dialog-title.svelte:	class={cn("text-base leading-none font-medium", className)}
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-checkbox-item.svelte:		"gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4 relative flex cursor-default items-center outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-content.svelte:			"min-w-32 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 z-50 w-(--bits-dropdown-menu-anchor-width) overflow-x-hidden overflow-y-auto outline-none data-closed:overflow-hidden",
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-group-heading.svelte:	class={cn("px-2 py-1.5 text-sm font-semibold data-[inset]:ps-8", className)}
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-item.svelte:		"gap-1.5 rounded-md px-1.5 py-1 text-sm focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-destructive group/dropdown-menu-item relative flex cursor-default items-center outline-hidden select-none data-[inset]:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-label.svelte:	class={cn("px-1.5 py-1 text-xs font-medium text-muted-foreground data-inset:pl-7 data-[inset]:pl-8", className)}
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-radio-item.svelte:		"gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4 relative flex cursor-default items-center outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-separator.svelte:	class={cn("-mx-1 my-1 h-px bg-border", className)}
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-shortcut.svelte:	class={cn("ml-auto text-xs tracking-widest text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground", className)}
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-sub-content.svelte:	class={cn("min-w-[96px] rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 w-auto", className)}
+frontend/src/lib/components/ui/dropdown-menu/dropdown-menu-sub-trigger.svelte:		"gap-1.5 rounded-md px-1.5 py-1 text-sm focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-7 data-open:bg-accent data-open:text-accent-foreground [&_svg:not([class*='size-'])]:size-4 flex cursor-default items-center outline-hidden select-none data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0",
 frontend/src/lib/components/ui/input/input.svelte:			"h-8 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors file:h-6 file:text-sm file:font-medium focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:bg-input/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 w-full min-w-0 outline-none file:inline-flex file:border-0 file:bg-transparent file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
 frontend/src/lib/components/ui/label/label.svelte:		"gap-2 text-sm leading-none font-medium group-data-[disabled=true]:opacity-50 peer-disabled:opacity-50 flex items-center select-none group-data-[disabled=true]:pointer-events-none peer-disabled:cursor-not-allowed",
 frontend/src/lib/components/ui/progress/progress.svelte:	class={cn("h-1 rounded-full bg-muted relative flex w-full items-center overflow-x-hidden", className)}
@@ -74,21 +84,25 @@ frontend/src/lib/components/ui/tooltip/tooltip-content.svelte:						"data-[side=
 frontend/src/lib/components/ui/tooltip/tooltip-content.svelte:						"size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px] z-50 bg-foreground fill-foreground",
 frontend/src/lib/components/ui/tooltip/tooltip-content.svelte:			"inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs has-data-[slot=kbd]:pr-1.5 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 z-50 w-fit max-w-xs origin-(--bits-tooltip-content-transform-origin) bg-foreground text-background",
 frontend/src/lib/pages/AboutPage.svelte:            'w-full text-left px-4 py-3 rounded-xl border border-border bg-secondary hover:bg-accent transition',
+frontend/src/lib/pages/ConfigsPage.svelte:      : 'var(--color-card-uncached-no-auto-update, #3A1A0F)';
+frontend/src/lib/pages/ConfigsPage.svelte:      ? 'var(--color-card-cached-no-auto-update, #0F2E18)'
+frontend/src/lib/pages/ConfigsPage.svelte:    server: 'var(--color-status-warning, var(--color-warning))'
 frontend/src/lib/pages/MainPage.svelte:                            'w-full px-4 py-2 flex items-center justify-between hover:bg-accent transition',
 frontend/src/lib/pages/MainPage.svelte:                            node.tag === group.selected && 'bg-primary text-primary-foreground hover:bg-primary/90'
 frontend/src/lib/pages/MainPage.svelte:                        <Badge variant="outline">{group.delay} ms</Badge>
-frontend/src/lib/pages/MenuPage.svelte:          'w-full text-left px-4 py-4 rounded-lg bg-card border border-border hover:bg-accent transition-colors flex items-center gap-3',
+frontend/src/lib/pages/MenuPage.svelte:            'w-full text-left px-4 py-4 rounded-lg bg-card border border-border hover:bg-accent transition-colors flex items-center gap-3',
 frontend/src/lib/pages/SettingsPage.svelte:    if (color === 'green') return 'color: var(--color-success)';
 frontend/src/lib/pages/SettingsPage.svelte:    if (color === 'yellow') return 'color: var(--color-warning)';
 frontend/src/lib/pages/StartupPage.svelte:            $appState.startup.selected === option.id && 'bg-primary text-primary-foreground hover:bg-primary/90 border-transparent'
 frontend/src/lib/pages/StartupPage.svelte:            'px-4 py-3 rounded-lg border border-border text-left transition-colors hover:bg-accent',
-frontend/src/lib/stores/locale.ts:      console.warn('RegisterLocaleKeys failed:', err);
-frontend/src/lib/stores/locale.ts:    console.warn('LocaleReady failed:', err);
+frontend/src/lib/stores/locale.svelte.ts:      console.warn('RegisterLocaleKeys failed:', err);
+frontend/src/lib/stores/locale.svelte.ts:    console.warn('LocaleReady failed:', err);
 frontend/src/lib/stores/theme.ts:  const mql = window.matchMedia('(prefers-color-scheme: dark)');
 frontend/src/lib/stores/theme.ts:  return window.matchMedia('(prefers-color-scheme: dark)').matches;
 frontend/src/lib/utils/ansi.ts:    parts.push({ text: header + ' ', style: 'color: #29b8db' });
 frontend/src/lib/utils/ansi.ts:    return [{ text: line, style: 'color: #f5f543' }];
 frontend/src/lib/utils/ansi.ts:  parts.push({ text: '-> ', style: 'color: #bc3fbc' });
-frontend/src/lib/utils/format.ts:  if (d < 3600) return `${Math.floor(d / 60)} min ago`;
-frontend/src/lib/utils/format.ts:  if (d < 60) return 'just now';
+frontend/src/lib/wails/bridge.ts:      console.warn('GetAPIState failed:', err);
+frontend/src/lib/wails/bridge.ts:      console.warn('GetConfigValues failed:', err);
+frontend/src/lib/wails/bridge.ts:      console.warn('GetTrafficHistory failed:', err);
 frontend/src/lib/wails/custom.ts:      console.warn('WebSocket IPC error:', err);

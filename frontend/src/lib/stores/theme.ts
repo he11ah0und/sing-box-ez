@@ -116,6 +116,15 @@ function applyColors(root: HTMLElement, colors: Record<string, string>) {
   if (colors.success) set('--color-success', colors.success);
   if (colors.warning) set('--color-warning', colors.warning);
   if (colors.info) set('--color-info', colors.info);
+  if (colors['status-ok']) set('--color-status-ok', colors['status-ok']);
+  if (colors['status-warning']) set('--color-status-warning', colors['status-warning']);
+  // Config card state colors (cache state × auto-update, legacy gio palette).
+  if (colors['card-cached']) set('--color-card-cached', colors['card-cached']);
+  if (colors['card-uncached']) set('--color-card-uncached', colors['card-uncached']);
+  if (colors['card-cached-no-auto-update'])
+    set('--color-card-cached-no-auto-update', colors['card-cached-no-auto-update']);
+  if (colors['card-uncached-no-auto-update'])
+    set('--color-card-uncached-no-auto-update', colors['card-uncached-no-auto-update']);
 }
 
 export function applyTheme(themeData: ThemeData | null | undefined) {

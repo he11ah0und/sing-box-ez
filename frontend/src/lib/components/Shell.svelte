@@ -4,7 +4,7 @@
   import * as Tooltip from '$lib/components/ui/tooltip/index.js';
   import TopBar from './TopBar.svelte';
   import BottomNav from './BottomNav.svelte';
-  import { currentLevel, subNav, setRootPage, setSubTab, enterSubNav, exitSubNav, goHome, menuContext, setMenuContext } from '../stores/navigation.js';
+  import { currentLevel, subNav, setRootPage, setRootPageSilent, backPage, setSubTab, enterSubNav, exitSubNav, goHome, menuContext, setMenuContext } from '../stores/navigation.js';
   import { sidebarCollapsed, toggleSidebar } from '../stores/sidebar.js';
   import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
   import { pageRegistry } from '../pages/index.js';
@@ -31,6 +31,23 @@
   );
   const showBack = $derived(inSubNav || isSecondaryPage || menuSubPages);
 
+  // The menu page exists only for the mobile bottom nav. When the viewport
+  // widens to desktop while the menu (or its sub-pages mode) is open, the
+  // desktop rail already exposes those pages, so bounce back to the page
+  // the user came from (or main), without recording the redirect itself
+  // in the back history.
+  $effect(() => {
+    const mql = window.matchMedia('(min-width: 640px)');
+    const onChange = () => {
+      if (mql.matches && $currentLevel.id === 'menu') {
+        if (!backPage()) setRootPageSilent('main');
+      }
+    };
+    mql.addEventListener('change', onChange);
+    onChange();
+    return () => mql.removeEventListener('change', onChange);
+  });
+
   // Every nav label key is known upfront from the page registry.
   const R = useLocaleRecord(
     pageRegistry.flatMap((page) => [page.key, ...(page.tabs ?? []).map((tab) => tab.key)])
@@ -55,10 +72,10 @@
     setRootPage(id);
   }
 
-  // Desktop rail back: leave the sub-nav and return home.
+  // Desktop rail back: leave the sub-nav and return to the previous page.
   function back() {
     exitSubNav();
-    goHome();
+    if (!backPage()) goHome();
   }
 
   // Mobile top-bar back: secondary pages belong to the menu page; from the

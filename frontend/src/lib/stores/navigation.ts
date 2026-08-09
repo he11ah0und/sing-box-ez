@@ -58,12 +58,38 @@ export function replaceTop(level: Level) {
 }
 
 export function goHome() {
+  pageHistory.length = 0;
+  menuContext.set(null);
   navigationStack.set([{ type: 'page', id: 'main' }]);
 }
 
+// Root-page back history: setRootPage records the page being left so the
+// desktop back button can return to it instead of always landing on main.
+const pageHistory: string[] = [];
+
 export function setRootPage(id: string) {
   if (id !== 'menu') menuContext.set(null);
+  navigationStack.update((stack) => {
+    const cur = stack[stack.length - 1];
+    if (cur?.type === 'page' && cur.id !== id) pageHistory.push(cur.id);
+    return [{ type: 'page', id }];
+  });
+}
+
+// setRootPageSilent switches the root page without touching the back
+// history — for viewport-driven redirects the user never navigated to.
+export function setRootPageSilent(id: string) {
+  if (id !== 'menu') menuContext.set(null);
   navigationStack.set([{ type: 'page', id }]);
+}
+
+// backPage returns to the previous root page; false when there is none.
+export function backPage(): boolean {
+  const prev = pageHistory.pop();
+  if (!prev) return false;
+  if (prev !== 'menu') menuContext.set(null);
+  navigationStack.set([{ type: 'page', id: prev }]);
+  return true;
 }
 
 export function enterSubNav(pageId: string, tabs: SubNavTab[] = []) {

@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { Plus, Check, Trash2, Edit2, RefreshCw, ShieldCheck, FileText, FolderOpen, RotateCw, Copy } from '@lucide/svelte';
+  import { Plus, Trash2, Edit2, RefreshCw, ShieldCheck, FileText, FolderOpen, RotateCw, Copy, EllipsisVertical } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState, type ConfigRecord } from '../stores/appState.js';
-  import { useLocale } from '../stores/locale.svelte.js';
+  import { useLocale, formatValue } from '../stores/locale.svelte.js';
   import Page from '../components/Page.svelte';
   import ConfigFormModal from '../components/ConfigFormModal.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
+  import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import * as Tooltip from '$lib/components/ui/tooltip/index.js';
   import {
@@ -25,8 +26,10 @@
     ValidateConfig,
     IsConfigHashMismatch,
     HasCachedConfig,
-    CopyValidationReport
+    CopyValidationReport,
+    GetConfigMeta
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import type { ConfigMeta } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
   import type {
     DeprecatedField,
     ValidationResult
@@ -34,7 +37,7 @@
 
   const L = useLocale([
     'common.cancel',
-    'configs.badge.active',
+    'configs.actions',
     'configs.badge.hash_mismatch_tooltip',
     'configs.badge.modified',
     'configs.btn.add',
@@ -49,6 +52,13 @@
     'configs.dialog.btn.update_now',
     'configs.dialog.btn.validate',
     'configs.empty',
+    'configs.style.client',
+    'configs.style.server',
+    'configs.type.local',
+    'configs.type.remote',
+    'configs.update.overdue',
+    'duration.ago',
+    'duration.in',
     'startup.continue',
     'tab.configs',
     'validation.errors_title',
@@ -65,6 +75,44 @@
   let updating = $state<Record<string, boolean>>({});
   let hashMismatch = $state<Record<string, boolean>>({});
   let hasCached = $state<Record<string, boolean>>({});
+  let configMeta = $state<Record<string, ConfigMeta | undefined>>({});
+
+  const typeLabels = $derived<Record<string, string>>({
+    remote: L.configsTypeRemote,
+    local: L.configsTypeLocal
+  });
+  const styleLabels = $derived<Record<string, string>>({
+    client: L.configsStyleClient,
+    server: L.configsStyleServer
+  });
+  // Type and style carry the colors the legacy gio UI used: remote is the
+  // info accent, client is the success green, server the warning accent.
+  const typeColors: Record<string, string> = {
+    remote: 'var(--color-info)',
+    local: 'var(--foreground)'
+  };
+  const styleColors: Record<string, string> = {
+    client: 'var(--color-success)',
+    server: 'var(--color-status-warning, var(--color-warning))'
+  };
+
+  // cardColor mirrors the gio card background semantics: cache state ×
+  // auto-update flag mapped onto the theme's card-* palette. A remote
+  // profile counts as cached only when it was actually downloaded once
+  // (lastPlain non-empty), same as the legacy UI did.
+  function cardColor(cfg: ConfigRecord): string {
+    const meta = configMeta[cfg.name];
+    const cached = (hasCached[cfg.name] ?? true) && (cfg.type === 'local' || !!meta?.lastPlain);
+    const auto = cfg.auto_update !== false;
+    if (auto) {
+      return cached
+        ? 'var(--color-card-cached, #28643C)'
+        : 'var(--color-card-uncached, #783C28)';
+    }
+    return cached
+      ? 'var(--color-card-cached-no-auto-update, #0F2E18)'
+      : 'var(--color-card-uncached-no-auto-update, #3A1A0F)';
+  }
   let showForm = $state(false);
   let editing = $state<string | null>(null);
   let initialRecord = $state<ConfigRecord | null>(null);
@@ -73,8 +121,9 @@
 
   async function load() {
     try {
-      const [configs, active] = await Promise.all([GetConfigs(), GetActiveConfig()]);
+      const [configs, active, meta] = await Promise.all([GetConfigs(), GetActiveConfig(), GetConfigMeta()]);
       const list = configs ?? [];
+      configMeta = meta ?? {};
       appState.update((s) => ({
         ...s,
         configs: list,
@@ -82,9 +131,7 @@
       }));
       const [mismatch, cached] = await Promise.all([
         Promise.all(list.map((c) => IsConfigHashMismatch(c.name).catch(() => false))),
-        Promise.all(
-          list.map((c) => (c.type === 'local' ? HasCachedConfig(c.name).catch(() => true) : Promise.resolve(true)))
-        )
+        Promise.all(list.map((c) => HasCachedConfig(c.name).catch(() => true)))
       ]);
       const mismatchMap: Record<string, boolean> = {};
       const cachedMap: Record<string, boolean> = {};
@@ -260,18 +307,29 @@
     {:else}
       <ul class="divide-y divide-border">
         {#each $appState.configs as cfg (cfg.name)}
-          <li class="p-4 flex items-center justify-between gap-4 hover:bg-accent transition">
+          {@const meta = configMeta[cfg.name]}
+          <li
+            class="p-4 flex items-center justify-between gap-4 transition hover:brightness-125"
+            style:background-color={cardColor(cfg)}
+          >
             <div class="min-w-0">
               <p class="font-medium truncate">{cfg.name}</p>
-              <p class="text-sm text-muted-foreground truncate">{cfg.type} · {cfg.update_interval_hours}h</p>
+              <p class="text-sm text-muted-foreground break-words">
+                <span style:color={typeColors[cfg.type]}>{typeLabels[cfg.type] ?? ''}</span>
+                {#if meta?.style}
+                  <span> · </span><span style:color={styleColors[meta.style]}>{styleLabels[meta.style] ?? ''}</span>
+                {/if}
+                {#if meta?.lastPlain}
+                  <span> · {formatValue(L.durationAgo, [meta.lastPlain])}</span>
+                {/if}
+                {#if meta?.overdue}
+                  <span style:color="var(--color-warning)"> · {L.configsUpdateOverdue}</span>
+                {:else if meta?.nextPlain}
+                  <span> · {formatValue(L.durationIn, [meta.nextPlain])}</span>
+                {/if}
+              </p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              {#if $appState.activeConfig?.name === cfg.name}
-                <Badge variant="secondary" class="text-[var(--color-success)]">
-                  <Check size={12} />
-                  {L.configsBadgeActive}
-                </Badge>
-              {/if}
               {#if hashMismatch[cfg.name]}
                 <Tooltip.Root>
                   <Tooltip.Trigger>
@@ -286,7 +344,27 @@
                   </Tooltip.Content>
                 </Tooltip.Root>
               {/if}
-              {#if cfg.type === 'remote'}
+              <!-- Desktop: the full set of icon buttons. -->
+              <div class="hidden sm:flex items-center gap-2">
+                {#if cfg.type === 'remote'}
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="ghost"
+                          size="icon"
+                          aria-label={L.configsDialogBtnUpdate_now}
+                          disabled={updating[cfg.name]}
+                          onclick={() => updateNow(cfg.name)}
+                        >
+                          <RefreshCw size={16} class={updating[cfg.name] ? 'animate-spin' : ''} />
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>{L.configsDialogBtnUpdate_now}</Tooltip.Content>
+                  </Tooltip.Root>
+                {/if}
                 <Tooltip.Root>
                   <Tooltip.Trigger>
                     {#snippet child({ props })}
@@ -294,66 +372,88 @@
                         {...props}
                         variant="ghost"
                         size="icon"
-                        aria-label={L.configsDialogBtnUpdate_now}
-                        disabled={updating[cfg.name]}
-                        onclick={() => updateNow(cfg.name)}
+                        aria-label={L.configsDialogBtnValidate}
+                        onclick={() => validate(cfg.name)}
                       >
-                        <RefreshCw size={16} class={updating[cfg.name] ? 'animate-spin' : ''} />
+                        <ShieldCheck size={16} />
                       </Button>
                     {/snippet}
                   </Tooltip.Trigger>
-                  <Tooltip.Content>{L.configsDialogBtnUpdate_now}</Tooltip.Content>
+                  <Tooltip.Content>{L.configsDialogBtnValidate}</Tooltip.Content>
                 </Tooltip.Root>
-              {/if}
-              <Tooltip.Root>
-                <Tooltip.Trigger>
-                  {#snippet child({ props })}
-                    <Button
-                      {...props}
-                      variant="ghost"
-                      size="icon"
-                      aria-label={L.configsDialogBtnValidate}
-                      onclick={() => validate(cfg.name)}
-                    >
-                      <ShieldCheck size={16} />
-                    </Button>
-                  {/snippet}
-                </Tooltip.Trigger>
-                <Tooltip.Content>{L.configsDialogBtnValidate}</Tooltip.Content>
-              </Tooltip.Root>
-              <Tooltip.Root>
-                <Tooltip.Trigger>
-                  {#snippet child({ props })}
-                    <Button
-                      {...props}
-                      variant="ghost"
-                      size="icon"
-                      aria-label={L.configsBtnEdit}
-                      onclick={() => startEdit(cfg)}
-                    >
-                      <Edit2 size={16} />
-                    </Button>
-                  {/snippet}
-                </Tooltip.Trigger>
-                <Tooltip.Content>{L.configsBtnEdit}</Tooltip.Content>
-              </Tooltip.Root>
-              <Tooltip.Root>
-                <Tooltip.Trigger>
-                  {#snippet child({ props })}
-                    <Button
-                      {...props}
-                      variant="ghost"
-                      size="icon"
-                      class="text-destructive hover:bg-destructive/10"
-                      aria-label={L.configsBtnDelete}
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label={L.configsBtnEdit}
+                        onclick={() => startEdit(cfg)}
+                      >
+                        <Edit2 size={16} />
+                      </Button>
+                    {/snippet}
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>{L.configsBtnEdit}</Tooltip.Content>
+                </Tooltip.Root>
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        class="text-destructive hover:bg-destructive/10"
+                        aria-label={L.configsBtnDelete}
+                        onclick={() => (deleteTarget = cfg.name)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    {/snippet}
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>{L.configsBtnDelete}</Tooltip.Content>
+                </Tooltip.Root>
+              </div>
+              <!-- Mobile: the same actions collapsed into one dropdown menu. -->
+              <div class="sm:hidden">
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger>
+                    {#snippet child({ props })}
+                      <Button {...props} variant="ghost" size="icon" aria-label={L.configsActions}>
+                        <EllipsisVertical size={16} />
+                      </Button>
+                    {/snippet}
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content align="end">
+                    {#if cfg.type === 'remote'}
+                      <DropdownMenu.Item
+                        disabled={updating[cfg.name]}
+                        onclick={() => updateNow(cfg.name)}
+                      >
+                        <RefreshCw size={14} class={updating[cfg.name] ? 'animate-spin' : ''} />
+                        {L.configsDialogBtnUpdate_now}
+                      </DropdownMenu.Item>
+                    {/if}
+                    <DropdownMenu.Item onclick={() => validate(cfg.name)}>
+                      <ShieldCheck size={14} />
+                      {L.configsDialogBtnValidate}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item onclick={() => startEdit(cfg)}>
+                      <Edit2 size={14} />
+                      {L.configsBtnEdit}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item
+                      class="text-destructive"
                       onclick={() => (deleteTarget = cfg.name)}
                     >
-                      <Trash2 size={16} />
-                    </Button>
-                  {/snippet}
-                </Tooltip.Trigger>
-                <Tooltip.Content>{L.configsBtnDelete}</Tooltip.Content>
-              </Tooltip.Root>
+                      <Trash2 size={14} />
+                      {L.configsBtnDelete}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              </div>
             </div>
           </li>
         {/each}
