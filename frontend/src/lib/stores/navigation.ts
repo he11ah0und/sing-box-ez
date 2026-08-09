@@ -29,6 +29,16 @@ export const canGoBack = derived(
 
 export const subNav = writable<SubNavState>({ pageId: null, activeTab: null });
 
+// Mobile menu-page mode: when the bottom-bar menu button is tapped from a
+// tabbed page (settings/debug), the menu shows that page's tabs instead of
+// the full secondary-pages list. Cleared on any navigation to a non-menu
+// page and when the mobile back button is pressed.
+export const menuContext = writable<string | null>(null);
+
+export function setMenuContext(pageId: string | null) {
+  menuContext.set(pageId);
+}
+
 export function pushLevel(level: Level) {
   navigationStack.update((stack) => [...stack, level]);
 }
@@ -52,6 +62,7 @@ export function goHome() {
 }
 
 export function setRootPage(id: string) {
+  if (id !== 'menu') menuContext.set(null);
   navigationStack.set([{ type: 'page', id }]);
 }
 
