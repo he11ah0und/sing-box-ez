@@ -32,7 +32,7 @@ dev_mode:
   executes:
     - cmd: cd frontend && npm install --omit=none
       type: blocking
-    - cmd: wails3 generate bindings
+    - cmd: wails3 generate bindings -clean=true -ts -i
       type: blocking
     - cmd: cd frontend && npm run dev -- --port 9245 --strictPort --host 127.0.0.1
       type: background

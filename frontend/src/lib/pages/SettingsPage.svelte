@@ -88,17 +88,26 @@
   }
 
   function entryLabel(entry: ConfigSpecEntry): string {
-    // Selects label via settings.<path>.label, other controls settings.<path>.
-    return entry.control === 'select' ? R.settings[`${entry.path}.label`] : R.settings[entry.path];
+    // Selects with translated option labels are maps and label via
+    // settings.<path>.label; plain keys label via settings.<path> directly.
+    if (entry.control === 'select') {
+      const withLabel = R.settings[`${entry.path}.label`];
+      if (withLabel && withLabel !== `settings.${entry.path}.label`) return withLabel;
+    }
+    return R.settings[entry.path];
   }
 
   function optionLabel(entry: ConfigSpecEntry, option: unknown): string {
     const opt = String(option);
     const key = `${entry.path}.${opt}`;
     const label = R.settings[key];
-    // A missing convention key falls back to common.<option> (debug/info).
-    if (label !== `settings.${key}`) return label;
-    return R.common[opt];
+    // A missing convention key falls back to common.<option> (debug/info),
+    // then to the raw value itself (numeric options like 30/60/120/300).
+    // Tolerate both missing-leaf forms: the proxy's full-key fallback and
+    // a plain undefined.
+    if (label && label !== `settings.${key}`) return label;
+    const common = R.common[opt];
+    return common && common !== `common.${opt}` ? common : opt;
   }
 
   function inputId(path: string): string {

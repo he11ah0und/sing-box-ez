@@ -184,7 +184,11 @@ export function useLocaleRecord<const K extends readonly string[]>(
   const apply = (values: Record<string, string>) => {
     for (const key of exact) out[key] = values[key] ?? key;
     for (const [prop, prefix] of namespaces) {
-      const ns: Record<string, string> = {};
+      // Null prototype: $state only deep-proxies plain Object/Array values;
+      // any other prototype is stored as-is, so our Proxy keeps seeing every
+      // read. With a plain target, the outer state proxy would short-circuit
+      // missing keys to undefined and the fallback below would never fire.
+      const ns: Record<string, string> = Object.create(null);
       for (const k of Object.keys(values)) {
         if (k.startsWith(prefix)) ns[k.slice(prefix.length)] = values[k];
       }
