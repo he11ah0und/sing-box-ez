@@ -63,18 +63,22 @@ main:
     current: Текущая
     total: Всего
     median: Медиана
+    p95: 95-й перцентиль
   groups:
     empty: Нет outbound-групп
   connections:
     empty: Нет активных соединений
     inactive: неактивно
+    active: активно
     timeline: Таймлайн активности
+    total_connections: Всего соединений
     filter_all: Все
     filter_closed: Закрытые
     sort_date: Дата
     sort_traffic: Трафик
     sort_total: Весь трафик
     search: Поиск
+    close_group: Закрыть соединения
 connection_details:
   title: Детали соединения
   inbound: Входящий

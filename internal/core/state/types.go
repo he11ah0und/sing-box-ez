@@ -88,6 +88,10 @@ type ConnectionGroup struct {
 	// Spans are the activity windows of member connections, one per
 	// connection, oldest first.
 	Spans []ConnSpan `json:"spans"`
+	// IPv4/IPv6 count the live members per IP version; for inactive groups
+	// they hold the last known counts.
+	IPv4 int `json:"ipv4"`
+	IPv6 int `json:"ipv6"`
 }
 
 // Update is the full snapshot of the core API state pushed to frontends

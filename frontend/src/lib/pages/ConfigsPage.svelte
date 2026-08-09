@@ -76,6 +76,10 @@
   let hashMismatch = $state<Record<string, boolean>>({});
   let hasCached = $state<Record<string, boolean>>({});
   let configMeta = $state<Record<string, ConfigMeta | undefined>>({});
+  // The configs list may already be in the store (seeded by the main page)
+  // while meta/cache state is still loading; cards stay neutral until the
+  // first load finishes so they don't flash the uncached color.
+  let metaLoaded = $state(false);
 
   const typeLabels = $derived<Record<string, string>>({
     remote: L.configsTypeRemote,
@@ -101,6 +105,7 @@
   // profile counts as cached only when it was actually downloaded once
   // (lastPlain non-empty), same as the legacy UI did.
   function cardColor(cfg: ConfigRecord): string {
+    if (!metaLoaded) return 'transparent';
     const meta = configMeta[cfg.name];
     const cached = (hasCached[cfg.name] ?? true) && (cfg.type === 'local' || !!meta?.lastPlain);
     const auto = cfg.auto_update !== false;
@@ -143,6 +148,8 @@
       hasCached = cachedMap;
     } catch (err) {
       toast.error(String(err));
+    } finally {
+      metaLoaded = true;
     }
   }
 

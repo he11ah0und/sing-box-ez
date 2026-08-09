@@ -112,3 +112,22 @@ func (b *Bindings) CloseAPIConnection(id string) error {
 	}
 	return nil
 }
+
+// CloseAPIConnectionGroup closes the listed connections (the live members of
+// one connection group).
+func (b *Bindings) CloseAPIConnectionGroup(ids []string) error {
+	client, err := b.apiClient()
+	if err != nil {
+		b.toastErr(err)
+		return err
+	}
+	ctx, cancel := context.WithTimeout(b.ctx, 10*time.Second)
+	defer cancel()
+	for _, id := range ids {
+		if err := client.CloseConnection(ctx, id); err != nil {
+			b.toastErr(err)
+			return err
+		}
+	}
+	return nil
+}

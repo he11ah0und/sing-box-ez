@@ -29,7 +29,7 @@ func TestGroupTrackerGroupsByTarget(t *testing.T) {
 		conn("c", "other.com", "9.9.9.9:443", 1, 1),
 	}, now, time.Hour)
 
-	groups := tr.snapshot(nil, now)
+	groups := tr.snapshot(nil, now, "date")
 	if len(groups) != 2 {
 		t.Fatalf("expected 2 groups, got %d", len(groups))
 	}
@@ -56,7 +56,7 @@ func TestGroupTrackerClosesIntervalAndKeepsTotals(t *testing.T) {
 	// The connection is gone: the interval closes but the group stays.
 	tr.update(nil, now.Add(time.Minute), time.Hour)
 
-	groups := tr.snapshot(nil, now.Add(time.Minute))
+	groups := tr.snapshot(nil, now.Add(time.Minute), "date")
 	if len(groups) != 1 {
 		t.Fatalf("expected 1 retained group, got %d", len(groups))
 	}
@@ -73,7 +73,7 @@ func TestGroupTrackerClosesIntervalAndKeepsTotals(t *testing.T) {
 
 	// A new connection to the same target reopens the group with a second span.
 	tr.update([]api.Connection{conn("b", "example.com", "1.2.3.4:443", 5, 50)}, now.Add(2*time.Minute), time.Hour)
-	groups = tr.snapshot(nil, now.Add(2*time.Minute))
+	groups = tr.snapshot(nil, now.Add(2*time.Minute), "date")
 	g = groups[0]
 	if !g.Active || len(g.Spans) != 2 {
 		t.Fatalf("expected active group with 2 spans, got active=%v spans=%+v", g.Active, g.Spans)
@@ -92,7 +92,7 @@ func TestGroupTrackerRetentionPrunes(t *testing.T) {
 	// Past retention with no members: the group is dropped.
 	tr.update(nil, now.Add(2*time.Hour), time.Hour)
 
-	if groups := tr.snapshot(nil, now.Add(2*time.Hour)); len(groups) != 0 {
+	if groups := tr.snapshot(nil, now.Add(2*time.Hour), "date"); len(groups) != 0 {
 		t.Fatalf("expected group pruned after retention, got %d", len(groups))
 	}
 }
@@ -129,5 +129,55 @@ func TestGroupTrafficHistory(t *testing.T) {
 	p.updateGroups(nil, nil, now.Add(2*time.Hour))
 	if got := len(p.ConnectionGroupTrafficHistory("example.com:443").Points); got != 0 {
 		t.Fatalf("pruned group must lose its history, got %d", got)
+	}
+}
+
+func TestGroupTrackerSortModes(t *testing.T) {
+	tr := newGroupTracker()
+	now := time.Now()
+	// slow.com appears a second before fast.com so date order is defined.
+	tr.update([]api.Connection{conn("a", "slow.com", "1.2.3.4:443", 10, 100)}, now, time.Hour)
+	conns := []api.Connection{
+		conn("a", "slow.com", "1.2.3.4:443", 10, 100),
+		conn("b", "fast.com", "5.6.7.8:443", 999, 999),
+	}
+	rates := map[string]TrafficPoint{
+		"a": {At: now, Up: 1, Down: 1},
+		"b": {At: now, Up: 100, Down: 100},
+	}
+	tr.update(conns, now.Add(time.Second), time.Hour)
+
+	byTraffic := tr.snapshot(rates, now, "traffic")
+	if byTraffic[0].Key != "fast.com:443" {
+		t.Fatalf("traffic sort must put fast.com first, got %q", byTraffic[0].Key)
+	}
+	byTotal := tr.snapshot(rates, now, "total")
+	if byTotal[0].Key != "fast.com:443" {
+		t.Fatalf("total sort must put fast.com first, got %q", byTotal[0].Key)
+	}
+	byDate := tr.snapshot(rates, now, "date")
+	if byDate[0].Key != "slow.com:443" {
+		t.Fatalf("date sort must keep insertion order by firstSeen, got %q", byDate[0].Key)
+	}
+}
+
+func TestGroupTrackerIPVersions(t *testing.T) {
+	tr := newGroupTracker()
+	now := time.Now()
+	tr.update([]api.Connection{
+		conn("a", "example.com", "1.2.3.4:443", 0, 0),
+		conn("b", "example.com", "[2001:db8::1]:443", 0, 0),
+	}, now, time.Hour)
+
+	g := tr.snapshot(nil, now, "date")[0]
+	if g.IPv4 != 1 || g.IPv6 != 1 {
+		t.Fatalf("expected one v4 and one v6 member, got %d/%d", g.IPv4, g.IPv6)
+	}
+
+	// After all members close the group keeps the last known counts.
+	tr.update(nil, now.Add(time.Minute), time.Hour)
+	g = tr.snapshot(nil, now.Add(time.Minute), "date")[0]
+	if g.IPv4 != 1 || g.IPv6 != 1 {
+		t.Fatalf("inactive group must retain last IP counts, got %d/%d", g.IPv4, g.IPv6)
 	}
 }

@@ -297,6 +297,31 @@ func (b *Bindings) SetTheme(name string) ThemePayload {
 	return t
 }
 
+// GetConnectionsSort returns the persisted connections-tab sort mode
+// ("date" | "traffic" | "total"). The entry has no settings-UI control (the
+// selector lives on the main page), so it is not part of GetConfigValues.
+func (b *Bindings) GetConnectionsSort() string {
+	return b.app.Controller.Config().MustGet("ui", "connections_sort").String()
+}
+
+// SetConnectionsSort persists the connections-tab sort mode picked in the
+// main page selector. Unknown modes are rejected.
+func (b *Bindings) SetConnectionsSort(mode string) error {
+	switch mode {
+	case "date", "traffic", "total":
+	default:
+		return fmt.Errorf("unknown connections sort mode %q", mode)
+	}
+	if err := b.app.Controller.Config().MustGet("ui", "connections_sort").Update(mode); err != nil {
+		return err
+	}
+	if err := b.app.Controller.Config().Save(); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	return nil
+}
+
 // RegisterLocaleKeys registers UI locale keys and returns their current values.
 // A key ending in ".*" is a wildcard: it registers every leaf path under
 // that prefix (expanded per current language, so language switches

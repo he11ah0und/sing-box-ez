@@ -27,6 +27,9 @@ type Deps struct {
 	// ConnRetentionMin returns the configured minutes an inactive connection
 	// group stays in the connections list before being dropped.
 	ConnRetentionMin func() int
+	// ConnSort returns the configured connection group sort mode
+	// ("date", "traffic" or "total").
+	ConnSort func() string
 }
 
 // Poller subscribes to the core status stream and drives everything a
@@ -469,7 +472,7 @@ func (p *Poller) updateGroups(conns []api.Connection, rates map[string]TrafficPo
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.groups.update(conns, now, p.connRetention())
-	groups := p.groups.snapshot(rates, now)
+	groups := p.groups.snapshot(rates, now, p.connSort())
 
 	limit := p.historyLimit()
 	alive := make(map[string]bool, len(groups))
@@ -515,6 +518,14 @@ func (p *Poller) connRetention() time.Duration {
 		n = 60
 	}
 	return time.Duration(n) * time.Minute
+}
+
+// connSort returns the configured connection group sort mode.
+func (p *Poller) connSort() string {
+	if p.d.ConnSort != nil {
+		return p.d.ConnSort()
+	}
+	return "date"
 }
 
 // historyLimit returns the configured number of retained samples.

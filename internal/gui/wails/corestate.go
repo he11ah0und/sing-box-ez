@@ -20,6 +20,9 @@ func (b *Bindings) startCorePoller() {
 		ConnRetentionMin: func() int {
 			return b.app.Controller.Config().MustGet("core", "connections_retention").Int()
 		},
+		ConnSort: func() string {
+			return b.app.Controller.Config().MustGet("ui", "connections_sort").String()
+		},
 	})
 	b.core.OnTraffic(func(u state.TrafficUpdate) { b.emit("traffic:updated", u) })
 	b.core.OnState(func(s state.Update) { b.emit("api:state", s) })

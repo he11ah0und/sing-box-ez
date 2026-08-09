@@ -20,6 +20,23 @@ func groupKey(c api.Connection) string {
 	return c.Destination
 }
 
+// ipVersionOf returns 4 or 6 for the destination host of a connection, or 0
+// when the host is not a parseable IP literal.
+func ipVersionOf(c api.Connection) int {
+	host := c.Destination
+	if h, _, err := net.SplitHostPort(c.Destination); err == nil {
+		host = h
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return 0
+	}
+	if ip.To4() != nil {
+		return 4
+	}
+	return 6
+}
+
 // connGroup is the tracked state of one connection group.
 type connGroup struct {
 	target    string
@@ -37,6 +54,11 @@ type connGroup struct {
 	// track per connection (DevTools/waterfall style). End is zero while
 	// the connection is alive.
 	spans []ConnSpan
+	// ip4/ip6 count the live members per IP version; lastIp4/lastIp6 keep
+	// the last non-zero counts so inactive groups still show the versions
+	// their members used.
+	ip4, ip6         int
+	lastIp4, lastIp6 int
 }
 
 // connGroupsMax caps how many groups are retained.
@@ -65,6 +87,9 @@ func (t *groupTracker) reset() {
 // it opens spans for new member connections, closes spans for members
 // that are gone, and prunes inactive groups past the retention.
 func (t *groupTracker) update(conns []api.Connection, now time.Time, retention time.Duration) {
+	for _, g := range t.groups {
+		g.ip4, g.ip6 = 0, 0
+	}
 	current := make(map[string]api.Connection, len(conns))
 	for _, c := range conns {
 		current[c.ID] = c
@@ -81,6 +106,12 @@ func (t *groupTracker) update(conns []api.Connection, now time.Time, retention t
 		}
 		if g.firstSeen.IsZero() {
 			g.firstSeen = now
+		}
+		switch ipVersionOf(c) {
+		case 4:
+			g.ip4++
+		case 6:
+			g.ip6++
 		}
 		if _, ok := g.members[c.ID]; !ok {
 			// New member: open its activity span, backdated to the
@@ -116,6 +147,10 @@ func (t *groupTracker) update(conns []api.Connection, now time.Time, retention t
 		}
 		if len(g.members) == 0 && now.Sub(g.lastSeen) > retention {
 			delete(t.groups, key)
+			continue
+		}
+		if g.ip4 > 0 || g.ip6 > 0 {
+			g.lastIp4, g.lastIp6 = g.ip4, g.ip6
 		}
 	}
 
@@ -138,10 +173,10 @@ func (t *groupTracker) update(conns []api.Connection, now time.Time, retention t
 	}
 }
 
-// snapshot returns the tracked groups in UI-facing form: active groups
-// first, then by last activity, most recent first. rates carries the
-// per-second rate samples of the current connections.
-func (t *groupTracker) snapshot(rates map[string]TrafficPoint, now time.Time) []ConnectionGroup {
+// snapshot returns the tracked groups in UI-facing form, sorted by sortMode
+// ("date", "traffic" or "total"); active groups always come first. rates
+// carries the per-second rate samples of the current connections.
+func (t *groupTracker) snapshot(rates map[string]TrafficPoint, now time.Time, sortMode string) []ConnectionGroup {
 	out := make([]ConnectionGroup, 0, len(t.groups))
 	for key, g := range t.groups {
 		cg := ConnectionGroup{
@@ -155,6 +190,11 @@ func (t *groupTracker) snapshot(rates map[string]TrafficPoint, now time.Time) []
 			UpTotal:   g.closedUp,
 			DownTotal: g.closedDown,
 			Spans:     make([]ConnSpan, len(g.spans)),
+			IPv4:      g.ip4,
+			IPv6:      g.ip6,
+		}
+		if cg.IPv4 == 0 && cg.IPv6 == 0 {
+			cg.IPv4, cg.IPv6 = g.lastIp4, g.lastIp6
 		}
 		copy(cg.Spans, g.spans)
 		for id, totals := range g.members {
@@ -170,11 +210,31 @@ func (t *groupTracker) snapshot(rates map[string]TrafficPoint, now time.Time) []
 		cg.ConnCount = len(cg.ConnIDs)
 		out = append(out, cg)
 	}
-	sort.Slice(out, func(i, j int) bool {
+	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Active != out[j].Active {
 			return out[i].Active
 		}
-		return out[i].LastSeen.After(out[j].LastSeen)
+		switch sortMode {
+		case "traffic":
+			if d := (out[j].UpRate + out[j].DownRate) - (out[i].UpRate + out[i].DownRate); d != 0 {
+				return d < 0
+			}
+		case "total":
+			if d := (out[j].UpTotal + out[j].DownTotal) - (out[i].UpTotal + out[i].DownTotal); d != 0 {
+				return d < 0
+			}
+		}
+		// "date" order (and the tie-break for the other modes): active
+		// groups by first appearance, inactive by last activity — stable
+		// across polls, with the key as the final deterministic tie-break.
+		if out[i].Active {
+			if !out[i].FirstSeen.Equal(out[j].FirstSeen) {
+				return out[i].FirstSeen.Before(out[j].FirstSeen)
+			}
+		} else if !out[i].LastSeen.Equal(out[j].LastSeen) {
+			return out[i].LastSeen.After(out[j].LastSeen)
+		}
+		return out[i].Key < out[j].Key
 	})
 	return out
 }

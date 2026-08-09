@@ -69,13 +69,16 @@ main:
   connections:
     empty: No active connections
     inactive: inactive
+    active: active
     timeline: Activity timeline
+    total_connections: Total connections
     filter_all: All
     filter_closed: Closed
     sort_date: Date
     sort_traffic: Traffic
     sort_total: Total Traffic
     search: Search
+    close_group: Close connections
 connection_details:
   title: Connection Details
   inbound: Inbound

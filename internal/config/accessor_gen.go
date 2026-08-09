@@ -43,6 +43,7 @@ type LogAccessor struct {
 type UIAccessor struct {
 	ShowLogs             *fwconfig.Cell
 	Language             *fwconfig.Cell
+	ConnectionsSort      *fwconfig.Cell
 	DesktopNotifications *fwconfig.Cell
 	Theme                *fwconfig.Cell
 	ThemeMode            *fwconfig.Cell
@@ -101,6 +102,7 @@ func NewAccessor(sheet *fwconfig.Sheet) *Accessor {
 		UI: &UIAccessor{
 			ShowLogs:             sheet.MustGet("ui", "show_logs"),
 			Language:             sheet.MustGet("ui", "language"),
+			ConnectionsSort:      sheet.MustGet("ui", "connections_sort"),
 			DesktopNotifications: sheet.MustGet("ui", "desktop_notifications"),
 			Theme:                sheet.MustGet("ui", "theme"),
 			ThemeMode:            sheet.MustGet("ui", "theme_mode"),

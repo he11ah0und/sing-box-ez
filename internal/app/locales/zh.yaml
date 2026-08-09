@@ -63,18 +63,22 @@ main:
     current: 当前
     total: 总计
     median: 中位数
+    p95: 95 百分位
   groups:
     empty: 无出站分组
   connections:
     empty: 无活动连接
     inactive: 非活动
+    active: 活跃
     timeline: 活动时间线
+    total_connections: 连接总数
     filter_all: 全部
     filter_closed: 已关闭
     sort_date: 日期
     sort_traffic: 流量
     sort_total: 总流量
     search: 搜索
+    close_group: 关闭连接
 connection_details:
   title: 连接详情
   inbound: 入站

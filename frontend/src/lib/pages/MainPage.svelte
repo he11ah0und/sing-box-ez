@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { Square, RefreshCw, ChevronDown, ChevronUp, Zap } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
@@ -8,12 +9,14 @@
   import StackedGraph from '../components/StackedGraph.svelte';
   import GraphDetailDialog from '../components/GraphDetailDialog.svelte';
   import ActivityTimeline from '../components/ActivityTimeline.svelte';
+  import TimelineDetailDialog from '../components/TimelineDetailDialog.svelte';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Card from '$lib/components/ui/card/index.js';
   import * as Tabs from '$lib/components/ui/tabs/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
+  import { Input } from '$lib/components/ui/input/index.js';
   import { Skeleton } from '$lib/components/ui/skeleton/index.js';
   import { cn } from '$lib/utils.js';
   import {
@@ -31,8 +34,11 @@
     URLTestAPIGroup,
     CloseAPIConnections,
     CloseAPIConnection,
+    CloseAPIConnectionGroup,
     GetConnectionTrafficHistory,
-    GetConnectionGroupTrafficHistory
+    GetConnectionGroupTrafficHistory,
+    GetConnectionsSort,
+    SetConnectionsSort
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type {
     Status as APIStatus,
@@ -86,7 +92,12 @@
     'main.api.close_connections',
     'main.connections.empty',
     'main.connections.inactive',
+    'main.connections.active',
     'main.connections.timeline',
+    'plugins.info.status',
+    'main.connections.total_connections',
+    'main.connections.search',
+    'main.connections.close_group',
     'main.connections.sort_date',
     'main.connections.sort_traffic',
     'main.connections.sort_total',
@@ -143,13 +154,24 @@
   const apiConnections = $derived($appState.api.connections);
   const apiConnGroups = $derived($appState.api.connGroups ?? []);
   let expandedConnGroups = $state<Set<string>>(new Set());
+  // Connection search filters groups by target substring (IP or domain).
+  let connSearch = $state('');
+  const visibleConnGroups = $derived.by(() => {
+    const q = connSearch.trim().toLowerCase();
+    if (!q) return apiConnGroups;
+    return apiConnGroups.filter((g) => g.target.toLowerCase().includes(q));
+  });
   // Group details dialog (right-click on a group row) follows the live group
   // from the store so the timeline keeps ticking while it is open.
   let selectedGroupKey = $state<string | null>(null);
   const selectedGroup = $derived(apiConnGroups.find((g) => g.key === selectedGroupKey) ?? null);
+  // The group dialog's timeline miniature opens this full interactive view.
+  let timelineOpen = $state(false);
 
-  // Connection group sorting. The default (date) is stable — active groups
-  // order by firstSeen so the list does not jump every second.
+  // Connection group sorting. The mode is persisted in the config
+  // (ui.connections_sort) and applied by the backend; the entry has no
+  // settings-UI control, so it round-trips through dedicated bindings
+  // (like language/theme) instead of SetConfigValues.
   type ConnSortMode = 'date' | 'traffic' | 'total';
   const connSortModes: ConnSortMode[] = ['date', 'traffic', 'total'];
   let connSort = $state<ConnSortMode>('date');
@@ -158,17 +180,60 @@
     traffic: L.mainConnectionsSort_traffic,
     total: L.mainConnectionsSort_total
   });
-  const sortedConnGroups = $derived.by(() => {
-    const ts = (s?: string | null) => (s ? new Date(s).getTime() : 0);
-    const arr = [...apiConnGroups];
-    arr.sort((a, b) => {
-      if (a.active !== b.active) return a.active ? -1 : 1;
-      if (connSort === 'traffic') return b.upRate + b.downRate - (a.upRate + a.downRate);
-      if (connSort === 'total') return b.upTotal + b.downTotal - (a.upTotal + a.downTotal);
-      return a.active ? ts(a.firstSeen) - ts(b.firstSeen) : ts(b.lastSeen) - ts(a.lastSeen);
-    });
-    return arr;
-  });
+
+  async function setConnSort(mode: ConnSortMode) {
+    connSort = mode;
+    try {
+      await SetConnectionsSort(mode);
+    } catch (err) {
+      toast.error(String(err));
+    }
+  }
+
+  // Group rows: left click toggles the member list, right-click or a
+  // long-press (mobile) opens the group details dialog.
+  let lpTimer: ReturnType<typeof setTimeout> | null = null;
+  let lpFired = false;
+
+  function lpCancel() {
+    if (lpTimer !== null) {
+      clearTimeout(lpTimer);
+      lpTimer = null;
+    }
+  }
+  function lpStart(key: string) {
+    lpCancel();
+    lpTimer = setTimeout(() => {
+      lpTimer = null;
+      lpFired = true;
+      selectedGroupKey = key;
+    }, 500);
+  }
+  function onGroupClick(g: APIConnectionGroup) {
+    // The click following a long-press must not toggle the expansion.
+    if (lpFired) {
+      lpFired = false;
+      return;
+    }
+    // Inactive groups have no live members to expand; a left click opens
+    // the details dialog directly (same as right-click / long-press).
+    if (!g.active) {
+      selectedGroupKey = g.key;
+      return;
+    }
+    toggleConnGroup(g.key);
+  }
+
+  // IPv badges of a group: the literal version for IP targets, otherwise
+  // per-version member counts (last known for inactive groups).
+  function groupIPBadges(g: APIConnectionGroup): string[] {
+    const direct = ipVersionLabel(g.target);
+    if (direct) return [direct];
+    const badges: string[] = [];
+    if (g.ipv4 > 0) badges.push(g.ipv4 > 1 ? `IPv4×${g.ipv4}` : 'IPv4');
+    if (g.ipv6 > 0) badges.push(g.ipv6 > 1 ? `IPv6×${g.ipv6}` : 'IPv6');
+    return badges;
+  }
   let expandedGroups = $state<Set<string>>(new Set());
   let testingGroups = $state<Set<string>>(new Set());
   let groupDelays = $state<Record<string, Record<string, number>>>({});
@@ -205,13 +270,15 @@
 
   async function loadInitial() {
     try {
-      const [status, configs, active, coreInfo, settings] = await Promise.all([
+      const [status, configs, active, coreInfo, settings, sort] = await Promise.all([
         GetStatus(),
         GetConfigs(),
         GetActiveConfig(),
         GetCoreInfo(),
-        GetConfigValues()
+        GetConfigValues(),
+        GetConnectionsSort()
       ]);
+      if (connSortModes.includes(sort as ConnSortMode)) connSort = sort as ConnSortMode;
       appState.update((s) => ({
         ...s,
         status: { ...s.status, running: status.running, pid: status.pid },
@@ -337,6 +404,16 @@
       await CloseAPIConnection(id);
       selectedConnId = null;
       selectedConnSnapshot = null;
+    } catch {
+      // The backend already reported the failure with a toast.
+    }
+  }
+
+  // Closes every live member of a connection group; the group itself turns
+  // inactive on the next snapshot and is kept for its retention window.
+  async function closeConnectionGroup(g: APIConnectionGroup) {
+    try {
+      await CloseAPIConnectionGroup(g.connIDs ?? []);
     } catch {
       // The backend already reported the failure with a toast.
     }
@@ -481,14 +558,16 @@
     if (!key || groupGraphKey !== key || !groupGraphSeeded) return;
     const g = groups.find((gr) => gr.key === key);
     if (!g || !g.active) return;
-    // Append on every api:state push (~1/s), zero rate included, to keep the
-    // per-second cadence the graph expects.
-    const maxPoints = Math.max(2, graphSpan * 2);
-    groupGraphHistory = {
-      up: [...groupGraphHistory.up, g.upRate ?? 0].slice(-maxPoints),
-      down: [...groupGraphHistory.down, g.downRate ?? 0].slice(-maxPoints),
-      times: [...groupGraphHistory.times, Date.now()].slice(-maxPoints)
-    };
+    // Append on every api:state push (~1/s), zero rate included; untracked
+    // for the same retrigger reason as the connection graph above.
+    untrack(() => {
+      const maxPoints = Math.max(2, graphSpan * 2);
+      groupGraphHistory = {
+        up: [...groupGraphHistory.up, g.upRate ?? 0].slice(-maxPoints),
+        down: [...groupGraphHistory.down, g.downRate ?? 0].slice(-maxPoints),
+        times: [...groupGraphHistory.times, Date.now()].slice(-maxPoints)
+      };
+    });
   });
 
   $effect(() => {
@@ -499,12 +578,16 @@
     if (!conn) return;
     // Append on every api:state push (~1/s), zero rate included: sparse
     // points would interpolate into triangular artifacts on the graph.
-    const maxPoints = Math.max(2, graphSpan * 2);
-    connGraphHistory = {
-      up: [...connGraphHistory.up, conn.upRate ?? 0].slice(-maxPoints),
-      down: [...connGraphHistory.down, conn.downRate ?? 0].slice(-maxPoints),
-      times: [...connGraphHistory.times, Date.now()].slice(-maxPoints)
-    };
+    // The history reads are untracked so the write cannot retrigger this
+    // effect into an infinite loop.
+    untrack(() => {
+      const maxPoints = Math.max(2, graphSpan * 2);
+      connGraphHistory = {
+        up: [...connGraphHistory.up, conn.upRate ?? 0].slice(-maxPoints),
+        down: [...connGraphHistory.down, conn.downRate ?? 0].slice(-maxPoints),
+        times: [...connGraphHistory.times, Date.now()].slice(-maxPoints)
+      };
+    });
   });
 
   const connGraphTitle = $derived(
@@ -812,10 +895,15 @@
                 {L.mainApiConnections} ({apiConnections.length})
               </Card.Title>
               <div class="flex items-center gap-2">
+                <Input
+                  class="w-36 sm:w-48 h-8 text-sm"
+                  placeholder={L.mainConnectionsSearch}
+                  bind:value={connSearch}
+                />
                 <Select.Root
                   type="single"
                   value={connSort}
-                  onValueChange={(v) => { if (v) connSort = v as ConnSortMode; }}
+                  onValueChange={(v) => { if (v) setConnSort(v as ConnSortMode); }}
                 >
                   <Select.Trigger class="w-32 h-8 text-sm">{connSortLabels[connSort]}</Select.Trigger>
                   <Select.Content>
@@ -831,22 +919,25 @@
             </div>
           </Card.Header>
           <Card.Content>
-            {#if !apiConnGroups.length}
+            {#if !visibleConnGroups.length}
               <p class="text-muted-foreground">{L.mainConnectionsEmpty}</p>
             {:else}
               <div class="space-y-2">
-                {#each sortedConnGroups as group (group.key)}
-                  {@const expanded = expandedConnGroups.has(group.key)}
+                {#each visibleConnGroups as group (group.key)}
+                  {@const expanded = group.active && expandedConnGroups.has(group.key)}
                   <div
                     class="w-full rounded-xl border border-border bg-background {group.active ? '' : 'opacity-60'}"
                   >
                     <button
                       class="w-full text-left p-3 hover:bg-accent transition rounded-xl"
-                      onclick={() => toggleConnGroup(group.key)}
+                      onclick={() => onGroupClick(group)}
                       oncontextmenu={(e) => {
                         e.preventDefault();
                         selectedGroupKey = group.key;
                       }}
+                      ontouchstart={() => lpStart(group.key)}
+                      ontouchend={lpCancel}
+                      ontouchmove={lpCancel}
                     >
                       <div class="flex items-center justify-between gap-3">
                         <span class="font-medium truncate">{group.target}</span>
@@ -857,13 +948,15 @@
                           {#if !group.active}
                             <Badge variant="outline" class="whitespace-nowrap">{L.mainConnectionsInactive}</Badge>
                           {/if}
-                          {#if ipVersionLabel(group.target)}
-                            <Badge variant="outline" class="whitespace-nowrap">{ipVersionLabel(group.target)}</Badge>
-                          {/if}
-                          {#if expanded}
-                            <ChevronUp size={16} class="text-muted-foreground" />
-                          {:else}
-                            <ChevronDown size={16} class="text-muted-foreground" />
+                          {#each groupIPBadges(group) as ipb (ipb)}
+                            <Badge variant="outline" class="whitespace-nowrap">{ipb}</Badge>
+                          {/each}
+                          {#if group.active}
+                            {#if expanded}
+                              <ChevronUp size={16} class="text-muted-foreground" />
+                            {:else}
+                              <ChevronDown size={16} class="text-muted-foreground" />
+                            {/if}
                           {/if}
                         </span>
                       </div>
@@ -904,24 +997,17 @@
 </Page>
 
 <Dialog.Root open={selectedConn != null} onOpenChange={(open) => { if (!open) { selectedConnId = null; selectedConnSnapshot = null; } }}>
-  <Dialog.Content class="sm:max-w-lg">
+  <Dialog.Content class="sm:max-w-lg max-h-[85vh] overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title>{L.connection_detailsTitle}</Dialog.Title>
     </Dialog.Header>
     {#if selectedConn}
       {@const c = selectedConn}
-      {@const inbound = c.inbound || c.inboundType || '—'}
-      {@const outbound = c.outbound || c.outboundType || '—'}
+      <!-- Route-level fields (inbound/network/source/...) live in the group
+           details dialog: members of a group share them. -->
       <div class="space-y-3 text-sm">
         {@render DetailRow('ID', c.id)}
-        {@render DetailRow(L.connection_detailsInbound, inbound)}
-        {@render DetailRow(L.connection_detailsNetwork, c.network)}
-        {@render DetailRow(L.connection_detailsSource, c.source)}
-        {@render DetailRow(L.connection_detailsDestination, c.destination)}
-        {@render DetailRow(L.connection_detailsDomain, c.domain)}
-        {@render DetailRow(L.commonRule, c.rule)}
-        {@render DetailRow(L.connection_detailsOutbound, outbound)}
-        {@render DetailRow(L.connection_detailsChain, c.chain?.join(' → '))}
+        {@render DetailRow(L.pluginsInfoStatus, apiConnections.some((x) => x.id === c.id) ? L.mainConnectionsActive : L.mainConnectionsInactive)}
         {@render DetailRow(L.connection_detailsUplink, `${formatSpeed(c.uplink)} (${formatBytes(c.uplinkTotal)})`)}
         {@render DetailRow(L.connection_detailsDownlink, `${formatSpeed(c.downlink)} (${formatBytes(c.downlinkTotal)})`)}
         {@render DetailRow(L.connection_detailsCreated, formatTime(c.createdAt) + (c.createdAgo ? ` (${c.createdAgo})` : ''))}
@@ -968,12 +1054,16 @@
 <!-- Connection group details: opened by right-click on a group row. Shows
      the activity timeline and aggregated counters; follows store updates. -->
 <Dialog.Root open={selectedGroup != null} onOpenChange={(open) => { if (!open) selectedGroupKey = null; }}>
-  <Dialog.Content class="sm:max-w-lg">
+  <Dialog.Content class="sm:max-w-lg max-h-[85vh] overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title>{selectedGroup?.target ?? ''}</Dialog.Title>
     </Dialog.Header>
     {#if selectedGroup}
       {@const g = selectedGroup}
+      <!-- Route-level fields are shared by the group's members; take them
+           from the first live one. Inactive groups have no live members,
+           so these rows hide (the history does not store them). -->
+      {@const m = groupMembers(g)[0]}
       <div class="space-y-3 text-sm">
         <div class="flex items-center gap-2">
           {#if g.active}
@@ -981,11 +1071,22 @@
           {:else}
             <Badge variant="outline">{L.mainConnectionsInactive}</Badge>
           {/if}
-          {#if ipVersionLabel(g.target)}
-            <Badge variant="outline">{ipVersionLabel(g.target)}</Badge>
-          {/if}
+          {#each groupIPBadges(g) as ipb (ipb)}
+            <Badge variant="outline">{ipb}</Badge>
+          {/each}
         </div>
+        {@render DetailRow(L.pluginsInfoStatus, g.active ? `${L.mainConnectionsActive} ×${g.connCount}` : L.mainConnectionsInactive)}
+        {@render DetailRow(L.mainConnectionsTotal_connections, String((g.spans ?? []).length))}
         {@render DetailRow(L.connection_detailsNetwork, g.network)}
+        {#if m}
+          {@render DetailRow(L.connection_detailsInbound, m.inbound || m.inboundType)}
+          {@render DetailRow(L.connection_detailsSource, m.source)}
+          {@render DetailRow(L.connection_detailsDestination, m.destination)}
+          {@render DetailRow(L.connection_detailsDomain, m.domain)}
+          {@render DetailRow(L.commonRule, m.rule)}
+          {@render DetailRow(L.connection_detailsOutbound, m.outbound || m.outboundType)}
+          {@render DetailRow(L.connection_detailsChain, m.chain?.join(' → '))}
+        {/if}
         {@render DetailRow(L.connection_detailsCreated, formatTime(g.firstSeen))}
         {@render DetailRow(L.connection_detailsUplink, `${formatSpeed(g.upRate)} (${formatBytes(g.upTotal)})`)}
         {@render DetailRow(L.connection_detailsDownlink, `${formatSpeed(g.downRate)} (${formatBytes(g.downTotal)})`)}
@@ -1009,13 +1110,35 @@
         {#if (g.spans ?? []).length}
           <div class="space-y-1 pt-1">
             <p class="text-muted-foreground">{L.mainConnectionsTimeline}</p>
-            <ActivityTimeline spans={g.spans ?? []} />
+            <!-- Miniature: click opens the full interactive timeline. -->
+            <button
+              class="w-full rounded-xl border border-border bg-background p-2 cursor-pointer hover:bg-accent transition"
+              onclick={() => (timelineOpen = true)}
+            >
+              <div class="max-h-32 overflow-hidden pointer-events-none">
+                <ActivityTimeline spans={g.spans ?? []} interactive={false} />
+              </div>
+            </button>
           </div>
         {/if}
       </div>
+      {#if g.active && (g.connIDs ?? []).length}
+        <Dialog.Footer>
+          <Button variant="destructive" onclick={() => closeConnectionGroup(g)}>
+            {L.mainConnectionsClose_group}
+          </Button>
+        </Dialog.Footer>
+      {/if}
     {/if}
   </Dialog.Content>
 </Dialog.Root>
+
+<TimelineDetailDialog
+  open={timelineOpen && selectedGroup != null}
+  onclose={() => (timelineOpen = false)}
+  title={selectedGroup ? `${L.mainConnectionsTimeline} — ${selectedGroup.target}` : ''}
+  spans={selectedGroup?.spans ?? []}
+/>
 
 <GraphDetailDialog
   open={mainGraphOpen}

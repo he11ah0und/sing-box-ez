@@ -64,6 +64,10 @@ config:
     language:
       type: string
       default: ""
+    # Rendered by the connections tab sort selector (not the settings UI).
+    connections_sort:
+      type: string
+      default: date
     desktop_notifications:
       type: bool
       default: true
