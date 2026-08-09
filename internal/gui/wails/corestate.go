@@ -31,6 +31,15 @@ func (b *Bindings) GetTrafficHistory() state.TrafficHistory {
 	return b.core.History()
 }
 
+// GetConnectionTrafficHistory returns the retained traffic rate samples of
+// one connection, or an empty history when the connection is unknown.
+func (b *Bindings) GetConnectionTrafficHistory(id string) state.TrafficHistory {
+	if b.core == nil {
+		return state.TrafficHistory{}
+	}
+	return b.core.ConnectionTrafficHistory(id)
+}
+
 // GetAPIState returns the latest cached core API snapshot.
 func (b *Bindings) GetAPIState() state.Update {
 	if b.core == nil {

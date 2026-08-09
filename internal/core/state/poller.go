@@ -52,11 +52,35 @@ type Poller struct {
 	history []TrafficPoint
 	state   Update
 	phase   string
+
+	// connHistory retains per-connection traffic rate samples keyed by
+	// connection ID; connLast holds the last totals snapshot used to derive
+	// rates from deltas. Histories of closed connections are kept until the
+	// core restarts; the map is capped at connHistoryMax entries.
+	connHistory map[string][]TrafficPoint
+	connLast    map[string]connTotals
+}
+
+// connHistoryMax caps how many per-connection histories are retained.
+const connHistoryMax = 256
+
+// connTotals is the last totals snapshot of a connection, used to derive
+// per-second rates when the API reports zero uplink/downlink.
+type connTotals struct {
+	up   int64
+	down int64
+	at   time.Time
 }
 
 // New creates a Poller. Run it with Run.
 func New(d Deps) *Poller {
-	return &Poller{d: d, backoff: 2 * time.Second, phase: PhaseStopped}
+	return &Poller{
+		d:           d,
+		backoff:     2 * time.Second,
+		phase:       PhaseStopped,
+		connHistory: make(map[string][]TrafficPoint),
+		connLast:    make(map[string]connTotals),
+	}
 }
 
 // OnTraffic registers the traffic update callback (at most one per second).
@@ -166,6 +190,8 @@ func (p *Poller) resetConn(clearHistory bool) {
 		// The core stopped: the retained samples describe a dead session.
 		p.mu.Lock()
 		p.history = nil
+		p.connHistory = make(map[string][]TrafficPoint)
+		p.connLast = make(map[string]connTotals)
 		p.mu.Unlock()
 	}
 }
@@ -176,6 +202,11 @@ func (p *Poller) newClient(client api.CoreAPIClient) {
 	p.lastDownTotal = 0
 	p.lastTrafficAt = time.Time{}
 	p.backoff = 2 * time.Second
+	// Totals restart with the new API session: drop the delta baselines but
+	// keep the retained per-connection histories.
+	p.mu.Lock()
+	p.connLast = make(map[string]connTotals)
+	p.mu.Unlock()
 }
 
 func (p *Poller) increaseBackoff() {
@@ -297,6 +328,13 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 
 	status := toStatus(&ev.Status, connectedAt)
 
+	// Rate sampling locks mu internally: it must run before the state
+	// update block below acquires the same (non-reentrant) mutex.
+	var rates map[string]TrafficPoint
+	if cErr == nil {
+		rates = p.sampleConnections(conns, now)
+	}
+
 	p.mu.Lock()
 	next := Update{
 		Phase:       PhaseConnected,
@@ -313,7 +351,7 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 		next.Groups = toGroups(groups)
 	}
 	if cErr == nil {
-		next.Connections = toConnections(conns)
+		next.Connections = toConnections(conns, rates)
 	}
 	p.state = next
 	p.phase = PhaseConnected
@@ -332,6 +370,78 @@ func (p *Poller) appendHistory(pt TrafficPoint) {
 		p.history = p.history[len(p.history)-limit:]
 	}
 	p.mu.Unlock()
+}
+
+// sampleConnections appends a rate sample to every connection's retained
+// history and returns the samples keyed by connection ID. It mirrors
+// deriveRates semantics: API-reported uplink/downlink win; when both are
+// zero the rate is derived from the totals delta since the previous sample
+// for that connection (first sight yields a zero rate).
+func (p *Poller) sampleConnections(conns []api.Connection, now time.Time) map[string]TrafficPoint {
+	limit := p.historyLimit()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rates := make(map[string]TrafficPoint, len(conns))
+	for _, c := range conns {
+		pt := TrafficPoint{At: now}
+		if c.Uplink != 0 || c.Downlink != 0 {
+			pt.Up = c.Uplink
+			pt.Down = c.Downlink
+		} else if last, ok := p.connLast[c.ID]; ok {
+			if dt := now.Sub(last.at).Seconds(); dt > 0 {
+				if d := c.UplinkTotal - last.up; d >= 0 {
+					pt.Up = int64(float64(d) / dt)
+				}
+				if d := c.DownlinkTotal - last.down; d >= 0 {
+					pt.Down = int64(float64(d) / dt)
+				}
+			}
+		}
+		rates[c.ID] = pt
+		p.connLast[c.ID] = connTotals{up: c.UplinkTotal, down: c.DownlinkTotal, at: now}
+		hist := append(p.connHistory[c.ID], pt)
+		if len(hist) > limit {
+			hist = hist[len(hist)-limit:]
+		}
+		p.connHistory[c.ID] = hist
+	}
+	p.trimConnHistoryLocked()
+	return rates
+}
+
+// trimConnHistoryLocked evicts the entry with the oldest last sample when
+// the per-connection history map exceeds connHistoryMax. Caller holds mu.
+func (p *Poller) trimConnHistoryLocked() {
+	for len(p.connHistory) > connHistoryMax {
+		var oldestID string
+		var oldestAt time.Time
+		for id, hist := range p.connHistory {
+			if len(hist) == 0 {
+				delete(p.connHistory, id)
+				delete(p.connLast, id)
+				continue
+			}
+			if at := hist[len(hist)-1].At; oldestID == "" || at.Before(oldestAt) {
+				oldestID = id
+				oldestAt = at
+			}
+		}
+		if oldestID == "" {
+			break
+		}
+		delete(p.connHistory, oldestID)
+		delete(p.connLast, oldestID)
+	}
+}
+
+// ConnectionTrafficHistory returns the retained rate samples of one
+// connection, or an empty history when the connection is unknown.
+func (p *Poller) ConnectionTrafficHistory(id string) TrafficHistory {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	points := make([]TrafficPoint, len(p.connHistory[id]))
+	copy(points, p.connHistory[id])
+	return TrafficHistory{Points: points}
 }
 
 // historyLimit returns the configured number of retained samples.

@@ -58,6 +58,12 @@ main:
     min: min
     max: max
     avg: avg
+  graph:
+    details_title: Traffic graph
+    current: Current
+    total: Total
+    median: Median
+    p95: p95
   groups:
     empty: No outbound groups
   connections:

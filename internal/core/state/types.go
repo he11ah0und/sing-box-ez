@@ -143,6 +143,11 @@ type Connection struct {
 	Downlink      int64     `json:"downlink"`
 	UplinkTotal   int64     `json:"uplinkTotal"`
 	DownlinkTotal int64     `json:"downlinkTotal"`
+	// UpRate/DownRate are the per-second rates computed by the poller for the
+	// graph history sample (API-reported, or derived from the totals delta);
+	// frontends read them directly instead of doing delta math.
+	UpRate   int64 `json:"upRate"`
+	DownRate int64 `json:"downRate"`
 	Rule          string    `json:"rule"`
 	CreatedAt     time.Time `json:"createdAt"`
 	// CreatedAgo is the localized human-readable form of the elapsed time
@@ -252,7 +257,7 @@ func createdAgoPlain(t time.Time) string {
 	return version.HumanDurationPlain(time.Since(t))
 }
 
-func toConnection(c api.Connection) Connection {
+func toConnection(c api.Connection, rate TrafficPoint) Connection {
 	chain := make([]string, len(c.Chain))
 	copy(chain, c.Chain)
 	metadata := make(map[string]any, len(c.Metadata))
@@ -276,6 +281,8 @@ func toConnection(c api.Connection) Connection {
 		Downlink:      c.Downlink,
 		UplinkTotal:   c.UplinkTotal,
 		DownlinkTotal: c.DownlinkTotal,
+		UpRate:        rate.Up,
+		DownRate:      rate.Down,
 		Rule:          c.Rule,
 		CreatedAt:     c.CreatedAt,
 		CreatedAgo:    createdAgoPlain(c.CreatedAt),
@@ -286,10 +293,12 @@ func toConnection(c api.Connection) Connection {
 }
 
 // toConnections converts a slice of api.Connection to its UI-facing form.
-func toConnections(conns []api.Connection) []Connection {
+// rates carries the per-second rate samples computed by the poller for the
+// same snapshot, keyed by connection ID.
+func toConnections(conns []api.Connection, rates map[string]TrafficPoint) []Connection {
 	out := make([]Connection, len(conns))
 	for i, c := range conns {
-		out[i] = toConnection(c)
+		out[i] = toConnection(c, rates[c.ID])
 	}
 	return out
 }

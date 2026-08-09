@@ -58,6 +58,11 @@ main:
     min: 最小
     max: 最大
     avg: 平均
+  graph:
+    details_title: 流量统计图
+    current: 当前
+    total: 总计
+    median: 中位数
   groups:
     empty: 无出站分组
   connections:

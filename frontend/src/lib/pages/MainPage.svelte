@@ -5,7 +5,8 @@
   import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
 
   import Page from '../components/Page.svelte';
-  import Sparkline from '../components/Sparkline.svelte';
+  import StackedGraph from '../components/StackedGraph.svelte';
+  import GraphDetailDialog from '../components/GraphDetailDialog.svelte';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Card from '$lib/components/ui/card/index.js';
   import * as Tabs from '$lib/components/ui/tabs/index.js';
@@ -28,7 +29,8 @@
     SelectAPINode,
     URLTestAPIGroup,
     CloseAPIConnections,
-    CloseAPIConnection
+    CloseAPIConnection,
+    GetConnectionTrafficHistory
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type {
     Status as APIStatus,
@@ -72,6 +74,8 @@
     'main.dashboard.max',
     'main.dashboard.avg',
     'main.dashboard.profile',
+    'main.graph.details_title',
+    'main.graph.total',
     'main.api.mode',
     'tab.groups',
     'main.groups.empty',
@@ -297,15 +301,6 @@
     return 'text-red-500';
   }
 
-  function sparkStats(data: number[] | undefined) {
-    if (!data?.length) return { min: 0, max: 0, avg: 0 };
-    return {
-      min: Math.min(...data),
-      max: Math.max(...data),
-      avg: data.reduce((a, b) => a + b, 0) / data.length
-    };
-  }
-
   function buildOutboundChain(groups: APIGroup[]): { chain: string; delay: string } {
     if (!groups?.length) return { chain: '', delay: '' };
     const groupMap = new Map(groups.map((g) => [g.tag, g]));
@@ -341,9 +336,77 @@
   }
 
   const outboundChain = $derived(buildOutboundChain(apiGroups));
-  const upStats = $derived(sparkStats($appState.traffic.history.up));
-  const downStats = $derived(sparkStats($appState.traffic.history.down));
   const graphSpan = $derived(Math.max(1, $appState.settings?.['core.traffic_graph_history'] || 60));
+
+  // Overview graph detail dialog; fed the live store arrays so it keeps
+  // updating while open.
+  let mainGraphOpen = $state(false);
+
+  // Per-connection graph history: seeded once from the backend when the
+  // connection dialog opens, then extended with live samples from the
+  // api:state snapshots. connGraphId pins the buffer to one connection so a
+  // late seed response cannot overwrite a newer dialog's data.
+  let connGraphOpen = $state(false);
+  let connGraphId = $state<string | null>(null);
+  let connGraphSeeded = $state(false);
+  let connGraphHistory = $state<{ up: number[]; down: number[]; times: number[] }>({
+    up: [],
+    down: [],
+    times: []
+  });
+  let lastConnKey = $state('');
+
+  $effect(() => {
+    const id = selectedConnId;
+    if (!id) {
+      connGraphId = null;
+      connGraphSeeded = false;
+      return;
+    }
+    connGraphId = id;
+    connGraphSeeded = false;
+    connGraphHistory = { up: [], down: [], times: [] };
+    lastConnKey = '';
+    GetConnectionTrafficHistory(id)
+      .then((h) => {
+        if (connGraphId !== id) return;
+        const pts = h?.points ?? [];
+        connGraphHistory = {
+          up: pts.map((p) => p.up ?? 0),
+          down: pts.map((p) => p.down ?? 0),
+          times: pts.map((p) => new Date(p.at).getTime())
+        };
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (connGraphId === id) connGraphSeeded = true;
+      });
+  });
+
+  $effect(() => {
+    const id = selectedConnId;
+    const conns = apiConnections;
+    if (!id || connGraphId !== id || !connGraphSeeded) return;
+    const conn = conns.find((c) => c.id === id);
+    if (!conn) return;
+    // Snapshots arrive ~1/s; skip appends when nothing changed so idle
+    // connections do not pile up duplicate points.
+    const key = `${conn.uplinkTotal}:${conn.downlinkTotal}:${conn.upRate}:${conn.downRate}`;
+    if (key === lastConnKey) return;
+    lastConnKey = key;
+    const maxPoints = Math.max(2, graphSpan * 2);
+    connGraphHistory = {
+      up: [...connGraphHistory.up, conn.upRate ?? 0].slice(-maxPoints),
+      down: [...connGraphHistory.down, conn.downRate ?? 0].slice(-maxPoints),
+      times: [...connGraphHistory.times, Date.now()].slice(-maxPoints)
+    };
+  });
+
+  const connGraphTitle = $derived(
+    selectedConn
+      ? `${L.mainGraphDetails_title} — ${formatConnectionTarget(selectedConn)}`
+      : L.mainGraphDetails_title
+  );
 
   function formatConnectionTarget(conn: APIConnection): string {
     if (conn.domain) {
@@ -440,47 +503,34 @@
       </div>
 
       <Tabs.Content value="overview" class="flex-1 min-h-0 overflow-y-auto space-y-6">
-        <!-- Traffic graphs -->
+        <!-- Traffic graph: stacked upload/download, clickable for details -->
         <Card.Root>
           <Card.Content>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="rounded-xl bg-background border border-border p-4 space-y-2">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-muted-foreground">{L.mainDashboardUpload}</span>
-                  <span class="text-sm font-medium">{$appState.traffic.upRate}</span>
-                </div>
-                <Sparkline
-                  data={$appState.traffic.history.up}
-                  times={$appState.traffic.history.times}
-                  span={graphSpan}
-                  color="var(--color-success)"
-                  fill
-                />
-                <p class="text-xs text-muted-foreground">
-                  {L.mainDashboardMin}: {formatSpeed(upStats.min)}
-                  &nbsp;{L.mainDashboardMax}: {formatSpeed(upStats.max)}
-                  &nbsp;{L.mainDashboardAvg}: {formatSpeed(upStats.avg)}
-                </p>
+            <button
+              class="w-full text-left rounded-xl bg-background border border-border p-4 space-y-2 cursor-pointer hover:bg-accent transition"
+              onclick={() => (mainGraphOpen = true)}
+            >
+              <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+                <span class="text-sm text-muted-foreground">
+                  {L.mainDashboardUpload}
+                  <span class="font-medium text-[var(--color-success)]">{$appState.traffic.upRate}</span>
+                </span>
+                <span class="text-sm text-muted-foreground">
+                  {L.mainDashboardDownload}
+                  <span class="font-medium text-[var(--color-primary)]">{$appState.traffic.downRate}</span>
+                </span>
+                <span class="text-sm text-muted-foreground">
+                  {L.mainGraphTotal}
+                  <span class="font-medium">{formatSpeed($appState.traffic.up + $appState.traffic.down)}</span>
+                </span>
               </div>
-              <div class="rounded-xl bg-background border border-border p-4 space-y-2">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-muted-foreground">{L.mainDashboardDownload}</span>
-                  <span class="text-sm font-medium">{$appState.traffic.downRate}</span>
-                </div>
-                <Sparkline
-                  data={$appState.traffic.history.down}
-                  times={$appState.traffic.history.times}
-                  span={graphSpan}
-                  color="var(--color-primary)"
-                  fill
-                />
-                <p class="text-xs text-muted-foreground">
-                  {L.mainDashboardMin}: {formatSpeed(downStats.min)}
-                  &nbsp;{L.mainDashboardMax}: {formatSpeed(downStats.max)}
-                  &nbsp;{L.mainDashboardAvg}: {formatSpeed(downStats.avg)}
-                </p>
-              </div>
-            </div>
+              <StackedGraph
+                up={$appState.traffic.history.up}
+                down={$appState.traffic.history.down}
+                times={$appState.traffic.history.times}
+                span={graphSpan}
+              />
+            </button>
           </Card.Content>
         </Card.Root>
 
@@ -713,6 +763,23 @@
           {@render DetailRow(L.connection_detailsUser, c.processInfo.userName)}
           {@render DetailRow(L.connection_detailsProcess, c.processInfo.processPath)}
         {/if}
+        {#if connGraphId === c.id}
+          <div class="space-y-1 pt-1">
+            <p class="text-muted-foreground">{L.mainGraphDetails_title}</p>
+            <button
+              class="w-full rounded-xl border border-border bg-background p-2 cursor-pointer hover:bg-accent transition"
+              onclick={() => (connGraphOpen = true)}
+            >
+              <StackedGraph
+                up={connGraphHistory.up}
+                down={connGraphHistory.down}
+                times={connGraphHistory.times}
+                span={graphSpan}
+                height={80}
+              />
+            </button>
+          </div>
+        {/if}
       </div>
       <Dialog.Footer>
         <Button variant="destructive" onclick={() => closeConnection(c.id)}>
@@ -731,3 +798,23 @@
     </div>
   {/if}
 {/snippet}
+
+<GraphDetailDialog
+  open={mainGraphOpen}
+  onclose={() => (mainGraphOpen = false)}
+  title={L.mainGraphDetails_title}
+  up={$appState.traffic.history.up}
+  down={$appState.traffic.history.down}
+  times={$appState.traffic.history.times}
+  span={graphSpan}
+/>
+
+<GraphDetailDialog
+  open={connGraphOpen}
+  onclose={() => (connGraphOpen = false)}
+  title={connGraphTitle}
+  up={connGraphHistory.up}
+  down={connGraphHistory.down}
+  times={connGraphHistory.times}
+  span={graphSpan}
+/>

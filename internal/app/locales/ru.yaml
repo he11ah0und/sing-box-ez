@@ -58,6 +58,11 @@ main:
     min: мин
     max: макс
     avg: сред
+  graph:
+    details_title: График трафика
+    current: Текущая
+    total: Всего
+    median: Медиана
   groups:
     empty: Нет outbound-групп
   connections:
