@@ -65,7 +65,9 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 	if active != nil {
 		manager.SetConfigName(active.Name)
 	}
-	manager.SetElevated(cfg.MustGet("privileges", "run_as_admin").Bool())
+	// run_as_admin is only honored on windows/darwin; on linux elevation is
+	// handled exclusively via setcap.
+	manager.SetElevated(runtime.GOOS != "linux" && cfg.MustGet("privileges", "run_as_admin").Bool())
 
 	logWriter := NewCoreLogWriter()
 	manager.SetLogOutput(logWriter)

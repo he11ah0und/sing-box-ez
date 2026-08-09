@@ -4,6 +4,8 @@ package wails
 
 import (
 	"fmt"
+	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -21,11 +23,14 @@ type ConfigSpecEntry struct {
 	// Min and Max bound int entries; nil when absent.
 	Min *int `json:"min"`
 	Max *int `json:"max"`
+	// Platforms restricts the entry to the listed GOOS values; nil means all
+	// platforms.
+	Platforms []string `json:"platforms"`
 }
 
 // visibleConfigEntries returns the config entries exposed to the settings UI:
-// disabled entries and entries without a UI control are excluded (those stay
-// server-side only).
+// disabled entries, entries without a UI control (those stay server-side
+// only), and entries restricted to other platforms are excluded.
 func (b *Bindings) visibleConfigEntries() []ConfigSpecEntry {
 	spec := b.app.Spec
 	if spec == nil {
@@ -36,13 +41,17 @@ func (b *Bindings) visibleConfigEntries() []ConfigSpecEntry {
 		if e.Disabled || e.Control == "" {
 			continue
 		}
+		if len(e.Platforms) > 0 && !slices.Contains(e.Platforms, runtime.GOOS) {
+			continue
+		}
 		out = append(out, ConfigSpecEntry{
-			Path:    strings.Join(e.Path, "."),
-			Type:    e.Type,
-			Control: e.Control,
-			Options: e.Options,
-			Min:     e.Min,
-			Max:     e.Max,
+			Path:      strings.Join(e.Path, "."),
+			Type:      e.Type,
+			Control:   e.Control,
+			Options:   e.Options,
+			Min:       e.Min,
+			Max:       e.Max,
+			Platforms: e.Platforms,
 		})
 	}
 	return out

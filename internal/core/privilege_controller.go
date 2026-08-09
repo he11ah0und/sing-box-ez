@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"runtime"
 
 	"github.com/he11ah0und/localengine"
@@ -57,10 +58,7 @@ func NewPrivilegeController(cfg *config.AppConfig, manager *Manager, parent *log
 func (c *PrivilegeController) HasRequiredPrivileges() bool {
 	switch runtime.GOOS {
 	case "linux":
-		if HasNetAdminCapability(c.manager.coreBinary()) {
-			return true
-		}
-		return c.cfg.MustGet("privileges", "run_as_admin").Bool()
+		return HasNetAdminCapability(c.manager.coreBinary())
 	case "windows":
 		return IsAdmin()
 	default:
@@ -110,15 +108,6 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 						return c.ApplySetcap()
 					},
 				},
-				{
-					ID:    "run_as_admin",
-					Label: localengine.T("dialog", "privileges", "btn_run_as_admin"),
-					Handler: func() error {
-						_ = c.cfg.MustGet("privileges", "run_as_admin").Update(true)
-						c.manager.SetElevated(true)
-						return c.cfg.Save()
-					},
-				},
 			},
 		}
 	default:
@@ -146,12 +135,7 @@ func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
 		state.ShowRestartAdminBtn = !state.IsAdmin
 	case "linux":
 		state.HasSetcap = HasNetAdminCapability(c.manager.coreBinary())
-		if state.HasSetcap {
-			state.AdminLabel = localengine.T("core", "admin", "label_root_setcap")
-		} else {
-			state.AdminLabel = localengine.T("core", "admin", "label_root_pkexec")
-		}
-		state.ShowSetcapBtn = true
+		state.ShowSetcapBtn = !state.HasSetcap
 		status := c.RefreshPrivilegeStatus()
 		switch status {
 		case "active":
@@ -175,6 +159,9 @@ func (c *PrivilegeController) RestartAsAdmin(restartFn func() error) error {
 
 // SetRunAsAdmin updates the run-as-admin setting.
 func (c *PrivilegeController) SetRunAsAdmin(checked bool) error {
+	if runtime.GOOS == "linux" {
+		return fmt.Errorf("run as admin is not supported on this platform: apply setcap to the core binary instead")
+	}
 	_ = c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
 	c.manager.SetElevated(checked)
 	return c.cfg.Save()
@@ -190,13 +177,13 @@ func (c *PrivilegeController) ApplySetcap() error {
 func (c *PrivilegeController) ApplyPrivilegeAction(action *PrivilegeAction) (success, needRefresh, needClose bool) {
 	err := action.Handler()
 	if err != nil {
-		_ = c.terminal.TErrorf("core.privileges.action_failed", action.Label+" failed: "+err.Error())
+		_ = c.terminal.TErrorf("core.privileges.action_failed", action.ID, err)
 		if action.ID == "setcap" {
 			_ = c.terminal.TErrorf("core.privileges.setcap_tip")
 		}
 		return false, false, false
 	}
-	c.terminal.TInfof("core.privileges.action_succeeded", action.Label+" succeeded.")
+	c.terminal.TInfof("core.privileges.action_succeeded", action.ID)
 	needRefresh = action.ID == "setcap" || action.ID == "run_as_admin"
 	needClose = action.ID == "restart_admin"
 	return true, needRefresh, needClose

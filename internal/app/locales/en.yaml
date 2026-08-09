@@ -96,19 +96,18 @@ core:
     download: Download latest sing-box core
     check: Check latest version
     restart_admin: Restart as administrator
-    apply_setcap: Apply setcap (TUN without root)
+    apply_setcap: Apply setcap
   privileges:
     title: Privileges
     admin: 'Privileges: running as administrator'
     user: 'Privileges: running as user'
-    setcap_active: 'Privileges: setcap active (TUN without root)'
+    setcap_active: 'Privileges: setcap active'
     root_required: 'Privileges: root required for TUN'
+    setcap_hint: setcap grants the core binary the cap_net_admin capability, allowing TUN to work without running as root
   setcap:
     unavailable: setcap not available on this OS
   admin:
     label: Run as administrator
-    label_root_setcap: Run as root (setcap active, TUN without root)
-    label_root_pkexec: Run as root (pkexec, for TUN)
   mode:
     admin: Admin
     setcap_prompt: setcap is not applied to the core binary. Apply it now to enable TUN without root?
@@ -369,13 +368,13 @@ dialog:
     msg_linux: 'sing-box needs elevated privileges to create the TUN device.
 
 
-      Choose an option below:'
+      Apply setcap below to grant the core the required capability without
+      running as root.'
     msg_windows: 'sing-box needs administrator privileges to create the TUN device.
 
 
       Please restart the application as administrator.'
     btn_setcap: Apply setcap (recommended)
-    btn_run_as_admin: Enable run as admin
 progress:
   initializing: Initializing...
   checking_updates: Checking for updates...

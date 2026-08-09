@@ -63,6 +63,7 @@
     'common.cancel',
     'dialog.btn.confirm',
     'core.privileges.title',
+    'core.privileges.setcap_hint',
     'core.btn.restart_admin',
     'core.btn.apply_setcap',
     'core.mode.setcap_prompt',
@@ -308,6 +309,9 @@
             {/if}
             {#if privState.privilegeText}
               <p class="text-sm" style={colorStyle(privState.privilegeColor)}>{privState.privilegeText}</p>
+            {/if}
+            {#if privState.mode === 'linux'}
+              <p class="text-xs text-muted-foreground">{L.corePrivilegesSetcap_hint}</p>
             {/if}
             {#if privState.adminLabel}
               <p class="text-sm text-muted-foreground">{privState.adminLabel}</p>

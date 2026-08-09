@@ -54,9 +54,9 @@ core:
   log_processor:
     fatal_auto_restart: "Detected core fatal error, auto-restarting..."
   privileges:
-    action_failed: "%s"
+    action_failed: "privilege action %s failed: %v"
     setcap_tip: "Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box"
-    action_succeeded: "%s"
+    action_succeeded: "privilege action %s succeeded"
   interactive:
     log_message: "%s"
     detect_style_failed: "Failed to detect config style: %v"

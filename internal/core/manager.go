@@ -122,12 +122,9 @@ func (m *Manager) buildCommand(ctx context.Context, corePath, configArg string) 
 			// #nosec G204 — corePath and configArg are internal managed values.
 			return exec.CommandContext(ctx, corePath, "run", "-c", configArg), nil
 		}
-		absCore, err := m.absPath(corePath)
-		if err != nil {
-			return nil, fmt.Errorf("resolve core path: %w", err)
-		}
-		// #nosec G204 — pkexec is a system binary; absCore is a resolved internal path.
-		return exec.CommandContext(ctx, "pkexec", absCore, "run", "-c", configArg), nil
+		// No pkexec fallback: a pkexec-launched core is an independent root
+		// process that survives app exit (orphan).
+		return nil, fmt.Errorf("administrator privileges not available: apply setcap to the core binary")
 	case "darwin":
 		absCore, err := m.absPath(corePath)
 		if err != nil {
