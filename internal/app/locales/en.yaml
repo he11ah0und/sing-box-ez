@@ -93,10 +93,6 @@ core:
     check: Check latest version
     restart_admin: Restart as administrator
     apply_setcap: Apply setcap (TUN without root)
-  auto_restart: Auto-restart core on fatal errors
-  start_on_launch: Start core on launch
-  proxy:
-    enabled: Enable proxy (mixed + TUN HTTP proxy)
   privileges:
     title: Privileges
     admin: 'Privileges: running as administrator'
@@ -114,11 +110,6 @@ core:
     setcap_prompt: setcap is not applied to the core binary. Apply it now to enable TUN without root?
   log:
     title: Core log
-    level: Log level
-  graph_history:
-    label: Traffic graph history
-  url_test_url:
-    label: URL-test URL
   api:
     title: API connection
     not_running: Core is not running
@@ -198,40 +189,57 @@ validation:
 settings:
   tab:
     general: General
+    core: Core
+    log: Log
+    ui: UI
+    updates: Updates
+    system: System
+  core:
+    auto_restart: Auto-restart core on fatal errors
+    start_on_launch: Start core on launch
+    proxy:
+      enabled: Enable proxy (mixed + TUN HTTP proxy)
+    url_test_url: URL-test URL
+    log:
+      level:
+        label: Log level
+        warn: Warn
+        error: Error
+    traffic_graph_history: Traffic graph history
+  log:
+    limit: 'Log limit (lines, 0=unlimited):'
+  ui:
+    show_logs: Show logs
+    desktop_notifications: Desktop notifications
+    theme_mode:
+      label: Theme mode
+      system: System-based
+      dark: Dark
+      light: Light
+  privileges:
+    run_as_admin: Run core as admin
+  updates:
+    auto_check_self: Check for app updates on startup
+    auto_check_core: Check for core updates on startup
+    auto_update_configs: Auto-update configs in background
+    auto_update_configs_interval_hours: Auto-update check interval (hours)
+    auto_update_on_hash_mismatch: Auto-update cached remote config when hash differs from stored
+    auto_restart_on_config_update: Auto-restart core when active config updates
+    background_update_check_interval_hours: Background config update check interval (hours)
+    default_interval_hours: 'Default update interval (hours):'
   update_check:
     title: Update Checks
-    self: Check for app updates on startup
-    core: Check for core updates on startup
     interval: Startup check interval (hours)
     background_interval: Background check interval (hours)
-  log_limit:
-    label: 'Log limit (lines, 0=unlimited):'
-  log_level:
-    label: 'Log level:'
-    warn: Warn
-    error: Error
-  show_logs: Show logs
+  config_update:
+    title: Config Updates
   system:
     mode: Platform
     restart_admin_confirm: Restart the application with administrator privileges?
-  config_update:
-    title: Config Updates
-    auto: Auto-update configs in background
-    hash_mismatch: Auto-update cached remote config when hash differs from stored
-    auto_restart: Auto-restart core when active config updates
-    interval: Auto-update check interval (hours)
-    background_interval: Background config update check interval (hours)
-  default_interval:
-    label: 'Default update interval (hours):'
   language:
     title: Language
   theme:
     title: Theme
-  theme_mode:
-    title: Theme mode
-    system_based: System-based
-    dark: Dark
-    light: Light
   plugins:
     enabled: Plugins feature
     developer: Plugins developer
@@ -248,8 +256,6 @@ settings:
       '
     success_title: Data reset
     success_msg: All data has been reset. The application will exit now.
-  desktop_notifications: Desktop notifications
-  runAsAdmin: Run core as admin
   saved: Settings saved
 startup:
   subtitle: Choose how to run

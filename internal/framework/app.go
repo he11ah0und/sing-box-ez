@@ -32,6 +32,10 @@ type App struct {
 	Config   config.Config
 	CLI      *cli.Engine[*App]
 	Backend  rpc.Backend
+	// Spec is the parsed declarative project spec (nil when Config.ProjectSpec
+	// was not provided). UI layers read config entry metadata (control hints,
+	// options, min/max) from it.
+	Spec *projectspec.Spec
 
 	// Root is the data directory. ConfigsDir/PluginsDir/DocsDir are
 	// pre-created subdirectories with enforced permissions.
@@ -218,6 +222,7 @@ func NewApp(cfg Config) (*App, error) {
 		CLI:           cliEngine,
 		RemainingArgs: remaining,
 		runGUI:        cfg.RunGUI,
+		Spec:          spec,
 	}
 
 	if spec != nil {

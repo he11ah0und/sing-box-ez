@@ -93,10 +93,6 @@ core:
     check: 检查最新版本
     restart_admin: 以管理员身份重启
     apply_setcap: 应用 setcap（无需 root 使用 TUN）
-  auto_restart: 核心崩溃时自动重启
-  start_on_launch: 启动时启动核心
-  proxy:
-    enabled: 启用代理（mixed + TUN HTTP 代理）
   privileges:
     title: 权限
     admin: 权限：以管理员身份运行
@@ -114,11 +110,6 @@ core:
     setcap_prompt: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
   log:
     title: 核心日志
-    level: 日志级别
-  graph_history:
-    label: 流量图表历史
-  url_test_url:
-    label: URL 测试地址
   api:
     title: API 连接
     not_running: 核心未运行
@@ -198,40 +189,57 @@ validation:
 settings:
   tab:
     general: 常规
-  log_limit:
-    label: 日志行数限制（0=无限制）：
-  log_level:
-    label: 日志级别：
-    warn: 警告
-    error: 错误
+    core: 核心
+    log: 日志
+    ui: 界面
+    updates: 更新
+    system: 系统
+  core:
+    auto_restart: 核心崩溃时自动重启
+    start_on_launch: 启动时启动核心
+    proxy:
+      enabled: 启用代理（mixed + TUN HTTP 代理）
+    url_test_url: URL 测试地址
+    log:
+      level:
+        label: 日志级别
+        warn: 警告
+        error: 错误
+    traffic_graph_history: 流量图表历史
+  log:
+    limit: 日志行数限制（0=无限制）：
+  ui:
+    show_logs: 显示日志
+    desktop_notifications: 桌面通知
+    theme_mode:
+      label: 主题模式
+      system: 跟随系统
+      dark: 深色
+      light: 浅色
+  privileges:
+    run_as_admin: 以管理员身份运行核心
+  updates:
+    auto_check_self: 启动时检查应用更新
+    auto_check_core: 启动时检查核心更新
+    auto_update_configs: 后台自动更新配置
+    auto_update_configs_interval_hours: 自动更新检查间隔（小时）
+    auto_update_on_hash_mismatch: 当缓存的远程配置哈希与存储不一致时自动更新
+    auto_restart_on_config_update: 活动配置更新时自动重启核心
+    background_update_check_interval_hours: 后台配置更新检查间隔（小时）
+    default_interval_hours: 默认更新间隔（小时）：
   update_check:
     title: 更新检查
-    self: 启动时检查应用更新
-    core: 启动时检查核心更新
     interval: 启动检查间隔（小时）
     background_interval: 后台检查间隔（小时）
-  show_logs: 显示日志
+  config_update:
+    title: 配置更新
   system:
     mode: 平台
     restart_admin_confirm: 以管理员权限重启应用？
-  config_update:
-    title: 配置更新
-    auto: 后台自动更新配置
-    hash_mismatch: 当缓存的远程配置哈希与存储不一致时自动更新
-    auto_restart: 活动配置更新时自动重启核心
-    interval: 自动更新检查间隔（小时）
-    background_interval: 后台配置更新检查间隔（小时）
-  default_interval:
-    label: 默认更新间隔（小时）：
   language:
     title: 语言
   theme:
     title: 主题
-  theme_mode:
-    title: 主题模式
-    system_based: 跟随系统
-    dark: 深色
-    light: 浅色
   plugins:
     enabled: 插件功能
     developer: 插件开发者模式
@@ -248,8 +256,6 @@ settings:
       '
     success_title: 数据已重置
     success_msg: 所有数据已重置。应用现在将退出。
-  desktop_notifications: 桌面通知
-  runAsAdmin: 以管理员身份运行核心
   saved: 设置已保存
 startup:
   subtitle: 选择运行方式

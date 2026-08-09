@@ -3,8 +3,7 @@ import type { ConfigRecord } from '../../../bindings/sing-box-ez/internal/config
 import type {
   ActiveConfig,
   CoreInfo,
-  SelfUpdateInfo,
-  Settings
+  SelfUpdateInfo
 } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 import type {
   Connection as APIConnection,
@@ -91,7 +90,7 @@ export interface AppState {
   status: CoreStatus;
   configs: ConfigRecord[];
   activeConfig: ActiveConfig | null;
-  settings: Settings;
+  settings: Record<string, any>;
   // settingsLoaded marks that settings were fetched at least once, so pages
   // render from the store instead of re-fetching on every mount.
   settingsLoaded: boolean;
@@ -110,7 +109,7 @@ export const appState = writable<AppState>({
   status: { running: false, processing: false, pid: 0 },
   configs: [],
   activeConfig: null,
-  settings: {} as Settings,
+  settings: {},
   settingsLoaded: false,
   coreInfo: {
     installedVersion: '',

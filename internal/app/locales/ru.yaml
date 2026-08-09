@@ -93,10 +93,6 @@ core:
     check: Проверить последнюю версию
     restart_admin: Перезапустить от администратора
     apply_setcap: Применить setcap (TUN без root)
-  auto_restart: Авто-перезапуск ядра при фатальных ошибках
-  start_on_launch: Запускать ядро при старте программы
-  proxy:
-    enabled: Включить proxy (mixed + TUN HTTP proxy)
   privileges:
     title: Привилегии
     admin: 'Привилегии: запущено от администратора'
@@ -114,11 +110,6 @@ core:
     setcap_prompt: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
   log:
     title: Лог ядра
-    level: Уровень лога
-  graph_history:
-    label: История графика трафика
-  url_test_url:
-    label: URL для URL-теста
   api:
     title: Подключение к API
     not_running: Ядро не запущено
@@ -198,40 +189,57 @@ validation:
 settings:
   tab:
     general: Основные
-  log_limit:
-    label: 'Лимит строк лога (0=без ограничений):'
-  log_level:
-    label: 'Уровень журнала:'
-    warn: Предупреждение
-    error: Ошибка
+    core: Ядро
+    log: Лог
+    ui: Интерфейс
+    updates: Обновления
+    system: Система
+  core:
+    auto_restart: Авто-перезапуск ядра при фатальных ошибках
+    start_on_launch: Запускать ядро при старте программы
+    proxy:
+      enabled: Включить proxy (mixed + TUN HTTP proxy)
+    url_test_url: URL для URL-теста
+    log:
+      level:
+        label: Уровень лога
+        warn: Предупреждение
+        error: Ошибка
+    traffic_graph_history: История графика трафика
+  log:
+    limit: 'Лимит строк лога (0=без ограничений):'
+  ui:
+    show_logs: Показывать логи
+    desktop_notifications: Уведомления на рабочий стол
+    theme_mode:
+      label: Режим темы
+      system: Системная
+      dark: Тёмная
+      light: Светлая
+  privileges:
+    run_as_admin: Запускать ядро от имени администратора
+  updates:
+    auto_check_self: Проверять обновления приложения при запуске
+    auto_check_core: Проверять обновления ядра при запуске
+    auto_update_configs: Автообновление конфигов в фоне
+    auto_update_configs_interval_hours: Интервал проверки обновлений конфигов (часов)
+    auto_update_on_hash_mismatch: Автообновлять кэш удалённого конфига при расхождении хэша
+    auto_restart_on_config_update: Авто-перезапуск ядра при обновлении активного конфига
+    background_update_check_interval_hours: Интервал фоновой проверки обновлений конфигов (часов)
+    default_interval_hours: 'Интервал обновления по умолчанию (часов):'
   update_check:
     title: Проверка обновлений
-    self: Проверять обновления приложения при запуске
-    core: Проверять обновления ядра при запуске
     interval: Интервал проверки при запуске (часов)
     background_interval: Интервал фоновой проверки (часов)
-  show_logs: Показывать логи
+  config_update:
+    title: Обновление конфигов
   system:
     mode: Платформа
     restart_admin_confirm: Перезапустить приложение с правами администратора?
-  config_update:
-    title: Обновление конфигов
-    auto: Автообновление конфигов в фоне
-    hash_mismatch: Автообновлять кэш удалённого конфига при расхождении хэша
-    auto_restart: Авто-перезапуск ядра при обновлении активного конфига
-    interval: Интервал проверки обновлений конфигов (часов)
-    background_interval: Интервал фоновой проверки обновлений конфигов (часов)
-  default_interval:
-    label: 'Интервал обновления по умолчанию (часов):'
   language:
     title: Язык
   theme:
     title: Тема
-  theme_mode:
-    title: Режим темы
-    system_based: Системная
-    dark: Тёмная
-    light: Светлая
   plugins:
     enabled: Функция плагинов
     developer: Режим разработчика плагинов
@@ -248,8 +256,6 @@ settings:
       '
     success_title: Данные сброшены
     success_msg: Все данные сброшены. Приложение сейчас завершит работу.
-  desktop_notifications: Уведомления на рабочий стол
-  runAsAdmin: Запускать ядро от имени администратора
   saved: Настройки сохранены
 startup:
   subtitle: Выберите режим запуска

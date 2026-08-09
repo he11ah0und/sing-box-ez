@@ -3,7 +3,6 @@
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
   import { locale, useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
-  import { theme, applyTheme, fromThemePayload } from '../stores/theme.js';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
@@ -16,10 +15,12 @@
   import { Skeleton } from '$lib/components/ui/skeleton/index.js';
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import {
-    GetSettings,
-    SaveSettings,
+    GetConfigSpec,
+    GetConfigValues,
+    SetConfigValues,
     GetTheme,
     GetThemeNames,
+    SetTheme,
     GetAvailableLanguages,
     SetLanguage,
     GetPrivilegeTabState,
@@ -28,71 +29,32 @@
     ResetData
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type {
-    Settings,
+    ConfigSpecEntry,
     LanguageOption,
     PrivilegeTabState
   } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 
   let processing = $state(false);
 
-  // The form seeds from the cached settings snapshot (fetched once by the
-  // bridge) so revisits render instantly; GetSettings runs again only when
-  // the snapshot is missing or the user hits Reset.
-  const defaultSettings: Settings = {
-    language: 'en',
-    theme: 'default',
-    themeMode: 'system',
-    autoStartCore: false,
-    autoRestart: false,
-    runAsAdmin: false,
-    logLimit: 100,
-    desktopNotifications: true,
-    autoCheckCore: true,
-    autoCheckSelf: true,
-    defaultIntervalHours: 24,
-    proxyEnabled: false,
-    urlTestURL: '',
-    coreLogLevel: 'info',
-    trafficGraphHistory: 60,
-    showLogs: false,
-    autoUpdateConfigs: false,
-    autoUpdateConfigsIntervalHours: 24,
-    autoUpdateOnHashMismatch: false,
-    autoRestartOnConfigUpdate: false,
-    backgroundUpdateCheckIntervalHours: 2
-  };
-  let form = $state<Settings>({ ...defaultSettings, ...$appState.settings });
+  // The form seeds from the cached values snapshot (fetched once by the
+  // bridge) so revisits render instantly; GetConfigValues runs again only
+  // when the snapshot is missing or the user hits Reset.
+  let form = $state<Record<string, any>>({ ...$appState.settings });
+  let spec = $state<ConfigSpecEntry[]>([]);
 
-  let themeNames = $state<string[]>([]);
   let languages = $state<LanguageOption[]>([]);
+  let themeName = $state('');
+  let themeNames = $state<string[]>([]);
   let privState = $state<PrivilegeTabState | null>(null);
   let privProcessing = $state(false);
   let confirmRestartAdmin = $state(false);
   let confirmSetcap = $state(false);
   let confirmReset = $state(false);
 
-  // Theme mode "system" maps to the system_based locale key; the config
-  // value itself stays "system". Log levels debug/info live in common.*.
-  const logLevelKeys: Record<string, string> = {
-    debug: 'common.debug',
-    info: 'common.info',
-    warn: 'settings.log_level.warn',
-    error: 'settings.log_level.error'
-  };
-
-  const R = useLocaleRecord([
-    'settings.theme_mode.system_based',
-    'settings.theme_mode.dark',
-    'settings.theme_mode.light',
-    ...Object.values(logLevelKeys)
-  ]);
-
-  const themeModeLabel = $derived(
-    R[`settings.theme_mode.${form.themeMode === 'system' ? 'system_based' : form.themeMode}`]
-  );
-  const coreLogLevelLabel = $derived(
-    R[logLevelKeys[form.coreLogLevel] ?? `settings.log_level.${form.coreLogLevel}`]
-  );
+  // Dynamic labels come from wildcard namespaces: tab labels, control labels
+  // and select option labels all follow the settings.<path>[.label|.<option>]
+  // convention; common.* backs the debug/info option fallback.
+  const R = useLocaleRecord(['settings.*', 'common.*']);
 
   const L = useLocale([
     'tab.settings',
@@ -100,21 +62,10 @@
     'common.save',
     'common.cancel',
     'dialog.btn.confirm',
-    'core.start_on_launch',
-    'core.auto_restart',
-    'core.proxy.enabled',
-    'core.url_test_url.label',
-    'core.log.level',
-    'core.graph_history.label',
     'core.privileges.title',
     'core.btn.restart_admin',
     'core.btn.apply_setcap',
     'core.mode.setcap_prompt',
-    'settings.runAsAdmin',
-    'common.debug',
-    'common.info',
-    'settings.log_level.warn',
-    'settings.log_level.error',
     'settings.system.mode',
     'settings.system.restart_admin_confirm',
     'settings.reset.title',
@@ -122,23 +73,37 @@
     'settings.reset.confirm_title',
     'settings.reset.confirm_msg',
     'settings.language.title',
-    'settings.theme.title',
-    'settings.theme_mode.title',
-    'settings.theme_mode.system_based',
-    'settings.theme_mode.dark',
-    'settings.theme_mode.light',
-    'settings.log_limit.label',
-    'settings.default_interval.label',
-    'settings.config_update.interval',
-    'settings.config_update.background_interval',
-    'settings.desktop_notifications',
-    'settings.show_logs',
-    'settings.update_check.core',
-    'settings.update_check.self',
-    'settings.config_update.auto',
-    'settings.config_update.hash_mismatch',
-    'settings.config_update.auto_restart'
+    'settings.theme.title'
   ]);
+
+  // The system tab is custom; privileges.* entries fold into it (there is no
+  // settings.tab.privileges key), rendered above the privileges block.
+  function tabOf(path: string): string {
+    const seg = path.split('.')[0];
+    return seg === 'privileges' ? 'system' : seg;
+  }
+
+  function entriesFor(tab: string): ConfigSpecEntry[] {
+    return spec.filter((e) => tabOf(e.path) === tab);
+  }
+
+  function entryLabel(entry: ConfigSpecEntry): string {
+    // Selects label via settings.<path>.label, other controls settings.<path>.
+    return entry.control === 'select' ? R.settings[`${entry.path}.label`] : R.settings[entry.path];
+  }
+
+  function optionLabel(entry: ConfigSpecEntry, option: unknown): string {
+    const opt = String(option);
+    const key = `${entry.path}.${opt}`;
+    const label = R.settings[key];
+    // A missing convention key falls back to common.<option> (debug/info).
+    if (label !== `settings.${key}`) return label;
+    return R.common[opt];
+  }
+
+  function inputId(path: string): string {
+    return `settings-${path.replaceAll('.', '-')}`;
+  }
 
   function colorStyle(color: string): string {
     if (color === 'green') return 'color: var(--color-success)';
@@ -160,18 +125,24 @@
 
   async function load(force = false) {
     try {
-      const needSettings = force || !$appState.settingsLoaded;
-      const [s, names, langs] = await Promise.all([
-        needSettings ? GetSettings() : Promise.resolve(null),
-        GetThemeNames(),
-        GetAvailableLanguages()
+      const needValues = force || !$appState.settingsLoaded;
+      const [s, v, langs, t, names] = await Promise.all([
+        GetConfigSpec(),
+        needValues ? GetConfigValues() : Promise.resolve(null),
+        GetAvailableLanguages(),
+        GetTheme(),
+        GetThemeNames()
       ]);
-      if (s) {
-        form = { ...form, ...s };
-        appState.update((state) => ({ ...state, settings: s, settingsLoaded: true }));
+      spec = s ?? [];
+      if (v) {
+        form = { ...v };
+        appState.update((state) => ({ ...state, settings: { ...v }, settingsLoaded: true }));
+      } else {
+        form = { ...$appState.settings };
       }
-      themeNames = names && names.length > 0 ? names : ['default'];
       languages = langs && langs.length > 0 ? langs : [{ code: 'en', name: 'English' }];
+      themeName = t?.name ?? '';
+      themeNames = names && names.length > 0 ? names : [themeName || 'default'];
     } catch (err) {
       toast.error(String(err));
     }
@@ -180,17 +151,8 @@
   async function save() {
     processing = true;
     try {
-      await SaveSettings({ ...form });
+      await SetConfigValues({ ...form });
       appState.update((state) => ({ ...state, settings: { ...form } }));
-      const [t, l] = await Promise.all([GetTheme(), SetLanguage(form.language)]);
-      if (t) {
-        const data = fromThemePayload(t);
-        theme.set(data);
-        applyTheme(data);
-      }
-      if (l) {
-        locale.set({ language: l.language, values: (l.values ?? {}) as Record<string, string> });
-      }
     } catch {
       // The backend already reported the result with a toast.
     } finally {
@@ -200,6 +162,30 @@
 
   function reset() {
     load(true);
+  }
+
+  // SetLanguage persists ui.language itself and returns the new locale; the
+  // backend also emits locale:changed, so this just applies the result.
+  async function changeLanguage(code: string) {
+    try {
+      const l = await SetLanguage(code);
+      if (l) {
+        locale.set({ language: l.language, values: (l.values ?? {}) as Record<string, string> });
+      }
+    } catch (err) {
+      toast.error(String(err));
+    }
+  }
+
+  // SetTheme persists ui.theme and emits theme:changed, which the bridge
+  // applies to the document; this just keeps the select in sync.
+  async function changeTheme(name: string) {
+    try {
+      const t = await SetTheme(name);
+      if (t) themeName = t.name;
+    } catch (err) {
+      toast.error(String(err));
+    }
   }
 
   async function restartAsAdmin() {
@@ -231,6 +217,54 @@
   }
 </script>
 
+{#snippet generatedControls(tab: string)}
+  {@const switches = entriesFor(tab).filter((e) => e.control === 'switch')}
+  {@const fields = entriesFor(tab).filter((e) => e.control !== 'switch')}
+  {#if switches.length > 0}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {#each switches as entry (entry.path)}
+        <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
+          <Switch bind:checked={form[entry.path]} />
+          <span>{entryLabel(entry)}</span>
+        </Label>
+      {/each}
+    </div>
+  {/if}
+  {#if fields.length > 0}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      {#each fields as entry (entry.path)}
+        <div class="space-y-1">
+          <Label for={inputId(entry.path)}>{entryLabel(entry)}</Label>
+          {#if entry.control === 'select'}
+            <Select.Root
+              type="single"
+              value={String(form[entry.path])}
+              onValueChange={(v) => (form[entry.path] = entry.type === 'int' ? Number(v) : v)}
+            >
+              <Select.Trigger class="w-full">{optionLabel(entry, form[entry.path])}</Select.Trigger>
+              <Select.Content>
+                {#each entry.options ?? [] as opt (String(opt))}
+                  <Select.Item value={String(opt)} label={optionLabel(entry, opt)} />
+                {/each}
+              </Select.Content>
+            </Select.Root>
+          {:else if entry.control === 'number'}
+            <Input
+              id={inputId(entry.path)}
+              type="number"
+              min={entry.min ?? undefined}
+              max={entry.max ?? undefined}
+              bind:value={form[entry.path]}
+            />
+          {:else}
+            <Input id={inputId(entry.path)} bind:value={form[entry.path]} />
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+{/snippet}
+
 <Page
   title={L.tabSettings}
   onLoad={load}
@@ -248,62 +282,9 @@
 
   <Card.Root>
     <Card.Content class="space-y-5">
-      {#if $subNav.activeTab === 'core'}
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.autoStartCore} />
-            <span>{L.coreStart_on_launch}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.autoRestart} />
-            <span>{L.coreAuto_restart}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.runAsAdmin} />
-            <span>{L.settingsRunAsAdmin}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.proxyEnabled} />
-            <span>{L.coreProxyEnabled}</span>
-          </Label>
-        </div>
+      {#if $subNav.activeTab === 'system'}
+        {@render generatedControls('system')}
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div class="space-y-1 sm:col-span-2">
-            <Label for="settings-url-test">{L.coreUrl_test_urlLabel}</Label>
-            <Input id="settings-url-test" bind:value={form.urlTestURL} />
-          </div>
-
-          <div class="space-y-1">
-            <Label>{L.coreLogLevel}</Label>
-            <Select.Root type="single" bind:value={form.coreLogLevel}>
-              <Select.Trigger class="w-full">{coreLogLevelLabel}</Select.Trigger>
-              <Select.Content>
-                <Select.Item value="debug" label={L.commonDebug} />
-                <Select.Item value="info" label={L.commonInfo} />
-                <Select.Item value="warn" label={L.settingsLog_levelWarn} />
-                <Select.Item value="error" label={L.settingsLog_levelError} />
-              </Select.Content>
-            </Select.Root>
-          </div>
-
-          <div class="space-y-1">
-            <Label>{L.coreGraph_historyLabel}</Label>
-            <Select.Root
-              type="single"
-              value={String(form.trafficGraphHistory)}
-              onValueChange={(v) => (form.trafficGraphHistory = Number(v))}
-            >
-              <Select.Trigger class="w-full">{form.trafficGraphHistory}</Select.Trigger>
-              <Select.Content>
-                {#each [30, 60, 120, 300] as n (n)}
-                  <Select.Item value={String(n)} label={String(n)} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-        </div>
-      {:else if $subNav.activeTab === 'system'}
         <div class="space-y-3">
           <p class="font-medium flex items-center gap-2">
             <ShieldCheck size={16} />
@@ -351,98 +332,37 @@
           </Button>
         </div>
       {:else}
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div class="space-y-1">
-            <Label>{L.settingsLanguageTitle}</Label>
-            <Select.Root type="single" bind:value={form.language}>
-              <Select.Trigger class="w-full">
-                {languages.find((l) => l.code === form.language)?.name ?? form.language}
-              </Select.Trigger>
-              <Select.Content>
-                {#each languages as lang (lang.code)}
-                  <Select.Item value={lang.code} label={lang.name} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
+        {#if $subNav.activeTab === 'ui'}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div class="space-y-1">
+              <Label>{L.settingsLanguageTitle}</Label>
+              <Select.Root type="single" value={$locale.language} onValueChange={changeLanguage}>
+                <Select.Trigger class="w-full">
+                  {languages.find((l) => l.code === $locale.language)?.name ?? $locale.language}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each languages as lang (lang.code)}
+                    <Select.Item value={lang.code} label={lang.name} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="space-y-1">
+              <Label>{L.settingsThemeTitle}</Label>
+              <Select.Root type="single" value={themeName} onValueChange={changeTheme}>
+                <Select.Trigger class="w-full">{themeName}</Select.Trigger>
+                <Select.Content>
+                  {#each themeNames as name (name)}
+                    <Select.Item value={name} label={name} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
           </div>
+        {/if}
 
-          <div class="space-y-1">
-            <Label>{L.settingsThemeTitle}</Label>
-            <Select.Root type="single" bind:value={form.theme}>
-              <Select.Trigger class="w-full">{form.theme}</Select.Trigger>
-              <Select.Content>
-                {#each themeNames as name (name)}
-                  <Select.Item value={name} label={name} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-
-          <div class="space-y-1">
-            <Label>{L.settingsTheme_modeTitle}</Label>
-            <Select.Root type="single" bind:value={form.themeMode}>
-              <Select.Trigger class="w-full">{themeModeLabel}</Select.Trigger>
-              <Select.Content>
-                <Select.Item value="system" label={L.settingsTheme_modeSystem_based} />
-                <Select.Item value="dark" label={L.settingsTheme_modeDark} />
-                <Select.Item value="light" label={L.settingsTheme_modeLight} />
-              </Select.Content>
-            </Select.Root>
-          </div>
-
-          <div class="space-y-1">
-            <Label for="settings-log-limit">{L.settingsLog_limitLabel}</Label>
-            <Input id="settings-log-limit" type="number" min="10" bind:value={form.logLimit} />
-          </div>
-
-          <div class="space-y-1">
-            <Label for="settings-interval">{L.settingsDefault_intervalLabel}</Label>
-            <Input id="settings-interval" type="number" min="1" bind:value={form.defaultIntervalHours} />
-          </div>
-
-          <div class="space-y-1">
-            <Label for="settings-config-interval">{L.settingsConfig_updateInterval}</Label>
-            <Input id="settings-config-interval" type="number" min="1" bind:value={form.autoUpdateConfigsIntervalHours} />
-          </div>
-
-          <div class="space-y-1">
-            <Label for="settings-bg-interval">{L.settingsConfig_updateBackground_interval}</Label>
-            <Input id="settings-bg-interval" type="number" min="1" bind:value={form.backgroundUpdateCheckIntervalHours} />
-          </div>
-        </div>
-
-        <Separator />
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.desktopNotifications} />
-            <span>{L.settingsDesktop_notifications}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.showLogs} />
-            <span>{L.settingsShow_logs}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.autoCheckCore} />
-            <span>{L.settingsUpdate_checkCore}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.autoCheckSelf} />
-            <span>{L.settingsUpdate_checkSelf}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.autoUpdateConfigs} />
-            <span>{L.settingsConfig_updateAuto}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.autoUpdateOnHashMismatch} />
-            <span>{L.settingsConfig_updateHash_mismatch}</span>
-          </Label>
-          <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-            <Switch bind:checked={form.autoRestartOnConfigUpdate} />
-            <span>{L.settingsConfig_updateAuto_restart}</span>
-          </Label>
-        </div>
+        {@render generatedControls($subNav.activeTab ?? '')}
       {/if}
     </Card.Content>
   </Card.Root>

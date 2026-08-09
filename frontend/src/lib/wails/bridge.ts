@@ -3,9 +3,9 @@ import { toast } from 'svelte-sonner';
 import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../stores/appState.js';
 import { locale, setLocaleValues } from '../stores/locale.svelte.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
-import type { ActiveConfig, SelfUpdateInfo, Settings } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+import type { ActiveConfig, SelfUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 import type { Update as APIStateUpdate } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
-import { GetAPIState, GetTrafficHistory, GetSettings } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+import { GetAPIState, GetTrafficHistory, GetConfigValues } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -136,12 +136,12 @@ export function initWailsEvents() {
 
   // Seed the settings snapshot once; settings:changed events (and explicit
   // page reloads) keep it fresh afterwards.
-  GetSettings()
-    .then((s) => {
-      appState.update((st) => ({ ...st, settings: s ?? st.settings, settingsLoaded: true }));
+  GetConfigValues()
+    .then((v) => {
+      appState.update((st) => ({ ...st, settings: v ?? st.settings, settingsLoaded: true }));
     })
     .catch((err: unknown) => {
-      console.warn('GetSettings failed:', err);
+      console.warn('GetConfigValues failed:', err);
     });
 
   Events.On('api:state', (event: WailsEvent<APIStateUpdate>) => {
@@ -179,8 +179,13 @@ export function initWailsEvents() {
     appState.update((s) => ({ ...s, selfUpdateInfo: event.data }));
   });
 
-  Events.On('settings:changed', (event: WailsEvent<Settings>) => {
-    appState.update((s) => ({ ...s, settings: event.data ?? {} as Settings, settingsLoaded: true }));
+  Events.On('settings:changed', (event: WailsEvent<Record<string, any>>) => {
+    // The payload holds only the paths that were set; merge into the snapshot.
+    appState.update((s) => ({
+      ...s,
+      settings: { ...s.settings, ...(event.data ?? {}) },
+      settingsLoaded: true
+    }));
   });
 
   Events.On('core:version', (event: WailsEvent<CoreVersionPayload>) => {
@@ -205,7 +210,7 @@ export function initWailsEvents() {
   Events.On('traffic:updated', (event: WailsEvent<TrafficPayload>) => {
     const data = event.data ?? {};
     appState.update((s) => {
-      const maxPoints = Math.max(2, s.settings?.trafficGraphHistory || 60);
+      const maxPoints = Math.max(2, s.settings?.['core.traffic_graph_history'] || 60);
       const times = [...s.traffic.history.times, Date.now()].slice(-maxPoints);
       const upHistory = [...s.traffic.history.up, data.up ?? 0].slice(-maxPoints);
       const downHistory = [...s.traffic.history.down, data.down ?? 0].slice(-maxPoints);

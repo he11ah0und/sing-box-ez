@@ -40,33 +40,6 @@ type CoreInfo struct {
 	DownloadProgress int    `json:"downloadProgress"`
 }
 
-// Settings is the UI-facing representation of application settings.
-type Settings struct {
-	Language             string `json:"language"`
-	Theme                string `json:"theme"`
-	ThemeMode            string `json:"themeMode"`
-	AutoStartCore        bool   `json:"autoStartCore"`
-	AutoRestart          bool   `json:"autoRestart"`
-	RunAsAdmin           bool   `json:"runAsAdmin"`
-	LogLimit             int    `json:"logLimit"`
-	DesktopNotifications bool   `json:"desktopNotifications"`
-	AutoCheckCore        bool   `json:"autoCheckCore"`
-	AutoCheckSelf        bool   `json:"autoCheckSelf"`
-	DefaultIntervalHours int    `json:"defaultIntervalHours"`
-
-	ProxyEnabled        bool   `json:"proxyEnabled"`
-	URLTestURL          string `json:"urlTestURL"`
-	CoreLogLevel        string `json:"coreLogLevel"`
-	TrafficGraphHistory int    `json:"trafficGraphHistory"`
-	ShowLogs            bool   `json:"showLogs"`
-
-	AutoUpdateConfigs                  bool `json:"autoUpdateConfigs"`
-	AutoUpdateConfigsIntervalHours     int  `json:"autoUpdateConfigsIntervalHours"`
-	AutoUpdateOnHashMismatch           bool `json:"autoUpdateOnHashMismatch"`
-	AutoRestartOnConfigUpdate          bool `json:"autoRestartOnConfigUpdate"`
-	BackgroundUpdateCheckIntervalHours int  `json:"backgroundUpdateCheckIntervalHours"`
-}
-
 // ThemePayload is the UI-facing representation of the active theme.
 type ThemePayload struct {
 	Name   string            `json:"name"`
@@ -315,6 +288,15 @@ func (b *Bindings) SetLanguage(code string) Locale {
 	return l
 }
 
+// SetTheme changes the active theme, persists it to config and notifies the UI.
+func (b *Bindings) SetTheme(name string) ThemePayload {
+	_ = b.app.Controller.Config().MustGet("ui", "theme").Update(name)
+	_ = b.app.Controller.Config().Save()
+	t := b.themePayload()
+	b.emit("theme:changed", t)
+	return t
+}
+
 // RegisterLocaleKeys registers UI locale keys and returns their current values.
 // A key ending in ".*" is a wildcard: it registers every leaf path under
 // that prefix (expanded per current language, so language switches
@@ -461,73 +443,6 @@ func (b *Bindings) applyWindowBackground(win application.Window) {
 		return
 	}
 	win.SetBackgroundColour(application.NewRGB(c.R, c.G, c.B))
-}
-
-// GetSettings returns the current application settings.
-func (b *Bindings) GetSettings() Settings {
-	acc := b.app.Controller.Config().Acc
-	return Settings{
-		Language:             acc.UI.Language.String(),
-		Theme:                acc.UI.Theme.String(),
-		ThemeMode:            acc.UI.ThemeMode.String(),
-		AutoStartCore:        acc.Core.StartOnLaunch.Bool(),
-		AutoRestart:          acc.Core.AutoRestart.Bool(),
-		RunAsAdmin:           acc.Privileges.RunAsAdmin.Bool(),
-		LogLimit:             acc.Log.Limit.Int(),
-		DesktopNotifications: acc.UI.DesktopNotifications.Bool(),
-		AutoCheckCore:        acc.Updates.AutoCheckCore.Bool(),
-		AutoCheckSelf:        acc.Updates.AutoCheckSelf.Bool(),
-		DefaultIntervalHours: acc.Updates.DefaultIntervalHours.Int(),
-
-		ProxyEnabled:        acc.Core.Proxy.Enabled.Bool(),
-		URLTestURL:          acc.Core.URLTestURL.String(),
-		CoreLogLevel:        acc.Core.Log.Level.String(),
-		TrafficGraphHistory: acc.Core.TrafficGraphHistory.Int(),
-		ShowLogs:            acc.UI.ShowLogs.Bool(),
-
-		AutoUpdateConfigs:                  acc.Updates.AutoUpdateConfigs.Bool(),
-		AutoUpdateConfigsIntervalHours:     acc.Updates.AutoUpdateConfigsIntervalHours.Int(),
-		AutoUpdateOnHashMismatch:           acc.Updates.AutoUpdateOnHashMismatch.Bool(),
-		AutoRestartOnConfigUpdate:          acc.Updates.AutoRestartOnConfigUpdate.Bool(),
-		BackgroundUpdateCheckIntervalHours: acc.Updates.BackgroundUpdateCheckIntervalHours.Int(),
-	}
-}
-
-// SaveSettings persists the provided settings.
-func (b *Bindings) SaveSettings(s Settings) error {
-	cfg := b.app.Controller.Config()
-	acc := cfg.Acc
-	_ = acc.UI.Language.Update(s.Language)
-	_ = acc.UI.Theme.Update(s.Theme)
-	_ = acc.UI.ThemeMode.Update(s.ThemeMode)
-	_ = acc.Core.StartOnLaunch.Update(s.AutoStartCore)
-	_ = acc.Core.AutoRestart.Update(s.AutoRestart)
-	_ = acc.Privileges.RunAsAdmin.Update(s.RunAsAdmin)
-	_ = acc.Log.Limit.Update(s.LogLimit)
-	_ = acc.UI.DesktopNotifications.Update(s.DesktopNotifications)
-	_ = acc.Updates.AutoCheckCore.Update(s.AutoCheckCore)
-	_ = acc.Updates.AutoCheckSelf.Update(s.AutoCheckSelf)
-	_ = acc.Updates.DefaultIntervalHours.Update(s.DefaultIntervalHours)
-
-	_ = acc.Core.Proxy.Enabled.Update(s.ProxyEnabled)
-	_ = acc.Core.URLTestURL.Update(s.URLTestURL)
-	_ = acc.Core.Log.Level.Update(s.CoreLogLevel)
-	_ = acc.Core.TrafficGraphHistory.Update(s.TrafficGraphHistory)
-	_ = acc.UI.ShowLogs.Update(s.ShowLogs)
-
-	_ = acc.Updates.AutoUpdateConfigs.Update(s.AutoUpdateConfigs)
-	_ = acc.Updates.AutoUpdateConfigsIntervalHours.Update(s.AutoUpdateConfigsIntervalHours)
-	_ = acc.Updates.AutoUpdateOnHashMismatch.Update(s.AutoUpdateOnHashMismatch)
-	_ = acc.Updates.AutoRestartOnConfigUpdate.Update(s.AutoRestartOnConfigUpdate)
-	_ = acc.Updates.BackgroundUpdateCheckIntervalHours.Update(s.BackgroundUpdateCheckIntervalHours)
-	if err := cfg.Save(); err != nil {
-		b.toastErr(err)
-		return err
-	}
-	b.emit("settings:changed", s)
-	b.emitTheme()
-	b.toastT("success", []string{"settings", "saved"})
-	return nil
 }
 
 // ResetData deletes config.yaml, profiles.yaml and the configs/ folder, then

@@ -33,9 +33,11 @@ export const pageRegistry: PageMeta[] = [
     bottomNav: true,
     order: 2,
     tabs: [
-      { id: 'general', key: 'settings.tab.general' },
-      { id: 'core', key: 'tab.core' },
-      { id: 'system', key: 'common.system' }
+      { id: 'core', key: 'settings.tab.core' },
+      { id: 'log', key: 'settings.tab.log' },
+      { id: 'ui', key: 'settings.tab.ui' },
+      { id: 'updates', key: 'settings.tab.updates' },
+      { id: 'system', key: 'settings.tab.system' }
     ]
   },
   {

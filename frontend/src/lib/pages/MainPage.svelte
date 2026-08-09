@@ -22,7 +22,7 @@
     GetConfigs,
     GetActiveConfig,
     GetCoreInfo,
-    GetSettings,
+    GetConfigValues,
     ActivateConfig,
     SetAPIMode,
     SelectAPINode,
@@ -154,7 +154,7 @@
         GetConfigs(),
         GetActiveConfig(),
         GetCoreInfo(),
-        GetSettings()
+        GetConfigValues()
       ]);
       appState.update((s) => ({
         ...s,
@@ -162,7 +162,8 @@
         configs: configs ?? [],
         activeConfig: active,
         coreInfo: { ...s.coreInfo, ...coreInfo },
-        settings
+        settings: settings ?? s.settings,
+        settingsLoaded: true
       }));
     } catch (err) {
       toast.error(String(err));
@@ -325,7 +326,7 @@
   const outboundChain = $derived(buildOutboundChain(apiGroups));
   const upStats = $derived(sparkStats($appState.traffic.history.up));
   const downStats = $derived(sparkStats($appState.traffic.history.down));
-  const graphSpan = $derived(Math.max(1, $appState.settings?.trafficGraphHistory || 60));
+  const graphSpan = $derived(Math.max(1, $appState.settings?.['core.traffic_graph_history'] || 60));
 
   function formatConnectionTarget(conn: APIConnection): string {
     if (conn.domain) {
