@@ -197,7 +197,9 @@ func runCoreAndWait(cfg *config.AppConfig, active *config.ConfigRecord, dataDir 
 	m := newCoreManager(dataDir)
 	m.SetConfigURL(active.URL)
 	m.SetConfigName(active.Name)
-	m.SetElevated(runtime.GOOS != "linux" && cfg.MustGet("privileges", "run_as_admin").Bool())
+	// On windows the app itself must run as administrator; that is what
+	// elevates the core. On linux elevation is handled via setcap.
+	m.SetElevated(runtime.GOOS == "windows" && core.IsAdmin())
 
 	if err := m.Start(); err != nil {
 		return fmt.Errorf("start failed: %w", err)
@@ -233,7 +235,7 @@ func cmdStop(cfg *config.AppConfig, _ *fwcli.Context) error {
 		return fmt.Errorf("invalid pid file")
 	}
 
-	elevated := runtime.GOOS != "linux" && cfg.MustGet("privileges", "run_as_admin").Bool()
+	elevated := runtime.GOOS == "windows" && core.IsAdmin()
 	if core.HasNetAdminCapability(coreBinaryPath(dataDir)) {
 		elevated = false
 	}

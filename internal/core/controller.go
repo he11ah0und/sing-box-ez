@@ -65,9 +65,12 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 	if active != nil {
 		manager.SetConfigName(active.Name)
 	}
-	// run_as_admin is only honored on windows/darwin; on linux elevation is
-	// handled exclusively via setcap.
-	manager.SetElevated(runtime.GOOS != "linux" && cfg.MustGet("privileges", "run_as_admin").Bool())
+	// On windows the app itself must run as administrator; that is what
+	// elevates the core. On linux elevation is handled exclusively via
+	// setcap (a setcap-applied core binary runs directly).
+	if runtime.GOOS == "windows" {
+		manager.SetElevated(IsAdmin())
+	}
 
 	logWriter := NewCoreLogWriter()
 	manager.SetLogOutput(logWriter)
@@ -832,16 +835,6 @@ func (c *Controller) RestartAsAdmin() error {
 	// The elevated copy is being started; terminate the current unprivileged
 	// instance so only one copy of the application remains running.
 	os.Exit(0)
-	return nil
-}
-
-func (c *Controller) SetRunAsAdmin(checked bool) error {
-	_ = c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
-	c.manager.SetElevated(checked)
-	if err := c.cfg.Save(); err != nil {
-		return fmt.Errorf("failed to save admin setting: %w", err)
-	}
-	c.terminal.TInfof("core.controller.admin_mode", checked)
 	return nil
 }
 

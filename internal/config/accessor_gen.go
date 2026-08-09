@@ -8,14 +8,13 @@ import fwconfig "github.com/he11ah0und/config"
 // field is a cell handle, so reads and writes through the accessor go
 // straight to the sheet and stay in sync with the rest of the app.
 type Accessor struct {
-	Core       *CoreAccessor
-	Log        *LogAccessor
-	UI         *UIAccessor
-	Privileges *PrivilegesAccessor
-	Updates    *UpdatesAccessor
-	Plugins    *PluginsAccessor
-	Service    *ServiceAccessor
-	Remote     *RemoteAccessor
+	Core    *CoreAccessor
+	Log     *LogAccessor
+	UI      *UIAccessor
+	Updates *UpdatesAccessor
+	Plugins *PluginsAccessor
+	Service *ServiceAccessor
+	Remote  *RemoteAccessor
 }
 
 type CoreAccessor struct {
@@ -46,10 +45,6 @@ type UIAccessor struct {
 	DesktopNotifications *fwconfig.Cell
 	Theme                *fwconfig.Cell
 	ThemeMode            *fwconfig.Cell
-}
-
-type PrivilegesAccessor struct {
-	RunAsAdmin *fwconfig.Cell
 }
 
 type UpdatesAccessor struct {
@@ -107,9 +102,6 @@ func NewAccessor(sheet *fwconfig.Sheet) *Accessor {
 			DesktopNotifications: sheet.MustGet("ui", "desktop_notifications"),
 			Theme:                sheet.MustGet("ui", "theme"),
 			ThemeMode:            sheet.MustGet("ui", "theme_mode"),
-		},
-		Privileges: &PrivilegesAccessor{
-			RunAsAdmin: sheet.MustGet("privileges", "run_as_admin"),
 		},
 		Updates: &UpdatesAccessor{
 			AutoCheckSelf:                      sheet.MustGet("updates", "auto_check_self"),

@@ -8,7 +8,6 @@ type PrivilegeTabState struct {
 	Mode                string `json:"mode"`
 	IsAdmin             bool   `json:"isAdmin"`
 	HasSetcap           bool   `json:"hasSetcap"`
-	RunAsAdmin          bool   `json:"runAsAdmin"`
 	AdminStatusText     string `json:"adminStatusText"`
 	AdminStatusColor    string `json:"adminStatusColor"`
 	AdminLabel          string `json:"adminLabel"`
@@ -25,7 +24,6 @@ func (b *Bindings) GetPrivilegeTabState() PrivilegeTabState {
 		Mode:                s.Mode,
 		IsAdmin:             s.IsAdmin,
 		HasSetcap:           s.HasSetcap,
-		RunAsAdmin:          s.RunAsAdmin,
 		AdminStatusText:     s.AdminStatusText,
 		AdminStatusColor:    s.AdminStatusColor,
 		AdminLabel:          s.AdminLabel,

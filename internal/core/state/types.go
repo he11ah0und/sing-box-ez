@@ -79,17 +79,17 @@ type Info struct {
 
 // Status is a UI-facing snapshot of api.Status.
 type Status struct {
-	Version          string    `json:"version"`
-	Uptime           string    `json:"uptime"`
-	Memory           uint64    `json:"memory"`
-	Goroutines       int32     `json:"goroutines"`
-	ConnectionsIn    int32     `json:"connectionsIn"`
-	ConnectionsOut   int32     `json:"connectionsOut"`
-	TrafficAvailable bool      `json:"trafficAvailable"`
-	Uplink           int64     `json:"uplink"`
-	Downlink         int64     `json:"downlink"`
-	UplinkTotal      int64     `json:"uplinkTotal"`
-	DownlinkTotal    int64     `json:"downlinkTotal"`
+	Version          string `json:"version"`
+	Uptime           string `json:"uptime"`
+	Memory           uint64 `json:"memory"`
+	Goroutines       int32  `json:"goroutines"`
+	ConnectionsIn    int32  `json:"connectionsIn"`
+	ConnectionsOut   int32  `json:"connectionsOut"`
+	TrafficAvailable bool   `json:"trafficAvailable"`
+	Uplink           int64  `json:"uplink"`
+	Downlink         int64  `json:"downlink"`
+	UplinkTotal      int64  `json:"uplinkTotal"`
+	DownlinkTotal    int64  `json:"downlinkTotal"`
 	// ConnectedAt is when the core API first answered after the last failure.
 	ConnectedAt time.Time `json:"connectedAt"`
 	// ConnectedAgo is the localized human-readable form of the elapsed time
@@ -127,24 +127,24 @@ type ProcessInfo struct {
 
 // Connection is a UI-facing snapshot of api.Connection.
 type Connection struct {
-	ID            string         `json:"id"`
-	Inbound       string         `json:"inbound"`
-	InboundType   string         `json:"inboundType"`
-	Network       string         `json:"network"`
-	Source        string         `json:"source"`
-	Destination   string         `json:"destination"`
-	Domain        string         `json:"domain"`
-	Protocol      string         `json:"protocol"`
-	User          string         `json:"user"`
-	Outbound      string         `json:"outbound"`
-	OutboundType  string         `json:"outboundType"`
-	Chain         []string       `json:"chain"`
-	Uplink        int64          `json:"uplink"`
-	Downlink      int64          `json:"downlink"`
-	UplinkTotal   int64          `json:"uplinkTotal"`
-	DownlinkTotal int64          `json:"downlinkTotal"`
-	Rule          string         `json:"rule"`
-	CreatedAt     time.Time      `json:"createdAt"`
+	ID            string    `json:"id"`
+	Inbound       string    `json:"inbound"`
+	InboundType   string    `json:"inboundType"`
+	Network       string    `json:"network"`
+	Source        string    `json:"source"`
+	Destination   string    `json:"destination"`
+	Domain        string    `json:"domain"`
+	Protocol      string    `json:"protocol"`
+	User          string    `json:"user"`
+	Outbound      string    `json:"outbound"`
+	OutboundType  string    `json:"outboundType"`
+	Chain         []string  `json:"chain"`
+	Uplink        int64     `json:"uplink"`
+	Downlink      int64     `json:"downlink"`
+	UplinkTotal   int64     `json:"uplinkTotal"`
+	DownlinkTotal int64     `json:"downlinkTotal"`
+	Rule          string    `json:"rule"`
+	CreatedAt     time.Time `json:"createdAt"`
 	// CreatedAgo is the localized human-readable form of the elapsed time
 	// since CreatedAt.
 	CreatedAgo  string         `json:"createdAgo"`

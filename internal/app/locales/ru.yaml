@@ -217,8 +217,6 @@ settings:
       system: Системная
       dark: Тёмная
       light: Светлая
-  privileges:
-    run_as_admin: Запускать ядро от имени администратора
   updates:
     auto_check_self: Проверять обновления приложения при запуске
     auto_check_core: Проверять обновления ядра при запуске

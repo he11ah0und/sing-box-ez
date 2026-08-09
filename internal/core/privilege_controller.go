@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"runtime"
 
 	"github.com/he11ah0und/localengine"
@@ -28,7 +27,6 @@ type PrivilegeTabState struct {
 	Mode                string // "windows", "linux", "macos"
 	IsAdmin             bool
 	HasSetcap           bool
-	RunAsAdmin          bool
 	AdminStatusText     string
 	AdminStatusColor    string // "green", "yellow"
 	AdminLabel          string
@@ -118,8 +116,7 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 // GetPrivilegeTabState returns the current privilege state for rendering the Core tab.
 func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
 	state := PrivilegeTabState{
-		Mode:       runtime.GOOS,
-		RunAsAdmin: c.cfg.MustGet("privileges", "run_as_admin").Bool(),
+		Mode: runtime.GOOS,
 	}
 
 	switch runtime.GOOS {
@@ -157,16 +154,6 @@ func (c *PrivilegeController) RestartAsAdmin(restartFn func() error) error {
 	return restartFn()
 }
 
-// SetRunAsAdmin updates the run-as-admin setting.
-func (c *PrivilegeController) SetRunAsAdmin(checked bool) error {
-	if runtime.GOOS == "linux" {
-		return fmt.Errorf("run as admin is not supported on this platform: apply setcap to the core binary instead")
-	}
-	_ = c.cfg.MustGet("privileges", "run_as_admin").Update(checked)
-	c.manager.SetElevated(checked)
-	return c.cfg.Save()
-}
-
 // ApplySetcap applies setcap and returns any error.
 func (c *PrivilegeController) ApplySetcap() error {
 	return SetNetAdminCapabilityGUI(c.manager.coreBinary())
@@ -184,7 +171,7 @@ func (c *PrivilegeController) ApplyPrivilegeAction(action *PrivilegeAction) (suc
 		return false, false, false
 	}
 	c.terminal.TInfof("core.privileges.action_succeeded", action.ID)
-	needRefresh = action.ID == "setcap" || action.ID == "run_as_admin"
+	needRefresh = action.ID == "setcap"
 	needClose = action.ID == "restart_admin"
 	return true, needRefresh, needClose
 }

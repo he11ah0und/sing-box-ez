@@ -72,13 +72,6 @@ config:
       control: select
       options: [system, dark, light]
 
-  privileges:
-    run_as_admin:
-      type: bool
-      default: false
-      control: switch
-      platforms: [windows, darwin]
-
   updates:
     auto_check_self:
       type: bool

@@ -217,8 +217,6 @@ settings:
       system: System-based
       dark: Dark
       light: Light
-  privileges:
-    run_as_admin: Run core as admin
   updates:
     auto_check_self: Check for app updates on startup
     auto_check_core: Check for core updates on startup

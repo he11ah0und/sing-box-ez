@@ -217,8 +217,6 @@ settings:
       system: 跟随系统
       dark: 深色
       light: 浅色
-  privileges:
-    run_as_admin: 以管理员身份运行核心
   updates:
     auto_check_self: 启动时检查应用更新
     auto_check_core: 启动时检查核心更新

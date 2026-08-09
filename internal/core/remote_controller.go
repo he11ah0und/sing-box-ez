@@ -216,11 +216,6 @@ func (r *RemoteController) RestartAsAdmin() error {
 	return errors.New("restart as admin is not available in remote mode")
 }
 
-// SetRunAsAdmin forwards the setting to the remote side.
-func (r *RemoteController) SetRunAsAdmin(checked bool) error {
-	return r.call("core", "set_run_as_admin", rpc.BoolValue{Value: checked}, nil)
-}
-
 // ApplySetcap is not available for remote controllers.
 func (r *RemoteController) ApplySetcap() error {
 	return errors.New("apply setcap is not available in remote mode")
@@ -391,7 +386,6 @@ type privilegeTabStateMsg struct {
 	Mode                string `msgpack:"mode"`
 	IsAdmin             bool   `msgpack:"is_admin"`
 	HasSetcap           bool   `msgpack:"has_setcap"`
-	RunAsAdmin          bool   `msgpack:"run_as_admin"`
 	AdminStatusText     string `msgpack:"admin_status_text"`
 	AdminStatusColor    string `msgpack:"admin_status_color"`
 	AdminLabel          string `msgpack:"admin_label"`

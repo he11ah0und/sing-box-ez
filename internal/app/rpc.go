@@ -68,7 +68,6 @@ type PrivilegeTabStateMsg struct {
 	Mode                string `msgpack:"mode"`
 	IsAdmin             bool   `msgpack:"is_admin"`
 	HasSetcap           bool   `msgpack:"has_setcap"`
-	RunAsAdmin          bool   `msgpack:"run_as_admin"`
 	AdminStatusText     string `msgpack:"admin_status_text"`
 	AdminStatusColor    string `msgpack:"admin_status_color"`
 	AdminLabel          string `msgpack:"admin_label"`
@@ -118,9 +117,6 @@ func (a *App) registerRPC(registry *rpc.Registry) {
 	})
 	_ = registry.Register("core", "restart_as_admin", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.RestartAsAdmin()
-	})
-	_ = registry.Register("core", "set_run_as_admin", func(ctx context.Context, req rpc.BoolValue) (rpc.Empty, error) {
-		return rpc.Empty{}, a.Controller.SetRunAsAdmin(req.Value)
 	})
 	_ = registry.Register("core", "set_auto_restart", func(ctx context.Context, req rpc.BoolValue) (rpc.Empty, error) {
 		return rpc.Empty{}, a.Controller.SetAutoRestart(req.Value)
@@ -264,7 +260,6 @@ func privilegeStateToMsg(state core.PrivilegeTabState) PrivilegeTabStateMsg {
 		Mode:                state.Mode,
 		IsAdmin:             state.IsAdmin,
 		HasSetcap:           state.HasSetcap,
-		RunAsAdmin:          state.RunAsAdmin,
 		AdminStatusText:     state.AdminStatusText,
 		AdminStatusColor:    state.AdminStatusColor,
 		AdminLabel:          state.AdminLabel,

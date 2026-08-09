@@ -38,7 +38,6 @@ core:
     opening_config_dir: "Opening config directory: %s"
     only_local_recreate: Only local configs can be recreated
     recreated_local_config: "Recreated local config: %s"
-    admin_mode: "Admin mode: %v"
     setcap_failed: "setcap failed: %v; tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box"
     setcap_applied: setcap applied successfully.
     log_limit_set: "Log limit set to %d"

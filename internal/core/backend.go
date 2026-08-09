@@ -39,7 +39,6 @@ type Backend interface {
 
 	GetPrivilegeTabState() PrivilegeTabState
 	RestartAsAdmin() error
-	SetRunAsAdmin(checked bool) error
 	ApplySetcap() error
 
 	OpenDataDir() error
