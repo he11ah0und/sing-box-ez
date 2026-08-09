@@ -134,13 +134,9 @@ configs:
     'yes': 'yes'
     'no': 'no'
   badge:
-    client: client
-    server: server
-    undefined: undefined
     modified: modified
-    not_recommended: not recommended
-    active: Active
     hash_mismatch_tooltip: Cached content differs from the stored hash
+  actions: Actions
   dialog:
     period: Period (hours)
     auto_update: Auto-update
@@ -158,11 +154,17 @@ configs:
   nameRequired: Name is required
   new: New config
   name: Name
-  type: Type
-  remote: Remote
-  local: Local
+  type:
+    label: Type
+    remote: Remote
+    local: Local
+  style:
+    client: client
+    server: server
   url: URL / Path
   interval: Update interval (h)
+  update:
+    overdue: overdue
   empty: No configs yet.
   confirmDelete: Delete this config?
   update_all:

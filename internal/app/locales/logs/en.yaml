@@ -90,6 +90,7 @@ fs:
 gui:
   self_update_check_failed: "background self-update check failed: %v"
   locale_wildcard_no_match: "locale wildcard %q matched no keys"
+  config_meta_style_failed: "detect config style for %q: %v"
   tray:
     create_icon_failed: "failed to create system tray icon"
     icon_shown: "icon shown"

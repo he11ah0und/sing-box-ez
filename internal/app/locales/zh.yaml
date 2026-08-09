@@ -134,13 +134,9 @@ configs:
     'yes': 是
     'no': 否
   badge:
-    client: 客户端
-    server: 服务器
-    undefined: 未定义
     modified: 已修改
-    not_recommended: 不推荐
-    active: '当前'
     hash_mismatch_tooltip: 缓存内容与存储的哈希不一致
+  actions: 操作
   dialog:
     period: 周期（小时）
     auto_update: 自动更新
@@ -158,11 +154,17 @@ configs:
   nameRequired: '请填写名称'
   new: '新建配置'
   name: '名称'
-  type: '类型'
-  remote: '远程'
-  local: '本地'
+  type:
+    label: '类型'
+    remote: '远程'
+    local: '本地'
+  style:
+    client: '客户端'
+    server: '服务器'
   url: 'URL / 路径'
   interval: '更新间隔（小时）'
+  update:
+    overdue: 已过期
   empty: '暂无配置。'
   confirmDelete: '删除此配置？'
   update_all:

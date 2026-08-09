@@ -243,6 +243,15 @@ func toProcessInfo(p api.ProcessInfo) ProcessInfo {
 	}
 }
 
+// createdAgoPlain formats the elapsed time since t as a compact plain
+// duration ("5s", "3h 5m"), or an empty string when t is zero.
+func createdAgoPlain(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return version.HumanDurationPlain(time.Since(t))
+}
+
 func toConnection(c api.Connection) Connection {
 	chain := make([]string, len(c.Chain))
 	copy(chain, c.Chain)
@@ -269,7 +278,7 @@ func toConnection(c api.Connection) Connection {
 		DownlinkTotal: c.DownlinkTotal,
 		Rule:          c.Rule,
 		CreatedAt:     c.CreatedAt,
-		CreatedAgo:    version.HumanDuration(c.CreatedAt),
+		CreatedAgo:    createdAgoPlain(c.CreatedAt),
 		ClosedAt:      c.ClosedAt,
 		ProcessInfo:   toProcessInfo(c.ProcessInfo),
 		Metadata:      metadata,

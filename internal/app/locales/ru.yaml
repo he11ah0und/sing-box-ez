@@ -134,13 +134,9 @@ configs:
     'yes': да
     'no': нет
   badge:
-    client: клиент
-    server: сервер
-    undefined: не определён
     modified: изменён
-    not_recommended: не рекомендуется
-    active: 'Активный'
     hash_mismatch_tooltip: Содержимое кэша отличается от сохранённого хэша
+  actions: Действия
   dialog:
     period: Период (часов)
     auto_update: Автообновление
@@ -158,11 +154,17 @@ configs:
   nameRequired: 'Укажите название'
   new: 'Новый конфиг'
   name: 'Название'
-  type: 'Тип'
-  remote: 'Удалённый'
-  local: 'Локальный'
+  type:
+    label: 'Тип'
+    remote: 'Удалённый'
+    local: 'Локальный'
+  style:
+    client: 'клиент'
+    server: 'сервер'
   url: 'URL / Путь'
   interval: 'Интервал обновления (ч)'
+  update:
+    overdue: просрочено
   empty: 'Конфигов пока нет.'
   confirmDelete: 'Удалить этот конфиг?'
   update_all:

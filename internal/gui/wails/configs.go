@@ -4,9 +4,56 @@ package wails
 
 import (
 	"fmt"
+	"time"
 
+	"sing-box-ez/internal/core/inboundstyle"
+	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/singboxconfig"
 )
+
+// ConfigMeta carries per-profile display metadata for the configs list:
+// the detected inbound style and the last/next update times as compact
+// plain durations ("2h", "3h 5m"). Empty strings mean "no value to show".
+type ConfigMeta struct {
+	// Style is "client" or "server"; empty for undefined or unreadable configs.
+	Style string `json:"style"`
+	// LastPlain is the elapsed time since the last successful update; empty
+	// when never updated.
+	LastPlain string `json:"lastPlain"`
+	// NextPlain is the time until the next scheduled update; empty when no
+	// auto-update is scheduled or the update is already due (see Overdue).
+	NextPlain string `json:"nextPlain"`
+	// Overdue is true when an auto-update is scheduled and its time has come.
+	Overdue bool `json:"overdue"`
+}
+
+// GetConfigMeta returns display metadata for every profile, keyed by profile
+// name. Per-config failures degrade to empty fields instead of failing the
+// whole call.
+func (b *Bindings) GetConfigMeta() map[string]ConfigMeta {
+	recs := b.app.Controller.GetConfigs()
+	out := make(map[string]ConfigMeta, len(recs))
+	for _, rec := range recs {
+		meta := ConfigMeta{}
+		if style, err := b.app.Controller.DetectConfigStyle(rec.Name); err != nil {
+			b.app.Logger.Root.TDebugf("gui.config_meta_style_failed", rec.Name, err)
+		} else if style == inboundstyle.StyleClient || style == inboundstyle.StyleServer {
+			meta.Style = string(style)
+		}
+		if !rec.LastUpdate.IsZero() {
+			meta.LastPlain = version.HumanDurationPlain(time.Since(rec.LastUpdate.Time))
+		}
+		if next := rec.NextUpdate(); !next.IsZero() {
+			if rec.ShouldUpdate() || !time.Now().Before(next) {
+				meta.Overdue = true
+			} else {
+				meta.NextPlain = version.HumanDurationPlain(time.Until(next))
+			}
+		}
+		out[rec.Name] = meta
+	}
+	return out
+}
 
 // SetFallbackType persists the fallback_type for the named profile. When a
 // config style check is pending for the profile (the user was asked how to
