@@ -178,6 +178,10 @@ func toStatus(s *api.Status, connectedAt time.Time) Status {
 	if s == nil {
 		return Status{}
 	}
+	connectedAgo := ""
+	if !connectedAt.IsZero() {
+		connectedAgo = version.HumanDurationPlain(time.Since(connectedAt))
+	}
 	return Status{
 		Version:          s.Version,
 		Uptime:           s.Uptime.String(),
@@ -191,7 +195,7 @@ func toStatus(s *api.Status, connectedAt time.Time) Status {
 		UplinkTotal:      s.UplinkTotal,
 		DownlinkTotal:    s.DownlinkTotal,
 		ConnectedAt:      connectedAt,
-		ConnectedAgo:     version.HumanDuration(connectedAt),
+		ConnectedAgo:     connectedAgo,
 	}
 }
 
