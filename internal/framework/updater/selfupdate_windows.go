@@ -26,15 +26,15 @@ func newSelfUpdatePlatform(parent *logger.LogTerminal) selfUpdatePlatform {
 func (w *windowsSelfUpdate) replace(exe, newExe string) error {
 	oldExe := exe + ".old"
 
-	w.Log.Infof("rotating current binary %q → %q", exe, oldExe)
+	w.Log.TInfof("updater.self.rotating_binary", exe, oldExe)
 	_ = os.Remove(oldExe)
 
 	if err := os.Rename(exe, oldExe); err != nil {
-		return w.Log.Errorf("rename current binary failed: %v", err)
+		return w.Log.TErrorf("updater.self.rename_current_failed", err)
 	}
 	if err := os.Rename(newExe, exe); err != nil {
 		_ = os.Rename(oldExe, exe)
-		return w.Log.Errorf("rename replacement failed: %v", err)
+		return w.Log.TErrorf("updater.self.rename_replacement_failed", err)
 	}
 	return nil
 }
@@ -42,7 +42,7 @@ func (w *windowsSelfUpdate) replace(exe, newExe string) error {
 func (w *windowsSelfUpdate) restart(exe string) error {
 	oldExe := exe + ".old"
 
-	w.Log.Infof("starting restart helper for %q", exe)
+	w.Log.TInfof("updater.self.starting_restart_helper", exe)
 	script := fmt.Sprintf(`
 Start-Sleep -Seconds 1
 Remove-Item -Path "%s" -Force -ErrorAction SilentlyContinue
@@ -51,7 +51,7 @@ Start-Process -FilePath "%s"
 
 	cmd := exec.Command("powershell", "-WindowStyle", "hidden", "-Command", script)
 	if err := cmd.Start(); err != nil {
-		return w.Log.Errorf("restart script failed: %v", err)
+		return w.Log.TErrorf("updater.self.restart_script_failed", err)
 	}
 
 	os.Exit(0)

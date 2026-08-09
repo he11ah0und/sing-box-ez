@@ -198,19 +198,19 @@ func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
 	}
 
 	if active.ShouldUpdate() || !c.HasCachedConfig(active.Name) || (c.cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool() && c.IsConfigHashMismatch(active.Name)) {
-		c.fwApp.Logger.Log("Updating config...")
+		c.terminal.TInfof("core.controller.config_updating")
 		data, err := c.manager.UpdateConfig()
 		if err != nil {
 			// The network backend already logs the download failure with context.
 			if !c.HasCachedConfig(active.Name) {
 				return nil, errors.New("no config available")
 			}
-			c.fwApp.Logger.Log("Using existing config")
+			c.terminal.TInfof("core.controller.using_existing_config")
 		} else {
 			c.saveConfigHash(active.Name, data)
 			c.cfg.SetLastUpdateFor(active.Name, time.Now())
 			_ = c.cfg.Save()
-			c.fwApp.Logger.Log("Config updated")
+			c.terminal.TInfof("core.controller.config_update_finished")
 		}
 	}
 
@@ -237,7 +237,7 @@ func (c *Controller) Start() error {
 		return err
 	}
 	c.buildAPIClient()
-	c.fwApp.Logger.Log("Sing-box started")
+	c.terminal.TInfof("core.controller.sing_box_started")
 	return nil
 }
 
@@ -245,12 +245,12 @@ func (c *Controller) Stop() error {
 	if err := c.manager.Stop(); err != nil {
 		return err
 	}
-	c.fwApp.Logger.Log("Sing-box stopped")
+	c.terminal.TInfof("core.controller.sing_box_stopped")
 	return nil
 }
 
 func (c *Controller) Restart() error {
-	c.fwApp.Logger.Log("Restarting...")
+	c.terminal.TInfof("core.controller.restarting")
 	data, err := c.manager.ReadConfig()
 	if err != nil {
 		return err
@@ -273,7 +273,7 @@ func (c *Controller) Restart() error {
 		return err
 	}
 	c.buildAPIClient()
-	c.fwApp.Logger.Log("Sing-box restarted")
+	c.terminal.TInfof("core.controller.sing_box_restarted")
 	return nil
 }
 
@@ -293,13 +293,13 @@ func (c *Controller) applyOverrides(data []byte, rec *config.ConfigRecord) ([]by
 	version, _ := c.GetInstalledCoreVersion()
 	port, err := api.FindFreePort("127.0.0.1")
 	if err != nil {
-		return nil, c.terminal.Errorf("failed to find free API port: %v", err)
+		return nil, c.terminal.TErrorf("core.controller.find_free_api_port_failed", err)
 	}
 	secret := api.GenerateSecret()
 
 	data, info, err := api.ApplyOverride(data, version, "127.0.0.1", port, secret)
 	if err != nil {
-		return nil, c.terminal.Errorf("failed to apply API override: %v", err)
+		return nil, c.terminal.TErrorf("core.controller.apply_api_override_failed", err)
 	}
 	c.apiInfo = info
 	return data, nil
@@ -329,11 +329,11 @@ func (c *Controller) applyInboundsOverride(data []byte, rec *config.ConfigRecord
 	version, _ := c.GetInstalledCoreVersion()
 	parser, err := singboxconfig.NewConfigParserForVersion(version)
 	if err != nil {
-		c.terminal.Warnf("Invalid core version %q, using latest schema: %v", version, err)
+		c.terminal.TWarnf("core.invalid_core_version", version, err)
 		parser = singboxconfig.NewConfigParser()
 	}
 	if _, err := parser.Parse(output); err != nil {
-		c.terminal.Warnf("Config contains unknown fields after inbounds override: %v", err)
+		c.terminal.TWarnf("core.controller.config_unknown_fields_after_inbounds", err)
 	}
 
 	return output, nil
@@ -382,7 +382,7 @@ func (c *Controller) buildAPIClient() {
 	case api.BackendSingBox:
 		client, err := singbox.NewClient(c.apiInfo.Addr(), c.apiInfo.Secret)
 		if err != nil {
-			c.terminal.Warnf("Failed to create sing-box API client: %v", err)
+			c.terminal.TWarnf("core.controller.create_api_client_failed", err)
 			c.apiClient = nil
 			return
 		}
@@ -430,14 +430,14 @@ func (c *Controller) UpdateConfig() error {
 func (c *Controller) UpdateConfigNow(name, url string) error {
 	rec := c.cfg.GetConfigByName(name)
 	if rec != nil && rec.IsLocal() {
-		return c.terminal.Errorf("Local config %q cannot be updated from a URL", name)
+		return c.terminal.TErrorf("core.controller.local_config_url_update", name)
 	}
 	if err := c.DownloadConfigFor(name, url); err != nil {
 		return fmt.Errorf("update failed: %w", err)
 	}
 	c.cfg.SetLastUpdateFor(name, time.Now())
 	_ = c.cfg.Save()
-	c.terminal.Infof("Config updated: " + name)
+	c.terminal.TInfof("core.controller.config_updated", name)
 	return nil
 }
 
@@ -473,10 +473,10 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 		return "", err
 	}
 	if info.ReleaseCount == 0 {
-		c.terminal.Infof("Core is up to date: %s", info.Current)
+		c.terminal.TInfof("core.controller.core_up_to_date", info.Current)
 		return c.manager.coreBinary(), nil
 	}
-	c.terminal.Infof("Latest core version: %s", info.Latest)
+	c.terminal.TInfof("core.controller.latest_core_version", info.Latest)
 
 	info.Files = []updater.UpdateFile{{
 		Asset:    info.Asset,
@@ -493,7 +493,7 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 			if !c.manager.IsRunning() {
 				return nil
 			}
-			c.terminal.Infof("Stopping core for update")
+			c.terminal.TInfof("core.controller.stopping_core_for_update")
 			if err := c.manager.Stop(); err != nil {
 				return fmt.Errorf("stop core for update: %w", err)
 			}
@@ -516,13 +516,13 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 	}
 
 	if wasRunning {
-		c.terminal.Infof("Restarting core after update")
+		c.terminal.TInfof("core.manager.restarting_after_update")
 		if err := c.Start(); err != nil {
-			c.terminal.Infof("Failed to restart core after update: %v", err)
+			c.terminal.TInfof("core.manager.restart_after_update_failed", err)
 		}
 	}
 
-	c.terminal.Infof("Core downloaded to: %s", c.manager.coreBinary())
+	c.terminal.TInfof("core.controller.core_downloaded", c.manager.coreBinary())
 	return c.manager.coreBinary(), nil
 }
 
@@ -572,13 +572,13 @@ func (c *Controller) IsConfigHashMismatch(name string) bool {
 
 func (c *Controller) AddConfig(rec config.ConfigRecord) error {
 	if rec.Name == "" {
-		return c.terminal.Errorf("Name is required")
+		return c.terminal.TErrorf("core.controller.name_required")
 	}
 	if !rec.IsLocal() && rec.URL == "" {
-		return c.terminal.Errorf("URL is required for remote configs")
+		return c.terminal.TErrorf("core.controller.url_required_remote")
 	}
 	if c.cfg.GetConfigByName(rec.Name) != nil {
-		return c.terminal.Errorf("Config with this name already exists")
+		return c.terminal.TErrorf("core.controller.config_already_exists")
 	}
 	if rec.IsLocal() {
 		if rec.Type == "" {
@@ -596,16 +596,16 @@ func (c *Controller) AddConfig(rec config.ConfigRecord) error {
 		c.manager.SetConfigName(rec.Name)
 	}
 	_ = c.cfg.Save()
-	c.terminal.Infof("Config added: " + rec.Name)
+	c.terminal.TInfof("core.controller.config_added", rec.Name)
 	return nil
 }
 
 func (c *Controller) EditConfig(oldName string, rec config.ConfigRecord) error {
 	if rec.Name == "" {
-		return c.terminal.Errorf("Name is required")
+		return c.terminal.TErrorf("core.controller.name_required")
 	}
 	if !rec.IsLocal() && rec.URL == "" {
-		return c.terminal.Errorf("URL is required for remote configs")
+		return c.terminal.TErrorf("core.controller.url_required_remote")
 	}
 	oldRec := c.cfg.GetConfigByName(oldName)
 	if oldRec != nil {
@@ -613,7 +613,7 @@ func (c *Controller) EditConfig(oldName string, rec config.ConfigRecord) error {
 	}
 	if rec.Name != oldName {
 		if c.cfg.GetConfigByName(rec.Name) != nil {
-			return c.terminal.Errorf("Config with name %q already exists", rec.Name)
+			return c.terminal.TErrorf("core.controller.config_name_already_exists", rec.Name)
 		}
 		if rec.IsLocal() {
 			_ = c.manager.RenameConfigFile(oldName, rec.Name)
@@ -626,9 +626,9 @@ func (c *Controller) EditConfig(oldName string, rec config.ConfigRecord) error {
 		c.manager.SetConfigURL(rec.URL)
 	}
 	if rec.Name != oldName {
-		c.terminal.Infof("Config renamed: " + oldName + " -> " + rec.Name)
+		c.terminal.TInfof("core.controller.config_renamed", oldName, rec.Name)
 	} else {
-		c.terminal.Infof("Config updated: " + rec.Name)
+		c.terminal.TInfof("core.controller.config_updated", rec.Name)
 	}
 	return nil
 }
@@ -636,7 +636,7 @@ func (c *Controller) EditConfig(oldName string, rec config.ConfigRecord) error {
 func (c *Controller) DeleteConfig(name string) error {
 	c.cfg.RemoveConfig(name)
 	_ = c.cfg.Save()
-	c.terminal.Infof("Config deleted: " + name)
+	c.terminal.TInfof("core.controller.config_deleted", name)
 	return nil
 }
 
@@ -651,14 +651,14 @@ func (c *Controller) ActivateConfig(name string) error {
 				return fmt.Errorf("failed to create local config: %w", err)
 			}
 		} else {
-			return c.terminal.Errorf("No cached config for: %s", name)
+			return c.terminal.TErrorf("core.controller.no_cached_config", name)
 		}
 	}
 	c.cfg.SetActiveName(name)
 	_ = c.cfg.Save()
 	c.manager.SetConfigURL(rec.URL)
 	c.manager.SetConfigName(name)
-	c.terminal.Infof("Activated config: " + name)
+	c.terminal.TInfof("core.controller.config_activated", name)
 	return nil
 }
 
@@ -671,7 +671,7 @@ func (c *Controller) UpdateAllConfigs(progress func(done, total int)) (int, int,
 		}
 	}
 	if total == 0 {
-		c.terminal.Infof("No configs to update")
+		c.terminal.TInfof("core.controller.no_configs_to_update")
 		return 0, 0, nil
 	}
 	updated := 0
@@ -679,7 +679,7 @@ func (c *Controller) UpdateAllConfigs(progress func(done, total int)) (int, int,
 		if rec.IsLocal() {
 			continue
 		}
-		c.terminal.Infof("Updating config: " + rec.Name + "...")
+		c.terminal.TInfof("core.controller.updating_config", rec.Name)
 		if err := c.DownloadConfigFor(rec.Name, rec.URL); err != nil {
 			// The underlying I/O error is already logged by the scoped FS;
 			// continue with the remaining configs.
@@ -687,24 +687,24 @@ func (c *Controller) UpdateAllConfigs(progress func(done, total int)) (int, int,
 		} else {
 			c.cfg.SetLastUpdateFor(rec.Name, time.Now())
 			updated++
-			c.terminal.Infof("Config updated: " + rec.Name)
+			c.terminal.TInfof("core.controller.config_updated", rec.Name)
 		}
 		if progress != nil {
 			progress(updated, total)
 		}
 	}
 	_ = c.cfg.Save()
-	c.terminal.Infof("Update all finished (%d/%d)", updated, total)
+	c.terminal.TInfof("core.controller.update_all_finished", updated, total)
 	return updated, total, nil
 }
 
 // OpenConfigFile opens the cached config file in the platform default editor.
 func (c *Controller) OpenConfigFile(name string) error {
 	if !c.HasCachedConfig(name) {
-		return c.terminal.Errorf("Config file not found: %s", name)
+		return c.terminal.TErrorf("core.controller.config_file_not_found", name)
 	}
 	path := c.manager.cachedConfig(name)
-	c.terminal.Infof("Opening config file: %s", path)
+	c.terminal.TInfof("core.controller.opening_config_file", path)
 	return openfile.OpenPath(path)
 }
 
@@ -712,7 +712,7 @@ func (c *Controller) OpenConfigFile(name string) error {
 // against the installed sing-box core version.
 func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult, error) {
 	if !c.HasCachedConfig(name) {
-		return singboxconfig.ValidationResult{}, c.terminal.Errorf("Config file not found: %s", name)
+		return singboxconfig.ValidationResult{}, c.terminal.TErrorf("core.controller.config_file_not_found", name)
 	}
 	path := c.manager.cachedConfig(name)
 	data, err := c.fwApp.FS.Root().File(path).Read()
@@ -732,7 +732,7 @@ func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult
 	if version, err := c.GetInstalledCoreVersion(); err == nil && version != "" {
 		parser, err = singboxconfig.NewConfigParserForVersion(version)
 		if err != nil {
-			c.terminal.Warnf("Invalid core version %q, using latest schema: %v", version, err)
+			c.terminal.TWarnf("core.invalid_core_version", version, err)
 			parser = singboxconfig.NewConfigParser()
 		}
 	} else {
@@ -750,11 +750,11 @@ func (c *Controller) ValidateConfig(name string) (singboxconfig.ValidationResult
 // OpenConfigDir opens the directory containing the cached config file.
 func (c *Controller) OpenConfigDir(name string) error {
 	if !c.HasCachedConfig(name) {
-		return c.terminal.Errorf("Config file not found: %s", name)
+		return c.terminal.TErrorf("core.controller.config_file_not_found", name)
 	}
 	path := c.manager.cachedConfig(name)
 	dir := filepath.Dir(path)
-	c.terminal.Infof("Opening config directory: %s", dir)
+	c.terminal.TInfof("core.controller.opening_config_dir", dir)
 	return openfile.OpenPath(dir)
 }
 
@@ -765,12 +765,12 @@ func (c *Controller) RecreateLocalConfig(name string) error {
 		return fmt.Errorf("config not found")
 	}
 	if !rec.IsLocal() {
-		return c.terminal.Errorf("Only local configs can be recreated")
+		return c.terminal.TErrorf("core.controller.only_local_recreate")
 	}
 	if err := c.manager.CreateLocalConfig(name); err != nil {
 		return fmt.Errorf("failed to recreate local config: %w", err)
 	}
-	c.terminal.Infof("Recreated local config: %s", name)
+	c.terminal.TInfof("core.controller.recreated_local_config", name)
 	return nil
 }
 
@@ -839,15 +839,15 @@ func (c *Controller) SetRunAsAdmin(checked bool) error {
 	if err := c.cfg.Save(); err != nil {
 		return fmt.Errorf("failed to save admin setting: %w", err)
 	}
-	c.terminal.Infof("Admin mode: %v", checked)
+	c.terminal.TInfof("core.controller.admin_mode", checked)
 	return nil
 }
 
 func (c *Controller) ApplySetcap() error {
 	if err := SetNetAdminCapabilityGUI(c.manager.coreBinary()); err != nil {
-		return c.terminal.Errorf("setcap failed: %v; tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box", err)
+		return c.terminal.TErrorf("core.controller.setcap_failed", err)
 	}
-	c.terminal.Infof("setcap applied successfully.")
+	c.terminal.TInfof("core.controller.setcap_applied")
 	return nil
 }
 
@@ -869,13 +869,13 @@ func (c *Controller) SetLogLimit(v int) {
 	_ = c.cfg.Save()
 	c.fwApp.Logger.SetLimit(v)
 	c.processor.LogBuffer().SetLimit(v)
-	c.terminal.Infof("Log limit set to %d", v)
+	c.terminal.TInfof("core.controller.log_limit_set", v)
 }
 
 func (c *Controller) SetDefaultInterval(h int) {
 	_ = c.cfg.MustGet("updates", "default_interval_hours").Update(h)
 	_ = c.cfg.Save()
-	c.terminal.Infof("Default interval set to %dh", h)
+	c.terminal.TInfof("core.controller.default_interval_set", h)
 }
 
 func (c *Controller) SetAutoRestart(checked bool) error {
@@ -883,6 +883,6 @@ func (c *Controller) SetAutoRestart(checked bool) error {
 	if err := c.cfg.Save(); err != nil {
 		return fmt.Errorf("failed to save auto-restart setting: %w", err)
 	}
-	c.terminal.Infof("Auto-restart: %v", checked)
+	c.terminal.TInfof("core.controller.auto_restart", checked)
 	return nil
 }

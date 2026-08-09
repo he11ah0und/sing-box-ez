@@ -48,15 +48,15 @@ func (a *SelfUpdateApply) Name() string { return "self-update" }
 // Apply downloads the update asset and replaces the running binary.
 func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateInfo, onProgress func(downloaded, total int64)) error {
 	if info.Asset.URL == "" {
-		return a.Log.Errorf("no asset URL provided")
+		return a.Log.TErrorf("updater.self.no_asset_url")
 	}
 	if a.FS == nil {
-		return a.Log.Errorf("file system not configured")
+		return a.Log.TErrorf("updater.fs_not_configured")
 	}
 
 	exe, err := os.Executable()
 	if err != nil {
-		return a.Log.Errorf("cannot locate executable: %v", err)
+		return a.Log.TErrorf("updater.self.locate_executable_failed", err)
 	}
 
 	platform := a.Platform
@@ -70,7 +70,7 @@ func (a *SelfUpdateApply) Apply(ctx context.Context, source Source, info UpdateI
 	case FormatZIP, FormatTarGz, FormatTarBz2:
 		return a.applyArchive(ctx, source, info, exe, platform, onProgress)
 	default:
-		return a.Log.Errorf("unsupported asset format %q", info.Asset.Format)
+		return a.Log.TErrorf("updater.self.unsupported_asset_format", info.Asset.Format)
 	}
 }
 
@@ -106,7 +106,7 @@ func (a *SelfUpdateApply) applyRaw(ctx context.Context, source Source, info Upda
 func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info UpdateInfo, exe string, platform selfUpdatePlatform, onProgress func(downloaded, total int64)) error {
 	tmpDir, err := os.MkdirTemp("", "sing-box-ez-update-*")
 	if err != nil {
-		return a.Log.Errorf("cannot create extract dir: %v", err)
+		return a.Log.TErrorf("updater.self.create_extract_dir_failed", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -119,7 +119,7 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 	if len(a.InstallScript) > 0 {
 		assetFS, err := fs.NewArchiveFS(tmpFile, info.Asset.Format)
 		if err != nil {
-			return a.Log.Errorf("open archive fs: %v", err)
+			return a.Log.TErrorf("updater.self.open_archive_fs_failed", err)
 		}
 
 		vm := luavm.NewVM(a.Log, a.BaseDir, a.FS, []string{tmpDir}, tmpFile)
@@ -135,20 +135,20 @@ func (a *SelfUpdateApply) applyArchive(ctx context.Context, source Source, info 
 	} else {
 		assetFS, err := fs.NewArchiveFS(tmpFile, info.Asset.Format)
 		if err != nil {
-			return a.Log.Errorf("open archive fs: %v", err)
+			return a.Log.TErrorf("updater.self.open_archive_fs_failed", err)
 		}
 		newExe, err := findBinaryInDir(assetFS.Root(), tmpDir, filepath.Base(exe))
 		if err != nil {
-			return a.Log.Errorf("locate updated binary: %v", err)
+			return a.Log.TErrorf("updater.self.locate_binary_failed", err)
 		}
 		if newExe == "" {
-			return a.Log.Errorf("binary %q not found in archive", filepath.Base(exe))
+			return a.Log.TErrorf("updater.self.binary_not_in_archive", filepath.Base(exe))
 		}
 		replaceWith = newExe
 	}
 
 	if replaceWith == "" {
-		return a.Log.Errorf("install script did not return replace_binary")
+		return a.Log.TErrorf("updater.self.missing_replace_binary")
 	}
 
 	if err := platform.replace(exe, replaceWith); err != nil {
@@ -186,7 +186,7 @@ func findBinaryInDir(dir fs.Directory, tmpDir, name string) (string, error) {
 func (a *SelfUpdateApply) downloadAssetToFile(ctx context.Context, source Source, asset Asset, path string, onProgress func(downloaded, total int64)) error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600) // #nosec G304 -- self-update path is controlled by the app
 	if err != nil {
-		return a.Log.Errorf("cannot create %q: %v", path, err)
+		return a.Log.TErrorf("updater.self.create_file_failed", path, err)
 	}
 
 	downloadErr := source.DownloadAsset(ctx, asset, f, onProgress)

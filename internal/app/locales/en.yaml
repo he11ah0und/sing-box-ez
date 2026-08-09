@@ -1,3 +1,7 @@
+meta:
+  type: ui
+  binding: external
+
 tab:
   main: Main
   configs: Configs
@@ -189,11 +193,9 @@ validation:
 settings:
   tab:
     general: General
-    core: Core
     log: Log
     ui: UI
     updates: Updates
-    system: System
   core:
     auto_restart: Auto-restart core on fatal errors
     start_on_launch: Start core on launch

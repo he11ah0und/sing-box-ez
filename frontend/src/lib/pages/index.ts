@@ -33,11 +33,13 @@ export const pageRegistry: PageMeta[] = [
     bottomNav: true,
     order: 2,
     tabs: [
-      { id: 'core', key: 'settings.tab.core' },
+      // core/system reuse the existing generic keys (same labels) to avoid
+      // duplicate locale values; the rest use the settings.tab.* convention.
+      { id: 'core', key: 'tab.core' },
       { id: 'log', key: 'settings.tab.log' },
       { id: 'ui', key: 'settings.tab.ui' },
       { id: 'updates', key: 'settings.tab.updates' },
-      { id: 'system', key: 'settings.tab.system' }
+      { id: 'system', key: 'common.system' }
     ]
   },
   {

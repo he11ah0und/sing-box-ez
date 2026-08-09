@@ -184,10 +184,10 @@ func (p *CoreLogProcessor) processCoreLogs(lines []string) {
 			if time.Since(p.lastAutoRestart) > 30*time.Second {
 				p.lastAutoRestart = time.Now()
 				p.autoRestartMu.Unlock()
-				p.terminal.Infof("Detected core fatal error, auto-restarting...")
+				p.terminal.TInfof("core.log_processor.fatal_auto_restart")
 				go func() {
 					if err := p.manager.Restart(); err != nil {
-						_ = p.terminal.Errorf("Auto-restart failed: %v", err)
+						_ = p.terminal.TErrorf("core.auto_restart_failed", err)
 					}
 				}()
 				if p.OnAutoRestart != nil {

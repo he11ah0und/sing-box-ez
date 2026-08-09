@@ -1,3 +1,7 @@
+meta:
+  type: ui
+  binding: external
+
 tab:
   main: Главная
   configs: Конфиги
@@ -189,11 +193,9 @@ validation:
 settings:
   tab:
     general: Основные
-    core: Ядро
     log: Лог
     ui: Интерфейс
     updates: Обновления
-    system: Система
   core:
     auto_restart: Авто-перезапуск ядра при фатальных ошибках
     start_on_launch: Запускать ядро при старте программы

@@ -165,7 +165,7 @@ func (b *Bindings) checkSelfUpdateAvailable() {
 	}
 	info, err := b.ic.CheckSelfUpdate()
 	if err != nil {
-		b.app.Logger.Root.Warnf("background self-update check failed: %v", err)
+		b.app.Logger.Root.TWarnf("gui.self_update_check_failed", err)
 		return
 	}
 	hasUpdate, isDevBuild := selfUpdateStatus(info)

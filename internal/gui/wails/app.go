@@ -310,7 +310,7 @@ func (b *Bindings) RegisterLocaleKeys(keys []string) map[string]string {
 			if _, known := b.localeWildcards[prefix]; !known {
 				b.localeWildcards[prefix] = struct{}{}
 				if !b.wildcardMatchesLocked(prefix) {
-					b.app.Logger.Root.Warnf("locale wildcard %q matched no keys", k)
+					b.app.Logger.Root.TWarnf("gui.locale_wildcard_no_match", k)
 				}
 			}
 			continue
@@ -572,7 +572,7 @@ func (w *WailsApp) Run() error {
 	// Load embedded/user themes.
 	cfg := w.app.Controller.Config()
 	if themeColl, err := themes.Load(cfg.DataDir); err != nil {
-		w.app.Logger.Root.Warnf("failed to load themes: %v", err)
+		w.app.Logger.Root.TWarnf("themes.load_failed", err)
 	} else {
 		bindings.theme = themeColl
 	}

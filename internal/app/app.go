@@ -8,6 +8,7 @@ import (
 	iofs "io/fs"
 	"os"
 	"os/signal"
+	"runtime/debug"
 
 	fwconfig "github.com/he11ah0und/config"
 	"sing-box-ez/internal/cli"
@@ -21,6 +22,9 @@ import (
 
 //go:embed locales/*.yaml
 var localesFS embed.FS
+
+//go:embed locales/logs/*.yaml
+var logsLocalesFS embed.FS
 
 //go:embed installers/*.lua
 var installersFS embed.FS
@@ -59,6 +63,13 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 			}
 			return load(sub)
 		},
+		LoadLogsLocales: func(load func(fsys iofs.FS) error) error {
+			sub, err := iofs.Sub(logsLocalesFS, "locales/logs")
+			if err != nil {
+				return err
+			}
+			return load(sub)
+		},
 		ProjectSpec:       projectYAML,
 		LoadInstallScript: loadInstallScript,
 		RegisterCommands:  cli.RegisterCommands,
@@ -83,6 +94,10 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Log the commit the binary was built from. The framework has already
+	// installed the logs resolver, so this keyed call resolves here.
+	fwApp.Logger.Root.TInfof("app.started", buildCommit())
 
 	cfg := fwApp.Config.(*config.AppConfig)
 
@@ -132,24 +147,51 @@ func (a *App) Run() {
 	if a.host != "" {
 		transport, err := rpc.ParseAddress(a.host)
 		if err != nil {
-			_ = a.Logger.Root.Errorf("invalid --host address: %v", err)
+			_ = a.Logger.Root.TErrorf("rpc.invalid_host_address", err)
 			os.Exit(1)
 		}
 		registry := rpc.NewRegistry()
 		a.registerRPC(registry)
 		server := rpc.NewServer(registry, transport)
-		a.Logger.Root.Infof("RPC server listening on %s", transport.Addr())
+		a.Logger.Root.TInfof("rpc.server_listening", transport.Addr())
 
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
 		if err := server.Run(ctx); err != nil {
-			_ = a.Logger.Root.Errorf("RPC server error: %v", err)
+			_ = a.Logger.Root.TErrorf("rpc.server_error", err)
 			os.Exit(1)
 		}
 		return
 	}
 
 	a.App.Run()
+}
+
+// buildCommit returns the VCS revision the binary was built from, with a
+// "-dirty" suffix for a modified working tree, or "unknown" when the build
+// info carries no VCS settings (e.g. installed via `go install` from a
+// module proxy without VCS stamping).
+func buildCommit() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+	rev, dirty := "", false
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			rev = s.Value
+		case "vcs.modified":
+			dirty = s.Value == "true"
+		}
+	}
+	if rev == "" {
+		return "unknown"
+	}
+	if dirty {
+		rev += "-dirty"
+	}
+	return rev
 }
 
 func loadInstallScript(name string) []byte {

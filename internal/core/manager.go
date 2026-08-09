@@ -447,9 +447,9 @@ func (m *Manager) UpdateCore(onProgress ProgressFunc) error {
 	}
 
 	if wasRunning {
-		m.log.Root.Infof("Restarting core after update")
+		m.log.Root.TInfof("core.manager.restarting_after_update")
 		if err := m.Start(); err != nil {
-			m.log.Root.Infof("Failed to restart core after update: %v", err)
+			m.log.Root.TInfof("core.manager.restart_after_update_failed", err)
 		}
 	}
 

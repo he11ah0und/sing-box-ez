@@ -21,12 +21,12 @@ func newSelfUpdatePlatform(parent *logger.LogTerminal) selfUpdatePlatform {
 }
 
 func (u *unixSelfUpdate) replace(exe, newExe string) error {
-	u.Log.Infof("replacing running binary %q with %q", exe, newExe)
+	u.Log.TInfof("updater.self.replacing_binary", exe, newExe)
 	if err := os.Chmod(newExe, 0750); err != nil { // #nosec G302 -- replacement binary must remain executable
-		return u.Log.Errorf("chmod replacement %q failed: %v", newExe, err)
+		return u.Log.TErrorf("updater.self.chmod_replacement_failed", newExe, err)
 	}
 	if err := os.Rename(newExe, exe); err != nil {
-		return u.Log.Errorf("replace binary %q → %q failed: %v", newExe, exe, err)
+		return u.Log.TErrorf("updater.self.replace_binary_failed", newExe, exe, err)
 	}
 	return nil
 }
@@ -36,6 +36,6 @@ func (u *unixSelfUpdate) replace(exe, newExe string) error {
 // os.Args/os.Environ are the process's own context.
 // #nosec G702,G204 — safe re-exec of the verified binary with original args.
 func (u *unixSelfUpdate) restart(exe string) error {
-	u.Log.Infof("restarting updated binary %q", exe)
+	u.Log.TInfof("updater.self.restarting_binary", exe)
 	return syscall.Exec(exe, os.Args, os.Environ())
 }

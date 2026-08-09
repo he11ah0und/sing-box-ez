@@ -101,7 +101,7 @@ func (t *Tray) run() {
 
 	tray := systray.New()
 	if tray == nil {
-		t.log.Warnf("failed to create system tray icon")
+		t.log.TWarnf("gui.tray.create_icon_failed")
 		return
 	}
 
@@ -116,11 +116,11 @@ func (t *Tray) run() {
 		SetMenu(t.buildMenu()).
 		Show()
 
-	t.log.Infof("icon shown")
+	t.log.TInfof("gui.tray.icon_shown")
 	t.refreshTray(tray)
 
 	_ = tray.Run()
-	t.log.Infof("message loop exited")
+	t.log.TInfof("gui.tray.message_loop_exited")
 }
 
 func (t *Tray) buildMenu() *systray.Menu {

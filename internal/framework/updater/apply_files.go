@@ -38,7 +38,7 @@ func (a *FilesUpdateApply) Name() string { return "files-update" }
 // Apply downloads every file listed in info.Files and replaces the destination files.
 func (a *FilesUpdateApply) Apply(ctx context.Context, source Source, info UpdateInfo, onProgress func(downloaded, total int64)) error {
 	if len(info.Files) == 0 {
-		return a.Log.Errorf("no files to update")
+		return a.Log.TErrorf("updater.files.no_files")
 	}
 
 	for _, uf := range info.Files {
@@ -71,13 +71,13 @@ func (a *FilesUpdateApply) updateFile(ctx context.Context, source Source, info U
 
 func (a *FilesUpdateApply) validateFile(uf UpdateFile) error {
 	if uf.Asset.URL == "" {
-		return a.Log.Errorf("file %q has no download URL", uf.DestPath)
+		return a.Log.TErrorf("updater.files.no_download_url", uf.DestPath)
 	}
 	if uf.DestPath == "" {
-		return a.Log.Errorf("destination path not configured")
+		return a.Log.TErrorf("updater.files.dest_path_not_configured")
 	}
 	if a.FS == nil {
-		return a.Log.Errorf("file system not configured")
+		return a.Log.TErrorf("updater.fs_not_configured")
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func (a *FilesUpdateApply) downloadTemp(ctx context.Context, source Source, uf U
 	}
 	tmpDirObj := a.FS.Root().Subdir(tmpDir)
 	if err := tmpDirObj.MkdirAll(0750); err != nil {
-		return nil, "", nil, a.Log.Errorf("cannot prepare temp dir for %q: %v", uf.DestPath, err)
+		return nil, "", nil, a.Log.TErrorf("updater.files.prepare_temp_dir_failed", uf.DestPath, err)
 	}
 	tmpPath := filepath.Join(tmpDir, tmpName)
 	if a.BaseDir != "" {
@@ -100,7 +100,7 @@ func (a *FilesUpdateApply) downloadTemp(ctx context.Context, source Source, uf U
 	tmpFile := a.FS.Root().File(tmpPath)
 	f, err := tmpFile.OpenFile(os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0750)
 	if err != nil {
-		return nil, "", nil, a.Log.Errorf("cannot create temporary file for %q: %v", uf.DestPath, err)
+		return nil, "", nil, a.Log.TErrorf("updater.files.create_temp_file_failed", uf.DestPath, err)
 	}
 	cleanup := func() { _ = tmpFile.Remove() }
 
@@ -119,7 +119,7 @@ func (a *FilesUpdateApply) applyInstallScript(ctx context.Context, uf UpdateFile
 	assetFS, err := a.assetFS(uf.Asset.Format, tmpPath)
 	if err != nil {
 		cleanup()
-		return a.Log.Errorf("open asset fs: %v", err)
+		return a.Log.TErrorf("updater.files.open_asset_fs_failed", err)
 	}
 	defer a.closeAssetFS(assetFS)
 
@@ -160,24 +160,24 @@ func (a *FilesUpdateApply) applyDownloaded(uf UpdateFile, tmpFile fs.File, tmpPa
 	case FormatRaw:
 		if err := tmpFile.Rename(filepath.Base(uf.DestPath)); err != nil {
 			_ = tmpFile.Remove()
-			return a.Log.Errorf("replace %q failed: %v", uf.DestPath, err)
+			return a.Log.TErrorf("updater.files.replace_failed", uf.DestPath, err)
 		}
 		return nil
 	case FormatZIP, FormatTarGz, FormatTarBz2:
 		assetFS, err := fs.NewArchiveFS(tmpPath, uf.Asset.Format)
 		if err != nil {
 			_ = tmpFile.Remove()
-			return a.Log.Errorf("open archive %q: %v", tmpPath, err)
+			return a.Log.TErrorf("updater.files.open_archive_failed", tmpPath, err)
 		}
 		if err := assetFS.Root().CopyTo(a.FS.Root().Subdir(uf.DestPath)); err != nil {
 			_ = tmpFile.Remove()
-			return a.Log.Errorf("extract archive %s to %q failed: %v", uf.Asset.Name, uf.DestPath, err)
+			return a.Log.TErrorf("updater.files.extract_archive_failed", uf.Asset.Name, uf.DestPath, err)
 		}
 		_ = tmpFile.Remove()
 		return nil
 	default:
 		_ = tmpFile.Remove()
-		return a.Log.Errorf("unsupported asset format %q for %q", uf.Asset.Format, uf.Asset.Name)
+		return a.Log.TErrorf("updater.files.unsupported_asset_format", uf.Asset.Format, uf.Asset.Name)
 	}
 }
 

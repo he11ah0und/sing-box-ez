@@ -72,6 +72,13 @@ type Config struct {
 	// loader multiple times for different sources.
 	// If nil, localengine is only initialised with a logger.
 	LoadLocales func(load func(fsys iofs.FS) error) error
+	// LoadLogsLocales is called during app construction to load logs-domain
+	// locales (key-based log message formats). The framework passes the
+	// localengine.LoadLogsFromDir loader. It is optional: when nil or when
+	// loading fails, a warning is logged and the app keeps running — keyed
+	// log calls then print their key (warn-once per key) instead of a
+	// resolved format.
+	LoadLogsLocales func(load func(fsys iofs.FS) error) error
 	// ProjectSpec is the declarative project.yaml document (usually embedded).
 	// When set, the framework loads it with projectspec and builds updater
 	// managers from its declarations; a spec error aborts app construction.
@@ -171,6 +178,23 @@ func NewApp(cfg Config) (*App, error) {
 	}
 
 	tmpLog := logger.NewLogger(1000)
+
+	// Load logs-domain locales and install the key resolver on the boot
+	// logger BEFORE the initial config load: the config fs logs through keyed
+	// TErrorf calls whose %w chain only survives when the key resolves (an
+	// unresolved key becomes the format string, breaking errors.Is checks such
+	// as os.ErrNotExist for a missing config.yaml). Both steps degrade
+	// gracefully: without logs locales (or with a broken one) keyed log calls
+	// warn once per key and print the key itself. The main logger below gets
+	// the same resolver once it exists.
+	localengine.SetLogger(tmpLog.Root.Allocate("localengine"))
+	if cfg.LoadLogsLocales != nil {
+		if err := cfg.LoadLogsLocales(localengine.LoadLogsFromDir); err != nil {
+			tmpLog.Root.Allocate("localengine").TWarnf("localengine.load_logs_locales", err)
+		}
+	}
+	tmpLog.Root.SetResolver(localengine.LogResolver())
+
 	tmpFS := fs.NewOSWithLog(dataDir, tmpLog.Root)
 	tmpRoot := tmpFS.Root()
 	if err := tmpRoot.Ensure(0750); err != nil {
@@ -195,6 +219,11 @@ func NewApp(cfg Config) (*App, error) {
 		limit = cfg.GetLoggerLimit(conf)
 	}
 	log := logger.NewLogger(limit)
+	// The logs-domain locales and resolver were installed on the boot logger
+	// before the initial config load (see above); the main logger gets the
+	// same resolver up front so keyed calls (including fs errors from
+	// setupDirectories below) behave the same on every terminal.
+	log.Root.SetResolver(localengine.LogResolver())
 	sheet.SetLogger(log.Root.Allocate("config"))
 	sheet.DebugDisabledCount()
 	appFS := fs.NewOSWithLog(dataDir, log.Root)
@@ -301,7 +330,7 @@ func (a *App) Start() error {
 	if err := a.Root.Ensure(0750); err != nil {
 		return err
 	}
-	a.Logger.Root.Infof("framework started")
+	a.Logger.Root.TInfof("framework.started")
 	return nil
 }
 
@@ -310,7 +339,7 @@ func (a *App) Stop() error {
 	if a == nil {
 		return errors.New("framework.App is nil")
 	}
-	a.Logger.Root.Infof("framework stopped")
+	a.Logger.Root.TInfof("framework.stopped")
 	return nil
 }
 

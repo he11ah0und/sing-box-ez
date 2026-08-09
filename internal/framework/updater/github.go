@@ -185,7 +185,7 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 			return b.toRelease(r), nil
 		}
 	}
-	b.Log.Infof("no releases found for channel %s", channel)
+	b.Log.TInfof("updater.no_releases_found", channel)
 	return Release{}, fmt.Errorf("%w %s", ErrNoRelease, channel)
 }
 
@@ -241,7 +241,7 @@ func (b *GitHubBackend) ReleaseByVersion(ctx context.Context, version string) (R
 // DownloadAsset implements Source.
 func (b *GitHubBackend) DownloadAsset(ctx context.Context, asset Asset, w io.Writer, progress func(downloaded, total int64)) error {
 	if asset.URL == "" {
-		return b.Log.Errorf("asset has no download URL")
+		return b.Log.TErrorf("updater.asset_no_download_url")
 	}
 	c := b.netClient()
 	if progress != nil {

@@ -1,3 +1,7 @@
+meta:
+  type: ui
+  binding: external
+
 tab:
   main: 主页
   configs: 配置
@@ -189,11 +193,9 @@ validation:
 settings:
   tab:
     general: 常规
-    core: 核心
     log: 日志
     ui: 界面
     updates: 更新
-    system: 系统
   core:
     auto_restart: 核心崩溃时自动重启
     start_on_launch: 启动时启动核心

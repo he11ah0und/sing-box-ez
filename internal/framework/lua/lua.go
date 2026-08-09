@@ -92,7 +92,7 @@ func (vm *VM) Run(script []byte, ctx InstallContext) (*InstallResult, error) {
 	vm.registerLog()
 
 	if err := vm.L.DoString(string(script)); err != nil {
-		return nil, vm.Log.Errorf("install script failed: %v", err)
+		return nil, vm.Log.TErrorf("lua.install_script_failed", err)
 	}
 
 	return vm.parseResult()
@@ -573,17 +573,17 @@ func (vm *VM) luaCopy(L *lua.LState) int {
 // --- log functions ---
 
 func (vm *VM) luaLogInfo(L *lua.LState) int {
-	vm.Log.Infof("%s", L.CheckString(1))
+	vm.Log.TInfof("lua.log_info", L.CheckString(1))
 	return 0
 }
 
 func (vm *VM) luaLogWarn(L *lua.LState) int {
-	vm.Log.Warnf("%s", L.CheckString(1))
+	vm.Log.TWarnf("lua.log_warn", L.CheckString(1))
 	return 0
 }
 
 func (vm *VM) luaLogError(L *lua.LState) int {
-	_ = vm.Log.Errorf("%s", L.CheckString(1))
+	_ = vm.Log.TErrorf("lua.log_error", L.CheckString(1))
 	return 0
 }
 

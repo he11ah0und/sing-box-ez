@@ -1,0 +1,181 @@
+meta:
+  type: logs
+  binding: internal
+
+# Log message formats, keyed by <scope>.<snake_case>. English only: the en
+# file is the fallback for every lookup and the source of the keys the code
+# references. Format verbs and argument order must match the call sites.
+app:
+  started: sing-box-ez starting (commit %s)
+core:
+  auto_restart_failed: "Auto-restart failed: %v"
+  invalid_core_version: "Invalid core version %q, using latest schema: %v"
+  controller:
+    find_free_api_port_failed: "failed to find free API port: %v"
+    apply_api_override_failed: "failed to apply API override: %v"
+    config_unknown_fields_after_inbounds: "Config contains unknown fields after inbounds override: %v"
+    create_api_client_failed: "Failed to create sing-box API client: %v"
+    local_config_url_update: "Local config %q cannot be updated from a URL"
+    config_updated: "Config updated: %s"
+    core_up_to_date: "Core is up to date: %s"
+    latest_core_version: "Latest core version: %s"
+    stopping_core_for_update: Stopping core for update
+    core_downloaded: "Core downloaded to: %s"
+    name_required: Name is required
+    url_required_remote: URL is required for remote configs
+    config_already_exists: Config with this name already exists
+    config_added: "Config added: %s"
+    config_name_already_exists: "Config with name %q already exists"
+    config_renamed: "Config renamed: %s -> %s"
+    config_deleted: "Config deleted: %s"
+    no_cached_config: "No cached config for: %s"
+    config_activated: "Activated config: %s"
+    no_configs_to_update: No configs to update
+    updating_config: "Updating config: %s..."
+    update_all_finished: "Update all finished (%d/%d)"
+    config_file_not_found: "Config file not found: %s"
+    opening_config_file: "Opening config file: %s"
+    opening_config_dir: "Opening config directory: %s"
+    only_local_recreate: Only local configs can be recreated
+    recreated_local_config: "Recreated local config: %s"
+    admin_mode: "Admin mode: %v"
+    setcap_failed: "setcap failed: %v; tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box"
+    setcap_applied: setcap applied successfully.
+    log_limit_set: "Log limit set to %d"
+    default_interval_set: "Default interval set to %dh"
+    auto_restart: "Auto-restart: %v"
+    config_updating: Updating config...
+    using_existing_config: Using existing config
+    config_update_finished: Config updated
+    sing_box_started: Sing-box started
+    sing_box_stopped: Sing-box stopped
+    restarting: Restarting...
+    sing_box_restarted: Sing-box restarted
+  log_processor:
+    fatal_auto_restart: "Detected core fatal error, auto-restarting..."
+  privileges:
+    action_failed: "%s"
+    setcap_tip: "Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box"
+    action_succeeded: "%s"
+  interactive:
+    log_message: "%s"
+    detect_style_failed: "Failed to detect config style: %v"
+    set_fallback_type_failed: "Failed to set fallback_type: %v"
+    start_failed: "Failed to start: %v"
+    stop_failed: "Failed to stop: %v"
+    auto_updating_config: "Auto-updating config: %s"
+    active_config_updated_restarting: "Active config updated, restarting core..."
+  log_override:
+    save_failed: "failed to save core log level: %v"
+    updated: "Core log level updated"
+    unknown_fields: "Config contains unknown fields after log override"
+  manager:
+    restarting_after_update: "Restarting core after update"
+    restart_after_update_failed: "Failed to restart core after update: %v"
+framework:
+  started: framework started
+  stopped: framework stopped
+fs:
+  stat: "stat %q: %w"
+  rename: "rename %q → %q: %w"
+  remove: "remove %q: %w"
+  chmod: "chmod %q: %w"
+  read_dir: "read dir %q: %w"
+  mkdir: "mkdir %q: %w"
+  remove_all: "remove all %q: %w"
+  ensure_not_directory: "ensure %q: not a directory"
+  read: "read %q: %w"
+  write: "write %q: %w"
+  open: "open %q: %w"
+  open_file: "open file %q: %w"
+gui:
+  self_update_check_failed: "background self-update check failed: %v"
+  locale_wildcard_no_match: "locale wildcard %q matched no keys"
+  tray:
+    create_icon_failed: "failed to create system tray icon"
+    icon_shown: "icon shown"
+    message_loop_exited: "message loop exited"
+    dbus_session_address_unset: "DBUS_SESSION_BUS_ADDRESS is not set; the tray icon will not be visible"
+    dbus_connect_failed: "cannot connect to the session D-Bus: %v"
+    dbus_list_names_failed: "unable to list D-Bus names: %v"
+    status_notifier_present: "StatusNotifierWatcher is present"
+    status_notifier_missing: "StatusNotifierWatcher is not running; start a tray host such as waybar's 'tray' module"
+    icon_refreshed: "refreshed icon/status"
+    icon_refreshed_again: "refreshed icon/status again"
+localengine:
+  load_logs_locales: "load logs locales: %v"
+lua:
+  log_info: "%s"
+  log_warn: "%s"
+  log_error: "%s"
+  install_script_failed: "install script failed: %v"
+net:
+  request: "%s %s"
+  request_failed: "%s %s failed: %v"
+  request_status: "%s %s returned %s: %s"
+  get: "GET %s"
+  create_request: "create request for %s: %v"
+  get_failed: "GET %s failed: %v"
+  get_status: "GET %s returned %s: %s"
+  download_failed: "download %s failed: %v"
+  downloading: "downloading %s → %s"
+  create_file: "create %q: %v"
+  close_file: "close %q: %v"
+  downloaded: "downloaded %s"
+  post: "POST %s"
+  put: "PUT %s"
+  create_method_request: "create %s request for %s: %v"
+rpc:
+  invalid_host_address: "invalid --host address: %v"
+  server_listening: RPC server listening on %s
+  server_error: "RPC server error: %v"
+themes:
+  load_failed: "failed to load themes: %v"
+updater:
+  no_source_backend: updater manager has no source backend configured
+  no_apply_backend: updater manager has no apply backend configured
+  no_update_info: no update info provided
+  checking_channel: checking for updates on channel %q
+  update_available: "update available: %s → %s"
+  no_update_available: no update available on channel %q
+  installing_update: installing update %s using %s
+  install_completed: install completed
+  listing_channels: listing channels
+  channels_found: found %d channels
+  fetching_release_notes: fetching release notes for %q
+  downloading_asset: downloading asset %s → %s
+  open_dest_failed: "open dest failed: %v"
+  download_completed: download completed
+  no_releases_found: no releases found for channel %s
+  asset_no_download_url: asset has no download URL
+  fs_not_configured: file system not configured
+  self:
+    no_asset_url: no asset URL provided
+    locate_executable_failed: "cannot locate executable: %v"
+    unsupported_asset_format: unsupported asset format %q
+    create_extract_dir_failed: "cannot create extract dir: %v"
+    open_archive_fs_failed: "open archive fs: %v"
+    locate_binary_failed: "locate updated binary: %v"
+    binary_not_in_archive: binary %q not found in archive
+    missing_replace_binary: install script did not return replace_binary
+    create_file_failed: "cannot create %q: %v"
+    replacing_binary: replacing running binary %q with %q
+    chmod_replacement_failed: "chmod replacement %q failed: %v"
+    replace_binary_failed: "replace binary %q → %q failed: %v"
+    restarting_binary: restarting updated binary %q
+    rotating_binary: rotating current binary %q → %q
+    rename_current_failed: "rename current binary failed: %v"
+    rename_replacement_failed: "rename replacement failed: %v"
+    starting_restart_helper: starting restart helper for %q
+    restart_script_failed: "restart script failed: %v"
+  files:
+    no_files: no files to update
+    no_download_url: file %q has no download URL
+    dest_path_not_configured: destination path not configured
+    prepare_temp_dir_failed: "cannot prepare temp dir for %q: %v"
+    create_temp_file_failed: "cannot create temporary file for %q: %v"
+    open_asset_fs_failed: "open asset fs: %v"
+    replace_failed: "replace %q failed: %v"
+    open_archive_failed: "open archive %q: %v"
+    extract_archive_failed: "extract archive %s to %q failed: %v"
+    unsupported_asset_format: unsupported asset format %q for %q

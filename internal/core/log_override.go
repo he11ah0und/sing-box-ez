@@ -16,9 +16,9 @@ type LogOverride struct {
 func (c *Controller) SetCoreLogOverride(o LogOverride) error {
 	_ = c.cfg.MustGet("core", "log", "level").Update(o.Level)
 	if err := c.cfg.Save(); err != nil {
-		return c.terminal.Errorf("failed to save core log level: %v", err)
+		return c.terminal.TErrorf("core.log_override.save_failed", err)
 	}
-	c.terminal.Infof("Core log level updated")
+	c.terminal.TInfof("core.log_override.updated")
 	return nil
 }
 
@@ -44,7 +44,7 @@ func (c *Controller) applyLogOverride(data []byte) ([]byte, error) {
 	version, _ := c.GetInstalledCoreVersion()
 	parser, err := singboxconfig.NewConfigParserForVersion(version)
 	if err != nil {
-		c.terminal.Warnf("Invalid core version %q, using latest schema: %v", version, err)
+		c.terminal.TWarnf("core.invalid_core_version", version, err)
 		parser = singboxconfig.NewConfigParser()
 	}
 
@@ -59,7 +59,7 @@ func (c *Controller) applyLogOverride(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("apply log override: %w", err)
 	}
 	if !ok {
-		c.terminal.Warnf("Config contains unknown fields after log override")
+		c.terminal.TWarnf("core.log_override.unknown_fields")
 	}
 	return output, nil
 }

@@ -61,9 +61,9 @@ func (fs *OSFS) relPath(name string) (string, bool) {
 	return NormalizePath(rel), true
 }
 
-func (fs *OSFS) errf(format string, v ...interface{}) error {
+func (fs *OSFS) errf(key, format string, v ...interface{}) error {
 	if fs.Log != nil {
-		return fs.Log.Errorf(format, v...)
+		return fs.Log.TErrorf(key, v...)
 	}
 	return fmt.Errorf(format, v...)
 }
@@ -85,7 +85,7 @@ func (e *osEntry) Exists() bool {
 func (e *osEntry) Stat() (os.FileInfo, error) {
 	fi, err := os.Stat(e.fs.resolve(e.path))
 	if err != nil {
-		return nil, e.fs.errf("stat %q: %w", e.path, err)
+		return nil, e.fs.errf("fs.stat", "stat %q: %w", e.path, err)
 	}
 	return fi, nil
 }
@@ -110,21 +110,21 @@ func (e *osEntry) Rename(newName string) error {
 	oldResolved := e.fs.resolve(e.path)
 	newResolved := e.fs.resolve(newPath)
 	if err := os.Rename(oldResolved, newResolved); err != nil {
-		return e.fs.errf("rename %q → %q: %w", e.path, newPath, err)
+		return e.fs.errf("fs.rename", "rename %q → %q: %w", e.path, newPath, err)
 	}
 	return nil
 }
 
 func (e *osEntry) Remove() error {
 	if err := os.Remove(e.fs.resolve(e.path)); err != nil {
-		return e.fs.errf("remove %q: %w", e.path, err)
+		return e.fs.errf("fs.remove", "remove %q: %w", e.path, err)
 	}
 	return nil
 }
 
 func (e *osEntry) Chmod(perm os.FileMode) error {
 	if err := os.Chmod(e.fs.resolve(e.path), perm); err != nil {
-		return e.fs.errf("chmod %q: %w", e.path, err)
+		return e.fs.errf("fs.chmod", "chmod %q: %w", e.path, err)
 	}
 	return nil
 }
@@ -154,7 +154,7 @@ func (d *osDirectory) Subdir(name string) Directory {
 func (d *osDirectory) ReadDir() ([]Entry, error) {
 	entries, err := os.ReadDir(d.fs.resolve(d.path))
 	if err != nil {
-		return nil, d.fs.errf("read dir %q: %w", d.path, err)
+		return nil, d.fs.errf("fs.read_dir", "read dir %q: %w", d.path, err)
 	}
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
@@ -174,14 +174,14 @@ func (d *osDirectory) ReadDir() ([]Entry, error) {
 
 func (d *osDirectory) MkdirAll(perm os.FileMode) error {
 	if err := os.MkdirAll(d.fs.resolve(d.path), perm); err != nil {
-		return d.fs.errf("mkdir %q: %w", d.path, err)
+		return d.fs.errf("fs.mkdir", "mkdir %q: %w", d.path, err)
 	}
 	return nil
 }
 
 func (d *osDirectory) RemoveAll() error {
 	if err := os.RemoveAll(d.fs.resolve(d.path)); err != nil {
-		return d.fs.errf("remove all %q: %w", d.path, err)
+		return d.fs.errf("fs.remove_all", "remove all %q: %w", d.path, err)
 	}
 	return nil
 }
@@ -221,7 +221,7 @@ func (d *osDirectory) Ensure(perm os.FileMode) error {
 		return d.Chmod(perm)
 	}
 	if !info.IsDir() {
-		return d.fs.errf("ensure %q: not a directory", d.path)
+		return d.fs.errf("fs.ensure_not_directory", "ensure %q: not a directory", d.path)
 	}
 	if info.Mode().Perm() != perm {
 		return d.Chmod(perm)
@@ -236,14 +236,14 @@ type osFile struct {
 func (f *osFile) Read() ([]byte, error) {
 	data, err := os.ReadFile(f.fs.resolve(f.path))
 	if err != nil {
-		return nil, f.fs.errf("read %q: %w", f.path, err)
+		return nil, f.fs.errf("fs.read", "read %q: %w", f.path, err)
 	}
 	return data, nil
 }
 
 func (f *osFile) Write(data []byte, perm os.FileMode) error {
 	if err := os.WriteFile(f.fs.resolve(f.path), data, perm); err != nil {
-		return f.fs.errf("write %q: %w", f.path, err)
+		return f.fs.errf("fs.write", "write %q: %w", f.path, err)
 	}
 	return nil
 }
@@ -251,7 +251,7 @@ func (f *osFile) Write(data []byte, perm os.FileMode) error {
 func (f *osFile) Open() (*os.File, error) {
 	file, err := os.Open(f.fs.resolve(f.path))
 	if err != nil {
-		return nil, f.fs.errf("open %q: %w", f.path, err)
+		return nil, f.fs.errf("fs.open", "open %q: %w", f.path, err)
 	}
 	return file, nil
 }
@@ -259,7 +259,7 @@ func (f *osFile) Open() (*os.File, error) {
 func (f *osFile) OpenFile(flag int, perm os.FileMode) (*os.File, error) {
 	file, err := os.OpenFile(f.fs.resolve(f.path), flag, perm)
 	if err != nil {
-		return nil, f.fs.errf("open file %q: %w", f.path, err)
+		return nil, f.fs.errf("fs.open_file", "open file %q: %w", f.path, err)
 	}
 	return file, nil
 }
@@ -278,7 +278,7 @@ func (f *osFile) AtomicWrite(data []byte, perm os.FileMode) error {
 	newResolved := f.fs.resolve(f.path)
 	if err := os.Rename(oldResolved, newResolved); err != nil {
 		_ = tmp.Remove()
-		return f.fs.errf("rename %q → %q: %w", tmpPath, f.path, err)
+		return f.fs.errf("fs.rename", "rename %q → %q: %w", tmpPath, f.path, err)
 	}
 	return nil
 }

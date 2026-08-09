@@ -43,15 +43,15 @@ func NewClientWithProgress(parent *logger.LogTerminal, cfg *progress.Config) *Cl
 // Do executes the provided request and returns the response. It validates the
 // status code and logs errors.
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
-	c.Log.Debugf("%s %s", req.Method, req.URL.String())
+	c.Log.TDebugf("net.request", req.Method, req.URL.String())
 	resp, err := c.HTTP.Do(req) // #nosec G704 -- generic HTTP client, URLs are validated by callers
 	if err != nil {
-		return nil, c.Log.Errorf("%s %s failed: %v", req.Method, req.URL.String(), err)
+		return nil, c.Log.TErrorf("net.request_failed", req.Method, req.URL.String(), err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4*1024))
 		_ = resp.Body.Close()
-		return nil, c.Log.Errorf("%s %s returned %s: %s", req.Method, req.URL.String(), resp.Status, string(body))
+		return nil, c.Log.TErrorf("net.request_status", req.Method, req.URL.String(), resp.Status, string(body))
 	}
 	return resp, nil
 }
@@ -59,20 +59,20 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 // GetReader performs a GET request and returns the response body together with
 // the content length. The caller is responsible for closing the body.
 func (c *Client) GetReader(ctx context.Context, url string) (io.ReadCloser, int64, error) {
-	c.Log.Debugf("GET %s", url)
+	c.Log.TDebugf("net.get", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, 0, c.Log.Errorf("create request for %s: %v", url, err)
+		return nil, 0, c.Log.TErrorf("net.create_request", url, err)
 	}
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, 0, c.Log.Errorf("GET %s failed: %v", url, err)
+		return nil, 0, c.Log.TErrorf("net.get_failed", url, err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4*1024))
 		_ = resp.Body.Close()
-		return nil, 0, c.Log.Errorf("GET %s returned %s: %s", url, resp.Status, string(body))
+		return nil, 0, c.Log.TErrorf("net.get_status", url, resp.Status, string(body))
 	}
 	return resp.Body, resp.ContentLength, nil
 }
@@ -90,7 +90,7 @@ func (c *Client) GetBytes(ctx context.Context, url string) ([]byte, error) {
 
 	data, err := io.ReadAll(pr)
 	if err != nil {
-		return nil, c.Log.Errorf("download %s failed: %v", url, err)
+		return nil, c.Log.TErrorf("net.download_failed", url, err)
 	}
 	reporter.Finish("download", url, int64(len(data)))
 	return data, nil
@@ -108,7 +108,7 @@ func (c *Client) Download(ctx context.Context, url string, w io.Writer) error {
 	pw := &progressWriter{Writer: w, reporter: reporter, op: "download", label: url, total: total}
 
 	if _, err := io.Copy(pw, r); err != nil {
-		return c.Log.Errorf("download %s failed: %v", url, err)
+		return c.Log.TErrorf("net.download_failed", url, err)
 	}
 	reporter.Finish("download", url, pw.current)
 	return nil
@@ -116,11 +116,11 @@ func (c *Client) Download(ctx context.Context, url string, w io.Writer) error {
 
 // DownloadToFile downloads url and writes it to path using the given file system.
 func (c *Client) DownloadToFile(ctx context.Context, fsys fs.FS, url, path string) error {
-	c.Log.Infof("downloading %s → %s", url, path)
+	c.Log.TInfof("net.downloading", url, path)
 	dst := fsys.Root().File(path)
 	f, err := dst.OpenFile(os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0640)
 	if err != nil {
-		return c.Log.Errorf("create %q: %v", path, err)
+		return c.Log.TErrorf("net.create_file", path, err)
 	}
 
 	if err := c.Download(ctx, url, f); err != nil {
@@ -130,23 +130,23 @@ func (c *Client) DownloadToFile(ctx context.Context, fsys fs.FS, url, path strin
 	}
 	if err := f.Close(); err != nil {
 		_ = dst.Remove()
-		return c.Log.Errorf("close %q: %v", path, err)
+		return c.Log.TErrorf("net.close_file", path, err)
 	}
-	c.Log.Infof("downloaded %s", path)
+	c.Log.TInfof("net.downloaded", path)
 	return nil
 }
 
 // Post performs a POST request with an optional body and headers, reporting
 // upload progress when contentLength is known.
 func (c *Client) Post(ctx context.Context, url string, body io.Reader, contentLength int64, headers http.Header) (*http.Response, error) {
-	c.Log.Debugf("POST %s", url)
+	c.Log.TDebugf("net.post", url)
 	return c.doWithBody(ctx, http.MethodPost, url, body, contentLength, headers)
 }
 
 // Put performs a PUT request with an optional body and headers, reporting
 // upload progress when contentLength is known.
 func (c *Client) Put(ctx context.Context, url string, body io.Reader, contentLength int64, headers http.Header) (*http.Response, error) {
-	c.Log.Debugf("PUT %s", url)
+	c.Log.TDebugf("net.put", url)
 	return c.doWithBody(ctx, http.MethodPut, url, body, contentLength, headers)
 }
 
@@ -159,7 +159,7 @@ func (c *Client) doWithBody(ctx context.Context, method, url string, body io.Rea
 
 	req, err := http.NewRequestWithContext(ctx, method, url, r)
 	if err != nil {
-		return nil, c.Log.Errorf("create %s request for %s: %v", method, url, err)
+		return nil, c.Log.TErrorf("net.create_method_request", method, url, err)
 	}
 	if contentLength >= 0 {
 		req.ContentLength = contentLength
@@ -170,12 +170,12 @@ func (c *Client) doWithBody(ctx context.Context, method, url string, body io.Rea
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, c.Log.Errorf("%s %s failed: %v", method, url, err)
+		return nil, c.Log.TErrorf("net.request_failed", method, url, err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4*1024))
 		_ = resp.Body.Close()
-		return nil, c.Log.Errorf("%s %s returned %s: %s", method, url, resp.Status, string(body))
+		return nil, c.Log.TErrorf("net.request_status", method, url, resp.Status, string(body))
 	}
 	if contentLength > 0 {
 		reporter.Finish("upload", url, contentLength)

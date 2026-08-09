@@ -190,13 +190,13 @@ func (c *PrivilegeController) ApplySetcap() error {
 func (c *PrivilegeController) ApplyPrivilegeAction(action *PrivilegeAction) (success, needRefresh, needClose bool) {
 	err := action.Handler()
 	if err != nil {
-		_ = c.terminal.Errorf("%s", action.Label+" failed: "+err.Error())
+		_ = c.terminal.TErrorf("core.privileges.action_failed", action.Label+" failed: "+err.Error())
 		if action.ID == "setcap" {
-			_ = c.terminal.Errorf("Tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box")
+			_ = c.terminal.TErrorf("core.privileges.setcap_tip")
 		}
 		return false, false, false
 	}
-	c.terminal.Infof("%s", action.Label+" succeeded.")
+	c.terminal.TInfof("core.privileges.action_succeeded", action.Label+" succeeded.")
 	needRefresh = action.ID == "setcap" || action.ID == "run_as_admin"
 	needClose = action.ID == "restart_admin"
 	return true, needRefresh, needClose

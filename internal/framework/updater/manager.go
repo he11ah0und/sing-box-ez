@@ -37,9 +37,9 @@ func (m *Manager) Check(ctx context.Context, channel string) (*UpdateInfo, error
 // against the provided current version string.
 func (m *Manager) CheckWithCurrent(ctx context.Context, channel, current string) (*UpdateInfo, error) {
 	if m.Source == nil {
-		return nil, m.Log.Errorf("updater manager has no source backend configured")
+		return nil, m.Log.TErrorf("updater.no_source_backend")
 	}
-	m.Log.Infof("checking for updates on channel %q", channel)
+	m.Log.TInfof("updater.checking_channel", channel)
 	release, err := m.Source.LatestRelease(ctx, channel)
 	if err != nil {
 		if errors.Is(err, ErrNoRelease) {
@@ -64,9 +64,9 @@ func (m *Manager) CheckWithCurrent(ctx context.Context, channel, current string)
 		return nil, err
 	}
 	if info.ReleaseCount > 0 {
-		m.Log.Infof("update available: %s → %s", info.Current, info.Latest)
+		m.Log.TInfof("updater.update_available", info.Current, info.Latest)
 	} else {
-		m.Log.Debugf("no update available on channel %q", channel)
+		m.Log.TDebugf("updater.no_update_available", channel)
 	}
 	return info, nil
 }
@@ -74,42 +74,42 @@ func (m *Manager) CheckWithCurrent(ctx context.Context, channel, current string)
 // Install installs the update described by info.
 func (m *Manager) Install(ctx context.Context, info *UpdateInfo, progress func(downloaded, total int64)) error {
 	if m.Source == nil {
-		return m.Log.Errorf("updater manager has no source backend configured")
+		return m.Log.TErrorf("updater.no_source_backend")
 	}
 	if m.Apply == nil {
-		return m.Log.Errorf("updater manager has no apply backend configured")
+		return m.Log.TErrorf("updater.no_apply_backend")
 	}
 	if info == nil {
-		return m.Log.Errorf("no update info provided")
+		return m.Log.TErrorf("updater.no_update_info")
 	}
-	m.Log.Infof("installing update %s using %s", info.Latest, m.Apply.Name())
+	m.Log.TInfof("updater.installing_update", info.Latest, m.Apply.Name())
 	if err := m.Apply.Apply(ctx, m.Source, *info, progress); err != nil {
 		return err
 	}
-	m.Log.Infof("install completed")
+	m.Log.TInfof("updater.install_completed")
 	return nil
 }
 
 // Channels returns the list of available update channels.
 func (m *Manager) Channels(ctx context.Context) ([]Channel, error) {
 	if m.Source == nil {
-		return nil, m.Log.Errorf("updater manager has no source backend configured")
+		return nil, m.Log.TErrorf("updater.no_source_backend")
 	}
-	m.Log.Debugf("listing channels")
+	m.Log.TDebugf("updater.listing_channels")
 	channels, err := m.Source.ListChannels(ctx)
 	if err != nil {
 		return nil, err
 	}
-	m.Log.Debugf("found %d channels", len(channels))
+	m.Log.TDebugf("updater.channels_found", len(channels))
 	return channels, nil
 }
 
 // ReleaseNotes fetches release metadata for a specific version.
 func (m *Manager) ReleaseNotes(ctx context.Context, version string) (Release, error) {
 	if m.Source == nil {
-		return Release{}, m.Log.Errorf("updater manager has no source backend configured")
+		return Release{}, m.Log.TErrorf("updater.no_source_backend")
 	}
-	m.Log.Debugf("fetching release notes for %q", version)
+	m.Log.TDebugf("updater.fetching_release_notes", version)
 	release, err := m.Source.ReleaseByVersion(ctx, version)
 	if err != nil {
 		return Release{}, err
@@ -120,17 +120,17 @@ func (m *Manager) ReleaseNotes(ctx context.Context, version string) (Release, er
 // DownloadAsset downloads a release asset to the given path.
 func (m *Manager) DownloadAsset(ctx context.Context, asset Asset, dest string, progress func(downloaded, total int64)) error {
 	if m.Source == nil {
-		return m.Log.Errorf("updater manager has no source backend configured")
+		return m.Log.TErrorf("updater.no_source_backend")
 	}
-	m.Log.Infof("downloading asset %s → %s", asset.Name, dest)
+	m.Log.TInfof("updater.downloading_asset", asset.Name, dest)
 	f, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600) // #nosec G304 -- destination is chosen by the app
 	if err != nil {
-		return m.Log.Errorf("open dest failed: %v", err)
+		return m.Log.TErrorf("updater.open_dest_failed", err)
 	}
 	defer f.Close()
 	if err := m.Source.DownloadAsset(ctx, asset, f, progress); err != nil {
 		return err
 	}
-	m.Log.Infof("download completed")
+	m.Log.TInfof("updater.download_completed")
 	return nil
 }

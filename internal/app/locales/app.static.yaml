@@ -1,3 +1,7 @@
+meta:
+  type: ui
+  binding: external
+
 # Static names that are never translated (brand, technical terms).
 # Loaded by localengine as a static bundle: always available, not a
 # selectable language. Keys must not be repeated in any locale file.

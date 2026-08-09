@@ -101,7 +101,7 @@ func NewInteractiveControllerWithManager(b Backend, manager svcman.Manager) *Int
 
 // Log logs a message and optionally invokes the OnLog callback.
 func (ic *InteractiveController) Log(msg string) {
-	ic.backend.Terminal().Infof("%s", msg)
+	ic.backend.Terminal().TInfof("core.interactive.log_message", msg)
 	if ic.OnLog != nil {
 		ic.OnLog(msg)
 	}
@@ -195,7 +195,7 @@ func (ic *InteractiveController) handlePrepareConfigError(err error) {
 func (ic *InteractiveController) checkClientStyle(rec *config.ConfigRecord) error {
 	style, err := ic.Controller.DetectConfigStyle(rec.Name)
 	if err != nil {
-		ic.backend.Terminal().Infof("Failed to detect config style: %v", err)
+		ic.backend.Terminal().TInfof("core.interactive.detect_style_failed", err)
 		return fmt.Errorf("detect config style: %w", err)
 	}
 	if style == inboundstyle.StyleClient || rec.GetFallbackType() != "" {
@@ -204,7 +204,7 @@ func (ic *InteractiveController) checkClientStyle(rec *config.ConfigRecord) erro
 	if ic.OnConfigStyleCheck != nil {
 		ic.OnConfigStyleCheck(style, rec, func(fallbackType string) {
 			if err := ic.Controller.SetFallbackType(rec.Name, fallbackType); err != nil {
-				ic.backend.Terminal().Infof("Failed to set fallback_type: %v", err)
+				ic.backend.Terminal().TInfof("core.interactive.set_fallback_type_failed", err)
 				return
 			}
 			_ = ic.StartService()
@@ -217,14 +217,14 @@ func (ic *InteractiveController) checkClientStyle(rec *config.ConfigRecord) erro
 func (ic *InteractiveController) startBackend() error {
 	if ic.serviceManager != nil {
 		if err := ic.serviceManager.Start(); err != nil {
-			ic.backend.Terminal().Infof("Failed to start: %v", err)
+			ic.backend.Terminal().TInfof("core.interactive.start_failed", err)
 			return err
 		}
 		return nil
 	}
 
 	if err := ic.backend.Start(); err != nil {
-		ic.backend.Terminal().Infof("Failed to start: %v", err)
+		ic.backend.Terminal().TInfof("core.interactive.start_failed", err)
 		return err
 	}
 	return nil
@@ -234,14 +234,14 @@ func (ic *InteractiveController) startBackend() error {
 func (ic *InteractiveController) StopService() error {
 	if ic.serviceManager != nil {
 		if err := ic.serviceManager.Stop(); err != nil {
-			ic.backend.Terminal().Infof("Failed to stop: %v", err)
+			ic.backend.Terminal().TInfof("core.interactive.stop_failed", err)
 			return err
 		}
 		return nil
 	}
 
 	if err := ic.backend.Stop(); err != nil {
-		ic.backend.Terminal().Infof("Failed to stop: %v", err)
+		ic.backend.Terminal().TInfof("core.interactive.stop_failed", err)
 		return err
 	}
 	return nil
@@ -329,7 +329,7 @@ func (ic *InteractiveController) tryUpdateConfig(cfg *config.ConfigRecord, activ
 		return false
 	}
 
-	ic.backend.Terminal().Infof("Auto-updating config: %s", cfg.Name)
+	ic.backend.Terminal().TInfof("core.interactive.auto_updating_config", cfg.Name)
 	if err := ic.backend.UpdateConfigNow(cfg.Name, cfg.URL); err != nil {
 		// The download/network backend already logs the failure with context.
 		return false
@@ -344,9 +344,9 @@ func (ic *InteractiveController) onActiveConfigUpdated() {
 	if !ic.backend.Config().MustGet("updates", "auto_restart_on_config_update").Bool() || !ic.backend.IsRunning() {
 		return
 	}
-	ic.backend.Terminal().Infof("Active config updated, restarting core...")
+	ic.backend.Terminal().TInfof("core.interactive.active_config_updated_restarting")
 	if err := ic.backend.Restart(); err != nil {
-		_ = ic.backend.Terminal().Errorf("Auto-restart failed: %v", err)
+		_ = ic.backend.Terminal().TErrorf("core.auto_restart_failed", err)
 	}
 }
 
