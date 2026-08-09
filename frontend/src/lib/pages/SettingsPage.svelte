@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Save, RotateCcw, ShieldCheck, Trash2 } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
+  import { fly } from 'svelte/transition';
   import { appState } from '../stores/appState.js';
   import { locale, useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
   import { subNav } from '../stores/navigation.js';
@@ -314,7 +315,10 @@
     </Button>
   {/snippet}
 
-  <Card.Root>
+  <!-- Tab switches animate like the root pages do. -->
+  {#key $subNav.activeTab}
+    <div in:fly={{ y: 8, duration: 150 }}>
+      <Card.Root>
     <Card.Content class="space-y-5">
       {#if $subNav.activeTab === 'system'}
         {@render generatedControls('system')}
@@ -388,7 +392,9 @@
         {@render generatedControls($subNav.activeTab ?? '')}
       {/if}
     </Card.Content>
-  </Card.Root>
+      </Card.Root>
+    </div>
+  {/key}
 
   <AlertDialog.Root bind:open={confirmActionOpen}>
     <AlertDialog.Content>

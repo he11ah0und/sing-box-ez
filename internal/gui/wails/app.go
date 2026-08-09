@@ -5,6 +5,7 @@ package wails
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -88,6 +89,12 @@ type Bindings struct {
 	// checks, keyed by profile name. A SetFallbackType call for the profile
 	// consumes the callback and resumes the start flow.
 	pendingStyleChecks map[string]func(string)
+
+	// updateMu guards updateCancels.
+	updateMu sync.Mutex
+	// updateCancels holds the cancel funcs of in-flight downloads, keyed by
+	// updater target ("app" / "core"); CancelUpdate consumes them.
+	updateCancels map[string]context.CancelFunc
 }
 
 // ServiceName returns the service name used by Wails.
@@ -238,9 +245,38 @@ func (b *Bindings) GetCoreInfo() CoreInfo {
 	return info
 }
 
+// registerUpdateCancel stores the cancel func of an in-flight download.
+func (b *Bindings) registerUpdateCancel(target string, cancel context.CancelFunc) {
+	b.updateMu.Lock()
+	b.updateCancels[target] = cancel
+	b.updateMu.Unlock()
+}
+
+// unregisterUpdateCancel drops the cancel func of a finished download.
+func (b *Bindings) unregisterUpdateCancel(target string) {
+	b.updateMu.Lock()
+	delete(b.updateCancels, target)
+	b.updateMu.Unlock()
+}
+
+// CancelUpdate cancels an in-flight app/core download; the download binding
+// returns nil on cancellation (no error toast for a user-requested stop).
+func (b *Bindings) CancelUpdate(target string) {
+	b.updateMu.Lock()
+	cancel := b.updateCancels[target]
+	b.updateMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
 // DownloadCore downloads and installs the latest sing-box core.
 func (b *Bindings) DownloadCore() error {
-	_, err := b.app.Controller.DownloadCoreWithProgress(func(downloaded, total int64) {
+	ctx, cancel := context.WithCancel(b.ctx)
+	defer cancel()
+	b.registerUpdateCancel("core", cancel)
+	defer b.unregisterUpdateCancel("core")
+	_, err := b.app.Controller.DownloadCoreContext(ctx, func(downloaded, total int64) {
 		progress := 0
 		if total > 0 {
 			progress = int(float64(downloaded) / float64(total) * 100)
@@ -251,6 +287,9 @@ func (b *Bindings) DownloadCore() error {
 			"progress":   int64(progress),
 		})
 	})
+	if errors.Is(err, context.Canceled) {
+		return nil
+	}
 	return err
 }
 
@@ -572,6 +611,7 @@ func (w *WailsApp) Run() error {
 		localeKeys:         make(map[string]struct{}),
 		localeWildcards:    make(map[string]struct{}),
 		pendingStyleChecks: make(map[string]func(string)),
+		updateCancels:      make(map[string]context.CancelFunc),
 	}
 
 	// Create the interactive controller up front so the tray and the WebSocket

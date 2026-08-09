@@ -2,6 +2,7 @@ frontend/src/App.svelte:          console.warn('Failed to fetch initial theme:',
 frontend/src/App.svelte:      console.error('Failed to init Wails events:', err);
 frontend/src/App.svelte:      console.error('SetFallbackType failed:', err);
 frontend/src/lib/components/ActivityTimeline.svelte:            <div class="relative h-2.5 flex-1 rounded bg-accent/40" title="{fmt(t.start)} - {t.open ? '' : fmt(t.end)}">
+frontend/src/lib/components/ActivityTimeline.svelte:      style={interactive ? 'touch-action: pan-y' : ''}
 frontend/src/lib/components/Shell.svelte:    const mql = window.matchMedia('(min-width: 640px)');
 frontend/src/lib/components/ui/alert-dialog/alert-dialog-content.svelte:			"gap-4 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 duration-100 data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 outline-none",
 frontend/src/lib/components/ui/alert-dialog/alert-dialog-description.svelte:	class={cn("text-sm text-balance text-muted-foreground md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground", className)}
@@ -88,9 +89,6 @@ frontend/src/lib/pages/AboutPage.svelte:            'w-full text-left px-4 py-3 
 frontend/src/lib/pages/ConfigsPage.svelte:      : 'var(--color-card-uncached-no-auto-update, #3A1A0F)';
 frontend/src/lib/pages/ConfigsPage.svelte:      ? 'var(--color-card-cached-no-auto-update, #0F2E18)'
 frontend/src/lib/pages/ConfigsPage.svelte:    server: 'var(--color-status-warning, var(--color-warning))'
-frontend/src/lib/pages/MainPage.svelte:                            'w-full px-4 py-2 flex items-center justify-between hover:bg-accent transition',
-frontend/src/lib/pages/MainPage.svelte:                            node.tag === group.selected && 'bg-primary text-primary-foreground hover:bg-primary/90'
-frontend/src/lib/pages/MainPage.svelte:                        <Badge variant="outline">{group.delay} ms</Badge>
 frontend/src/lib/pages/MenuPage.svelte:            'w-full text-left px-4 py-4 rounded-lg bg-card border border-border hover:bg-accent transition-colors flex items-center gap-3',
 frontend/src/lib/pages/SettingsPage.svelte:    if (color === 'green') return 'color: var(--color-success)';
 frontend/src/lib/pages/SettingsPage.svelte:    if (color === 'yellow') return 'color: var(--color-warning)';
@@ -105,5 +103,6 @@ frontend/src/lib/utils/ansi.ts:    return [{ text: line, style: 'color: #f5f543'
 frontend/src/lib/utils/ansi.ts:  parts.push({ text: '-> ', style: 'color: #bc3fbc' });
 frontend/src/lib/wails/bridge.ts:      console.warn('GetAPIState failed:', err);
 frontend/src/lib/wails/bridge.ts:      console.warn('GetConfigValues failed:', err);
+frontend/src/lib/wails/bridge.ts:      console.warn('GetLocale failed:', err);
 frontend/src/lib/wails/bridge.ts:      console.warn('GetTrafficHistory failed:', err);
 frontend/src/lib/wails/custom.ts:      console.warn('WebSocket IPC error:', err);

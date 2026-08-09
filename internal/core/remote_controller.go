@@ -202,6 +202,12 @@ func (r *RemoteController) DownloadCore(progress ProgressFunc) (string, error) {
 	return res.Path, nil
 }
 
+// DownloadCoreContext ignores the context: a remote download cannot be
+// cancelled over the current RPC protocol.
+func (r *RemoteController) DownloadCoreContext(_ context.Context, progress ProgressFunc) (string, error) {
+	return r.DownloadCore(progress)
+}
+
 // GetPrivilegeTabState returns the remote privilege tab state.
 func (r *RemoteController) GetPrivilegeTabState() PrivilegeTabState {
 	var res privilegeTabStateMsg

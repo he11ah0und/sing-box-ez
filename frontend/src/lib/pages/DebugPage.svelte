@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Trash2, RefreshCw, Copy } from '@lucide/svelte';
+  import { fly } from 'svelte/transition';
   import { appState, clearLogs } from '../stores/appState.js';
   import { useLocale } from '../stores/locale.svelte.js';
   import { subNav } from '../stores/navigation.js';
@@ -87,7 +88,10 @@
     </Button>
   {/snippet}
 
-  <ScrollArea class="flex-1 min-h-0 rounded-2xl border border-border bg-card">
+  <!-- Tab switches animate like the root pages do. -->
+  {#key $subNav.activeTab}
+    <div class="flex-1 min-h-0 flex flex-col" in:fly={{ y: 8, duration: 150 }}>
+      <ScrollArea class="flex-1 min-h-0 rounded-2xl border border-border bg-card">
     <div class="p-4 font-mono text-sm">
       {#if $subNav.activeTab === 'core'}
         {#if $appState.logs.core.length === 0}
@@ -115,5 +119,7 @@
         {/if}
       {/if}
     </div>
-  </ScrollArea>
+      </ScrollArea>
+    </div>
+  {/key}
 </Page>

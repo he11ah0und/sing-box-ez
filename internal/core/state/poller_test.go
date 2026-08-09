@@ -161,3 +161,33 @@ func TestHandleEventNoDeadlock(t *testing.T) {
 		t.Fatalf("connections = %+v", st.Connections)
 	}
 }
+
+func TestFilterGroupsByName(t *testing.T) {
+	groups := []api.Group{
+		{Tag: "Proxy"},
+		{Tag: "Auto"},
+		{Tag: "proxy-us"},
+	}
+	if got := filterGroupsByName(groups, ""); len(got) != 3 {
+		t.Fatalf("empty filter must keep all groups, got %d", len(got))
+	}
+	got := filterGroupsByName(groups, "PROXY")
+	if len(got) != 2 || got[0].Tag != "Proxy" || got[1].Tag != "proxy-us" {
+		t.Fatalf("case-insensitive substring match failed: %+v", got)
+	}
+	if got := filterGroupsByName(groups, "missing"); len(got) != 0 {
+		t.Fatalf("expected no matches, got %+v", got)
+	}
+}
+
+func TestSetGroupFilterNormalizes(t *testing.T) {
+	p := newTestPoller(60)
+	p.SetGroupFilter("  Proxy ")
+	if p.groupFilter != "proxy" {
+		t.Fatalf("groupFilter = %q, want %q", p.groupFilter, "proxy")
+	}
+	p.SetGroupFilter("")
+	if p.groupFilter != "" {
+		t.Fatalf("groupFilter = %q, want empty", p.groupFilter)
+	}
+}

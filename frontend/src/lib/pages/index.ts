@@ -10,7 +10,10 @@ import {
   ScrollText,
   Palette,
   RefreshCw,
-  Cog
+  Cog,
+  Gauge,
+  Waypoints,
+  ArrowLeftRight
 } from '@lucide/svelte';
 
 export interface PageTab {
@@ -27,6 +30,15 @@ export interface PageMeta {
   bottomNav?: boolean;
   order?: number;
   tabs?: PageTab[];
+  // tabsRequiresCore marks a page whose tabs exist only while the core API
+  // is connected (the main page: overview/groups/connections). Without a
+  // connection the page renders its standalone content (the start button).
+  tabsRequiresCore?: boolean;
+}
+
+// tabsVisible reports whether a page's tabs should be offered right now.
+export function tabsVisible(page: PageMeta | undefined, coreConnected: boolean): boolean {
+  return !!page?.tabs?.length && (!page.tabsRequiresCore || coreConnected);
 }
 
 interface PageModule {
@@ -38,7 +50,22 @@ interface PageModule {
 // bottomNav is true only for the three mobile bottom-bar entries
 // (main / configs / menu); secondary pages stay reachable via the menu page.
 export const pageRegistry: PageMeta[] = [
-  { id: 'main', key: 'tab.main', icon: Home, nav: true, bottomNav: true, order: 0 },
+  {
+    id: 'main',
+    key: 'tab.main',
+    icon: Home,
+    nav: true,
+    bottomNav: true,
+    order: 0,
+    // Main's sub-pages appear only while the core is connected; MainPage
+    // renders them per $subNav.activeTab (they are not standalone pages).
+    tabs: [
+      { id: 'overview', key: 'main.tabs.overview', icon: Gauge },
+      { id: 'groups', key: 'tab.groups', icon: Waypoints },
+      { id: 'connections', key: 'main.api.connections', icon: ArrowLeftRight }
+    ],
+    tabsRequiresCore: true
+  },
   { id: 'configs', key: 'tab.configs', icon: List, nav: true, bottomNav: true, order: 1 },
   {
     id: 'settings',
@@ -67,7 +94,17 @@ export const pageRegistry: PageMeta[] = [
       { id: 'core', key: 'tab.core', icon: Cpu }
     ]
   },
-  { id: 'about', key: 'tab.about', icon: Info, nav: true, order: 5 },
+  {
+    id: 'about',
+    key: 'tab.about',
+    icon: Info,
+    nav: true,
+    order: 5,
+    tabs: [
+      { id: 'info', key: 'common.info', icon: Info },
+      { id: 'updates', key: 'settings.tab.updates', icon: RefreshCw }
+    ]
+  },
   { id: 'core', key: 'tab.core', icon: Cpu, nav: false, bottomNav: false },
   { id: 'menu', key: 'tab.menu', icon: Menu, nav: false, bottomNav: true, order: 2 }
 ];

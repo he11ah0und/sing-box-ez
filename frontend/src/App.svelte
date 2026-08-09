@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import type { Component } from 'svelte';
+  import { fly } from 'svelte/transition';
+  import { RefreshCw } from '@lucide/svelte';
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
   import { signalLocaleReady, useLocale, useLocaleRecord } from '$lib/stores/locale.svelte.js';
@@ -29,8 +31,8 @@
 
   onMount(() => {
     try {
-      initWailsEvents();
-      GetTheme()
+      const seeds = initWailsEvents();
+      const themeSeed = GetTheme()
         .then((t) => {
           if (t) {
             const data = fromThemePayload(t);
@@ -44,9 +46,15 @@
           console.warn('Failed to fetch initial theme:', err);
           applyTheme($theme);
         });
+      // The shell stays behind a loading state until the initial backend
+      // data (traffic history, API state, settings, theme) has settled.
+      Promise.allSettled([seeds, themeSeed]).then(() => {
+        appState.update((s) => ({ ...s, ready: true }));
+      });
       tick().then(() => setTimeout(signalLocaleReady, 0));
     } catch (err) {
       console.error('Failed to init Wails events:', err);
+      appState.update((s) => ({ ...s, ready: true }));
     }
   });
 
@@ -101,11 +109,21 @@
 <Tooltip.Provider>
   {#if $appState.startup.show}
     <StartupPage />
+  {:else if !$appState.ready}
+    <!-- Initial backend seeds are in flight. -->
+    <div class="flex h-full w-full items-center justify-center bg-background">
+      <RefreshCw size={32} class="animate-spin text-muted-foreground" />
+    </div>
   {:else}
     <Shell>
-      {#if ActivePage}
-        <ActivePage />
-      {/if}
+      <!-- Light page transition: a short rise-and-fade per root page. -->
+      {#key $currentLevel.id}
+        <div class="h-full min-h-0" in:fly={{ y: 8, duration: 150 }}>
+          {#if ActivePage}
+            <ActivePage />
+          {/if}
+        </div>
+      {/key}
     </Shell>
   {/if}
 </Tooltip.Provider>

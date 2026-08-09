@@ -71,6 +71,7 @@ main:
     inactive: inactive
     active: active
     timeline: Activity timeline
+    timeline_reset: Reset view
     total_connections: Total connections
     filter_all: All
     filter_closed: Closed
@@ -292,6 +293,8 @@ log:
     copy: Copy all
   copied: Logs copied
 about:
+  updaters:
+    repository: Repository
   commit_info:
     prefix: 'Commit: '
   build_info:

@@ -98,6 +98,9 @@ export interface AppState {
   // settingsLoaded marks that settings were fetched at least once, so pages
   // render from the store instead of re-fetching on every mount.
   settingsLoaded: boolean;
+  // ready flips once the initial backend seeds (traffic history, API state,
+  // settings) have settled; the shell shows a loading state until then.
+  ready: boolean;
   coreInfo: CoreInfo;
   logs: LogsState;
   traffic: TrafficState;
@@ -115,6 +118,7 @@ export const appState = writable<AppState>({
   activeConfig: null,
   settings: {},
   settingsLoaded: false,
+  ready: false,
   coreInfo: {
     installedVersion: '',
     latestVersion: '',

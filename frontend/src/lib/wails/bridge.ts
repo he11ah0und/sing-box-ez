@@ -5,7 +5,7 @@ import { locale, setLocaleValues } from '../stores/locale.svelte.js';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
 import type { ActiveConfig, SelfUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 import type { Update as APIStateUpdate } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
-import { GetAPIState, GetTrafficHistory, GetConfigValues } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+import { GetAPIState, GetTrafficHistory, GetConfigValues, GetLocale } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -106,10 +106,10 @@ function showNotification(data: NotificationPayload) {
   }
 }
 
-export function initWailsEvents() {
+export function initWailsEvents(): Promise<unknown> {
   // Seed the graph with the history the backend accumulated so the chart
   // does not start empty when the UI (re)opens.
-  GetTrafficHistory()
+  const historySeed = GetTrafficHistory()
     .then((h) => {
       const points = h?.points ?? [];
       appState.update((s) => ({
@@ -129,7 +129,7 @@ export function initWailsEvents() {
     });
 
   // Seed the core API snapshot; api:state events keep it fresh afterwards.
-  GetAPIState()
+  const apiSeed = GetAPIState()
     .then((st) => applyApiState(st))
     .catch((err: unknown) => {
       console.warn('GetAPIState failed:', err);
@@ -137,13 +137,32 @@ export function initWailsEvents() {
 
   // Seed the settings snapshot once; settings:changed events (and explicit
   // page reloads) keep it fresh afterwards.
-  GetConfigValues()
+  const settingsSeed = GetConfigValues()
     .then((v) => {
       appState.update((st) => ({ ...st, settings: v ?? st.settings, settingsLoaded: true }));
     })
     .catch((err: unknown) => {
       console.warn('GetConfigValues failed:', err);
     });
+
+  // Seed the active locale: the store defaults to 'en' until the backend's
+  // persisted language arrives (the settings language select reads
+  // locale.language, so without this it shows English on a Russian UI).
+  const localeSeed = GetLocale()
+    .then((l) => {
+      if (!l) return;
+      locale.update((s) => ({
+        language: l.language ?? s.language,
+        values: { ...s.values, ...((l.values ?? {}) as Record<string, string>) }
+      }));
+    })
+    .catch((err: unknown) => {
+      console.warn('GetLocale failed:', err);
+    });
+
+  // The app shell gates on this: it shows a loading state until the initial
+  // backend data has arrived (settled, not necessarily succeeded).
+  const seeds = Promise.allSettled([historySeed, apiSeed, settingsSeed, localeSeed]);
 
   Events.On('api:state', (event: WailsEvent<APIStateUpdate>) => {
     applyApiState(event.data);
@@ -308,4 +327,6 @@ export function initWailsEvents() {
       }
     }));
   });
+
+  return seeds;
 }

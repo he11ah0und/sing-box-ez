@@ -1,21 +1,26 @@
 <script lang="ts">
   import { ArrowLeft, ChevronsLeft, ChevronsRight } from '@lucide/svelte';
-  import type { Component, Snippet } from 'svelte';
+  import { untrack, type Component, type Snippet } from 'svelte';
   import * as Tooltip from '$lib/components/ui/tooltip/index.js';
   import TopBar from './TopBar.svelte';
   import BottomNav from './BottomNav.svelte';
   import { currentLevel, subNav, setRootPage, setRootPageSilent, backPage, setSubTab, enterSubNav, exitSubNav, goHome, menuContext, setMenuContext } from '../stores/navigation.js';
+  import { appState } from '../stores/appState.js';
   import { sidebarCollapsed, toggleSidebar } from '../stores/sidebar.js';
   import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
-  import { pageRegistry } from '../pages/index.js';
+  import { pageRegistry, tabsVisible } from '../pages/index.js';
 
   let { children }: { children?: Snippet } = $props();
 
   const L = useLocale(['common.back', 'app.title']);
 
-  const mainNavItems = pageRegistry.filter((page) => page.nav);
+  const mainNavItems = pageRegistry.filter((p) => p.nav);
+  const coreConnected = $derived($appState.api.phase === 'connected');
   const currentPage = $derived(pageRegistry.find((i) => i.id === $currentLevel.id));
-  const inSubNav = $derived(!!($subNav.pageId && $subNav.pageId === currentPage?.id && currentPage?.tabs?.length));
+  // A page's tabs exist only when tabsVisible says so (main's sub-pages need
+  // a connected core); otherwise the page renders its standalone content.
+  const pageTabsVisible = $derived(tabsVisible(currentPage, coreConnected));
+  const inSubNav = $derived(!!($subNav.pageId && $subNav.pageId === currentPage?.id && pageTabsVisible));
   const subTabs = $derived(inSubNav ? (currentPage?.tabs ?? []) : []);
   const activeTab = $derived(subTabs.find((tab) => tab.id === $subNav.activeTab));
   // Secondary pages (settings/debug/about) are children of the menu page on mobile.
@@ -27,7 +32,7 @@
     $menuContext ? pageRegistry.find((p) => p.id === $menuContext) : undefined
   );
   const menuSubPages = $derived(
-    $currentLevel.id === 'menu' && !!menuContextPage?.tabs?.length
+    $currentLevel.id === 'menu' && tabsVisible(menuContextPage, coreConnected)
   );
   const showBack = $derived(inSubNav || isSecondaryPage || menuSubPages);
 
@@ -52,6 +57,20 @@
   const R = useLocaleRecord(
     pageRegistry.flatMap((page) => [page.key, ...(page.tabs ?? []).map((tab) => tab.key)])
   );
+
+  // The core lifecycle drives main's sub-nav: connecting enters it (the
+  // overview tab), disconnecting leaves it (main shows the start button).
+  // $subNav is read untracked: a manual exit (the back button) must not
+  // retrigger an immediate re-enter.
+  $effect(() => {
+    if (!currentPage?.tabsRequiresCore || $currentLevel.id !== currentPage.id) return;
+    const subPageId = untrack(() => $subNav.pageId);
+    if (coreConnected && subPageId !== currentPage.id) {
+      enterSubNav(currentPage.id, currentPage.tabs ?? []);
+    } else if (!coreConnected && subPageId === currentPage.id) {
+      exitSubNav();
+    }
+  });
   const title = $derived(
     menuSubPages && menuContextPage
       ? R[menuContextPage.key]
@@ -64,8 +83,8 @@
 
   function navigate(id: string) {
     const page = pageRegistry.find((p) => p.id === id);
-    if (page?.tabs?.length) {
-      enterSubNav(id, page.tabs);
+    if (tabsVisible(page, coreConnected)) {
+      enterSubNav(id, page?.tabs ?? []);
     } else {
       exitSubNav();
     }

@@ -71,6 +71,7 @@ main:
     inactive: неактивно
     active: активно
     timeline: Таймлайн активности
+    timeline_reset: Сбросить вид
     total_connections: Всего соединений
     filter_all: Все
     filter_closed: Закрытые
@@ -292,6 +293,8 @@ log:
     copy: Копировать всё
   copied: Логи скопированы
 about:
+  updaters:
+    repository: Репозиторий
   commit_info:
     prefix: 'Коммит: '
   build_info:

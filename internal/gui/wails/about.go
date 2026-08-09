@@ -4,6 +4,7 @@ package wails
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -40,6 +41,44 @@ type SelfUpdateInfo struct {
 	Body         string    `json:"body"`
 	LatestDate   time.Time `json:"latestDate"`
 	ReleaseCount int       `json:"releaseCount"`
+}
+
+// UpdaterEntry describes one update manager declared in the project spec
+// (internal/app/project.yaml), exposed to the updates tab.
+type UpdaterEntry struct {
+	Name          string   `json:"name"`
+	SourceBackend string   `json:"sourceBackend"`
+	Owner         string   `json:"owner"`
+	Repo          string   `json:"repo"`
+	BaseURL       string   `json:"baseURL"`
+	AssetTags     []string `json:"assetTags"`
+	ApplyBackend  string   `json:"applyBackend"`
+	BaseDir       string   `json:"baseDir"`
+	InstallScript string   `json:"installScript"`
+}
+
+// GetUpdaters returns the updater definitions from the project spec so the
+// updates tab lists every update manager the app was built with.
+func (b *Bindings) GetUpdaters() []UpdaterEntry {
+	spec := b.app.Spec
+	if spec == nil {
+		return nil
+	}
+	out := make([]UpdaterEntry, len(spec.Updaters))
+	for i, u := range spec.Updaters {
+		out[i] = UpdaterEntry{
+			Name:          u.Name,
+			SourceBackend: u.Source.Backend,
+			Owner:         u.Source.Owner,
+			Repo:          u.Source.Repo,
+			BaseURL:       u.Source.BaseURL,
+			AssetTags:     u.Source.AssetTags,
+			ApplyBackend:  u.Apply.Backend,
+			BaseDir:       u.Apply.BaseDir,
+			InstallScript: u.Apply.InstallScript,
+		}
+	}
+	return out
 }
 
 // GetVersionInfo returns build and version metadata.
@@ -213,6 +252,8 @@ func (b *Bindings) InstallSelfUpdate(branch string) error {
 	}
 	ctx, cancel := context.WithTimeout(b.ctx, 10*time.Minute)
 	defer cancel()
+	b.registerUpdateCancel("app", cancel)
+	defer b.unregisterUpdateCancel("app")
 	err = u.Install(ctx, info, func(downloaded, total int64) {
 		progress := 0
 		if total > 0 {
@@ -225,6 +266,10 @@ func (b *Bindings) InstallSelfUpdate(branch string) error {
 		})
 	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			// User-requested cancel: the modal is already closing, no toast.
+			return nil
+		}
 		b.toastErr(err)
 		return err
 	}

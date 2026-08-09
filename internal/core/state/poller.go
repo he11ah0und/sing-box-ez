@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -72,6 +73,10 @@ type Poller struct {
 	// groupHistory retains per-group rate samples (the summed rates of the
 	// live members) keyed by group key; entries follow the group lifetime.
 	groupHistory map[string][]TrafficPoint
+
+	// groupFilter is the case-insensitive name substring the proxy group
+	// list is filtered by (empty = no filter); set via SetGroupFilter.
+	groupFilter string
 }
 
 // connHistoryMax caps how many per-connection histories are retained.
@@ -368,7 +373,7 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 		next.Mode = mode
 	}
 	if gErr == nil {
-		next.Groups = toGroups(groups)
+		next.Groups = toGroups(filterGroupsByName(groups, p.groupFilter))
 	}
 	if cErr == nil {
 		next.Connections = toConnections(conns, rates)
@@ -526,6 +531,31 @@ func (p *Poller) connSort() string {
 		return p.d.ConnSort()
 	}
 	return "date"
+}
+
+// SetGroupFilter sets the case-insensitive substring the proxy group list
+// is filtered by; empty disables filtering. Applied on the next snapshot
+// (the poller re-fetches the group list every tick).
+func (p *Poller) SetGroupFilter(q string) {
+	p.mu.Lock()
+	p.groupFilter = strings.TrimSpace(strings.ToLower(q))
+	p.mu.Unlock()
+}
+
+// filterGroupsByName returns only the groups whose tag contains q
+// (case-insensitive); an empty query returns the list unchanged.
+func filterGroupsByName(groups []api.Group, q string) []api.Group {
+	q = strings.ToLower(strings.TrimSpace(q))
+	if q == "" {
+		return groups
+	}
+	out := make([]api.Group, 0, len(groups))
+	for _, g := range groups {
+		if strings.Contains(strings.ToLower(g.Tag), q) {
+			out = append(out, g)
+		}
+	}
+	return out
 }
 
 // historyLimit returns the configured number of retained samples.

@@ -469,11 +469,17 @@ func (c *Controller) DownloadCoreWithProgress(onProgress func(downloaded, total 
 }
 
 func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
+	return c.DownloadCoreContext(context.Background(), onProgress)
+}
+
+// DownloadCoreContext is DownloadCore with a caller-supplied context so the
+// GUI can cancel an in-flight download.
+func (c *Controller) DownloadCoreContext(ctx context.Context, onProgress ProgressFunc) (string, error) {
 	if c.manager.updater == nil {
 		return "", fmt.Errorf("core updater not configured")
 	}
 
-	info, err := c.manager.CheckCoreUpdate(context.Background())
+	info, err := c.manager.CheckCoreUpdate(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -516,7 +522,7 @@ func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
 		defer func() { fa.BeforeInstall = nil }()
 	}
 
-	if err := c.manager.updater.Install(context.Background(), info, onProgress); err != nil {
+	if err := c.manager.updater.Install(ctx, info, onProgress); err != nil {
 		return "", fmt.Errorf("install core update: %w", err)
 	}
 

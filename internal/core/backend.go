@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+
 	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/config"
 	"sing-box-ez/internal/core/api"
@@ -36,6 +38,7 @@ type Backend interface {
 	GetLatestCoreVersion() (string, error)
 	DownloadCoreWithProgress(progress func(downloaded, total int64)) (string, error)
 	DownloadCore(progress ProgressFunc) (string, error)
+	DownloadCoreContext(ctx context.Context, progress ProgressFunc) (string, error)
 
 	GetPrivilegeTabState() PrivilegeTabState
 	RestartAsAdmin() error

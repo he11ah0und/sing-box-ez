@@ -1,7 +1,8 @@
 <script lang="ts">
   import { setRootPage, currentLevel, enterSubNav, exitSubNav, setMenuContext } from '../stores/navigation.js';
+  import { appState } from '../stores/appState.js';
   import { useLocaleRecord } from '../stores/locale.svelte.js';
-  import { pageRegistry } from '../pages/index.js';
+  import { pageRegistry, tabsVisible } from '../pages/index.js';
 
   // Always the same three entries (main / configs / menu) — registry order.
   const mainItems = pageRegistry.filter((page) => page.bottomNav);
@@ -18,14 +19,16 @@
 
   function navigate(id: string) {
     const page = pageRegistry.find((p) => p.id === id);
+    const connected = $appState.api.phase === 'connected';
     if (id === 'menu') {
-      // Opening the menu from a tabbed page shows that page's tabs; from a
-      // primary page (or the menu itself) it resets to the full list.
+      // Opening the menu from a page with visible tabs shows that page's
+      // tabs; from a primary page (or the menu itself) it resets to the
+      // full list.
       const from = pageRegistry.find((p) => p.id === $currentLevel.id);
-      setMenuContext(from?.tabs?.length ? from.id : null);
+      setMenuContext(tabsVisible(from, connected) ? (from?.id ?? null) : null);
     }
-    if (page?.tabs?.length) {
-      enterSubNav(id, page.tabs);
+    if (tabsVisible(page, connected)) {
+      enterSubNav(id, page?.tabs ?? []);
     } else {
       exitSubNav();
     }

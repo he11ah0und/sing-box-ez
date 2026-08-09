@@ -8,9 +8,13 @@
   // miniature embedded in the group dialog is non-interactive and acts as a
   // button that opens the interactive detail dialog.
   import type { ConnSpan } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
+  import { RotateCcw } from '@lucide/svelte';
   import { formatDuration } from '../utils/format.js';
+  import { useLocale } from '../stores/locale.svelte.js';
 
   let { spans = [], interactive = true }: { spans?: ConnSpan[]; interactive?: boolean } = $props();
+
+  const L = useLocale(['main.connections.timeline_reset']);
 
   // Ticks once per second so open tracks grow while the dialog is open.
   let now = $state(Date.now());
@@ -92,26 +96,42 @@
     return () => el.removeEventListener('wheel', onWheel);
   });
 
-  // Drag panning.
+  // Drag panning. touch-action: pan-y on the container leaves vertical
+  // drags to the scroller (mobile) and only horizontal ones reach this
+  // handler; the axis lock below is the same guard for mouse input, so a
+  // mostly-vertical gesture can never push the tracks out of view.
   let panning = $state(false);
+  let axisLocked = false;
   let panX = 0;
+  let panY = 0;
   let panStart = 0;
   let panEnd = 0;
 
   function onPointerDown(e: PointerEvent) {
     if (!container || !interactive) return;
-    panning = true;
+    axisLocked = false;
+    panning = false;
     panX = e.clientX;
+    panY = e.clientY;
     panStart = viewStart ?? fullStart;
     panEnd = viewEnd ?? fullEnd;
     container.setPointerCapture(e.pointerId);
   }
   function onPointerMove(e: PointerEvent) {
-    if (!panning || !container) return;
+    if (!container) return;
+    const dx = e.clientX - panX;
+    if (!panning) {
+      if (axisLocked || (dx === 0 && e.clientY === panY)) return;
+      const dy = e.clientY - panY;
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      axisLocked = true;
+      if (Math.abs(dy) > Math.abs(dx)) return; // vertical gesture: not ours
+      panning = true;
+    }
     const rect = container.getBoundingClientRect();
     if (rect.width <= 0) return;
     const len = panEnd - panStart;
-    const shift = ((panX - e.clientX) / rect.width) * len;
+    const shift = (-dx / rect.width) * len;
     const [cs, ce] = clampView(panStart + shift, panEnd + shift);
     viewStart = cs;
     viewEnd = ce;
@@ -142,6 +162,7 @@
     <div
       bind:this={container}
       class="space-y-0.5 select-none {interactive ? (panning ? 'cursor-grabbing' : 'cursor-grab') : ''}"
+      style={interactive ? 'touch-action: pan-y' : ''}
       onpointerdown={onPointerDown}
       onpointermove={onPointerMove}
       onpointerup={onPointerUp}
@@ -167,8 +188,20 @@
         {/if}
       {/each}
     </div>
-    <div class="flex justify-between text-[10px] text-muted-foreground">
+    <div class="flex justify-between items-center text-[10px] text-muted-foreground">
       <span>{fmt(windowStart)}</span>
+      <!-- Visible reset: on touch there is no double-click, and a panned
+           view otherwise sticks until the dialog is reopened. -->
+      {#if interactive && viewStart !== null}
+        <button
+          class="p-1 rounded hover:bg-accent"
+          aria-label={L.mainConnectionsTimeline_reset}
+          title={L.mainConnectionsTimeline_reset}
+          onclick={onReset}
+        >
+          <RotateCcw size={12} />
+        </button>
+      {/if}
       <span>{fmt(windowEnd)}</span>
     </div>
   </div>

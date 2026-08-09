@@ -1,9 +1,11 @@
 <script lang="ts">
   import { setRootPage, currentLevel, enterSubNav, exitSubNav, setSubTab, menuContext } from '../stores/navigation.js';
+  import { appState } from '../stores/appState.js';
   import { useLocaleRecord } from '../stores/locale.svelte.js';
-  import { pageRegistry, type PageMeta } from '../pages/index.js';
+  import { pageRegistry, tabsVisible, type PageMeta } from '../pages/index.js';
   import { cn } from '$lib/utils.js';
 
+  const coreConnected = $derived($appState.api.phase === 'connected');
   const items = pageRegistry.filter((page) => page.nav && !page.bottomNav);
   const R = useLocaleRecord(
     pageRegistry.flatMap((page) => [page.key, ...(page.tabs ?? []).map((tab) => tab.key)])
@@ -14,12 +16,12 @@
   const contextPage = $derived(
     $menuContext ? pageRegistry.find((p) => p.id === $menuContext) : undefined
   );
-  const subPagesMode = $derived(!!contextPage?.tabs?.length);
+  const subPagesMode = $derived(tabsVisible(contextPage, coreConnected));
 
   function navigate(id: string) {
     const page = pageRegistry.find((p) => p.id === id);
-    if (page?.tabs?.length) {
-      enterSubNav(id, page.tabs);
+    if (tabsVisible(page, coreConnected)) {
+      enterSubNav(id, page?.tabs ?? []);
     } else {
       exitSubNav();
     }

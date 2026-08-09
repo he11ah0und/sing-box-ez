@@ -62,3 +62,13 @@ func (b *Bindings) GetAPIState() state.Update {
 	}
 	return b.core.State()
 }
+
+// SetAPIGroupFilter sets the case-insensitive name substring the proxy
+// group list is filtered by (empty disables filtering). The filtered list
+// arrives with the next api:state snapshot.
+func (b *Bindings) SetAPIGroupFilter(query string) {
+	if b.core == nil {
+		return
+	}
+	b.core.SetGroupFilter(query)
+}

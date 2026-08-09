@@ -71,6 +71,7 @@ main:
     inactive: 非活动
     active: 活跃
     timeline: 活动时间线
+    timeline_reset: 重置视图
     total_connections: 连接总数
     filter_all: 全部
     filter_closed: 已关闭
@@ -78,7 +79,7 @@ main:
     sort_traffic: 流量
     sort_total: 总流量
     search: 搜索
-    close_group: 关闭连接
+    close_group: 关闭全部连接
 connection_details:
   title: 连接详情
   inbound: 入站
@@ -292,6 +293,8 @@ log:
     copy: 复制全部
   copied: 日志已复制
 about:
+  updaters:
+    repository: 仓库
   commit_info:
     prefix: 提交：
   build_info:
