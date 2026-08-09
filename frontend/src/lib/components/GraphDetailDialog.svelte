@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import StackedGraph from './StackedGraph.svelte';
+  import RateGraph, { type RateMarker } from './RateGraph.svelte';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import { useLocale } from '../stores/locale.svelte.js';
   import { formatSpeed } from '../utils/format.js';
@@ -33,8 +33,7 @@
     'main.dashboard.avg',
     'main.graph.total',
     'main.graph.median',
-    'main.graph.p95',
-    'main.graph.current'
+    'main.graph.p95'
   ]);
 
   // now ticks every animation frame so the stats window drifts with the graph.
@@ -99,35 +98,39 @@
 
   const currentUp = $derived(up.length ? up[up.length - 1] || 0 : 0);
   const currentDown = $derived(down.length ? down[down.length - 1] || 0 : 0);
+
+  // Marker line styles: distinct dash patterns so the lines stay separable
+  // even where colors are close.
+  const markerStyle = {
+    min: { color: 'var(--color-muted-foreground)', dash: '2 3' },
+    max: { color: 'var(--color-destructive)', dash: '6 3' },
+    median: { color: 'var(--color-info)', dash: '' },
+    p95: { color: 'var(--color-warning)', dash: '4 2' }
+  };
+
+  function markersOf(s: SeriesStats): RateMarker[] {
+    return [
+      { value: s.min, ...markerStyle.min },
+      { value: s.max, ...markerStyle.max },
+      { value: s.median, ...markerStyle.median },
+      { value: s.p95, ...markerStyle.p95 }
+    ];
+  }
+
+  const downMarkers = $derived(markersOf(downStats));
+  const upMarkers = $derived(markersOf(upStats));
 </script>
 
 <Dialog.Root {open} onOpenChange={(o) => { if (!o) onclose?.(); }}>
-  <Dialog.Content class="sm:max-w-2xl">
+  <Dialog.Content class="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title>{title}</Dialog.Title>
     </Dialog.Header>
 
     <div class="space-y-4">
-      <StackedGraph {up} {down} {times} {span} height={200} />
-
-      <!-- Current speeds -->
-      <div class="space-y-1">
-        <p class="text-sm text-muted-foreground">{L.mainGraphCurrent}</p>
-        <div class="grid grid-cols-3 gap-4 text-center">
-        <div>
-          <p class="text-sm text-muted-foreground">{L.mainDashboardUpload}</p>
-          <p class="text-xl font-semibold text-[var(--color-success)]">{formatSpeed(currentUp)}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted-foreground">{L.mainDashboardDownload}</p>
-          <p class="text-xl font-semibold text-[var(--color-primary)]">{formatSpeed(currentDown)}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted-foreground">{L.mainGraphTotal}</p>
-          <p class="text-xl font-semibold">{formatSpeed(currentUp + currentDown)}</p>
-        </div>
-        </div>
-      </div>
+      <!-- Two independent graphs; current speeds live in the headers. -->
+      {@render SeriesGraph(L.mainDashboardDownload, down, currentDown, downStats, downMarkers, 'var(--color-primary)')}
+      {@render SeriesGraph(L.mainDashboardUpload, up, currentUp, upStats, upMarkers, 'var(--color-success)')}
 
       <!-- Stats over the visible window -->
       <div class="overflow-x-auto">
@@ -152,6 +155,47 @@
     </div>
   </Dialog.Content>
 </Dialog.Root>
+
+{#snippet SeriesGraph(
+  label: string,
+  data: number[],
+  current: number,
+  stats: SeriesStats,
+  markers: RateMarker[],
+  color: string
+)}
+  <div class="space-y-1">
+    <div class="flex items-baseline justify-between">
+      <p class="text-sm text-muted-foreground">{label}</p>
+      <p class="text-lg font-semibold" style="color: {color}">{formatSpeed(current)}</p>
+    </div>
+    <RateGraph {data} {times} {span} {color} {markers} height={140} />
+    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      {@render LegendItem(L.mainDashboardMin, stats.min, markerStyle.min)}
+      {@render LegendItem(L.mainDashboardMax, stats.max, markerStyle.max)}
+      {@render LegendItem(L.mainGraphMedian, stats.median, markerStyle.median)}
+      {@render LegendItem(L.mainGraphP95, stats.p95, markerStyle.p95)}
+    </div>
+  </div>
+{/snippet}
+
+{#snippet LegendItem(label: string, value: number, style: { color: string; dash: string })}
+  <span class="flex items-center gap-1.5">
+    <svg width="18" height="4" viewBox="0 0 18 4">
+      <line
+        x1="0"
+        y1="2"
+        x2="18"
+        y2="2"
+        stroke={style.color}
+        stroke-width="1.5"
+        stroke-dasharray={style.dash}
+      />
+    </svg>
+    <span class="text-muted-foreground">{label}</span>
+    <span>{formatSpeed(value)}</span>
+  </span>
+{/snippet}
 
 {#snippet StatsRow(label: string, s: SeriesStats, cls: string)}
   <tr class="border-t border-border">
