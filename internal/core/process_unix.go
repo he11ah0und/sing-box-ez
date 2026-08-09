@@ -84,6 +84,18 @@ func SetNetAdminCapabilityGUI(path string) error {
 	return exec.Command("pkexec", "setcap", "cap_net_admin=+ep", absPath).Run()
 }
 
+func RemoveNetAdminCapabilityGUI(path string) error {
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+	absPath, err := resolveAbsPath(path)
+	if err != nil {
+		return fmt.Errorf("resolve path: %w", err)
+	}
+	// #nosec G204 — pkexec and setcap are system binaries; absPath is resolved internal path.
+	return exec.Command("pkexec", "setcap", "-r", absPath).Run()
+}
+
 func SetNetAdminCapabilityCLI(path string) error {
 	if runtime.GOOS != "linux" {
 		return nil

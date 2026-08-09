@@ -87,7 +87,7 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 			Actions: []PrivilegeAction{
 				{
 					ID:    "restart_admin",
-					Label: localengine.T("core", "btn", "restart_admin"),
+					Label: localengine.T("settings", "privileges", "restart_admin"),
 					Handler: func() error {
 						return restartFn()
 					},
@@ -157,6 +157,16 @@ func (c *PrivilegeController) RestartAsAdmin(restartFn func() error) error {
 // ApplySetcap applies setcap and returns any error.
 func (c *PrivilegeController) ApplySetcap() error {
 	return SetNetAdminCapabilityGUI(c.manager.coreBinary())
+}
+
+// ToggleSetcap applies cap_net_admin to the core binary when it is missing
+// and removes it when present (Linux). It returns a plain error; callers log.
+func (c *PrivilegeController) ToggleSetcap() error {
+	bin := c.manager.coreBinary()
+	if HasNetAdminCapability(bin) {
+		return RemoveNetAdminCapabilityGUI(bin)
+	}
+	return SetNetAdminCapabilityGUI(bin)
 }
 
 // ApplyPrivilegeAction executes a privilege action, logs the result, and returns

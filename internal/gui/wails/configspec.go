@@ -16,8 +16,13 @@ type ConfigSpecEntry struct {
 	Path string `json:"path"`
 	// Type is "bool" | "int" | "string".
 	Type string `json:"type"`
-	// Control is the UI control hint ("text" | "number" | "switch" | "select").
+	// Control is the UI control hint ("text" | "number" | "switch" | "select" | "action").
 	Control string `json:"control"`
+	// Action is the backend action id for "action" controls (empty otherwise);
+	// action entries carry no value and are run via RunConfigAction.
+	Action string `json:"action"`
+	// Confirm asks the UI to confirm before running an "action" control.
+	Confirm bool `json:"confirm"`
 	// Options holds the allowed values for "select" controls, nil otherwise.
 	Options []any `json:"options"`
 	// Min and Max bound int entries; nil when absent.
@@ -48,6 +53,8 @@ func (b *Bindings) visibleConfigEntries() []ConfigSpecEntry {
 			Path:      strings.Join(e.Path, "."),
 			Type:      e.Type,
 			Control:   e.Control,
+			Action:    e.Action,
+			Confirm:   e.Confirm,
 			Options:   e.Options,
 			Min:       e.Min,
 			Max:       e.Max,
@@ -64,11 +71,15 @@ func (b *Bindings) GetConfigSpec() []ConfigSpecEntry {
 }
 
 // GetConfigValues returns the current values of exactly the visible entries,
-// keyed by dot-joined path.
+// keyed by dot-joined path. Action entries carry no value (no Sheet cell) and
+// are skipped.
 func (b *Bindings) GetConfigValues() map[string]any {
 	values := make(map[string]any)
 	cfg := b.app.Controller.Config()
 	for _, e := range b.visibleConfigEntries() {
+		if e.Control == "action" {
+			continue
+		}
 		cell := cfg.MustGet(strings.Split(e.Path, ".")...)
 		switch e.Type {
 		case "bool":
@@ -88,6 +99,10 @@ func (b *Bindings) GetConfigValues() map[string]any {
 func (b *Bindings) SetConfigValues(values map[string]any) error {
 	visible := make(map[string]ConfigSpecEntry)
 	for _, e := range b.visibleConfigEntries() {
+		if e.Control == "action" {
+			// Action entries carry no value and are not settable.
+			continue
+		}
 		visible[e.Path] = e
 	}
 	cfg := b.app.Controller.Config()

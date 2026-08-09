@@ -95,8 +95,6 @@ core:
   btn:
     download: Скачать последнее ядро sing-box
     check: Проверить последнюю версию
-    restart_admin: Перезапустить от администратора
-    apply_setcap: Применить setcap
   privileges:
     title: Привилегии
     admin: 'Привилегии: запущено от администратора'
@@ -110,7 +108,6 @@ core:
     label: Запускать от администратора
   mode:
     admin: Админ
-    setcap_prompt: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
   log:
     title: Лог ядра
   api:
@@ -217,6 +214,13 @@ settings:
       system: Системная
       dark: Тёмная
       light: Светлая
+  privileges:
+    setcap: Применить setcap
+    setcap_remove: Убрать setcap
+    setcap_confirm: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
+    setcap_remove_confirm: Убрать capability cap_net_admin с бинарника ядра? Для TUN потребуется root.
+    restart_admin: Перезапустить от администратора
+    restart_admin_confirm: Перезапустить приложение с правами администратора?
   updates:
     auto_check_self: Проверять обновления приложения при запуске
     auto_check_core: Проверять обновления ядра при запуске
@@ -234,7 +238,6 @@ settings:
     title: Обновление конфигов
   system:
     mode: Платформа
-    restart_admin_confirm: Перезапустить приложение с правами администратора?
   language:
     title: Язык
   theme:

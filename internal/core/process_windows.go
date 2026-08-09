@@ -36,6 +36,10 @@ func SetNetAdminCapabilityGUI(path string) error {
 	return nil
 }
 
+func RemoveNetAdminCapabilityGUI(path string) error {
+	return nil
+}
+
 func SetNetAdminCapabilityCLI(path string) error {
 	return nil
 }

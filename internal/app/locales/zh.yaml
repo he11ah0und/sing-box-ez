@@ -95,8 +95,6 @@ core:
   btn:
     download: 下载最新 sing-box 核心
     check: 检查最新版本
-    restart_admin: 以管理员身份重启
-    apply_setcap: 应用 setcap
   privileges:
     title: 权限
     admin: 权限：以管理员身份运行
@@ -110,7 +108,6 @@ core:
     label: 以管理员身份运行
   mode:
     admin: 管理员
-    setcap_prompt: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
   log:
     title: 核心日志
   api:
@@ -217,6 +214,13 @@ settings:
       system: 跟随系统
       dark: 深色
       light: 浅色
+  privileges:
+    setcap: 应用 setcap
+    setcap_remove: 移除 setcap
+    setcap_confirm: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
+    setcap_remove_confirm: 移除核心二进制文件的 cap_net_admin 能力？TUN 将需要 root 权限。
+    restart_admin: 以管理员身份重启
+    restart_admin_confirm: 以管理员权限重启应用？
   updates:
     auto_check_self: 启动时检查应用更新
     auto_check_core: 启动时检查核心更新
@@ -234,7 +238,6 @@ settings:
     title: 配置更新
   system:
     mode: 平台
-    restart_admin_confirm: 以管理员权限重启应用？
   language:
     title: 语言
   theme:

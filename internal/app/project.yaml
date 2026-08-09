@@ -72,6 +72,18 @@ config:
       control: select
       options: [system, dark, light]
 
+  privileges:
+    setcap:
+      control: action
+      action: setcap
+      confirm: true
+      platforms: [linux]
+    restart_admin:
+      control: action
+      action: restart_admin
+      confirm: true
+      platforms: [windows]
+
   updates:
     auto_check_self:
       type: bool

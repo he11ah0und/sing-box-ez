@@ -24,8 +24,7 @@
     GetAvailableLanguages,
     SetLanguage,
     GetPrivilegeTabState,
-    RestartAsAdmin,
-    ApplySetcap,
+    RunConfigAction,
     ResetData
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type {
@@ -47,8 +46,8 @@
   let themeNames = $state<string[]>([]);
   let privState = $state<PrivilegeTabState | null>(null);
   let privProcessing = $state(false);
-  let confirmRestartAdmin = $state(false);
-  let confirmSetcap = $state(false);
+  let confirmAction = $state<ConfigSpecEntry | null>(null);
+  let confirmActionOpen = $state(false);
   let confirmReset = $state(false);
 
   // Dynamic labels come from wildcard namespaces: tab labels, control labels
@@ -64,11 +63,7 @@
     'dialog.btn.confirm',
     'core.privileges.title',
     'core.privileges.setcap_hint',
-    'core.btn.restart_admin',
-    'core.btn.apply_setcap',
-    'core.mode.setcap_prompt',
     'settings.system.mode',
-    'settings.system.restart_admin_confirm',
     'settings.reset.title',
     'settings.reset.btn',
     'settings.reset.confirm_title',
@@ -113,6 +108,48 @@
 
   function inputId(path: string): string {
     return `settings-${path.replaceAll('.', '-')}`;
+  }
+
+  // Action labels come from settings.<path>; privileges.setcap is the one
+  // special case: it is a toggle, so the label and confirm text follow the
+  // current capability state.
+  function actionLabel(entry: ConfigSpecEntry): string {
+    if (entry.path === 'privileges.setcap') {
+      return privState?.hasSetcap
+        ? R.settings['privileges.setcap_remove']
+        : R.settings['privileges.setcap'];
+    }
+    return R.settings[entry.path];
+  }
+
+  function actionConfirmText(entry: ConfigSpecEntry): string {
+    if (entry.path === 'privileges.setcap') {
+      return privState?.hasSetcap
+        ? R.settings['privileges.setcap_remove_confirm']
+        : R.settings['privileges.setcap_confirm'];
+    }
+    return R.settings[`${entry.path}_confirm`];
+  }
+
+  function clickAction(entry: ConfigSpecEntry) {
+    if (entry.confirm) {
+      confirmAction = entry;
+      confirmActionOpen = true;
+    } else {
+      runAction(entry);
+    }
+  }
+
+  async function runAction(entry: ConfigSpecEntry) {
+    privProcessing = true;
+    try {
+      await RunConfigAction(entry.path);
+      await loadPrivileges();
+    } catch {
+      // The backend already reported the failure with a toast.
+    } finally {
+      privProcessing = false;
+    }
   }
 
   function colorStyle(color: string): string {
@@ -198,29 +235,6 @@
     }
   }
 
-  async function restartAsAdmin() {
-    privProcessing = true;
-    try {
-      await RestartAsAdmin();
-    } catch {
-      // The backend already reported the failure with a toast.
-    } finally {
-      privProcessing = false;
-    }
-  }
-
-  async function applySetcap() {
-    privProcessing = true;
-    try {
-      await ApplySetcap();
-      await loadPrivileges();
-    } catch {
-      // The backend already reported the failure with a toast.
-    } finally {
-      privProcessing = false;
-    }
-  }
-
   async function resetData() {
     // ResetData deletes the data files and quits the app; the call may never resolve.
     await ResetData().catch(() => {});
@@ -229,7 +243,8 @@
 
 {#snippet generatedControls(tab: string)}
   {@const switches = entriesFor(tab).filter((e) => e.control === 'switch')}
-  {@const fields = entriesFor(tab).filter((e) => e.control !== 'switch')}
+  {@const fields = entriesFor(tab).filter((e) => e.control !== 'switch' && e.control !== 'action')}
+  {@const actions = entriesFor(tab).filter((e) => e.control === 'action')}
   {#if switches.length > 0}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {#each switches as entry (entry.path)}
@@ -270,6 +285,15 @@
             <Input id={inputId(entry.path)} bind:value={form[entry.path]} />
           {/if}
         </div>
+      {/each}
+    </div>
+  {/if}
+  {#if actions.length > 0}
+    <div class="flex flex-wrap gap-2">
+      {#each actions as entry (entry.path)}
+        <Button variant="outline" disabled={privProcessing} onclick={() => clickAction(entry)}>
+          {actionLabel(entry)}
+        </Button>
       {/each}
     </div>
   {/if}
@@ -315,20 +339,6 @@
             {/if}
             {#if privState.adminLabel}
               <p class="text-sm text-muted-foreground">{privState.adminLabel}</p>
-            {/if}
-            {#if privState.showRestartAdminBtn || privState.showSetcapBtn}
-              <div class="flex flex-wrap gap-2 pt-1">
-                {#if privState.showRestartAdminBtn}
-                  <Button variant="outline" disabled={privProcessing} onclick={() => (confirmRestartAdmin = true)}>
-                    {L.coreBtnRestart_admin}
-                  </Button>
-                {/if}
-                {#if privState.showSetcapBtn}
-                  <Button variant="outline" disabled={privProcessing} onclick={() => (confirmSetcap = true)}>
-                    {L.coreBtnApply_setcap}
-                  </Button>
-                {/if}
-              </div>
             {/if}
           {:else}
             <Skeleton class="h-20 w-full rounded-xl" />
@@ -380,34 +390,17 @@
     </Card.Content>
   </Card.Root>
 
-  <AlertDialog.Root bind:open={confirmRestartAdmin}>
+  <AlertDialog.Root bind:open={confirmActionOpen}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>{L.coreBtnRestart_admin}</AlertDialog.Title>
+        <AlertDialog.Title>{confirmAction ? actionLabel(confirmAction) : ''}</AlertDialog.Title>
         <AlertDialog.Description>
-          {L.settingsSystemRestart_admin_confirm}
+          {confirmAction ? actionConfirmText(confirmAction) : ''}
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
         <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
-        <AlertDialog.Action onclick={restartAsAdmin}>
-          {L.dialogBtnConfirm}
-        </AlertDialog.Action>
-      </AlertDialog.Footer>
-    </AlertDialog.Content>
-  </AlertDialog.Root>
-
-  <AlertDialog.Root bind:open={confirmSetcap}>
-    <AlertDialog.Content>
-      <AlertDialog.Header>
-        <AlertDialog.Title>{L.coreBtnApply_setcap}</AlertDialog.Title>
-        <AlertDialog.Description>
-          {L.coreModeSetcap_prompt}
-        </AlertDialog.Description>
-      </AlertDialog.Header>
-      <AlertDialog.Footer>
-        <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
-        <AlertDialog.Action onclick={applySetcap}>
+        <AlertDialog.Action onclick={() => confirmAction && runAction(confirmAction)}>
           {L.dialogBtnConfirm}
         </AlertDialog.Action>
       </AlertDialog.Footer>

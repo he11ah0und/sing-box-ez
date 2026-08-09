@@ -116,8 +116,13 @@ func ensureSubdir(root fs.Directory, name string, perm os.FileMode) (fs.Director
 // registerSpecConfig registers the config entries declared in the project
 // spec into the Sheet, preserving declaration order. UI hints (control,
 // options, min/max) are not registered — they are frontend metadata.
+// "action" control entries carry no value and get no Sheet cell; they are
+// dispatched via the GUI's RunConfigAction binding instead.
 func registerSpecConfig(sheet *config.Sheet, entries []projectspec.ConfigEntry) {
 	for _, e := range entries {
+		if e.Control == "action" {
+			continue
+		}
 		var opts []config.Option
 		if e.Disabled {
 			opts = append(opts, config.WithDisabled(true))

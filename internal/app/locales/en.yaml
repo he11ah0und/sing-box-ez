@@ -95,8 +95,6 @@ core:
   btn:
     download: Download latest sing-box core
     check: Check latest version
-    restart_admin: Restart as administrator
-    apply_setcap: Apply setcap
   privileges:
     title: Privileges
     admin: 'Privileges: running as administrator'
@@ -110,7 +108,6 @@ core:
     label: Run as administrator
   mode:
     admin: Admin
-    setcap_prompt: setcap is not applied to the core binary. Apply it now to enable TUN without root?
   log:
     title: Core log
   api:
@@ -217,6 +214,13 @@ settings:
       system: System-based
       dark: Dark
       light: Light
+  privileges:
+    setcap: Apply setcap
+    setcap_remove: Remove setcap
+    setcap_confirm: setcap is not applied to the core binary. Apply it now to enable TUN without root?
+    setcap_remove_confirm: Remove the cap_net_admin capability from the core binary? TUN will require root.
+    restart_admin: Restart as administrator
+    restart_admin_confirm: Restart the application with administrator privileges?
   updates:
     auto_check_self: Check for app updates on startup
     auto_check_core: Check for core updates on startup
@@ -234,7 +238,6 @@ settings:
     title: Config Updates
   system:
     mode: Platform
-    restart_admin_confirm: Restart the application with administrator privileges?
   language:
     title: Language
   theme:

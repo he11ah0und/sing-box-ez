@@ -846,6 +846,13 @@ func (c *Controller) ApplySetcap() error {
 	return nil
 }
 
+// ToggleSetcap applies or removes cap_net_admin on the core binary depending
+// on the current state. It returns a plain error; the caller logs (e.g. via
+// ApplyPrivilegeAction).
+func (c *Controller) ToggleSetcap() error {
+	return c.privileges.ToggleSetcap()
+}
+
 func (c *Controller) ApplyPrivilegeAction(action *PrivilegeAction) (success, needRefresh, needClose bool) {
 	return c.privileges.ApplyPrivilegeAction(action)
 }
