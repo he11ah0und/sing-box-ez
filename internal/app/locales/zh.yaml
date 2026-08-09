@@ -67,6 +67,8 @@ main:
     empty: 无出站分组
   connections:
     empty: 无活动连接
+    inactive: 非活动
+    timeline: 活动时间线
     filter_all: 全部
     filter_closed: 已关闭
     sort_date: 日期
@@ -211,6 +213,7 @@ settings:
         warn: 警告
         error: 错误
     traffic_graph_history: 流量图表历史
+    connections_retention: 保留非活动连接（分钟）
   log:
     limit: 日志行数限制（0=无限制）：
   ui:

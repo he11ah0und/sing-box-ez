@@ -57,6 +57,39 @@ type TrafficHistory struct {
 	Points []TrafficPoint `json:"points"`
 }
 
+// ConnSpan is the activity window of one member connection inside a group:
+// one track per connection (DevTools/waterfall style). End is zero while
+// the connection is alive.
+type ConnSpan struct {
+	ID    string    `json:"id"`
+	Start time.Time `json:"start"`
+	End   time.Time `json:"end"`
+}
+
+// ConnectionGroup aggregates connections to the same target (domain:port or
+// destination) into one list entry. Totals include closed members; rates
+// cover only the live ones.
+type ConnectionGroup struct {
+	Key       string    `json:"key"`
+	Target    string    `json:"target"`
+	Network   string    `json:"network"`
+	Active    bool      `json:"active"`
+	ConnCount int       `json:"connCount"`
+	ConnIDs   []string  `json:"connIDs"`
+	UpRate    int64     `json:"upRate"`
+	DownRate  int64     `json:"downRate"`
+	UpTotal   int64     `json:"upTotal"`
+	DownTotal int64     `json:"downTotal"`
+	FirstSeen time.Time `json:"firstSeen"`
+	LastSeen  time.Time `json:"lastSeen"`
+	// LastAgo is the localized human-readable form of the elapsed time since
+	// LastSeen.
+	LastAgo string `json:"lastAgo"`
+	// Spans are the activity windows of member connections, one per
+	// connection, oldest first.
+	Spans []ConnSpan `json:"spans"`
+}
+
 // Update is the full snapshot of the core API state pushed to frontends
 // while the core is connected. Frontends never poll: they seed from
 // Poller.State and then apply pushed updates.
@@ -67,6 +100,9 @@ type Update struct {
 	Mode        string       `json:"mode"`
 	Groups      []Group      `json:"groups"`
 	Connections []Connection `json:"connections"`
+	// ConnGroups aggregates Connections by target; inactive groups are kept
+	// until the configured retention elapses.
+	ConnGroups []ConnectionGroup `json:"connGroups"`
 }
 
 // Info describes the runtime connection parameters for the active core API.
@@ -127,29 +163,29 @@ type ProcessInfo struct {
 
 // Connection is a UI-facing snapshot of api.Connection.
 type Connection struct {
-	ID            string    `json:"id"`
-	Inbound       string    `json:"inbound"`
-	InboundType   string    `json:"inboundType"`
-	Network       string    `json:"network"`
-	Source        string    `json:"source"`
-	Destination   string    `json:"destination"`
-	Domain        string    `json:"domain"`
-	Protocol      string    `json:"protocol"`
-	User          string    `json:"user"`
-	Outbound      string    `json:"outbound"`
-	OutboundType  string    `json:"outboundType"`
-	Chain         []string  `json:"chain"`
-	Uplink        int64     `json:"uplink"`
-	Downlink      int64     `json:"downlink"`
-	UplinkTotal   int64     `json:"uplinkTotal"`
-	DownlinkTotal int64     `json:"downlinkTotal"`
+	ID            string   `json:"id"`
+	Inbound       string   `json:"inbound"`
+	InboundType   string   `json:"inboundType"`
+	Network       string   `json:"network"`
+	Source        string   `json:"source"`
+	Destination   string   `json:"destination"`
+	Domain        string   `json:"domain"`
+	Protocol      string   `json:"protocol"`
+	User          string   `json:"user"`
+	Outbound      string   `json:"outbound"`
+	OutboundType  string   `json:"outboundType"`
+	Chain         []string `json:"chain"`
+	Uplink        int64    `json:"uplink"`
+	Downlink      int64    `json:"downlink"`
+	UplinkTotal   int64    `json:"uplinkTotal"`
+	DownlinkTotal int64    `json:"downlinkTotal"`
 	// UpRate/DownRate are the per-second rates computed by the poller for the
 	// graph history sample (API-reported, or derived from the totals delta);
 	// frontends read them directly instead of doing delta math.
-	UpRate   int64 `json:"upRate"`
-	DownRate int64 `json:"downRate"`
-	Rule          string    `json:"rule"`
-	CreatedAt     time.Time `json:"createdAt"`
+	UpRate    int64     `json:"upRate"`
+	DownRate  int64     `json:"downRate"`
+	Rule      string    `json:"rule"`
+	CreatedAt time.Time `json:"createdAt"`
 	// CreatedAgo is the localized human-readable form of the elapsed time
 	// since CreatedAt.
 	CreatedAgo  string         `json:"createdAgo"`

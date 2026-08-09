@@ -81,7 +81,8 @@ function applyApiState(data: APIStateUpdate | null | undefined) {
       info: data?.info ?? null,
       mode: data?.mode ?? '',
       groups: data?.groups ?? [],
-      connections: data?.connections ?? []
+      connections: data?.connections ?? [],
+      connGroups: data?.connGroups ?? []
     }
   }));
 }

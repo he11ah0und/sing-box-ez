@@ -24,6 +24,9 @@ type Deps struct {
 	Info func() *api.Info
 	// HistoryLimit returns the configured number of retained graph samples.
 	HistoryLimit func() int
+	// ConnRetentionMin returns the configured minutes an inactive connection
+	// group stays in the connections list before being dropped.
+	ConnRetentionMin func() int
 }
 
 // Poller subscribes to the core status stream and drives everything a
@@ -59,6 +62,13 @@ type Poller struct {
 	// core restarts; the map is capped at connHistoryMax entries.
 	connHistory map[string][]TrafficPoint
 	connLast    map[string]connTotals
+
+	// groups aggregates connections by target with activity intervals.
+	groups *groupTracker
+
+	// groupHistory retains per-group rate samples (the summed rates of the
+	// live members) keyed by group key; entries follow the group lifetime.
+	groupHistory map[string][]TrafficPoint
 }
 
 // connHistoryMax caps how many per-connection histories are retained.
@@ -75,11 +85,13 @@ type connTotals struct {
 // New creates a Poller. Run it with Run.
 func New(d Deps) *Poller {
 	return &Poller{
-		d:           d,
-		backoff:     2 * time.Second,
-		phase:       PhaseStopped,
-		connHistory: make(map[string][]TrafficPoint),
-		connLast:    make(map[string]connTotals),
+		d:            d,
+		backoff:      2 * time.Second,
+		phase:        PhaseStopped,
+		connHistory:  make(map[string][]TrafficPoint),
+		connLast:     make(map[string]connTotals),
+		groups:       newGroupTracker(),
+		groupHistory: make(map[string][]TrafficPoint),
 	}
 }
 
@@ -192,6 +204,8 @@ func (p *Poller) resetConn(clearHistory bool) {
 		p.history = nil
 		p.connHistory = make(map[string][]TrafficPoint)
 		p.connLast = make(map[string]connTotals)
+		p.groups.reset()
+		p.groupHistory = make(map[string][]TrafficPoint)
 		p.mu.Unlock()
 	}
 }
@@ -331,8 +345,10 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 	// Rate sampling locks mu internally: it must run before the state
 	// update block below acquires the same (non-reentrant) mutex.
 	var rates map[string]TrafficPoint
+	var connGroups []ConnectionGroup
 	if cErr == nil {
 		rates = p.sampleConnections(conns, now)
+		connGroups = p.updateGroups(conns, rates, now)
 	}
 
 	p.mu.Lock()
@@ -343,6 +359,7 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 		Mode:        p.state.Mode,
 		Groups:      p.state.Groups,
 		Connections: p.state.Connections,
+		ConnGroups:  p.state.ConnGroups,
 	}
 	if mErr == nil {
 		next.Mode = mode
@@ -352,6 +369,7 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 	}
 	if cErr == nil {
 		next.Connections = toConnections(conns, rates)
+		next.ConnGroups = connGroups
 	}
 	p.state = next
 	p.phase = PhaseConnected
@@ -442,6 +460,61 @@ func (p *Poller) ConnectionTrafficHistory(id string) TrafficHistory {
 	points := make([]TrafficPoint, len(p.connHistory[id]))
 	copy(points, p.connHistory[id])
 	return TrafficHistory{Points: points}
+}
+
+// updateGroups folds the current connections snapshot into the group
+// tracker, appends a summed rate sample to every group's retained history
+// and returns the UI-facing group list. Locks mu internally.
+func (p *Poller) updateGroups(conns []api.Connection, rates map[string]TrafficPoint, now time.Time) []ConnectionGroup {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.groups.update(conns, now, p.connRetention())
+	groups := p.groups.snapshot(rates, now)
+
+	limit := p.historyLimit()
+	alive := make(map[string]bool, len(groups))
+	for _, g := range groups {
+		alive[g.Key] = true
+		if !g.Active {
+			// Inactive groups keep their history frozen; appending zero
+			// samples would misrender as activity gaps.
+			continue
+		}
+		hist := append(p.groupHistory[g.Key], TrafficPoint{At: now, Up: g.UpRate, Down: g.DownRate})
+		if len(hist) > limit {
+			hist = hist[len(hist)-limit:]
+		}
+		p.groupHistory[g.Key] = hist
+	}
+	// Histories follow the group lifetime: pruned groups lose theirs.
+	for key := range p.groupHistory {
+		if !alive[key] {
+			delete(p.groupHistory, key)
+		}
+	}
+	return groups
+}
+
+// ConnectionGroupTrafficHistory returns the retained summed rate samples of
+// one connection group, or an empty history when the group is unknown.
+func (p *Poller) ConnectionGroupTrafficHistory(key string) TrafficHistory {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	points := make([]TrafficPoint, len(p.groupHistory[key]))
+	copy(points, p.groupHistory[key])
+	return TrafficHistory{Points: points}
+}
+
+// connRetention returns how long an inactive connection group is retained.
+func (p *Poller) connRetention() time.Duration {
+	n := 0
+	if p.d.ConnRetentionMin != nil {
+		n = p.d.ConnRetentionMin()
+	}
+	if n < 1 {
+		n = 60
+	}
+	return time.Duration(n) * time.Minute
 }
 
 // historyLimit returns the configured number of retained samples.

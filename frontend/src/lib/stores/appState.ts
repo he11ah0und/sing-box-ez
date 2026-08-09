@@ -7,6 +7,7 @@ import type {
 } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 import type {
   Connection as APIConnection,
+  ConnectionGroup as APIConnectionGroup,
   Group as APIGroup,
   Info as APIInfo,
   Status as APIStatus
@@ -84,6 +85,9 @@ export interface ApiState {
   mode: string;
   groups: APIGroup[];
   connections: APIConnection[];
+  // connGroups aggregates connections by target; inactive groups are kept
+  // until the configured retention elapses.
+  connGroups: APIConnectionGroup[];
 }
 
 export interface AppState {
@@ -136,7 +140,7 @@ export const appState = writable<AppState>({
   selfUpdate: { downloading: false, downloadProgress: 0 },
   styleCheck: null,
   selfUpdateInfo: null,
-  api: { phase: 'stopped', status: null, info: null, mode: '', groups: [], connections: [] }
+  api: { phase: 'stopped', status: null, info: null, mode: '', groups: [], connections: [], connGroups: [] }
 });
 
 export function appendAppLog(line: string) {

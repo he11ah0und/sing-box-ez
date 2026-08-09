@@ -18,6 +18,12 @@ config:
       default: 60
       control: select
       options: [30, 60, 120, 300]
+    # How long an inactive connection group stays in the connections list.
+    connections_retention:
+      type: int
+      default: 60
+      control: select
+      options: [5, 15, 30, 60, 180, 720]
     url_test_url:
       type: string
       default: "http://cp.cloudflare.com/generate_204"

@@ -17,6 +17,9 @@ func (b *Bindings) startCorePoller() {
 		HistoryLimit: func() int {
 			return b.app.Controller.Config().MustGet("core", "traffic_graph_history").Int()
 		},
+		ConnRetentionMin: func() int {
+			return b.app.Controller.Config().MustGet("core", "connections_retention").Int()
+		},
 	})
 	b.core.OnTraffic(func(u state.TrafficUpdate) { b.emit("traffic:updated", u) })
 	b.core.OnState(func(s state.Update) { b.emit("api:state", s) })
@@ -38,6 +41,15 @@ func (b *Bindings) GetConnectionTrafficHistory(id string) state.TrafficHistory {
 		return state.TrafficHistory{}
 	}
 	return b.core.ConnectionTrafficHistory(id)
+}
+
+// GetConnectionGroupTrafficHistory returns the retained summed traffic rate
+// samples of one connection group, or an empty history when unknown.
+func (b *Bindings) GetConnectionGroupTrafficHistory(key string) state.TrafficHistory {
+	if b.core == nil {
+		return state.TrafficHistory{}
+	}
+	return b.core.ConnectionGroupTrafficHistory(key)
 }
 
 // GetAPIState returns the latest cached core API snapshot.

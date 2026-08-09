@@ -68,6 +68,8 @@ main:
     empty: No outbound groups
   connections:
     empty: No active connections
+    inactive: inactive
+    timeline: Activity timeline
     filter_all: All
     filter_closed: Closed
     sort_date: Date
@@ -212,6 +214,7 @@ settings:
         warn: Warn
         error: Error
     traffic_graph_history: Traffic graph history
+    connections_retention: Keep inactive connections (min)
   log:
     limit: 'Log limit (lines, 0=unlimited):'
   ui:

@@ -7,6 +7,7 @@
   import Page from '../components/Page.svelte';
   import StackedGraph from '../components/StackedGraph.svelte';
   import GraphDetailDialog from '../components/GraphDetailDialog.svelte';
+  import ActivityTimeline from '../components/ActivityTimeline.svelte';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Card from '$lib/components/ui/card/index.js';
   import * as Tabs from '$lib/components/ui/tabs/index.js';
@@ -30,14 +31,16 @@
     URLTestAPIGroup,
     CloseAPIConnections,
     CloseAPIConnection,
-    GetConnectionTrafficHistory
+    GetConnectionTrafficHistory,
+    GetConnectionGroupTrafficHistory
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type {
     Status as APIStatus,
     Info as APIInfo,
     Group as APIGroup,
     Node as APINode,
-    Connection as APIConnection
+    Connection as APIConnection,
+    ConnectionGroup as APIConnectionGroup
   } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
   import { formatBytes, formatSpeed, formatTime, splitHostPort, ipVersionLabel } from '../utils/format.js';
 
@@ -82,6 +85,11 @@
     'main.api.connections',
     'main.api.close_connections',
     'main.connections.empty',
+    'main.connections.inactive',
+    'main.connections.timeline',
+    'main.connections.sort_date',
+    'main.connections.sort_traffic',
+    'main.connections.sort_total',
     'connection_details.title',
     'connection_details.inbound',
     'connection_details.network',
@@ -133,6 +141,34 @@
   const apiMode = $derived($appState.api.mode);
   const apiGroups = $derived($appState.api.groups);
   const apiConnections = $derived($appState.api.connections);
+  const apiConnGroups = $derived($appState.api.connGroups ?? []);
+  let expandedConnGroups = $state<Set<string>>(new Set());
+  // Group details dialog (right-click on a group row) follows the live group
+  // from the store so the timeline keeps ticking while it is open.
+  let selectedGroupKey = $state<string | null>(null);
+  const selectedGroup = $derived(apiConnGroups.find((g) => g.key === selectedGroupKey) ?? null);
+
+  // Connection group sorting. The default (date) is stable — active groups
+  // order by firstSeen so the list does not jump every second.
+  type ConnSortMode = 'date' | 'traffic' | 'total';
+  const connSortModes: ConnSortMode[] = ['date', 'traffic', 'total'];
+  let connSort = $state<ConnSortMode>('date');
+  const connSortLabels = $derived<Record<ConnSortMode, string>>({
+    date: L.mainConnectionsSort_date,
+    traffic: L.mainConnectionsSort_traffic,
+    total: L.mainConnectionsSort_total
+  });
+  const sortedConnGroups = $derived.by(() => {
+    const ts = (s?: string | null) => (s ? new Date(s).getTime() : 0);
+    const arr = [...apiConnGroups];
+    arr.sort((a, b) => {
+      if (a.active !== b.active) return a.active ? -1 : 1;
+      if (connSort === 'traffic') return b.upRate + b.downRate - (a.upRate + a.downRate);
+      if (connSort === 'total') return b.upTotal + b.downTotal - (a.upTotal + a.downTotal);
+      return a.active ? ts(a.firstSeen) - ts(b.firstSeen) : ts(b.lastSeen) - ts(a.lastSeen);
+    });
+    return arr;
+  });
   let expandedGroups = $state<Set<string>>(new Set());
   let testingGroups = $state<Set<string>>(new Set());
   let groupDelays = $state<Record<string, Record<string, number>>>({});
@@ -266,6 +302,28 @@
     expandedGroups = next;
   }
 
+  function toggleConnGroup(key: string) {
+    const next = new Set(expandedConnGroups);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    expandedConnGroups = next;
+  }
+
+  // Live member connections of a group, resolved from the store snapshot.
+  function groupMembers(g: APIConnectionGroup): APIConnection[] {
+    const ids = new Set(g.connIDs ?? []);
+    return apiConnections.filter((c) => ids.has(c.id));
+  }
+
+  function formatGroupSub(g: APIConnectionGroup): string {
+    let sub =
+      g.active && (g.upRate > 0 || g.downRate > 0)
+        ? `↑${formatSpeed(g.upRate)} ↓${formatSpeed(g.downRate)} · ${formatBytes(g.upTotal + g.downTotal)}`
+        : `↑${formatBytes(g.upTotal)} ↓${formatBytes(g.downTotal)}`;
+    if (g.lastAgo) sub += ` · ${g.lastAgo}`;
+    return sub;
+  }
+
   async function closeConnections() {
     try {
       await CloseAPIConnections();
@@ -354,7 +412,16 @@
     down: [],
     times: []
   });
-  let lastConnKey = $state('');
+
+  // Per-group graph history, same seed-then-extend pattern as connGraph.
+  let groupGraphOpen = $state(false);
+  let groupGraphKey = $state<string | null>(null);
+  let groupGraphSeeded = $state(false);
+  let groupGraphHistory = $state<{ up: number[]; down: number[]; times: number[] }>({
+    up: [],
+    down: [],
+    times: []
+  });
 
   $effect(() => {
     const id = selectedConnId;
@@ -366,7 +433,6 @@
     connGraphId = id;
     connGraphSeeded = false;
     connGraphHistory = { up: [], down: [], times: [] };
-    lastConnKey = '';
     GetConnectionTrafficHistory(id)
       .then((h) => {
         if (connGraphId !== id) return;
@@ -384,16 +450,55 @@
   });
 
   $effect(() => {
+    const key = selectedGroupKey;
+    if (!key) {
+      groupGraphKey = null;
+      groupGraphSeeded = false;
+      return;
+    }
+    groupGraphKey = key;
+    groupGraphSeeded = false;
+    groupGraphHistory = { up: [], down: [], times: [] };
+    GetConnectionGroupTrafficHistory(key)
+      .then((h) => {
+        if (groupGraphKey !== key) return;
+        const pts = h?.points ?? [];
+        groupGraphHistory = {
+          up: pts.map((p) => p.up ?? 0),
+          down: pts.map((p) => p.down ?? 0),
+          times: pts.map((p) => new Date(p.at).getTime())
+        };
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (groupGraphKey === key) groupGraphSeeded = true;
+      });
+  });
+
+  $effect(() => {
+    const key = selectedGroupKey;
+    const groups = apiConnGroups;
+    if (!key || groupGraphKey !== key || !groupGraphSeeded) return;
+    const g = groups.find((gr) => gr.key === key);
+    if (!g || !g.active) return;
+    // Append on every api:state push (~1/s), zero rate included, to keep the
+    // per-second cadence the graph expects.
+    const maxPoints = Math.max(2, graphSpan * 2);
+    groupGraphHistory = {
+      up: [...groupGraphHistory.up, g.upRate ?? 0].slice(-maxPoints),
+      down: [...groupGraphHistory.down, g.downRate ?? 0].slice(-maxPoints),
+      times: [...groupGraphHistory.times, Date.now()].slice(-maxPoints)
+    };
+  });
+
+  $effect(() => {
     const id = selectedConnId;
     const conns = apiConnections;
     if (!id || connGraphId !== id || !connGraphSeeded) return;
     const conn = conns.find((c) => c.id === id);
     if (!conn) return;
-    // Snapshots arrive ~1/s; skip appends when nothing changed so idle
-    // connections do not pile up duplicate points.
-    const key = `${conn.uplinkTotal}:${conn.downlinkTotal}:${conn.upRate}:${conn.downRate}`;
-    if (key === lastConnKey) return;
-    lastConnKey = key;
+    // Append on every api:state push (~1/s), zero rate included: sparse
+    // points would interpolate into triangular artifacts on the graph.
     const maxPoints = Math.max(2, graphSpan * 2);
     connGraphHistory = {
       up: [...connGraphHistory.up, conn.upRate ?? 0].slice(-maxPoints),
@@ -405,6 +510,12 @@
   const connGraphTitle = $derived(
     selectedConn
       ? `${L.mainGraphDetails_title} — ${formatConnectionTarget(selectedConn)}`
+      : L.mainGraphDetails_title
+  );
+
+  const groupGraphTitle = $derived(
+    selectedGroup
+      ? `${L.mainGraphDetails_title} — ${selectedGroup.target}`
       : L.mainGraphDetails_title
   );
 
@@ -696,36 +807,91 @@
       <Tabs.Content value="connections" class="flex-1 min-h-0 overflow-y-auto">
         <Card.Root>
           <Card.Header>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <Card.Title>
                 {L.mainApiConnections} ({apiConnections.length})
               </Card.Title>
-              <Button variant="outline" size="sm" onclick={closeConnections}>
-                {L.mainApiClose_connections}
-              </Button>
+              <div class="flex items-center gap-2">
+                <Select.Root
+                  type="single"
+                  value={connSort}
+                  onValueChange={(v) => { if (v) connSort = v as ConnSortMode; }}
+                >
+                  <Select.Trigger class="w-32 h-8 text-sm">{connSortLabels[connSort]}</Select.Trigger>
+                  <Select.Content>
+                    {#each connSortModes as mode (mode)}
+                      <Select.Item value={mode} label={connSortLabels[mode]} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <Button variant="outline" size="sm" onclick={closeConnections}>
+                  {L.mainApiClose_connections}
+                </Button>
+              </div>
             </div>
           </Card.Header>
           <Card.Content>
-            {#if !apiConnections.length}
+            {#if !apiConnGroups.length}
               <p class="text-muted-foreground">{L.mainConnectionsEmpty}</p>
             {:else}
               <div class="space-y-2">
-                {#each apiConnections as conn (conn.id)}
-                  <button
-                    class="w-full text-left rounded-xl border border-border bg-background p-3 hover:bg-accent transition"
-                    onclick={() => {
-                      selectedConnId = conn.id;
-                      selectedConnSnapshot = conn;
-                    }}
+                {#each sortedConnGroups as group (group.key)}
+                  {@const expanded = expandedConnGroups.has(group.key)}
+                  <div
+                    class="w-full rounded-xl border border-border bg-background {group.active ? '' : 'opacity-60'}"
                   >
-                    <div class="flex items-center justify-between gap-3">
-                      <span class="font-medium truncate">{formatConnectionTarget(conn)}</span>
-                      {#if ipVersionLabel(conn.destination)}
-                        <Badge variant="outline" class="whitespace-nowrap">{ipVersionLabel(conn.destination)}</Badge>
-                      {/if}
-                    </div>
-                    <p class="text-sm text-muted-foreground truncate mt-1">{formatConnectionSub(conn)}</p>
-                  </button>
+                    <button
+                      class="w-full text-left p-3 hover:bg-accent transition rounded-xl"
+                      onclick={() => toggleConnGroup(group.key)}
+                      oncontextmenu={(e) => {
+                        e.preventDefault();
+                        selectedGroupKey = group.key;
+                      }}
+                    >
+                      <div class="flex items-center justify-between gap-3">
+                        <span class="font-medium truncate">{group.target}</span>
+                        <span class="flex items-center gap-2 shrink-0">
+                          {#if group.connCount > 1}
+                            <Badge variant="outline" class="whitespace-nowrap">×{group.connCount}</Badge>
+                          {/if}
+                          {#if !group.active}
+                            <Badge variant="outline" class="whitespace-nowrap">{L.mainConnectionsInactive}</Badge>
+                          {/if}
+                          {#if ipVersionLabel(group.target)}
+                            <Badge variant="outline" class="whitespace-nowrap">{ipVersionLabel(group.target)}</Badge>
+                          {/if}
+                          {#if expanded}
+                            <ChevronUp size={16} class="text-muted-foreground" />
+                          {:else}
+                            <ChevronDown size={16} class="text-muted-foreground" />
+                          {/if}
+                        </span>
+                      </div>
+                      <p class="text-sm text-muted-foreground truncate mt-1">{formatGroupSub(group)}</p>
+                    </button>
+                    {#if expanded}
+                      {@const members = groupMembers(group)}
+                      <div class="px-3 pb-3 space-y-2 border-t border-border pt-2">
+                        {#each members as conn (conn.id)}
+                          <button
+                            class="w-full text-left rounded-lg border border-border bg-background p-2 hover:bg-accent transition"
+                            onclick={() => {
+                              selectedConnId = conn.id;
+                              selectedConnSnapshot = conn;
+                            }}
+                          >
+                            <div class="flex items-center justify-between gap-3">
+                              <span class="text-sm font-medium truncate">{formatConnectionTarget(conn)}</span>
+                              {#if ipVersionLabel(conn.destination)}
+                                <Badge variant="outline" class="whitespace-nowrap">{ipVersionLabel(conn.destination)}</Badge>
+                              {/if}
+                            </div>
+                            <p class="text-xs text-muted-foreground truncate mt-0.5">{formatConnectionSub(conn)}</p>
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
                 {/each}
               </div>
             {/if}
@@ -799,6 +965,58 @@
   {/if}
 {/snippet}
 
+<!-- Connection group details: opened by right-click on a group row. Shows
+     the activity timeline and aggregated counters; follows store updates. -->
+<Dialog.Root open={selectedGroup != null} onOpenChange={(open) => { if (!open) selectedGroupKey = null; }}>
+  <Dialog.Content class="sm:max-w-lg">
+    <Dialog.Header>
+      <Dialog.Title>{selectedGroup?.target ?? ''}</Dialog.Title>
+    </Dialog.Header>
+    {#if selectedGroup}
+      {@const g = selectedGroup}
+      <div class="space-y-3 text-sm">
+        <div class="flex items-center gap-2">
+          {#if g.active}
+            <Badge variant="outline">×{g.connCount}</Badge>
+          {:else}
+            <Badge variant="outline">{L.mainConnectionsInactive}</Badge>
+          {/if}
+          {#if ipVersionLabel(g.target)}
+            <Badge variant="outline">{ipVersionLabel(g.target)}</Badge>
+          {/if}
+        </div>
+        {@render DetailRow(L.connection_detailsNetwork, g.network)}
+        {@render DetailRow(L.connection_detailsCreated, formatTime(g.firstSeen))}
+        {@render DetailRow(L.connection_detailsUplink, `${formatSpeed(g.upRate)} (${formatBytes(g.upTotal)})`)}
+        {@render DetailRow(L.connection_detailsDownlink, `${formatSpeed(g.downRate)} (${formatBytes(g.downTotal)})`)}
+        {#if groupGraphKey === g.key}
+          <div class="space-y-1 pt-1">
+            <p class="text-muted-foreground">{L.mainGraphDetails_title}</p>
+            <button
+              class="w-full rounded-xl border border-border bg-background p-2 cursor-pointer hover:bg-accent transition"
+              onclick={() => (groupGraphOpen = true)}
+            >
+              <StackedGraph
+                up={groupGraphHistory.up}
+                down={groupGraphHistory.down}
+                times={groupGraphHistory.times}
+                span={graphSpan}
+                height={80}
+              />
+            </button>
+          </div>
+        {/if}
+        {#if (g.spans ?? []).length}
+          <div class="space-y-1 pt-1">
+            <p class="text-muted-foreground">{L.mainConnectionsTimeline}</p>
+            <ActivityTimeline spans={g.spans ?? []} />
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>
+
 <GraphDetailDialog
   open={mainGraphOpen}
   onclose={() => (mainGraphOpen = false)}
@@ -816,5 +1034,15 @@
   up={connGraphHistory.up}
   down={connGraphHistory.down}
   times={connGraphHistory.times}
+  span={graphSpan}
+/>
+
+<GraphDetailDialog
+  open={groupGraphOpen}
+  onclose={() => (groupGraphOpen = false)}
+  title={groupGraphTitle}
+  up={groupGraphHistory.up}
+  down={groupGraphHistory.down}
+  times={groupGraphHistory.times}
   span={graphSpan}
 />

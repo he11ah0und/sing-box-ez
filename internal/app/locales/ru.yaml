@@ -67,6 +67,8 @@ main:
     empty: Нет outbound-групп
   connections:
     empty: Нет активных соединений
+    inactive: неактивно
+    timeline: Таймлайн активности
     filter_all: Все
     filter_closed: Закрытые
     sort_date: Дата
@@ -211,6 +213,7 @@ settings:
         warn: Предупреждение
         error: Ошибка
     traffic_graph_history: История графика трафика
+    connections_retention: Хранить неактивные соединения (мин)
   log:
     limit: 'Лимит строк лога (0=без ограничений):'
   ui:

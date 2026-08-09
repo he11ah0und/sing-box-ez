@@ -18,12 +18,13 @@ type Accessor struct {
 }
 
 type CoreAccessor struct {
-	AutoRestart         *fwconfig.Cell
-	TrafficGraphHistory *fwconfig.Cell
-	URLTestURL          *fwconfig.Cell
-	StartOnLaunch       *fwconfig.Cell
-	Log                 *CoreLogAccessor
-	Proxy               *CoreProxyAccessor
+	AutoRestart          *fwconfig.Cell
+	TrafficGraphHistory  *fwconfig.Cell
+	ConnectionsRetention *fwconfig.Cell
+	URLTestURL           *fwconfig.Cell
+	StartOnLaunch        *fwconfig.Cell
+	Log                  *CoreLogAccessor
+	Proxy                *CoreProxyAccessor
 }
 
 type CoreLogAccessor struct {
@@ -81,10 +82,11 @@ type RemoteAccessor struct {
 func NewAccessor(sheet *fwconfig.Sheet) *Accessor {
 	return &Accessor{
 		Core: &CoreAccessor{
-			AutoRestart:         sheet.MustGet("core", "auto_restart"),
-			TrafficGraphHistory: sheet.MustGet("core", "traffic_graph_history"),
-			URLTestURL:          sheet.MustGet("core", "url_test_url"),
-			StartOnLaunch:       sheet.MustGet("core", "start_on_launch"),
+			AutoRestart:          sheet.MustGet("core", "auto_restart"),
+			TrafficGraphHistory:  sheet.MustGet("core", "traffic_graph_history"),
+			ConnectionsRetention: sheet.MustGet("core", "connections_retention"),
+			URLTestURL:           sheet.MustGet("core", "url_test_url"),
+			StartOnLaunch:        sheet.MustGet("core", "start_on_launch"),
 			Log: &CoreLogAccessor{
 				Level: sheet.MustGet("core", "log", "level"),
 			},
