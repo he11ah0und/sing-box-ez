@@ -163,6 +163,9 @@
       // The backend already reported the failure with a toast.
     } finally {
       installing = false;
+      // No completion progress event arrives on cancel/failure; reset the
+      // flag so the auto-close effect below can fire.
+      appState.update((s) => ({ ...s, selfUpdate: { ...s.selfUpdate, downloading: false } }));
     }
   }
 
@@ -177,6 +180,7 @@
       toast.error(String(err));
     } finally {
       coreProcessing = false;
+      appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, downloading: false } }));
     }
   }
 
@@ -353,9 +357,11 @@
             {L.aboutCommit_infoPrefix} {version.branch}
             {#if version.commit}, {version.commit}{/if}
             {#if version.commitDate}, {version.commitDate}{/if}
+            {#if version.humanCommit} ({version.humanCommit}){/if}
           </p>
           <p class="text-sm text-muted-foreground">
             {L.aboutBuild_infoPrefix} {version.buildDate || '—'}
+            {#if version.humanBuild} ({version.humanBuild}){/if}
           </p>
           {#if version.isDev}
             <p class="text-sm text-primary">{L.aboutDev_buildLabel}</p>
@@ -395,11 +401,14 @@
 </Page>
 
 <!-- Active download/update runs in a modal; it auto-closes on completion
-     and cannot be dismissed by the X button, the overlay or Escape — only
-     the cancel button stops the transfer (a controlled open ignores close
-     requests, so the handlers below simply never fire). -->
+     or cancel. The X button is hidden and overlay/Escape closes are
+     prevented — only the cancel button stops the transfer. -->
 <Dialog.Root open={updateModal !== null} onOpenChange={() => {}}>
-  <Dialog.Content showCloseButton={false}>
+  <Dialog.Content
+    showCloseButton={false}
+    onInteractOutside={(e) => e.preventDefault()}
+    onEscapeKeydown={(e) => e.preventDefault()}
+  >
     <Dialog.Header>
       <Dialog.Title>{modalIsApp ? L.aboutUpdateTitle : L.tabCore}</Dialog.Title>
     </Dialog.Header>

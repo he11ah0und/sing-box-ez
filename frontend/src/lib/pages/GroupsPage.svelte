@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { RefreshCw, ChevronDown, ChevronUp, Zap } from '@lucide/svelte';
+  import { RefreshCw, ChevronDown, ChevronUp, Zap, Filter } from '@lucide/svelte';
   import { appState } from '../stores/appState.js';
   import { useLocale } from '../stores/locale.svelte.js';
 
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
+  import * as Dialog from '$lib/components/ui/dialog/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
@@ -22,7 +23,8 @@
   const L = useLocale([
     'tab.groups',
     'main.groups.empty',
-    'main.connections.search'
+    'main.connections.search',
+    'main.connections.filter'
   ]);
 
   // Core API state arrives from the backend via api:state events; the page
@@ -38,6 +40,8 @@
   // SetAPIGroupFilter and the filtered list arrives with the next api:state
   // push. The page never filters the store locally.
   let groupSearch = $state('');
+  // The search lives in the filter dialog so the header stays compact.
+  let showGroupFilter = $state(false);
   $effect(() => {
     const q = groupSearch.trim();
     const timer = setTimeout(() => {
@@ -110,11 +114,16 @@
     <Card.Header>
       <div class="flex items-center justify-between gap-2">
         <Card.Title>{L.tabGroups}</Card.Title>
-        <Input
-          class="w-36 sm:w-48 h-8 text-sm"
-          placeholder={L.mainConnectionsSearch}
-          bind:value={groupSearch}
-        />
+        <Button
+          variant="outline"
+          size="sm"
+          class={groupSearch.trim() ? 'text-primary' : ''}
+          onclick={() => (showGroupFilter = true)}
+          aria-label={L.mainConnectionsFilter}
+        >
+          <Filter size={16} />
+          <span class="hidden sm:inline">{L.mainConnectionsFilter}</span>
+        </Button>
       </div>
     </Card.Header>
     <Card.Content class="space-y-4">
@@ -189,3 +198,18 @@
     </Card.Content>
   </Card.Root>
 </Page>
+
+<!-- Filter dialog: currently holds only the group-name search (applied by
+     the backend via SetAPIGroupFilter); new filter variables go here. -->
+<Dialog.Root open={showGroupFilter} onOpenChange={(open) => { if (!open) showGroupFilter = false; }}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>{L.mainConnectionsFilter}</Dialog.Title>
+    </Dialog.Header>
+    <Input
+      placeholder={L.mainConnectionsSearch}
+      bind:value={groupSearch}
+      autofocus
+    />
+  </Dialog.Content>
+</Dialog.Root>

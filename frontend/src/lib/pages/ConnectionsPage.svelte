@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { ChevronDown, ChevronUp } from '@lucide/svelte';
+  import { ChevronDown, ChevronUp, Filter, ArrowUpDown, CircleX, Check } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
   import { useLocale } from '../stores/locale.svelte.js';
@@ -12,7 +12,6 @@
   import TimelineDetailDialog from '../components/TimelineDetailDialog.svelte';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Card from '$lib/components/ui/card/index.js';
-  import * as Select from '$lib/components/ui/select/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
@@ -44,6 +43,8 @@
     'plugins.info.status',
     'main.connections.total_connections',
     'main.connections.search',
+    'main.connections.filter',
+    'main.connections.sort',
     'main.connections.close_group',
     'main.connections.sort_date',
     'main.connections.sort_traffic',
@@ -71,8 +72,11 @@
   const apiConnections = $derived($appState.api.connections);
   const apiConnGroups = $derived($appState.api.connGroups ?? []);
   let expandedConnGroups = $state<Set<string>>(new Set());
-  // Connection search filters groups by target substring (IP or domain).
+  // Connection search filters groups by target substring (IP or domain);
+  // it lives in the filter dialog so the header stays compact on mobile.
   let connSearch = $state('');
+  let showConnFilter = $state(false);
+  let showConnSort = $state(false);
   const visibleConnGroups = $derived.by(() => {
     const q = connSearch.trim().toLowerCase();
     if (!q) return apiConnGroups;
@@ -385,25 +389,34 @@
           {L.mainApiConnections} ({apiConnections.length})
         </Card.Title>
         <div class="flex items-center gap-2">
-          <Input
-            class="w-36 sm:w-48 h-8 text-sm"
-            placeholder={L.mainConnectionsSearch}
-            bind:value={connSearch}
-          />
-          <Select.Root
-            type="single"
-            value={connSort}
-            onValueChange={(v) => { if (v) setConnSort(v as ConnSortMode); }}
+          <!-- Icon-only on narrow screens; labels appear from sm up. -->
+          <Button
+            variant="outline"
+            size="sm"
+            class={connSearch.trim() ? 'text-primary' : ''}
+            onclick={() => (showConnFilter = true)}
+            aria-label={L.mainConnectionsFilter}
           >
-            <Select.Trigger class="w-32 h-8 text-sm">{connSortLabels[connSort]}</Select.Trigger>
-            <Select.Content>
-              {#each connSortModes as mode (mode)}
-                <Select.Item value={mode} label={connSortLabels[mode]} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-          <Button variant="outline" size="sm" onclick={closeConnections}>
-            {L.mainApiClose_connections}
+            <Filter size={16} />
+            <span class="hidden sm:inline">{L.mainConnectionsFilter}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onclick={() => (showConnSort = true)}
+            aria-label={L.mainConnectionsSort}
+          >
+            <ArrowUpDown size={16} />
+            <span class="hidden sm:inline">{connSortLabels[connSort]}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onclick={closeConnections}
+            aria-label={L.mainApiClose_connections}
+          >
+            <CircleX size={16} />
+            <span class="hidden sm:inline">{L.mainApiClose_connections}</span>
           </Button>
         </div>
       </div>
@@ -645,3 +658,41 @@
   times={groupGraphHistory.times}
   span={graphSpan}
 />
+
+<!-- Filter dialog: currently holds only the target search; new filter
+     variables go here as they appear. -->
+<Dialog.Root open={showConnFilter} onOpenChange={(open) => { if (!open) showConnFilter = false; }}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>{L.mainConnectionsFilter}</Dialog.Title>
+    </Dialog.Header>
+    <Input
+      placeholder={L.mainConnectionsSearch}
+      bind:value={connSearch}
+      autofocus
+    />
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Sort dialog: one option per sort mode; the active one is checked. -->
+<Dialog.Root open={showConnSort} onOpenChange={(open) => { if (!open) showConnSort = false; }}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>{L.mainConnectionsSort}</Dialog.Title>
+    </Dialog.Header>
+    <div class="flex flex-col gap-2">
+      {#each connSortModes as mode (mode)}
+        <button
+          class="w-full text-left px-4 py-3 rounded-xl border border-border bg-secondary hover:bg-accent transition flex items-center justify-between {mode === connSort ? 'text-primary' : ''}"
+          onclick={() => {
+            setConnSort(mode);
+            showConnSort = false;
+          }}
+        >
+          {connSortLabels[mode]}
+          {#if mode === connSort}<Check size={16} />{/if}
+        </button>
+      {/each}
+    </div>
+  </Dialog.Content>
+</Dialog.Root>

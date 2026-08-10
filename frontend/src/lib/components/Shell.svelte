@@ -20,6 +20,12 @@
   // A page's tabs exist only when tabsVisible says so (main's sub-pages need
   // a connected core); otherwise the page renders its standalone content.
   const pageTabsVisible = $derived(tabsVisible(currentPage, coreConnected));
+  // Primitive page id: reading $currentLevel.id directly subscribes to the
+  // level object identity, and goHome()/backPage() always emit a fresh one —
+  // that would re-run the core-lifecycle effect below and instantly undo a
+  // manual sub-nav exit (the dead back button). A $derived string only
+  // propagates on real id changes.
+  const currentPageId = $derived($currentLevel.id);
   const inSubNav = $derived(!!($subNav.pageId && $subNav.pageId === currentPage?.id && pageTabsVisible));
   const subTabs = $derived(inSubNav ? (currentPage?.tabs ?? []) : []);
   const activeTab = $derived(subTabs.find((tab) => tab.id === $subNav.activeTab));
@@ -63,7 +69,7 @@
   // $subNav is read untracked: a manual exit (the back button) must not
   // retrigger an immediate re-enter.
   $effect(() => {
-    if (!currentPage?.tabsRequiresCore || $currentLevel.id !== currentPage.id) return;
+    if (!currentPage?.tabsRequiresCore || currentPageId !== currentPage.id) return;
     const subPageId = untrack(() => $subNav.pageId);
     if (coreConnected && subPageId !== currentPage.id) {
       enterSubNav(currentPage.id, currentPage.tabs ?? []);
@@ -92,8 +98,19 @@
   }
 
   // Desktop rail back: leave the sub-nav and return to the previous page.
+  // Exception: main's sub-pages exist only because the core is connected —
+  // there is no plain main to fall back to, so back lands on the nearest
+  // tab-less page instead of a half-mode main (global rail over overview
+  // content).
   function back() {
     exitSubNav();
+    if (currentPage?.tabsRequiresCore) {
+      const target = pageRegistry
+        .filter((p) => p.nav && p.id !== currentPage?.id && !tabsVisible(p, coreConnected))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0];
+      setRootPage(target?.id ?? 'configs');
+      return;
+    }
     if (!backPage()) goHome();
   }
 

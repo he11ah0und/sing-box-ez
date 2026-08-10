@@ -620,7 +620,17 @@ func (c *Controller) EditConfig(oldName string, rec config.ConfigRecord) error {
 	}
 	oldRec := c.cfg.GetConfigByName(oldName)
 	if oldRec != nil {
+		// The edit form carries only its own fields; runtime-owned state
+		// (content hash, last update, auto-update flag, fallback choice,
+		// plugin parent) is preserved from the stored record so editing
+		// e.g. the update interval does not reset the cache state.
 		rec.Hash = oldRec.Hash
+		rec.LastUpdate = oldRec.LastUpdate
+		rec.AutoUpdate = oldRec.AutoUpdate
+		rec.FallbackType = oldRec.FallbackType
+		if rec.Parent == "" {
+			rec.Parent = oldRec.Parent
+		}
 	}
 	if rec.Name != oldName {
 		if c.cfg.GetConfigByName(rec.Name) != nil {

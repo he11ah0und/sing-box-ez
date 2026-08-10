@@ -79,6 +79,8 @@ main:
     sort_traffic: Traffic
     sort_total: Total Traffic
     search: Search
+    filter: Filter
+    sort: Sort
     close_group: Close connections
 connection_details:
   title: Connection Details

@@ -266,7 +266,7 @@ func (b *Bindings) InstallSelfUpdate(branch string) error {
 		})
 	})
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
+		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
 			// User-requested cancel: the modal is already closing, no toast.
 			return nil
 		}

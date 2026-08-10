@@ -62,7 +62,7 @@ export const pageRegistry: PageMeta[] = [
     tabs: [
       { id: 'overview', key: 'main.tabs.overview', icon: Gauge },
       { id: 'groups', key: 'tab.groups', icon: Waypoints },
-      { id: 'connections', key: 'main.api.connections', icon: ArrowLeftRight }
+      { id: 'connections', key: 'tab.connections', icon: ArrowLeftRight }
     ],
     tabsRequiresCore: true
   },

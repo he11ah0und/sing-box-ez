@@ -287,7 +287,8 @@ func (b *Bindings) DownloadCore() error {
 			"progress":   int64(progress),
 		})
 	})
-	if errors.Is(err, context.Canceled) {
+	if err != nil && (errors.Is(err, context.Canceled) || ctx.Err() != nil) {
+		// User-requested cancel (CancelUpdate): not an error, no toast.
 		return nil
 	}
 	return err

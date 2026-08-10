@@ -79,6 +79,8 @@ main:
     sort_traffic: 流量
     sort_total: 总流量
     search: 搜索
+    filter: 筛选
+    sort: 排序
     close_group: 关闭全部连接
 connection_details:
   title: 连接详情
