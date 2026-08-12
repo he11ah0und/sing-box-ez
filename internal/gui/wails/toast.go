@@ -3,7 +3,6 @@
 package wails
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -36,13 +35,15 @@ func (b *Bindings) t(path ...string) string {
 	return strings.Join(path, ".")
 }
 
-// toastT emits a localized toast. The locale value may contain fmt verbs.
-func (b *Bindings) toastT(level string, path []string, args ...any) {
-	text := b.t(path...)
-	if len(args) > 0 {
-		text = fmt.Sprintf(text, args...)
-	}
-	b.toast(level, text, "")
+// tf resolves a locale key like t and interpolates its {{name}} placeholders
+// with vars.
+func (b *Bindings) tf(vars localengine.Vars, path ...string) string {
+	return localengine.Tf(vars, path...)
+}
+
+// toastT emits a localized toast.
+func (b *Bindings) toastT(level string, path []string) {
+	b.toast(level, b.t(path...), "")
 }
 
 // toastErr emits an error toast for a failed action. When actionPath is
@@ -107,13 +108,13 @@ func (b *Bindings) validationReportText(r singboxconfig.ValidationResult) string
 	}
 	var lines []string
 	if len(r.Errors) > 0 {
-		lines = append(lines, fmt.Sprintf(b.t("validation", "errors_title"), len(r.Errors)))
+		lines = append(lines, b.tf(localengine.Vars{"count": len(r.Errors)}, "validation", "errors_title"))
 		for _, f := range r.Errors {
 			lines = append(lines, "- "+fieldLine(f))
 		}
 	}
 	if len(r.Warnings) > 0 {
-		lines = append(lines, fmt.Sprintf(b.t("validation", "warnings_title"), len(r.Warnings)))
+		lines = append(lines, b.tf(localengine.Vars{"count": len(r.Warnings)}, "validation", "warnings_title"))
 		for _, f := range r.Warnings {
 			lines = append(lines, "- "+fieldLine(f))
 		}

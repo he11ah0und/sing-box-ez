@@ -10,7 +10,7 @@
   import type { ConnSpan } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
   import { RotateCcw } from '@lucide/svelte';
   import { formatDuration } from '../utils/format.js';
-  import { useLocale } from '../stores/locale.svelte.js';
+  import { useLocale } from '@he11ah0und/localengine-web';
 
   let { spans = [], interactive = true }: { spans?: ConnSpan[]; interactive?: boolean } = $props();
 

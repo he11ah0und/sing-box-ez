@@ -2,7 +2,7 @@
   import { Plus, Trash2, Edit2, RefreshCw, ShieldCheck, FileText, FolderOpen, RotateCw, Copy, EllipsisVertical } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState, type ConfigRecord } from '../stores/appState.js';
-  import { useLocale, formatValue } from '../stores/locale.svelte.js';
+  import { useLocale, format } from '@he11ah0und/localengine-web';
   import Page from '../components/Page.svelte';
   import ConfigFormModal from '../components/ConfigFormModal.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
@@ -327,12 +327,12 @@
                   <span> · </span><span style:color={styleColors[meta.style]}>{styleLabels[meta.style] ?? ''}</span>
                 {/if}
                 {#if meta?.lastPlain}
-                  <span> · {formatValue(L.durationAgo, [meta.lastPlain])}</span>
+                  <span> · {format(L.durationAgo, { unit: meta.lastPlain })}</span>
                 {/if}
                 {#if meta?.overdue}
                   <span style:color="var(--color-warning)"> · {L.configsUpdateOverdue}</span>
                 {:else if meta?.nextPlain}
-                  <span> · {formatValue(L.durationIn, [meta.nextPlain])}</span>
+                  <span> · {format(L.durationIn, { unit: meta.nextPlain })}</span>
                 {/if}
               </p>
             </div>
@@ -506,7 +506,7 @@
             {#if validation.result.errors?.length}
               <div>
                 <p class="font-medium text-destructive mb-1">
-                  {L.validationErrors_title.replace('%d', String(validation.result.errors.length))}
+                  {format(L.validationErrors_title, { count: validation.result.errors.length })}
                 </p>
                 <ul class="space-y-1">
                   {#each validation.result.errors as field (field.path)}
@@ -518,7 +518,7 @@
             {#if validation.result.warnings?.length}
               <div>
                 <p class="font-medium text-[var(--color-warning)] mb-1">
-                  {L.validationWarnings_title.replace('%d', String(validation.result.warnings.length))}
+                  {format(L.validationWarnings_title, { count: validation.result.warnings.length })}
                 </p>
                 <ul class="space-y-1">
                   {#each validation.result.warnings as field (field.path)}

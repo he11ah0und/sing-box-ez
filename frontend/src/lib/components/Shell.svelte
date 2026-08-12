@@ -7,7 +7,7 @@
   import { currentLevel, subNav, setRootPage, setRootPageSilent, backPage, setSubTab, enterSubNav, exitSubNav, goHome, menuContext, setMenuContext } from '../stores/navigation.js';
   import { appState } from '../stores/appState.js';
   import { sidebarCollapsed, toggleSidebar } from '../stores/sidebar.js';
-  import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
+  import { useLocale, useLocaleRecord } from '@he11ah0und/localengine-web';
   import { pageRegistry, tabsVisible } from '../pages/index.js';
 
   let { children }: { children?: Snippet } = $props();

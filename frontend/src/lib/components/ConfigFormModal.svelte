@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { useLocale } from '../stores/locale.svelte.js';
+  import { useLocale } from '@he11ah0und/localengine-web';
   import type { ConfigRecord } from '../stores/appState.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import { Input } from '$lib/components/ui/input/index.js';

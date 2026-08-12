@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import RateGraph, { type RateMarker } from './RateGraph.svelte';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
-  import { useLocale } from '../stores/locale.svelte.js';
+  import { useLocale } from '@he11ah0und/localengine-web';
   import { formatSpeed } from '../utils/format.js';
 
   let {

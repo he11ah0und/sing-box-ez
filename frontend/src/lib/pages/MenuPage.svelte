@@ -1,7 +1,7 @@
 <script lang="ts">
   import { setRootPage, currentLevel, enterSubNav, exitSubNav, setSubTab, menuContext } from '../stores/navigation.js';
   import { appState } from '../stores/appState.js';
-  import { useLocaleRecord } from '../stores/locale.svelte.js';
+  import { useLocaleRecord } from '@he11ah0und/localengine-web';
   import { pageRegistry, tabsVisible, type PageMeta } from '../pages/index.js';
   import { cn } from '$lib/utils.js';
 

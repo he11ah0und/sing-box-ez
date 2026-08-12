@@ -3,7 +3,7 @@
   import { ChevronDown, ChevronUp, Filter, ArrowUpDown, CircleX, Check } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
-  import { useLocale } from '../stores/locale.svelte.js';
+  import { useLocale } from '@he11ah0und/localengine-web';
 
   import Page from '../components/Page.svelte';
   import StackedGraph from '../components/StackedGraph.svelte';

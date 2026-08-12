@@ -1,7 +1,6 @@
 package version
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/he11ah0und/localengine"
@@ -28,9 +27,9 @@ func HumanDurationFrom(d time.Duration, future bool) string {
 
 	unit := humanDurationUnit(d)
 	if future {
-		return fmt.Sprintf(localengine.T("duration", "in"), unit)
+		return localengine.Tf(localengine.Vars{"unit": unit}, "duration", "in")
 	}
-	return fmt.Sprintf(localengine.T("duration", "ago"), unit)
+	return localengine.Tf(localengine.Vars{"unit": unit}, "duration", "ago")
 }
 
 // HumanDurationPlain returns a compact numeric duration like "5s", "3h 5m", "1d",
@@ -44,25 +43,25 @@ func HumanDurationPlain(d time.Duration) string {
 
 func humanDurationUnit(d time.Duration) string {
 	if d < time.Minute {
-		return fmt.Sprintf(localengine.T("duration", "seconds"), int(d.Seconds()))
+		return localengine.Tf(localengine.Vars{"count": int(d.Seconds())}, "duration", "seconds")
 	}
 	switch {
 	case d < time.Hour:
-		return fmt.Sprintf(localengine.T("duration", "minutes"), int(d.Minutes()))
+		return localengine.Tf(localengine.Vars{"count": int(d.Minutes())}, "duration", "minutes")
 	case d < 24*time.Hour:
 		hours := int(d.Hours())
 		mins := int(d.Minutes()) % 60
-		hoursStr := fmt.Sprintf(localengine.T("duration", "hours"), hours)
+		hoursStr := localengine.Tf(localengine.Vars{"count": hours}, "duration", "hours")
 		if mins == 0 {
 			return hoursStr
 		}
-		minsStr := fmt.Sprintf(localengine.T("duration", "minutes"), mins)
+		minsStr := localengine.Tf(localengine.Vars{"count": mins}, "duration", "minutes")
 		return hoursStr + " " + minsStr
 	case d < 30*24*time.Hour:
-		return fmt.Sprintf(localengine.T("duration", "days"), int(d.Hours()/24))
+		return localengine.Tf(localengine.Vars{"count": int(d.Hours() / 24)}, "duration", "days")
 	case d < 365*24*time.Hour:
-		return fmt.Sprintf(localengine.T("duration", "months"), int(d.Hours()/24/30))
+		return localengine.Tf(localengine.Vars{"count": int(d.Hours() / 24 / 30)}, "duration", "months")
 	default:
-		return fmt.Sprintf(localengine.T("duration", "years"), int(d.Hours()/24/365))
+		return localengine.Tf(localengine.Vars{"count": int(d.Hours() / 24 / 365)}, "duration", "years")
 	}
 }

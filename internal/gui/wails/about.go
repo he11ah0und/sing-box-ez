@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/he11ah0und/localengine"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/util/openurl"
 	"sing-box-ez/internal/framework/version"
@@ -127,12 +128,12 @@ func (b *Bindings) CheckSelfUpdate(branch string) (SelfUpdateInfo, error) {
 	switch {
 	case result.HasUpdate:
 		b.toast("success",
-			fmt.Sprintf(b.t("about", "update", "available"), result.Latest),
+			b.tf(localengine.Vars{"version": result.Latest}, "about", "update", "available"),
 			b.t("about", "update", "current_version")+" "+result.Current+
 				" → "+b.t("about", "update", "latest")+" "+result.Latest)
 	case result.IsDevBuild:
 		b.toast("warning",
-			fmt.Sprintf(b.t("about", "update", "dev_build"), result.Current, result.Latest), "")
+			b.tf(localengine.Vars{"current": result.Current, "remote": result.Latest}, "about", "update", "dev_build"), "")
 	default:
 		b.toast("info", b.t("about", "update", "up_to_date"), "")
 	}

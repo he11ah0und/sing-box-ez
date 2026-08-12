@@ -1,7 +1,7 @@
 <script lang="ts">
   import { setRootPage, currentLevel, enterSubNav, exitSubNav, setMenuContext } from '../stores/navigation.js';
   import { appState } from '../stores/appState.js';
-  import { useLocaleRecord } from '../stores/locale.svelte.js';
+  import { useLocaleRecord } from '@he11ah0und/localengine-web';
   import { pageRegistry, tabsVisible } from '../pages/index.js';
 
   // Always the same three entries (main / configs / menu) — registry order.

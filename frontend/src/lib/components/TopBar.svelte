@@ -2,7 +2,7 @@
   import { ArrowLeft } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-  import { useLocale } from '../stores/locale.svelte.js';
+  import { useLocale } from '@he11ah0und/localengine-web';
 
   const L = useLocale(['common.back']);
 

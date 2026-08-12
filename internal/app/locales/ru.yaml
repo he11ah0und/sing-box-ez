@@ -28,7 +28,7 @@ main:
     overview: Обзор
   api:
     title: Управление ядром
-    status: 'Версия: %s  Время работы: %s'
+    status: 'Версия: {{version}}  Время работы: {{uptime}}'
     mode: Режим
     current_mode: 'Режим: '
     backend: 'Бэкенд: '
@@ -37,8 +37,8 @@ main:
     node: Узел
     url_test_testing: Тестирование…
     url_test_empty: нет результатов
-    url_test_error: 'ошибка: %v'
-    url_test_result: средн. %d мс (%d узлов)
+    url_test_error: 'ошибка: {{error}}'
+    url_test_result: средн. {{avg}} мс ({{nodes}} узлов)
     connections: 'Соединения:'
     close_connections: Закрыть все соединения
     unavailable: Управление через API недоступно для этого режима подключения.
@@ -101,7 +101,7 @@ core:
   update:
     checking: Проверка версии...
     downloading: Загрузка...
-    available: Скачать %s
+    available: Скачать {{version}}
   version:
     installed: 'Ядро: v'
     not_installed: 'Ядро: не установлено'
@@ -189,14 +189,14 @@ configs:
     done: Файл конфига создан заново
 validation:
   ok: Устаревших или удалённых полей не найдено.
-  summary_errors: Найдено %d критических ошибок и %d предупреждений.
-  summary_warnings: Найдено %d предупреждений.
-  errors_title: Ошибки (%d)
-  warnings_title: Предупреждения (%d)
+  summary_errors: Найдено {{errors}} критических ошибок и {{warnings}} предупреждений.
+  summary_warnings: Найдено {{warnings}} предупреждений.
+  errors_title: Ошибки ({{count}})
+  warnings_title: Предупреждения ({{count}})
   item:
-    removed: 'Удалено в %s: %s. Замена: %s'
-    deprecated: 'Устарело с %s, удалят в %s: %s. Замена: %s'
-    deprecated_no_removal: 'Устарело с %s: %s. Замена: %s'
+    removed: 'Удалено в {{removed_in}}: {{path}}. Замена: {{replacement}}'
+    deprecated: 'Устарело с {{deprecated_in}}, удалят в {{removed_in}}: {{path}}. Замена: {{replacement}}'
+    deprecated_no_removal: 'Устарело с {{deprecated_in}}: {{path}}. Замена: {{replacement}}'
   field:
     deprecated: устарело с
     removed: удалено в
@@ -318,11 +318,11 @@ about:
     label: Сборка разработки — заметки к релизу недоступны
   update:
     updating: Обновление...
-    available: Обновить до %s
+    available: Обновить до {{version}}
     current_version: 'Текущая версия: '
-    dev_build: 'Dev-сборка: текущая %s, удалённая %s'
+    dev_build: 'Dev-сборка: текущая {{current}}, удалённая {{remote}}'
     dev_build_confirm_title: Обновление dev-сборки
-    dev_build_confirm_body: Вы используете dev-сборку (%s), новее последнего релиза (%s). Обновление откатит версию. Продолжить?
+    dev_build_confirm_body: Вы используете dev-сборку ({{current}}), новее последнего релиза ({{latest}}). Обновление откатит версию. Продолжить?
     confirm: 'Установить обновление?'
     installed: 'Обновление установлено'
     title: 'Обновление приложения'
@@ -349,9 +349,9 @@ dialog:
     msg: 'Доступна новая версия ядра sing-box.
 
 
-      Текущая: v%s
+      Текущая: v{{current}}
 
-      Последняя: v%s
+      Последняя: v{{latest}}
 
 
       Обновить сейчас?'
@@ -363,12 +363,12 @@ dialog:
     update_available: ✗ Доступно обновление
   download_complete:
     title: Загрузка завершена
-    msg: 'Ядро sing-box v%s успешно загружено.
+    msg: 'Ядро sing-box v{{version}} успешно загружено.
 
-      Расположение: %s'
+      Расположение: {{location}}'
   self_update:
     title: Доступно обновление
-    behind: 'Отставание: %s'
+    behind: 'Отставание: {{behind}}'
     changelog: 'Список изменений:'
   unknown: неизвестно
   error:
@@ -400,7 +400,7 @@ progress:
   checking_updates: Проверка обновлений...
   checking_version: Проверка последней версии...
   adding_config: Добавление конфигурации...
-  downloading_core: Загрузка ядра sing-box v%s...
+  downloading_core: Загрузка ядра sing-box v{{version}}...
   downloading_update: Загрузка обновления...
   fetching_notes: Загрузка примечаний к релизу...
   updating_configs: Обновление всех конфигов...
@@ -432,7 +432,7 @@ plugins:
   note:
     folder_no_update: 'Примечание: плагины из папок нельзя обновлять автоматически.'
   dialog:
-    title: 'Плагин: %s'
+    title: 'Плагин: {{name}}'
   install:
     url_label: URL пакета плагина (zip или tar.gz)
     title: Установить плагин
@@ -448,20 +448,20 @@ notify:
   config_missing:
     body: Нет активного конфига. Добавьте и активируйте конфиг на странице конфигов.
 duration:
-  seconds: '%dс'
-  minutes: '%dм'
-  hours: '%dч'
-  days: '%dд'
-  months: '%dмес'
-  years: '%dг'
+  seconds: '{{count}}с'
+  minutes: '{{count}}м'
+  hours: '{{count}}ч'
+  days: '{{count}}д'
+  months: '{{count}}мес'
+  years: '{{count}}г'
   just_now: только что
-  unit_minutes: '%d мин'
-  unit_hours: '%d ч'
-  unit_days: '%d дн'
-  unit_months: '%d мес'
-  unit_years: '%d лет'
-  in: через %s
-  ago: '%s назад'
+  unit_minutes: '{{count}} мин'
+  unit_hours: '{{count}} ч'
+  unit_days: '{{count}} дн'
+  unit_months: '{{count}} мес'
+  unit_years: '{{count}} лет'
+  in: через {{unit}}
+  ago: '{{unit}} назад'
 tray:
   menu:
     show: Показать

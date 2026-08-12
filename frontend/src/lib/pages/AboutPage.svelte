@@ -21,7 +21,7 @@
   import { toast } from 'svelte-sonner';
   import { fly } from 'svelte/transition';
   import { appState } from '../stores/appState.js';
-  import { useLocale } from '../stores/locale.svelte.js';
+  import { useLocale } from '@he11ah0und/localengine-web';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';

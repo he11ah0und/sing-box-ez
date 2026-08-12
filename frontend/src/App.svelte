@@ -5,7 +5,7 @@
   import { RefreshCw } from '@lucide/svelte';
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
-  import { signalLocaleReady, useLocale, useLocaleRecord } from '$lib/stores/locale.svelte.js';
+  import { signalLocaleReady, useLocale, useLocaleRecord } from '@he11ah0und/localengine-web';
   import { GetTheme, SetFallbackType } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import { currentLevel } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';

@@ -1,11 +1,13 @@
 import { Events } from '@wailsio/runtime';
 import { toast } from 'svelte-sonner';
 import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../stores/appState.js';
-import { locale, setLocaleValues } from '../stores/locale.svelte.js';
+import { locale, setLocaleValues } from '@he11ah0und/localengine-web';
+import { initLocale } from '@he11ah0und/localengine-web/backend';
+import { wailsBackend } from '@he11ah0und/localengine-web/adapters/wails';
 import { theme, applyTheme, type ThemeData } from '../stores/theme.js';
 import type { ActiveConfig, SelfUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
 import type { Update as APIStateUpdate } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
-import { GetAPIState, GetTrafficHistory, GetConfigValues, GetLocale } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+import { GetAPIState, GetTrafficHistory, GetConfigValues, GetLocale, RegisterLocaleKeys, LocaleReady } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
 
 interface WailsEvent<T> {
   data: T;
@@ -107,6 +109,16 @@ function showNotification(data: NotificationPayload) {
 }
 
 export function initWailsEvents(): Promise<unknown> {
+  // Point the locale store at the Wails backend before any component
+  // registers keys (components may init before initWailsEvents resolves).
+  initLocale(
+    wailsBackend({
+      RegisterLocaleKeys: (keys) =>
+        RegisterLocaleKeys(keys).then((values) => (values ?? {}) as Record<string, string>),
+      LocaleReady
+    })
+  );
+
   // Seed the graph with the history the backend accumulated so the chart
   // does not start empty when the UI (re)opens.
   const historySeed = GetTrafficHistory()

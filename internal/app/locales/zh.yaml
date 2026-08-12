@@ -28,7 +28,7 @@ main:
     overview: 概览
   api:
     title: 核心控制
-    status: 版本：%s  运行时间：%s
+    status: 版本：{{version}}  运行时间：{{uptime}}
     mode: 模式
     current_mode: 模式：
     backend: 后端：
@@ -37,8 +37,8 @@ main:
     node: 节点
     url_test_testing: 测试中…
     url_test_empty: 无结果
-    url_test_error: 失败：%v
-    url_test_result: 平均 %d 毫秒（%d 个节点）
+    url_test_error: 失败：{{error}}
+    url_test_result: 平均 {{avg}} 毫秒（{{nodes}} 个节点）
     connections: 连接：
     close_connections: 关闭所有连接
     unavailable: 当前连接模式不支持 API 控制。
@@ -101,7 +101,7 @@ core:
   update:
     checking: 正在检查版本…
     downloading: 下载中…
-    available: 下载 %s
+    available: 下载 {{version}}
   version:
     installed: 核心：v
     not_installed: 核心：未安装
@@ -189,14 +189,14 @@ configs:
     done: 配置文件已重新创建
 validation:
   ok: 未检测到已弃用或已删除的字段。
-  summary_errors: 发现 %d 个严重错误和 %d 个警告。
-  summary_warnings: 发现 %d 个警告。
-  errors_title: 错误 (%d)
-  warnings_title: 警告 (%d)
+  summary_errors: 发现 {{errors}} 个严重错误和 {{warnings}} 个警告。
+  summary_warnings: 发现 {{warnings}} 个警告。
+  errors_title: 错误 ({{count}})
+  warnings_title: 警告 ({{count}})
   item:
-    removed: 在 %s 中已删除：%s。替代方案：%s
-    deprecated: 自 %s 起已弃用，将在 %s 中删除：%s。替代方案：%s
-    deprecated_no_removal: 自 %s 起已弃用：%s。替代方案：%s
+    removed: 在 {{removed_in}} 中已删除：{{path}}。替代方案：{{replacement}}
+    deprecated: 自 {{deprecated_in}} 起已弃用，将在 {{removed_in}} 中删除：{{path}}。替代方案：{{replacement}}
+    deprecated_no_removal: 自 {{deprecated_in}} 起已弃用：{{path}}。替代方案：{{replacement}}
   field:
     deprecated: 弃用于
     removed: 删除于
@@ -318,11 +318,11 @@ about:
     label: 开发构建 — 发布说明不可用
   update:
     updating: 更新中...
-    available: 更新到 %s
+    available: 更新到 {{version}}
     current_version: 当前版本：
-    dev_build: 开发版本：当前 %s，远程 %s
+    dev_build: 开发版本：当前 {{current}}，远程 {{remote}}
     dev_build_confirm_title: 开发版本更新
-    dev_build_confirm_body: 您正在使用比最新发布版本 (%s) 更新的开发版本 (%s)。更新将降级版本。继续？
+    dev_build_confirm_body: 您正在使用比最新发布版本 ({{latest}}) 更新的开发版本 ({{current}})。更新将降级版本。继续？
     confirm: '安装更新？'
     installed: '更新已安装'
     title: '应用更新'
@@ -349,9 +349,9 @@ dialog:
     msg: '有新版本的 sing-box 核心可用。
 
 
-      当前：v%s
+      当前：v{{current}}
 
-      最新：v%s
+      最新：v{{latest}}
 
 
       立即更新？'
@@ -363,12 +363,12 @@ dialog:
     update_available: ✗ 有可用更新
   download_complete:
     title: 下载完成
-    msg: 'sing-box 核心 v%s 下载成功。
+    msg: 'sing-box 核心 v{{version}} 下载成功。
 
-      位置：%s'
+      位置：{{location}}'
   self_update:
     title: 有可用更新
-    behind: 落后：%s
+    behind: 落后：{{behind}}
     changelog: 变更日志：
   unknown: 未知
   error:
@@ -399,7 +399,7 @@ progress:
   checking_updates: 检查更新中...
   checking_version: 检查最新版本中...
   adding_config: 添加配置中...
-  downloading_core: 下载 sing-box 核心 v%s...
+  downloading_core: 下载 sing-box 核心 v{{version}}...
   downloading_update: 下载更新中...
   fetching_notes: 获取发布说明中...
   updating_configs: 更新所有配置中...
@@ -431,7 +431,7 @@ plugins:
   note:
     folder_no_update: 注意：文件夹插件无法自动更新。
   dialog:
-    title: 插件：%s
+    title: 插件：{{name}}
   install:
     url_label: 插件包 URL（zip 或 tar.gz）
     title: 安装插件
@@ -447,20 +447,20 @@ notify:
   config_missing:
     body: 没有活动配置。请在配置页面添加并激活配置。
 duration:
-  seconds: '%d秒'
-  minutes: '%d分'
-  hours: '%d时'
-  days: '%d天'
-  months: '%d月'
-  years: '%d年'
+  seconds: '{{count}}秒'
+  minutes: '{{count}}分'
+  hours: '{{count}}时'
+  days: '{{count}}天'
+  months: '{{count}}月'
+  years: '{{count}}年'
   just_now: 刚刚
-  unit_minutes: '%d 分钟'
-  unit_hours: '%d 小时'
-  unit_days: '%d 天'
-  unit_months: '%d 个月'
-  unit_years: '%d 年'
-  in: '%s后'
-  ago: '%s前'
+  unit_minutes: '{{count}} 分钟'
+  unit_hours: '{{count}} 小时'
+  unit_days: '{{count}} 天'
+  unit_months: '{{count}} 个月'
+  unit_years: '{{count}} 年'
+  in: '{{unit}}后'
+  ago: '{{unit}}前'
 tray:
   menu:
     show: 显示

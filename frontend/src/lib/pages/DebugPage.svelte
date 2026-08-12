@@ -2,7 +2,7 @@
   import { Trash2, RefreshCw, Copy } from '@lucide/svelte';
   import { fly } from 'svelte/transition';
   import { appState, clearLogs } from '../stores/appState.js';
-  import { useLocale } from '../stores/locale.svelte.js';
+  import { useLocale } from '@he11ah0und/localengine-web';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
   import { Button } from '$lib/components/ui/button/index.js';

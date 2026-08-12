@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Square, RefreshCw } from '@lucide/svelte';
   import { appState } from '../stores/appState.js';
-  import { useLocale, useLocaleRecord } from '../stores/locale.svelte.js';
+  import { useLocale, useLocaleRecord } from '@he11ah0und/localengine-web';
 
   import Page from '../components/Page.svelte';
   import StackedGraph from '../components/StackedGraph.svelte';

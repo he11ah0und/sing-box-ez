@@ -28,7 +28,7 @@ main:
     overview: Overview
   api:
     title: Core control
-    status: 'Version: %s  Uptime: %s'
+    status: 'Version: {{version}}  Uptime: {{uptime}}'
     mode: Mode
     current_mode: 'Mode: '
     backend: 'Backend: '
@@ -37,8 +37,8 @@ main:
     node: Node
     url_test_testing: Testing…
     url_test_empty: no results
-    url_test_error: 'failed: %v'
-    url_test_result: avg %d ms (%d nodes)
+    url_test_error: 'failed: {{error}}'
+    url_test_result: avg {{avg}} ms ({{nodes}} nodes)
     connections: 'Connections:'
     close_connections: Close all connections
     unavailable: API control is not available for this connection mode.
@@ -101,7 +101,7 @@ core:
   update:
     checking: Checking version...
     downloading: Downloading...
-    available: Download %s
+    available: Download {{version}}
   version:
     installed: 'Core: v'
     not_installed: 'Core: not installed'
@@ -189,14 +189,14 @@ configs:
     done: Config file recreated
 validation:
   ok: No deprecated or removed fields detected.
-  summary_errors: Found %d critical errors and %d warnings.
-  summary_warnings: Found %d warnings.
-  errors_title: Errors (%d)
-  warnings_title: Warnings (%d)
+  summary_errors: Found {{errors}} critical errors and {{warnings}} warnings.
+  summary_warnings: Found {{warnings}} warnings.
+  errors_title: Errors ({{count}})
+  warnings_title: Warnings ({{count}})
   item:
-    removed: 'Removed in %s: %s. Replacement: %s'
-    deprecated: 'Deprecated in %s, removed in %s: %s. Replacement: %s'
-    deprecated_no_removal: 'Deprecated in %s: %s. Replacement: %s'
+    removed: 'Removed in {{removed_in}}: {{path}}. Replacement: {{replacement}}'
+    deprecated: 'Deprecated in {{deprecated_in}}, removed in {{removed_in}}: {{path}}. Replacement: {{replacement}}'
+    deprecated_no_removal: 'Deprecated in {{deprecated_in}}: {{path}}. Replacement: {{replacement}}'
   field:
     deprecated: deprecated in
     removed: removed in
@@ -318,11 +318,11 @@ about:
     label: Development build — release notes unavailable
   update:
     updating: Updating...
-    available: Update to %s
+    available: Update to {{version}}
     current_version: 'Current version: '
-    dev_build: 'Dev build: current %s, remote %s'
+    dev_build: 'Dev build: current {{current}}, remote {{remote}}'
     dev_build_confirm_title: Dev build update
-    dev_build_confirm_body: You are on a dev build (%s) newer than the latest release (%s). Updating will downgrade. Continue?
+    dev_build_confirm_body: You are on a dev build ({{current}}) newer than the latest release ({{latest}}). Updating will downgrade. Continue?
     confirm: Install update?
     installed: Update installed
     title: App update
@@ -349,9 +349,9 @@ dialog:
     msg: 'A new version of sing-box core is available.
 
 
-      Current: v%s
+      Current: v{{current}}
 
-      Latest: v%s
+      Latest: v{{latest}}
 
 
       Update now?'
@@ -363,12 +363,12 @@ dialog:
     update_available: ✗ Update available
   download_complete:
     title: Download Complete
-    msg: 'Sing-box core v%s downloaded successfully.
+    msg: 'Sing-box core v{{version}} downloaded successfully.
 
-      Location: %s'
+      Location: {{location}}'
   self_update:
     title: Update Available
-    behind: 'Behind by: %s'
+    behind: 'Behind by: {{behind}}'
     changelog: 'Changelog:'
   unknown: unknown
   error:
@@ -400,7 +400,7 @@ progress:
   checking_updates: Checking for updates...
   checking_version: Checking latest version...
   adding_config: Adding config...
-  downloading_core: Downloading sing-box core v%s...
+  downloading_core: Downloading sing-box core v{{version}}...
   downloading_update: Downloading update...
   fetching_notes: Fetching release notes...
   updating_configs: Updating all configs...
@@ -432,7 +432,7 @@ plugins:
   note:
     folder_no_update: 'Note: folder plugins cannot be auto-updated.'
   dialog:
-    title: 'Plugin: %s'
+    title: 'Plugin: {{name}}'
   install:
     url_label: Plugin package URL (zip or tar.gz)
     title: Install Plugin
@@ -448,20 +448,20 @@ notify:
   config_missing:
     body: No active config. Add and activate a config on the Configs page.
 duration:
-  seconds: '%ds'
-  minutes: '%dm'
-  hours: '%dh'
-  days: '%dd'
-  months: '%dmo'
-  years: '%dy'
+  seconds: '{{count}}s'
+  minutes: '{{count}}m'
+  hours: '{{count}}h'
+  days: '{{count}}d'
+  months: '{{count}}mo'
+  years: '{{count}}y'
   just_now: just now
-  unit_minutes: '%d min'
-  unit_hours: '%d h'
-  unit_days: '%d days'
-  unit_months: '%d months'
-  unit_years: '%d years'
-  in: in %s
-  ago: '%s ago'
+  unit_minutes: '{{count}} min'
+  unit_hours: '{{count}} h'
+  unit_days: '{{count}} days'
+  unit_months: '{{count}} months'
+  unit_years: '{{count}} years'
+  in: in {{unit}}
+  ago: '{{unit}} ago'
 tray:
   menu:
     show: Show
