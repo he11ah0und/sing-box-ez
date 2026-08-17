@@ -32,6 +32,12 @@ func NewClient(baseURL, secret string) *Client {
 	}
 }
 
+// Close implements api.CoreAPIClient. The HTTP client holds no persistent
+// connections, so there is nothing to release.
+func (c *Client) Close() error {
+	return nil
+}
+
 func (c *Client) req(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
 	base, err := url.Parse(c.baseURL)
 	if err != nil {

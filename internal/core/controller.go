@@ -107,6 +107,10 @@ func (c *Controller) Close() {
 	if c.processor != nil {
 		c.processor.Stop()
 	}
+	if c.apiClient != nil {
+		_ = c.apiClient.Close()
+		c.apiClient = nil
+	}
 }
 
 // Config returns the application configuration.
@@ -377,8 +381,14 @@ func (c *Controller) SetFallbackType(name, fallbackType string) error {
 }
 
 func (c *Controller) buildAPIClient() {
-	if c.apiInfo == nil {
+	// The previous client belongs to a dead core process once a new one is
+	// built: close it so its transport (gRPC conn, sockets, goroutines)
+	// does not leak on every start/restart cycle.
+	if c.apiClient != nil {
+		_ = c.apiClient.Close()
 		c.apiClient = nil
+	}
+	if c.apiInfo == nil {
 		return
 	}
 	switch c.apiInfo.Backend {

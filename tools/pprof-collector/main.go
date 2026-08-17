@@ -43,7 +43,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	goroutineTick := time.NewTicker(5 * time.Second)
+	// debug=2 dumps walk every goroutine stack with a stop-the-world pause
+	// on the target; keep them rare so the collector itself does not skew
+	// long-running measurements.
+	goroutineTick := time.NewTicker(5 * time.Minute)
 	defer goroutineTick.Stop()
 	heapTick := time.NewTicker(30 * time.Second)
 	defer heapTick.Stop()

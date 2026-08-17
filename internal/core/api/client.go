@@ -121,4 +121,9 @@ type CoreAPIClient interface {
 	// SubscribeConnections delivers a stream of connection events (new, update,
 	// closed). The returned stop function must be called to release resources.
 	SubscribeConnections(ctx context.Context, interval time.Duration) (<-chan *ConnectionEvent, func(), error)
+
+	// Close releases the transport resources of the client (sockets,
+	// background goroutines). Callers must close a client before dropping
+	// it; in-flight calls may fail with an error afterwards.
+	Close() error
 }

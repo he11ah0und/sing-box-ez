@@ -78,6 +78,11 @@ type Bindings struct {
 	// the last known API state (phase, groups, connections).
 	core *state.Poller
 
+	// windowVisible tracks whether the main window is currently shown.
+	// High-frequency telemetry events (gatedWhileHidden) are dropped while it
+	// is hidden so the backend does not feed a webview nobody is looking at.
+	windowVisible atomic.Bool
+
 	// corePhaseHint holds the current core lifecycle stage reported by the
 	// start/stop flow (see the Phase* constants in internal/core/state), so
 	// the poller can show granular progress phases. Empty when idle.
@@ -559,13 +564,35 @@ func (b *Bindings) ClearCoreLogs() {
 	b.app.Controller.ClearCoreLogs()
 }
 
+// gatedWhileHidden lists the high-frequency telemetry events dropped while the
+// main window is hidden (per-second state pushes and per-line log events).
+// Low-frequency state changes and user-facing events always pass through.
+var gatedWhileHidden = map[string]bool{
+	"api:state":       true,
+	"traffic:updated": true,
+	"log:app":         true,
+	"log:core":        true,
+}
+
 // emit sends an event to the frontend if a Wails application reference is available.
 func (b *Bindings) emit(name string, data any) {
-	if wailsAppInstance != nil {
+	if wailsAppInstance != nil && (b.windowVisible.Load() || !gatedWhileHidden[name]) {
 		wailsAppInstance.Event.Emit(name, data)
 	}
 	if b.ws != nil {
 		b.ws.broadcast(name, data)
+	}
+}
+
+// setWindowVisible updates the visibility gate. When the window reappears a
+// fresh API snapshot is pushed so the UI catches up immediately instead of
+// waiting for the poller's next tick.
+func (b *Bindings) setWindowVisible(visible bool) {
+	if b.windowVisible.Swap(visible) == visible {
+		return
+	}
+	if visible && b.core != nil {
+		b.emit("api:state", b.core.State())
 	}
 }
 
@@ -662,6 +689,17 @@ func (w *WailsApp) Run() error {
 		URL:              "/",
 	})
 
+	// Track window visibility: the gated telemetry events (see emit) are
+	// dropped while the window is minimised or hidden to the tray, so an
+	// unseen webview is not fed per-second snapshots and log lines.
+	bindings.windowVisible.Store(true)
+	win.OnWindowEvent(events.Common.WindowMinimise, func(_ *application.WindowEvent) {
+		bindings.setWindowVisible(false)
+	})
+	win.OnWindowEvent(events.Common.WindowUnMinimise, func(_ *application.WindowEvent) {
+		bindings.setWindowVisible(true)
+	})
+
 	// Apply the configured theme background and react to OS theme changes.
 	bindings.applyWindowBackground(win)
 	wailsApp.Event.OnApplicationEvent(events.Common.ThemeChanged, func(_ *application.ApplicationEvent) {
@@ -672,8 +710,14 @@ func (w *WailsApp) Run() error {
 
 	trayIcon := tray.New(
 		w.app.Logger.Root,
-		func() { win.Show() },
-		func() { win.Hide() },
+		func() {
+			win.Show()
+			bindings.setWindowVisible(true)
+		},
+		func() {
+			win.Hide()
+			bindings.setWindowVisible(false)
+		},
 		func() { wailsApp.Quit() },
 		func() bool { return w.app.Controller.IsRunning() },
 		func() { go func() { _ = ic.StartService() }() },
