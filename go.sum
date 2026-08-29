@@ -1,7 +1,7 @@
-github.com/he11ah0und/config v0.2.0 h1:YLpbdGN729zMOdGbnYd6CcojJFsnpa8hu7tSExVpKBs=
-github.com/he11ah0und/config v0.2.0/go.mod h1:W3s8iXzRdFD80lDPWsRnlYAGM1+hazPJ9O2GfFvdZvI=
-github.com/he11ah0und/yamltree v0.1.0 h1:Y/gsJgJd/NfOhrPK3EgH7q6rLt2oqxWCr75HMv1QfUw=
-github.com/he11ah0und/yamltree v0.1.0/go.mod h1:mGF7ZvS8U+92P5XdV9fP5+Aofxr+0/1uWRHOpEvwuls=
+github.com/he11ah0und/config v0.2.1 h1:4wZ1TVsTEufj/0ITHnnd3tUr6TMOVnxWtiRgh1fj4Ys=
+github.com/he11ah0und/config v0.2.1/go.mod h1:HPFMJNA/jwOr6VVUsNi8ZlnK/QgNRgw+T2lvsg+nSKQ=
+github.com/he11ah0und/yamltree v0.1.1 h1:Us6tTLfwjlrJ9qnKnNBn2nHoITMz2Vmv5z89IE1zyDg=
+github.com/he11ah0und/yamltree v0.1.1/go.mod h1:8izORMwBptcY0tvpd5GXYMLaB5VhaejSJL1meaPJxRQ=
 github.com/adrg/xdg v0.5.3 h1:xRnxJXne7+oWDatRhR1JLnvuccuIeCoBu2rtuLqQB78=
 github.com/adrg/xdg v0.5.3/go.mod h1:nlTsY+NNiCBGCK2tpm09vRqfVzrc2fLmXGpBLF0zlTQ=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=

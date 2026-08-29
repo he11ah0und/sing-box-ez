@@ -3,9 +3,9 @@ module sing-box-ez
 go 1.26.5
 
 require (
-	github.com/he11ah0und/config v0.2.0
-	github.com/he11ah0und/localengine v0.3.0
-	github.com/he11ah0und/logger v0.1.0
+	github.com/he11ah0und/config v0.2.1
+	github.com/he11ah0und/localengine v0.3.1
+	github.com/he11ah0und/logger v0.1.1
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gogpu/systray v0.1.0
 	github.com/gorilla/websocket v1.5.3
@@ -21,7 +21,7 @@ require (
 
 require (
 	github.com/he11ah0und/projectspec v0.1.0
-	github.com/he11ah0und/yamltree v0.1.0 // indirect
+	github.com/he11ah0und/yamltree v0.1.1 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
