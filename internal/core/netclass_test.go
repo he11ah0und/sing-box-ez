@@ -107,6 +107,18 @@ func TestUpdateOutdatedConfigsAllFailed(t *testing.T) {
 	}
 }
 
+// A single failed config stays silent: one sample proves nothing about
+// connectivity (the per-config path reports it instead).
+func TestUpdateOutdatedConfigsSingleFailureSilent(t *testing.T) {
+	ic := newFailureTestIC(t)
+	ic.backend.AddConfig(staleRemote("a", "http://127.0.0.1:1/a"))
+
+	_, failures := ic.updateOutdatedConfigs(ic.backend.GetConfigs(), nil)
+	if len(failures) != 0 {
+		t.Fatalf("expected no reported failures for a single due config, got %+v", failures)
+	}
+}
+
 // A partial wipeout stays silent: one config updated, so no dialog.
 func TestUpdateOutdatedConfigsPartialFailureSilent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

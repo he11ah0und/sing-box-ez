@@ -67,7 +67,9 @@ type InteractiveController struct {
 	// progress while StartService runs.
 	OnPhaseChange func(phase string)
 	// OnConfigsUpdateFailed is invoked after a background config update run in
-	// which every due config failed to download (e.g. no direct connectivity).
+	// which at least two configs were due and every one of them failed to
+	// download (e.g. no direct connectivity). A single failure is not enough:
+	// it proves nothing about connectivity.
 	OnConfigsUpdateFailed func(failures []ConfigUpdateFailure)
 
 	stopped bool
@@ -411,8 +413,10 @@ func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRe
 			activeUpdated = true
 		}
 	}
-	// Only an across-the-board wipeout is worth a dialog.
-	if dueCount == 0 || len(failures) < dueCount {
+	// Only an across-the-board wipeout is worth a dialog; a single failed
+	// config proves nothing about connectivity and has its own per-config
+	// reporting path.
+	if dueCount < 2 || len(failures) < dueCount {
 		return activeUpdated, nil
 	}
 	return activeUpdated, failures

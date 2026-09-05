@@ -154,8 +154,8 @@ func TestOrphanedConfigsIgnoresProfilesAndForeignFiles(t *testing.T) {
 	got := c.OrphanedConfigs()
 	if len(got) != 1 || got[0].Name != "leftover" {
 		t.Fatalf("expected only 'leftover', got %v", got)
+	}
 	if got[0].ModTime == "" {
 		t.Fatal("expected the orphan mtime to be reported")
-	}
 	}
 }

@@ -81,7 +81,11 @@ func SetNetAdminCapabilityGUI(path string) error {
 		return fmt.Errorf("resolve path: %w", err)
 	}
 	// #nosec G204 — pkexec and setcap are system binaries; absPath is resolved internal path.
-	return exec.Command("pkexec", "setcap", "cap_net_admin=+ep", absPath).Run()
+	out, err := exec.Command("pkexec", "setcap", "cap_net_admin=+ep", absPath).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("pkexec setcap: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func RemoveNetAdminCapabilityGUI(path string) error {
@@ -93,7 +97,11 @@ func RemoveNetAdminCapabilityGUI(path string) error {
 		return fmt.Errorf("resolve path: %w", err)
 	}
 	// #nosec G204 — pkexec and setcap are system binaries; absPath is resolved internal path.
-	return exec.Command("pkexec", "setcap", "-r", absPath).Run()
+	out, err := exec.Command("pkexec", "setcap", "-r", absPath).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("pkexec setcap -r: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func SetNetAdminCapabilityCLI(path string) error {

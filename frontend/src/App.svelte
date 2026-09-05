@@ -426,7 +426,7 @@
   </AlertDialog.Root>
 {/if}
 
-{#if $appState.configDownloadFailed && $appState.status.running}
+{#if $appState.configDownloadFailed}
   <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) closeConfigDownloadFailed(); }}>
     <AlertDialog.Content>
       <AlertDialog.Header>
