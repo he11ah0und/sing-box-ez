@@ -122,17 +122,8 @@ core:
     check: Проверить последнюю версию
   privileges:
     title: Привилегии
-    admin: 'Привилегии: запущено от администратора'
-    user: 'Привилегии: запущено от пользователя'
-    setcap_active: 'Привилегии: setcap активен'
-    root_required: 'Привилегии: требуется root для TUN'
-    setcap_hint: setcap выдаёт бинарнику ядра capability cap_net_admin — TUN работает без запуска от root
-  setcap:
-    unavailable: setcap недоступен в этой ОС
   admin:
     label: Запускать от администратора
-  mode:
-    admin: Админ
   log:
     title: Лог ядра
   api:
@@ -266,15 +257,6 @@ settings:
       system: Системная
       dark: Тёмная
       light: Светлая
-  privileges:
-    setcap: Применить setcap
-    setcap_remove: Убрать setcap
-    setcap_done: setcap применён — TUN работает без root
-    setcap_removed: setcap убран — для TUN потребуется root
-    setcap_confirm: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
-    setcap_remove_confirm: Убрать capability cap_net_admin с бинарника ядра? Для TUN потребуется root.
-    restart_admin: Перезапустить от администратора
-    restart_admin_confirm: Перезапустить приложение с правами администратора?
   updates:
     auto_check_self: Проверять обновления приложения при запуске
     auto_check_core: Проверять обновления ядра при запуске
@@ -319,8 +301,6 @@ startup:
   continue: Продолжить
   status_online: онлайн
   status_offline: офлайн
-  mode_windows: служба Windows
-  mode_systemd-user: systemd пользовательская
   remote_address_placeholder: TCP-адрес (например, 127.0.0.1:8080)
   service_start: Запустить службу
   service_stop: Остановить службу
@@ -465,16 +445,6 @@ dialog:
     btn_keep: Оставить
   privileges:
     title: Требуются привилегии
-    msg_linux: 'sing-box нуждается в повышенных привилегиях для создания TUN-устройства.
-
-
-      Примените setcap ниже, чтобы выдать ядру необходимые права без запуска
-      от root.'
-    msg_windows: 'sing-box нуждается в правах администратора для создания TUN-устройства.
-
-
-      Пожалуйста, перезапустите приложение от администратора.'
-    btn_setcap: Применить setcap (рекомендуется)
 progress:
   initializing: Инициализация...
   checking_updates: Проверка обновлений...
@@ -484,7 +454,6 @@ progress:
   downloading_update: Загрузка обновления...
   fetching_notes: Загрузка примечаний к релизу...
   updating_configs: Обновление всех конфигов...
-  applying_setcap: Применение setcap...
 plugins:
   btn:
     check_all_updates: Проверить все обновления

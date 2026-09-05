@@ -122,17 +122,8 @@ core:
     check: Check latest version
   privileges:
     title: Privileges
-    admin: 'Privileges: running as administrator'
-    user: 'Privileges: running as user'
-    setcap_active: 'Privileges: setcap active'
-    root_required: 'Privileges: root required for TUN'
-    setcap_hint: setcap grants the core binary the cap_net_admin capability, allowing TUN to work without running as root
-  setcap:
-    unavailable: setcap not available on this OS
   admin:
     label: Run as administrator
-  mode:
-    admin: Admin
   log:
     title: Core log
   api:
@@ -266,15 +257,6 @@ settings:
       system: System-based
       dark: Dark
       light: Light
-  privileges:
-    setcap: Apply setcap
-    setcap_remove: Remove setcap
-    setcap_done: setcap applied — TUN works without root
-    setcap_removed: setcap removed — TUN will require root
-    setcap_confirm: setcap is not applied to the core binary. Apply it now to enable TUN without root?
-    setcap_remove_confirm: Remove the cap_net_admin capability from the core binary? TUN will require root.
-    restart_admin: Restart as administrator
-    restart_admin_confirm: Restart the application with administrator privileges?
   updates:
     auto_check_self: Check for app updates on startup
     auto_check_core: Check for core updates on startup
@@ -319,8 +301,6 @@ startup:
   continue: Continue
   status_online: online
   status_offline: offline
-  mode_windows: windows service
-  mode_systemd-user: systemd user
   remote_address_placeholder: TCP address (e.g. 127.0.0.1:8080)
   service_start: Start service
   service_stop: Stop service
@@ -465,16 +445,6 @@ dialog:
     btn_keep: Keep
   privileges:
     title: Privileges Required
-    msg_linux: 'sing-box needs elevated privileges to create the TUN device.
-
-
-      Apply setcap below to grant the core the required capability without
-      running as root.'
-    msg_windows: 'sing-box needs administrator privileges to create the TUN device.
-
-
-      Please restart the application as administrator.'
-    btn_setcap: Apply setcap (recommended)
 progress:
   initializing: Initializing...
   checking_updates: Checking for updates...
@@ -484,7 +454,6 @@ progress:
   downloading_update: Downloading update...
   fetching_notes: Fetching release notes...
   updating_configs: Updating all configs...
-  applying_setcap: Applying setcap...
 plugins:
   btn:
     check_all_updates: Check All Updates

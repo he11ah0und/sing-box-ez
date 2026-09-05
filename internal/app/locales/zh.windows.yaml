@@ -1,0 +1,21 @@
+# 仅 Windows 的字符串，在 windows 构建上深合并到 zh.yaml 之上。
+core:
+  privileges:
+    admin: 权限：以管理员身份运行
+    user: 权限：以普通用户身份运行
+  mode:
+    admin: 管理员
+settings:
+  privileges:
+    restart_admin: 以管理员身份重启
+    restart_admin_confirm: 以管理员权限重启应用？
+startup:
+  mode_windows: Windows 服务
+dialog:
+  privileges:
+    msg: 'sing-box 需要管理员权限来创建 TUN 设备。
+
+
+      请以管理员身份重新启动应用程序。'
+  privileges_required:
+    body: 配置使用了 TUN（或透明代理）inbound，需要提升的权限。请在设置中以管理员身份重启应用。

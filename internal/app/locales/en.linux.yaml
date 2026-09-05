@@ -1,0 +1,30 @@
+# Linux-only strings, deep-merged over en.yaml on linux builds.
+core:
+  privileges:
+    setcap_active: 'Privileges: setcap active'
+    root_required: 'Privileges: root required for TUN'
+    setcap_hint: setcap grants the core binary the cap_net_admin capability, allowing TUN to work without running as root
+  setcap:
+    unavailable: setcap not available on this OS
+settings:
+  privileges:
+    setcap: Apply setcap
+    setcap_remove: Remove setcap
+    setcap_done: setcap applied — TUN works without root
+    setcap_removed: setcap removed — TUN will require root
+    setcap_confirm: setcap is not applied to the core binary. Apply it now to enable TUN without root?
+    setcap_remove_confirm: Remove the cap_net_admin capability from the core binary? TUN will require root.
+startup:
+  mode_systemd-user: systemd user
+dialog:
+  privileges:
+    msg: 'sing-box needs elevated privileges to create the TUN device.
+
+
+      Apply setcap below to grant the core the required capability without
+      running as root.'
+    btn_setcap: Apply setcap (recommended)
+  privileges_required:
+    body: The config uses a TUN (or transparent proxy) inbound, which requires elevated privileges. Apply setcap to the core binary in the settings.
+progress:
+  applying_setcap: Applying setcap...

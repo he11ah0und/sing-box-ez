@@ -122,17 +122,8 @@ core:
     check: 检查最新版本
   privileges:
     title: 权限
-    admin: 权限：以管理员身份运行
-    user: 权限：以普通用户身份运行
-    setcap_active: 权限：setcap 已启用
-    root_required: 权限：TUN 需要 root 权限
-    setcap_hint: setcap 为核心二进制文件授予 cap_net_admin 能力，TUN 无需 root 即可运行
-  setcap:
-    unavailable: 此操作系统不支持 setcap
   admin:
     label: 以管理员身份运行
-  mode:
-    admin: 管理员
   log:
     title: 核心日志
   api:
@@ -266,15 +257,6 @@ settings:
       system: 跟随系统
       dark: 深色
       light: 浅色
-  privileges:
-    setcap: 应用 setcap
-    setcap_remove: 移除 setcap
-    setcap_done: setcap 已应用——TUN 无需 root 即可工作
-    setcap_removed: setcap 已移除——TUN 将需要 root 权限
-    setcap_confirm: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
-    setcap_remove_confirm: 移除核心二进制文件的 cap_net_admin 能力？TUN 将需要 root 权限。
-    restart_admin: 以管理员身份重启
-    restart_admin_confirm: 以管理员权限重启应用？
   updates:
     auto_check_self: 启动时检查应用更新
     auto_check_core: 启动时检查核心更新
@@ -319,8 +301,6 @@ startup:
   continue: 继续
   status_online: 在线
   status_offline: 离线
-  mode_windows: Windows 服务
-  mode_systemd-user: systemd 用户
   remote_address_placeholder: TCP 地址（例如 127.0.0.1:8080）
   service_start: 启动服务
   service_stop: 停止服务
@@ -465,15 +445,6 @@ dialog:
     btn_keep: 保留
   privileges:
     title: 需要权限
-    msg_linux: 'sing-box 需要提升的权限来创建 TUN 设备。
-
-
-      请在下方应用 setcap，为内核授予所需权限，无需以 root 身份运行。'
-    msg_windows: 'sing-box 需要管理员权限来创建 TUN 设备。
-
-
-      请以管理员身份重新启动应用程序。'
-    btn_setcap: 应用 setcap（推荐）
 progress:
   initializing: 初始化中...
   checking_updates: 检查更新中...
@@ -483,7 +454,6 @@ progress:
   downloading_update: 下载更新中...
   fetching_notes: 获取发布说明中...
   updating_configs: 更新所有配置中...
-  applying_setcap: 应用 setcap 中...
 plugins:
   btn:
     check_all_updates: 检查所有更新

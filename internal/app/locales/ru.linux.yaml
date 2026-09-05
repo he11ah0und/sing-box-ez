@@ -1,0 +1,30 @@
+# Строки только для Linux, сливаются поверх ru.yaml на linux-сборках.
+core:
+  privileges:
+    setcap_active: 'Привилегии: setcap активен'
+    root_required: 'Привилегии: требуется root для TUN'
+    setcap_hint: setcap выдаёт бинарнику ядра capability cap_net_admin — TUN работает без запуска от root
+  setcap:
+    unavailable: setcap недоступен в этой ОС
+settings:
+  privileges:
+    setcap: Применить setcap
+    setcap_remove: Убрать setcap
+    setcap_done: setcap применён — TUN работает без root
+    setcap_removed: setcap убран — для TUN потребуется root
+    setcap_confirm: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
+    setcap_remove_confirm: Убрать capability cap_net_admin с бинарника ядра? Для TUN потребуется root.
+startup:
+  mode_systemd-user: systemd пользовательская
+dialog:
+  privileges:
+    msg: 'sing-box нуждается в повышенных привилегиях для создания TUN-устройства.
+
+
+      Примените setcap ниже, чтобы выдать ядру необходимые права без запуска
+      от root.'
+    btn_setcap: Применить setcap (рекомендуется)
+  privileges_required:
+    body: Конфиг использует TUN (или прозрачный прокси) inbound, которому нужны повышенные права. Примените setcap к бинарнику ядра в настройках.
+progress:
+  applying_setcap: Применение setcap...

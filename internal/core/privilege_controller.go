@@ -85,7 +85,7 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 	case "windows":
 		return &PrivilegeDialog{
 			Title:   localengine.T("dialog", "privileges", "title"),
-			Message: localengine.T("dialog", "privileges", "msg_windows"),
+			Message: localengine.T("dialog", "privileges", "msg"),
 			Actions: []PrivilegeAction{
 				{
 					ID:    "restart_admin",
@@ -99,7 +99,7 @@ func (c *PrivilegeController) GetPrivilegeDialog(restartFn func() error) *Privil
 	case "linux":
 		return &PrivilegeDialog{
 			Title:   localengine.T("dialog", "privileges", "title"),
-			Message: localengine.T("dialog", "privileges", "msg_linux"),
+			Message: localengine.T("dialog", "privileges", "msg"),
 			Actions: []PrivilegeAction{
 				{
 					ID:    "setcap",

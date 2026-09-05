@@ -1,0 +1,21 @@
+# Windows-only strings, deep-merged over en.yaml on windows builds.
+core:
+  privileges:
+    admin: 'Privileges: running as administrator'
+    user: 'Privileges: running as user'
+  mode:
+    admin: Admin
+settings:
+  privileges:
+    restart_admin: Restart as administrator
+    restart_admin_confirm: Restart the application with administrator privileges?
+startup:
+  mode_windows: windows service
+dialog:
+  privileges:
+    msg: 'sing-box needs administrator privileges to create the TUN device.
+
+
+      Please restart the application as administrator.'
+  privileges_required:
+    body: The config uses a TUN (or transparent proxy) inbound, which requires elevated privileges. Restart the app as administrator from the settings.
