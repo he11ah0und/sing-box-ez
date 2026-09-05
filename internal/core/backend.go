@@ -17,7 +17,7 @@ type Backend interface {
 	Start() error
 	Stop() error
 	Restart() error
-	PrepareConfig() (*config.ConfigRecord, error)
+	PrepareConfig(ctx context.Context) (*config.ConfigRecord, error)
 
 	GetConfigs() []config.ConfigRecord
 	GetActiveConfig() *config.ConfigRecord

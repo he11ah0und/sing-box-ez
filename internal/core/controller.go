@@ -29,6 +29,8 @@ import (
 var (
 	ErrCoreMissing    = errors.New("core not found. Please download it first")
 	ErrNoActiveConfig = errors.New("no active config. Please add and activate a config in the Configs tab")
+	// ErrStartCancelled marks a start flow aborted by the user (CancelStart).
+	ErrStartCancelled = errors.New("start cancelled")
 )
 
 // Controller is the core application API used by both CLI and GUI.
@@ -185,7 +187,7 @@ func (c *Controller) ClearCoreLogs() {
 
 // ---------- Core lifecycle ----------
 
-func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
+func (c *Controller) PrepareConfig(ctx context.Context) (*config.ConfigRecord, error) {
 	active := c.cfg.GetActiveConfig()
 	if active == nil {
 		return nil, ErrNoActiveConfig
@@ -208,8 +210,13 @@ func (c *Controller) PrepareConfig() (*config.ConfigRecord, error) {
 
 	if active.ShouldUpdate() || !c.HasCachedConfig(active.Name) || (c.cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool() && c.IsConfigHashMismatch(active.Name)) {
 		c.terminal.TInfof("core.controller.config_updating")
-		data, err := c.manager.UpdateConfig()
+		data, err := c.manager.UpdateConfig(ctx)
 		if err != nil {
+			// A cancelled start must not fall back to the cached config:
+			// the user aborted, the core must not come up.
+			if ctx.Err() != nil {
+				return nil, ErrStartCancelled
+			}
 			// The network backend already logs the download failure with context.
 			if !c.HasCachedConfig(active.Name) {
 				return nil, errors.New("no config available")
@@ -438,7 +445,7 @@ func (c *Controller) SetElevated(v bool) {
 }
 
 func (c *Controller) UpdateConfig() error {
-	_, err := c.manager.UpdateConfig()
+	_, err := c.manager.UpdateConfig(context.Background())
 	return err
 }
 
@@ -552,7 +559,7 @@ func (c *Controller) HasCachedConfig(name string) bool {
 }
 
 func (c *Controller) DownloadConfigFor(name, url string) error {
-	data, err := c.manager.DownloadConfigFor(name, url)
+	data, err := c.manager.DownloadConfigFor(context.Background(), name, url)
 	if err != nil {
 		return err
 	}

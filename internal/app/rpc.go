@@ -80,7 +80,7 @@ type PrivilegeTabStateMsg struct {
 // registerRPC registers application RPC methods on the registry.
 func (a *App) registerRPC(registry *rpc.Registry) {
 	_ = registry.Register("core", "start", func(ctx context.Context, _ rpc.Empty) (rpc.Empty, error) {
-		_, err := a.Controller.PrepareConfig()
+		_, err := a.Controller.PrepareConfig(ctx)
 		if err != nil {
 			return rpc.Empty{}, err
 		}
@@ -96,7 +96,7 @@ func (a *App) registerRPC(registry *rpc.Registry) {
 		return CoreStatusRes{Running: a.Controller.IsRunning(), PID: a.Controller.GetPID()}, nil
 	})
 	_ = registry.Register("core", "prepare_config", func(ctx context.Context, _ rpc.Empty) (ConfigRecordMsg, error) {
-		rec, err := a.Controller.PrepareConfig()
+		rec, err := a.Controller.PrepareConfig(ctx)
 		if err != nil {
 			return ConfigRecordMsg{}, err
 		}

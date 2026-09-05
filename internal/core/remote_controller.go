@@ -83,9 +83,9 @@ func (r *RemoteController) Restart() error {
 }
 
 // PrepareConfig prepares the active config on the remote side.
-func (r *RemoteController) PrepareConfig() (*config.ConfigRecord, error) {
+func (r *RemoteController) PrepareConfig(ctx context.Context) (*config.ConfigRecord, error) {
 	var res configRecordMsg
-	if err := r.call("core", "prepare_config", rpc.Empty{}, &res); err != nil {
+	if err := r.backend.Call(ctx, "core", "prepare_config", rpc.Empty{}, &res); err != nil {
 		return nil, err
 	}
 	rec := msgToConfigRecord(res)

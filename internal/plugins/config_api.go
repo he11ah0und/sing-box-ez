@@ -3,6 +3,7 @@
 package plugins
 
 import (
+	"context"
 	"time"
 
 	"github.com/he11ah0und/logger"
@@ -289,7 +290,7 @@ func luaConfigDownload(cfg *config.AppConfig, parent string) lua.LGFunction {
 			return 1
 		}
 		manager := core.NewManager(cfg.DataDir, fs.NewOS(cfg.DataDir), nil, logger.NewLogger(0))
-		data, err := manager.DownloadConfigFor(name, rec.URL)
+		data, err := manager.DownloadConfigFor(context.Background(), name, rec.URL)
 		if err != nil {
 			L.Push(lua.LString(err.Error()))
 			return 1

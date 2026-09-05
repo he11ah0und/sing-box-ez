@@ -319,7 +319,7 @@ func (m *Manager) Restart() error {
 	return m.Start()
 }
 
-func (m *Manager) UpdateConfig() ([]byte, error) {
+func (m *Manager) UpdateConfig(ctx context.Context) ([]byte, error) {
 	if m.configURL == "" {
 		return nil, fmt.Errorf("no URL configured")
 	}
@@ -327,7 +327,7 @@ func (m *Manager) UpdateConfig() ([]byte, error) {
 		return nil, fmt.Errorf("no config name set")
 	}
 
-	data, err := m.DownloadConfigFor(m.configName, m.configURL)
+	data, err := m.DownloadConfigFor(ctx, m.configName, m.configURL)
 	if err != nil {
 		if m.hasCachedConfig(m.configName) {
 			return nil, fmt.Errorf("download failed, using cached config: %w", err)
@@ -341,12 +341,12 @@ func (m *Manager) hasCachedConfig(name string) bool {
 	return m.fsys.Root().File(m.cachedConfig(name)).Exists()
 }
 
-func (m *Manager) DownloadConfigFor(name, url string) ([]byte, error) {
+func (m *Manager) DownloadConfigFor(ctx context.Context, name, url string) ([]byte, error) {
 	path := m.cachedConfig(name)
 	if err := m.fsys.Root().Subdir("configs").MkdirAll(0750); err != nil {
 		return nil, err
 	}
-	data, err := m.net.GetBytes(context.Background(), url)
+	data, err := m.net.GetBytes(ctx, url)
 	if err != nil {
 		return nil, err
 	}

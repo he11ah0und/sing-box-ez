@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -57,6 +58,11 @@ type InteractiveController struct {
 
 	stopped bool
 	stopMu  sync.Mutex
+
+	// startMu guards startCancel: the cancel func of the in-flight
+	// StartService context, set for the duration of the start flow.
+	startMu     sync.Mutex
+	startCancel context.CancelFunc
 }
 
 // NewInteractiveController creates an interactive controller wrapping a backend.
@@ -153,15 +159,34 @@ func (ic *InteractiveController) GetBranches() ([]updater.Channel, error) {
 // main page start button action so other UI surfaces (e.g. tray) can reuse it.
 // Stages are reported through OnPhaseChange.
 func (ic *InteractiveController) StartService() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	ic.startMu.Lock()
+	ic.startCancel = cancel
+	ic.startMu.Unlock()
+	defer func() {
+		cancel()
+		ic.startMu.Lock()
+		ic.startCancel = nil
+		ic.startMu.Unlock()
+	}()
+
 	ic.reportPhase(state.PhasePreparingConfig)
 	defer ic.reportPhase("")
-	rec, err := ic.backend.PrepareConfig()
+	rec, err := ic.backend.PrepareConfig(ctx)
 	if err != nil {
+		if ctx.Err() != nil || errors.Is(err, ErrStartCancelled) {
+			ic.backend.Terminal().TInfof("core.interactive.start_cancelled")
+			return ErrStartCancelled
+		}
 		ic.handlePrepareConfigError(err)
 		return err
 	}
 
 	if ic.Controller != nil && rec != nil {
+		if ctx.Err() != nil {
+			ic.backend.Terminal().TInfof("core.interactive.start_cancelled")
+			return ErrStartCancelled
+		}
 		ic.reportPhase(state.PhaseCheckingConfig)
 		if err := ic.checkClientStyle(rec); err != nil {
 			return err
@@ -169,7 +194,34 @@ func (ic *InteractiveController) StartService() error {
 	}
 
 	ic.reportPhase(state.PhaseStarting)
-	return ic.startBackend()
+	if err := ic.startBackend(); err != nil {
+		return err
+	}
+	// A cancel that landed while the process was spawning must not leave the
+	// core running.
+	if ctx.Err() != nil {
+		ic.backend.Terminal().TInfof("core.interactive.start_cancelled")
+		_ = ic.StopService()
+		return ErrStartCancelled
+	}
+	return nil
+}
+
+// CancelStart aborts an in-flight StartService (config download, style
+// check, process spawn) and stops the core if it already came up. Safe to
+// call when no start is in flight: it then acts as a plain stop.
+func (ic *InteractiveController) CancelStart() {
+	ic.startMu.Lock()
+	cancel := ic.startCancel
+	ic.startMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	if ic.backend.IsRunning() {
+		if err := ic.StopService(); err != nil {
+			ic.backend.Terminal().TInfof("core.interactive.stop_failed", err)
+		}
+	}
 }
 
 // reportPhase forwards the start-flow stage to the UI callback, if set.

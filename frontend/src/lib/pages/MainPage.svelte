@@ -15,7 +15,7 @@
   import ConnectionsPage from './ConnectionsPage.svelte';
   import {
     Start,
-    Stop,
+    CancelStart,
     Restart,
     GetStatus,
     GetConfigs,
@@ -98,10 +98,10 @@
     callBinding(Start());
   }
 
-  // Cancels the API wait: the core process is up but its API never answers,
-  // so the way out is to stop the core — the poller then lands on stopped.
+  // Cancels the start flow: aborts an in-flight config download / style
+  // check / process spawn, and stops the core when the API wait never ends.
   function handleCancelWait() {
-    callBinding(Stop());
+    callBinding(CancelStart());
   }
 
   async function activateConfig(name: string) {
@@ -162,7 +162,10 @@
       </button>
       {#if busy}
         <p class="text-sm text-muted-foreground">{R.mainPhase[apiPhase]}</p>
-        {#if apiPhase === 'waiting_api'}
+        <!-- Every start-flow phase is cancellable: the binding aborts the
+             in-flight preparation and stops the core if it already came
+             up. Only "stopping" itself offers no way back. -->
+        {#if apiPhase !== 'stopping'}
           <Button variant="outline" size="sm" disabled={processing} onclick={handleCancelWait}>
             {L.commonCancel}
           </Button>

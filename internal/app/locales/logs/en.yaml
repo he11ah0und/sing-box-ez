@@ -61,6 +61,7 @@ core:
     detect_style_failed: "Failed to detect config style: %v"
     set_fallback_type_failed: "Failed to set fallback_type: %v"
     start_failed: "Failed to start: %v"
+    start_cancelled: "Start cancelled by user"
     stop_failed: "Failed to stop: %v"
     auto_updating_config: "Auto-updating config: %s"
     active_config_updated_restarting: "Active config updated, restarting core..."

@@ -196,9 +196,25 @@ func (b *Bindings) Start() error {
 		err = b.ic.StartService()
 	}
 	if err != nil {
+		// A user-initiated cancel is not an error: the phase poller lands on
+		// stopped by itself once the core stays down.
+		if errors.Is(err, core.ErrStartCancelled) {
+			return nil
+		}
 		b.toastErr(err, "main", "btn", "start")
 	}
 	return err
+}
+
+// CancelStart aborts an in-flight start flow (config download, style check,
+// process spawn) and stops the core if it already came up — this is the
+// cancel button of the start/waiting phases.
+func (b *Bindings) CancelStart() {
+	if b.ic != nil {
+		b.ic.CancelStart()
+		return
+	}
+	_ = b.app.Controller.Stop()
 }
 
 // setPhaseHint stores the current core lifecycle stage for the state poller.

@@ -178,7 +178,7 @@ func maybeUpdateRemoteConfig(cfg *config.AppConfig, active *config.ConfigRecord,
 	m := newCoreManager(dataDir)
 	m.SetConfigName(active.Name)
 	m.SetConfigURL(active.URL)
-	data, err := m.UpdateConfig()
+	data, err := m.UpdateConfig(context.Background())
 	if err != nil {
 		if !hasCachedConfig(dataDir, active.Name) {
 			return fmt.Errorf("config download failed: %w", err)
@@ -262,7 +262,7 @@ func cmdUpdate(cfg *config.AppConfig, _ *fwcli.Context) error {
 	m := newCoreManager(dataDir)
 	m.SetConfigName(active.Name)
 	m.SetConfigURL(active.URL)
-	data, err := m.UpdateConfig()
+	data, err := m.UpdateConfig(context.Background())
 	if err != nil {
 		return err
 	}
