@@ -475,6 +475,7 @@ locale:
 common:
   back: Назад
   cancel: Отмена
+  close: Закрыть
   saving: Сохранение...
   save: Сохранить
   refresh: Обновить

@@ -475,6 +475,7 @@ locale:
 common:
   back: Back
   cancel: Cancel
+  close: Close
   saving: Saving...
   save: Save
   refresh: Refresh

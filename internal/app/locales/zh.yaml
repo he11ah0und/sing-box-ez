@@ -474,6 +474,7 @@ locale:
 common:
   back: 返回
   cancel: 取消
+  close: 关闭
   saving: 保存中...
   save: 保存
   refresh: 刷新

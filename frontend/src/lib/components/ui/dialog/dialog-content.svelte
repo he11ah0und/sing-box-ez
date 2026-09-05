@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { Dialog as DialogPrimitive } from "bits-ui";
 	import XIcon from '@lucide/svelte/icons/x';
+	import { useLocale } from '@he11ah0und/localengine-web';
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { cn, type WithoutChildrenOrChild } from "$lib/utils.js";
 	import * as Dialog from "./index.js";
 	import DialogPortal from "./dialog-portal.svelte";
 	import type { Snippet } from "svelte";
 	import type { ComponentProps } from "svelte";
+
+	const L = useLocale(['common.close']);
 
 	let {
 		ref = $bindable(null),
@@ -39,7 +42,7 @@
 				{#snippet child({ props })}
 					<Button variant="ghost" class="absolute top-2 right-2" size="icon-sm" {...props}>
 						<XIcon  />
-						<span class="sr-only">Close</span>
+						<span class="sr-only">{L.commonClose}</span>
 					</Button>
 				{/snippet}
 			</DialogPrimitive.Close>

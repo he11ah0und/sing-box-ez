@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { Dialog as DialogPrimitive } from "bits-ui";
+	import { useLocale } from '@he11ah0und/localengine-web';
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { cn, type WithElementRef } from "$lib/utils.js";
 	import type { HTMLAttributes } from "svelte/elements";
+
+	const L = useLocale(['common.close']);
 
 	let {
 		ref = $bindable(null),
@@ -25,7 +28,7 @@
 	{#if showCloseButton}
 		<DialogPrimitive.Close>
 			{#snippet child({ props })}
-				<Button variant="outline" {...props}>Close</Button>
+				<Button variant="outline" {...props}>{L.commonClose}</Button>
 			{/snippet}
 		</DialogPrimitive.Close>
 	{/if}

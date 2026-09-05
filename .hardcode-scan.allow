@@ -37,10 +37,8 @@ frontend/src/lib/components/ui/card/card-footer.svelte:	class={cn("rounded-b-xl 
 frontend/src/lib/components/ui/card/card-header.svelte:		"gap-1 rounded-t-xl px-(--card-spacing) [.border-b]:pb-(--card-spacing) group/card-header @container/card-header grid auto-rows-min items-start has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto]",
 frontend/src/lib/components/ui/card/card-title.svelte:	class={cn("text-base leading-snug font-medium group-data-[size=sm]/card:text-sm", className)}
 frontend/src/lib/components/ui/card/card.svelte:	class={cn("gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl group/card flex flex-col", className)}
-frontend/src/lib/components/ui/dialog/dialog-content.svelte:						<span class="sr-only">Close</span>
 frontend/src/lib/components/ui/dialog/dialog-content.svelte:			"grid max-w-[calc(100%-2rem)] gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none",
 frontend/src/lib/components/ui/dialog/dialog-description.svelte:	class={cn("text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground", className)}
-frontend/src/lib/components/ui/dialog/dialog-footer.svelte:				<Button variant="outline" {...props}>Close</Button>
 frontend/src/lib/components/ui/dialog/dialog-footer.svelte:	class={cn("-mx-4 -mb-4 rounded-b-xl border-t bg-muted/50 p-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
 frontend/src/lib/components/ui/dialog/dialog-header.svelte:	class={cn("gap-2 flex flex-col", className)}
 frontend/src/lib/components/ui/dialog/dialog-overlay.svelte:	class={cn("bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 fixed inset-0 isolate z-50", className)}
@@ -94,8 +92,6 @@ frontend/src/lib/pages/SettingsPage.svelte:    if (color === 'green') return 'co
 frontend/src/lib/pages/SettingsPage.svelte:    if (color === 'yellow') return 'color: var(--color-warning)';
 frontend/src/lib/pages/StartupPage.svelte:            $appState.startup.selected === option.id && 'bg-primary text-primary-foreground hover:bg-primary/90 border-transparent'
 frontend/src/lib/pages/StartupPage.svelte:            'px-4 py-3 rounded-lg border border-border text-left transition-colors hover:bg-accent',
-frontend/src/lib/stores/locale.svelte.ts:      console.warn('RegisterLocaleKeys failed:', err);
-frontend/src/lib/stores/locale.svelte.ts:    console.warn('LocaleReady failed:', err);
 frontend/src/lib/stores/theme.ts:  const mql = window.matchMedia('(prefers-color-scheme: dark)');
 frontend/src/lib/stores/theme.ts:  return window.matchMedia('(prefers-color-scheme: dark)').matches;
 frontend/src/lib/utils/ansi.ts:    parts.push({ text: header + ' ', style: 'color: #29b8db' });
