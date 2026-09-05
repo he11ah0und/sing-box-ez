@@ -19,10 +19,24 @@ type CoreLogBuffer struct {
 	lines []string
 }
 
-// NewCoreLogBuffer creates a new buffer with the given line limit (0 = unlimited).
+// maxLines is a hard ceiling on the buffer size. The configured limit is a
+// UI-hinted int and a hand-edited config can set it to 0 or an absurd value;
+// without a ceiling an info-level core fills memory on long sessions.
+const maxLines = 10000
+
+// clampLimit normalizes a configured limit: non-positive or excessive values
+// fall back to the ceiling.
+func clampLimit(limit int) int {
+	if limit <= 0 || limit > maxLines {
+		return maxLines
+	}
+	return limit
+}
+
+// NewCoreLogBuffer creates a new buffer with the given line limit.
 func NewCoreLogBuffer(limit int) *CoreLogBuffer {
 	return &CoreLogBuffer{
-		limit: limit,
+		limit: clampLimit(limit),
 		lines: make([]string, 0),
 	}
 }
@@ -32,9 +46,9 @@ func NewCoreLogBuffer(limit int) *CoreLogBuffer {
 func (b *CoreLogBuffer) SetLimit(limit int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.limit = limit
-	if limit > 0 && len(b.lines) > limit {
-		b.lines = b.lines[len(b.lines)-limit:]
+	b.limit = clampLimit(limit)
+	if len(b.lines) > b.limit {
+		b.lines = b.lines[len(b.lines)-b.limit:]
 	}
 }
 

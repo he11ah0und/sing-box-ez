@@ -568,7 +568,10 @@ func filterGroupsByName(groups []api.Group, q string) []api.Group {
 	return out
 }
 
-// historyLimit returns the configured number of retained samples.
+// historyLimit returns the configured number of retained samples. The upper
+// clamp guards against hand-edited configs: the limit also sizes every
+// per-connection history (connHistoryMax entries), so an absurd value here
+// multiplies into real memory.
 func (p *Poller) historyLimit() int {
 	n := 0
 	if p.d.HistoryLimit != nil {
@@ -576,6 +579,9 @@ func (p *Poller) historyLimit() int {
 	}
 	if n < 2 {
 		n = 60
+	}
+	if n > 1000 {
+		n = 1000
 	}
 	return n
 }

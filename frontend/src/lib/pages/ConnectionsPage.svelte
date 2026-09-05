@@ -654,25 +654,31 @@
   spans={selectedGroup?.spans ?? []}
 />
 
-<GraphDetailDialog
-  open={connGraphOpen}
-  onclose={() => (connGraphOpen = false)}
-  title={connGraphTitle}
-  up={connGraphHistory.up}
-  down={connGraphHistory.down}
-  times={connGraphHistory.times}
-  span={graphSpan}
-/>
+<!-- Mounted only while open: the dialog runs a rAF clock, and an
+     always-mounted instance would tick 60 times a second in the background. -->
+{#if connGraphOpen}
+  <GraphDetailDialog
+    open={connGraphOpen}
+    onclose={() => (connGraphOpen = false)}
+    title={connGraphTitle}
+    up={connGraphHistory.up}
+    down={connGraphHistory.down}
+    times={connGraphHistory.times}
+    span={graphSpan}
+  />
+{/if}
 
-<GraphDetailDialog
-  open={groupGraphOpen}
-  onclose={() => (groupGraphOpen = false)}
-  title={groupGraphTitle}
-  up={groupGraphHistory.up}
-  down={groupGraphHistory.down}
-  times={groupGraphHistory.times}
-  span={graphSpan}
-/>
+{#if groupGraphOpen}
+  <GraphDetailDialog
+    open={groupGraphOpen}
+    onclose={() => (groupGraphOpen = false)}
+    title={groupGraphTitle}
+    up={groupGraphHistory.up}
+    down={groupGraphHistory.down}
+    times={groupGraphHistory.times}
+    span={graphSpan}
+  />
+{/if}
 
 <!-- Filter dialog: currently holds only the target search; new filter
      variables go here as they appear. -->

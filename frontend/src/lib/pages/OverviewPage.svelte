@@ -319,12 +319,16 @@
   </div>
 </Page>
 
-<GraphDetailDialog
-  open={mainGraphOpen}
-  onclose={() => (mainGraphOpen = false)}
-  title={L.mainGraphDetails_title}
-  up={$appState.traffic.history.up}
-  down={$appState.traffic.history.down}
-  times={$appState.traffic.history.times}
-  span={graphSpan}
-/>
+<!-- Mounted only while open: the dialog runs a rAF clock, and an
+     always-mounted instance would tick 60 times a second in the background. -->
+{#if mainGraphOpen}
+  <GraphDetailDialog
+    open={mainGraphOpen}
+    onclose={() => (mainGraphOpen = false)}
+    title={L.mainGraphDetails_title}
+    up={$appState.traffic.history.up}
+    down={$appState.traffic.history.down}
+    times={$appState.traffic.history.times}
+    span={graphSpan}
+  />
+{/if}
