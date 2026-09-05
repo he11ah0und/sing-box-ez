@@ -49,8 +49,10 @@
     upLine: string;
   }
 
-  // buildPaths stacks the upload area on top of the download area; the scale
-  // is the max of up+down over the visible window.
+  // buildPaths draws upload and download as independent overlapping series;
+  // the scale is the max of either series over the visible window. (An
+  // earlier stacked layout plotted up on top of down, making the compact
+  // graph disagree with the per-series detail view.)
   function buildPaths(
     upVals: number[],
     downVals: number[],
@@ -66,18 +68,18 @@
     for (let i = 0; i < n; i++) {
       const age = nowMs - ts[i];
       if (age >= 0 && age <= spanMs) {
-        const total = (downVals[i] || 0) + (upVals[i] || 0);
-        if (total > max) max = total;
+        if ((downVals[i] || 0) > max) max = downVals[i] || 0;
+        if ((upVals[i] || 0) > max) max = upVals[i] || 0;
       }
     }
-    const pts: { x: number; yDown: number; yTotal: number }[] = [];
+    const pts: { x: number; yDown: number; yUp: number }[] = [];
     for (let i = 0; i < n; i++) {
       const age = nowMs - ts[i];
       if (age < 0 || age > spanMs) continue;
       const x = W - (age / spanMs) * W;
       const yDown = h - ((downVals[i] || 0) / max) * h;
-      const yTotal = h - (((downVals[i] || 0) + (upVals[i] || 0)) / max) * h;
-      pts.push({ x, yDown, yTotal });
+      const yUp = h - ((upVals[i] || 0) / max) * h;
+      pts.push({ x, yDown, yUp });
     }
     if (pts.length < 2) return empty;
 
@@ -85,18 +87,13 @@
       pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${y(p).toFixed(1)}`).join(' ');
 
     const downLine = line((p) => p.yDown);
-    const upLine = line((p) => p.yTotal);
+    const upLine = line((p) => p.yUp);
     const first = pts[0];
     const last = pts[pts.length - 1];
     const downArea =
       `${downLine} L ${last.x.toFixed(1)} ${h} L ${first.x.toFixed(1)} ${h} Z`;
-    // The upload band closes back along the download top edge in reverse.
-    const back = pts
-      .slice()
-      .reverse()
-      .map((p) => `L ${p.x.toFixed(1)} ${p.yDown.toFixed(1)}`)
-      .join(' ');
-    const upArea = `${upLine} ${back} Z`;
+    const upArea =
+      `${upLine} L ${last.x.toFixed(1)} ${h} L ${first.x.toFixed(1)} ${h} Z`;
     return { downArea, downLine, upArea, upLine };
   }
 
