@@ -2,6 +2,9 @@
 .kimi-memory/
 .codebase-memory/
 
+# Agent session working files (index, tasks, notes)
+.session-notes/
+
 # Generated plugin API docs
 docs/plugin-api/
 docs/plugin-defs/
