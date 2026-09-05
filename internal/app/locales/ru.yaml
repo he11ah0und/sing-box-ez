@@ -417,7 +417,7 @@ dialog:
     btn_continue: Всё равно продолжить
   orphan_configs:
     title: Остатки конфигов
-    body: 'От удалённых конфигов остались файлы: {{names}}'
+    body: 'От удалённых конфигов остались файлы ({{count}}):'
     btn_keep: Оставить
   privileges:
     title: Требуются привилегии

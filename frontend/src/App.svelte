@@ -7,6 +7,7 @@
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
   import { signalLocaleReady, useLocale, useLocaleRecord, format } from '@he11ah0und/localengine-web';
   import { GetTheme, SetFallbackType, QuitApp, GetOrphanedConfigs, DeleteOrphanedConfigs } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import type { OrphanedConfig } from '../bindings/sing-box-ez/internal/core/models.js';
   import { currentLevel, enterSubNav, setSubTab, setRootPage } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
   import Shell from '$lib/components/Shell.svelte';
@@ -22,7 +23,7 @@
   let loadToken = 0;
   // Cached config files left behind by deleted profiles; shown once per
   // launch in a dialog offering to remove them.
-  let orphanedConfigs = $state<string[]>([]);
+  let orphanedConfigs = $state<OrphanedConfig[]>([]);
   let orphanDeleting = $state(false);
 
   $effect(() => {
@@ -76,13 +77,19 @@
   async function deleteOrphanedConfigs() {
     orphanDeleting = true;
     try {
-      await DeleteOrphanedConfigs(orphanedConfigs);
+      await DeleteOrphanedConfigs(orphanedConfigs.map((o) => o.name));
       orphanedConfigs = [];
     } catch {
       // The backend already reported the failure with a toast.
     } finally {
       orphanDeleting = false;
     }
+  }
+
+  function orphanDate(o: OrphanedConfig): string {
+    if (!o.modTime) return '—';
+    const d = new Date(o.modTime);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString();
   }
 
   function clearStyleCheck() {
@@ -268,9 +275,17 @@
       <AlertDialog.Header>
         <AlertDialog.Title>{L.dialogOrphan_configsTitle}</AlertDialog.Title>
         <AlertDialog.Description>
-          {format(L.dialogOrphan_configsBody, { names: orphanedConfigs.join(', ') })}
+          {format(L.dialogOrphan_configsBody, { count: orphanedConfigs.length })}
         </AlertDialog.Description>
       </AlertDialog.Header>
+      <ul class="max-h-60 overflow-auto divide-y divide-border rounded-xl border border-border">
+        {#each orphanedConfigs as orphan (orphan.name)}
+          <li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+            <span class="font-medium truncate">{orphan.name}</span>
+            <span class="text-muted-foreground shrink-0">{orphanDate(orphan)}</span>
+          </li>
+        {/each}
+      </ul>
       <AlertDialog.Footer>
         <Button variant="outline" onclick={() => (orphanedConfigs = [])}>
           {L.dialogOrphan_configsBtn_keep}

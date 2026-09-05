@@ -417,7 +417,7 @@ dialog:
     btn_continue: Continue anyway
   orphan_configs:
     title: Leftover config files
-    body: 'Cached files remain for removed configs: {{names}}'
+    body: '{{count}} cached file(s) remain from removed configs:'
     btn_keep: Keep
   privileges:
     title: Privileges Required

@@ -797,23 +797,35 @@ func (c *Controller) DeleteCachedConfig(name string) error {
 	return c.manager.DeleteConfigFile(name)
 }
 
-// OrphanedConfigs lists cached config file names (without extension) that
-// have no matching profile — leftovers from deleted profiles.
-func (c *Controller) OrphanedConfigs() []string {
+// OrphanedConfig describes a cached config file with no matching profile.
+type OrphanedConfig struct {
+	Name string `json:"name"`
+	// ModTime is the file modification time on disk (RFC3339).
+	ModTime string `json:"modTime"`
+}
+
+// OrphanedConfigs lists cached config files that have no matching profile —
+// leftovers from deleted profiles.
+func (c *Controller) OrphanedConfigs() []OrphanedConfig {
 	entries, err := c.fwApp.FS.Root().Subdir("configs").ReadDir()
 	if err != nil {
 		return nil
 	}
-	var out []string
+	var out []OrphanedConfig
 	for _, e := range entries {
 		name := e.Name()
 		if !strings.HasSuffix(name, ".json") {
 			continue
 		}
 		profile := strings.TrimSuffix(name, ".json")
-		if c.cfg.GetConfigByName(profile) == nil {
-			out = append(out, profile)
+		if c.cfg.GetConfigByName(profile) != nil {
+			continue
 		}
+		o := OrphanedConfig{Name: profile}
+		if fi, err := e.Stat(); err == nil {
+			o.ModTime = fi.ModTime().Format(time.RFC3339)
+		}
+		out = append(out, o)
 	}
 	return out
 }

@@ -126,7 +126,7 @@ func TestDeleteConfigKeepsCacheWhenDisabled(t *testing.T) {
 	if !c.HasCachedConfig("loc") {
 		t.Fatal("expected the cached config file to survive")
 	}
-	if got := c.OrphanedConfigs(); len(got) != 1 || got[0] != "loc" {
+	if got := c.OrphanedConfigs(); len(got) != 1 || got[0].Name != "loc" {
 		t.Fatalf("expected the leftover to be reported as orphan, got %v", got)
 	}
 	if err := c.DeleteCachedConfig("loc"); err != nil {
@@ -152,7 +152,10 @@ func TestOrphanedConfigsIgnoresProfilesAndForeignFiles(t *testing.T) {
 	}
 
 	got := c.OrphanedConfigs()
-	if len(got) != 1 || got[0] != "leftover" {
+	if len(got) != 1 || got[0].Name != "leftover" {
 		t.Fatalf("expected only 'leftover', got %v", got)
+	if got[0].ModTime == "" {
+		t.Fatal("expected the orphan mtime to be reported")
+	}
 	}
 }

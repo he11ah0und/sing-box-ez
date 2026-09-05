@@ -8,6 +8,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"sing-box-ez/internal/core"
 	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/singboxconfig"
@@ -177,8 +178,8 @@ func (b *Bindings) ConfigNameAvailable(name, exclude string) bool {
 }
 
 // GetOrphanedConfigs lists cached config files that no longer have a matching
-// profile (leftovers from deleted profiles).
-func (b *Bindings) GetOrphanedConfigs() []string {
+// profile (leftovers from deleted profiles), with their on-disk mtime.
+func (b *Bindings) GetOrphanedConfigs() []core.OrphanedConfig {
 	return b.app.Controller.OrphanedConfigs()
 }
 

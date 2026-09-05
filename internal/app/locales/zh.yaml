@@ -417,7 +417,7 @@ dialog:
     btn_continue: 仍要继续
   orphan_configs:
     title: 残留的配置文件
-    body: '已删除的配置仍有缓存文件：{{names}}'
+    body: '已删除的配置仍有 {{count}} 个缓存文件：'
     btn_keep: 保留
   privileges:
     title: 需要权限
