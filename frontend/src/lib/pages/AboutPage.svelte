@@ -119,21 +119,27 @@
   });
 
   async function load() {
+    // Version info is compile-time data: show the System card instantly
+    // instead of holding it back behind the slower core/channel calls.
     try {
-      const [v, ch, u, core] = await Promise.all([
-        GetVersionInfo(),
+      const v = await GetVersionInfo();
+      version = v;
+      currentBranch = v?.branch ?? 'main';
+      aboutCache.version = v;
+    } catch (err) {
+      toast.error(String(err));
+    }
+    try {
+      const [ch, u, core] = await Promise.all([
         GetUpdateChannel(),
         GetUpdaters(),
         GetCoreInfo()
       ]);
-      version = v;
-      currentBranch = v?.branch ?? 'main';
       updateChannel = ch ?? null;
       updaters = u ?? [];
       // Externally managed builds have no release branches to list; the
       // binding refuses the call on such builds.
       branches = ch?.external ? [] : (await GetBranches()) ?? [];
-      aboutCache.version = v;
       aboutCache.branches = branches;
       aboutCache.updaters = updaters;
       aboutCache.updateChannel = updateChannel;
@@ -417,6 +423,18 @@
               </Button>
             {/if}
           </div>
+        </Card.Content>
+      </Card.Root>
+    {:else}
+      <!-- Version info is still on its way (first run): shimmer placeholder. -->
+      <Card.Root>
+        <Card.Header>
+          <Card.Title>{L.commonSystem}</Card.Title>
+        </Card.Header>
+        <Card.Content class="space-y-3">
+          <Skeleton class="h-4 w-3/4" />
+          <Skeleton class="h-4 w-1/2" />
+          <Skeleton class="h-9 w-40 rounded-xl" />
         </Card.Content>
       </Card.Root>
     {/if}
