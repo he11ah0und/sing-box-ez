@@ -46,6 +46,7 @@
     'main.connections.filter',
     'main.connections.sort',
     'main.connections.close_group',
+    'main.connections.varies',
     'main.connections.sort_date',
     'main.connections.sort_traffic',
     'main.connections.sort_total',
@@ -186,6 +187,22 @@
   function groupMembers(g: APIConnectionGroup): APIConnection[] {
     const ids = new Set(g.connIDs ?? []);
     return apiConnections.filter((c) => ids.has(c.id));
+  }
+
+  // sharedMemberField returns the picked value when every live member of the
+  // group agrees on it, the "varies" label when they disagree, and null for
+  // inactive groups (no live members to inspect) or uniformly empty values.
+  function sharedMemberField(
+    g: APIConnectionGroup,
+    pick: (c: APIConnection) => string | null | undefined
+  ): string | null {
+    const members = groupMembers(g);
+    if (!members.length) return null;
+    const first = pick(members[0]) ?? '';
+    for (const c of members) {
+      if ((pick(c) ?? '') !== first) return L.mainConnectionsVaries;
+    }
+    return first || null;
   }
 
   function formatGroupSub(g: APIConnectionGroup): string {
@@ -559,10 +576,10 @@
     </Dialog.Header>
     {#if selectedGroup}
       {@const g = selectedGroup}
-      <!-- Route-level fields are shared by the group's members; take them
-           from the first live one. Inactive groups have no live members,
-           so these rows hide (the history does not store them). -->
-      {@const m = groupMembers(g)[0]}
+      <!-- Per-connection fields are shown only when every live member of
+           the group agrees on the value; otherwise a "varies" label is
+           shown. Inactive groups have no live members, so these rows hide
+           (the history does not store them). -->
       <div class="space-y-3 text-sm">
         <div class="flex items-center gap-2">
           {#if g.active}
@@ -576,16 +593,14 @@
         </div>
         {@render DetailRow(L.pluginsInfoStatus, g.active ? `${L.mainConnectionsActive} ×${g.connCount}` : L.mainConnectionsInactive)}
         {@render DetailRow(L.mainConnectionsTotal_connections, String((g.spans ?? []).length))}
-        {@render DetailRow(L.connection_detailsNetwork, g.network)}
-        {#if m}
-          {@render DetailRow(L.connection_detailsInbound, m.inbound || m.inboundType)}
-          {@render DetailRow(L.connection_detailsSource, m.source)}
-          {@render DetailRow(L.connection_detailsDestination, m.destination)}
-          {@render DetailRow(L.connection_detailsDomain, m.domain)}
-          {@render DetailRow(L.commonRule, m.rule)}
-          {@render DetailRow(L.connection_detailsOutbound, m.outbound || m.outboundType)}
-          {@render DetailRow(L.connection_detailsChain, m.chain?.join(' → '))}
-        {/if}
+        {@render DetailRow(L.connection_detailsNetwork, sharedMemberField(g, (c) => c.network))}
+        {@render DetailRow(L.connection_detailsInbound, sharedMemberField(g, (c) => c.inbound || c.inboundType))}
+        {@render DetailRow(L.connection_detailsSource, sharedMemberField(g, (c) => c.source))}
+        {@render DetailRow(L.connection_detailsDestination, sharedMemberField(g, (c) => c.destination))}
+        {@render DetailRow(L.connection_detailsDomain, sharedMemberField(g, (c) => c.domain))}
+        {@render DetailRow(L.commonRule, sharedMemberField(g, (c) => c.rule))}
+        {@render DetailRow(L.connection_detailsOutbound, sharedMemberField(g, (c) => c.outbound || c.outboundType))}
+        {@render DetailRow(L.connection_detailsChain, sharedMemberField(g, (c) => c.chain?.join(' → ')))}
         {@render DetailRow(L.connection_detailsCreated, formatTime(g.firstSeen))}
         {@render DetailRow(L.connection_detailsUplink, `${formatSpeed(g.upRate)} (${formatBytes(g.upTotal)})`)}
         {@render DetailRow(L.connection_detailsDownlink, `${formatSpeed(g.downRate)} (${formatBytes(g.downTotal)})`)}

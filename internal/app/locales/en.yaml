@@ -82,6 +82,7 @@ main:
     filter: Filter
     sort: Sort
     close_group: Close connections
+    varies: varies by member
 connection_details:
   title: Connection Details
   inbound: Inbound

@@ -82,6 +82,7 @@ main:
     filter: 筛选
     sort: 排序
     close_group: 关闭全部连接
+    varies: 成员间不同
 connection_details:
   title: 连接详情
   inbound: 入站

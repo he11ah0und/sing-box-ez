@@ -82,6 +82,7 @@ main:
     filter: Фильтр
     sort: Сортировка
     close_group: Закрыть соединения
+    varies: различается
 connection_details:
   title: Детали соединения
   inbound: Входящий
