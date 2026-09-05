@@ -238,7 +238,7 @@ settings:
         system: 系统级 sing-box
         custom: 自定义二进制文件
       custom_path: 自定义核心二进制文件路径
-      browse_custom_path: 浏览…
+      browse_custom_path: 选择核心二进制文件…
     url_test_url: URL 测试地址
     log:
       level:
@@ -431,7 +431,6 @@ dialog:
   config_download_failed:
     title: 配置下载失败
     body: '无法下载 "{{name}}"；已使用缓存副本。可以通过正在运行的核心重试下载。'
-    btn_retry: 通过核心重试
   core_incompatible:
     title: 核心版本不受支持
     body: '所选的 sing-box 核心过旧或无法读取；需要 {{min}} 或更新版本。请在设置中选择其他核心来源。'
@@ -440,8 +439,6 @@ dialog:
     title: 更新检查失败
     body: '无法检查{{target}}的更新（{{kind}}）。可以通过正在运行的核心重试——如有必要将先启动核心。'
     target_app: 应用程序
-    target_core: 核心
-    btn_retry: 通过核心重试
   configs_update_failed:
     title: 配置更新失败
     body: '所有待更新的配置均无法下载（列表共 {{total}} 个，其中 {{attempted}} 个待更新）。请检查网络连接。'
@@ -552,3 +549,4 @@ common:
   debug: 调试
   info: 信息
   quit: 退出
+  retry_via_core: 通过核心重试

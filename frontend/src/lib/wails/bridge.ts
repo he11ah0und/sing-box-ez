@@ -77,6 +77,8 @@ interface StyleCheckPayload {
 interface ConfigUpdateFailurePayload {
   name?: string;
   kind?: string;
+  lastUpdate?: string;
+  lastUpdateAgo?: string;
 }
 
 // Mirrors core.ConfigsUpdateReport.
@@ -251,7 +253,12 @@ export function initWailsEvents(): Promise<unknown> {
       configsUpdateFailed: {
         attempted: data?.attempted ?? failures.length,
         total: data?.total ?? failures.length,
-        failures: failures.map((f) => ({ name: f.name ?? '', kind: f.kind ?? 'other' }))
+        failures: failures.map((f) => ({
+          name: f.name ?? '',
+          kind: f.kind ?? 'other',
+          lastUpdate: f.lastUpdate ?? '',
+          lastUpdateAgo: f.lastUpdateAgo ?? ''
+        }))
       }
     }));
   });

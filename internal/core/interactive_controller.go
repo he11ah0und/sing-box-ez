@@ -22,6 +22,11 @@ type ConfigUpdateFailure struct {
 	Name string `json:"name"`
 	// Kind is one of the Failure* constants (refused/timeout/dns/http/other).
 	Kind string `json:"kind"`
+	// LastUpdate is the last successful refresh ("2006-01-02 15:04"), empty
+	// when the config was never updated.
+	LastUpdate string `json:"lastUpdate,omitempty"`
+	// LastUpdateAgo is LastUpdate humanized ("3 days ago"), empty when unknown.
+	LastUpdateAgo string `json:"lastUpdateAgo,omitempty"`
 }
 
 // ConfigsUpdateReport summarizes a background update run in which every
@@ -33,6 +38,15 @@ type ConfigsUpdateReport struct {
 	Attempted int                   `json:"attempted"`
 	Total     int                   `json:"total"`
 	Failures  []ConfigUpdateFailure `json:"failures"`
+}
+
+func newConfigUpdateFailure(cfg *config.ConfigRecord, err error) ConfigUpdateFailure {
+	f := ConfigUpdateFailure{Name: cfg.Name, Kind: DownloadErrorKind(err)}
+	if !cfg.LastUpdate.IsZero() {
+		f.LastUpdate = cfg.LastUpdate.Format("2006-01-02 15:04")
+		f.LastUpdateAgo = version.HumanDuration(cfg.LastUpdate.Time)
+	}
+	return f
 }
 
 // InteractiveController wraps Backend with GUI-specific callbacks and background loops.
@@ -419,7 +433,7 @@ func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRe
 		}
 		dueCount++
 		if err != nil {
-			failures = append(failures, ConfigUpdateFailure{Name: cfg.Name, Kind: DownloadErrorKind(err)})
+			failures = append(failures, newConfigUpdateFailure(cfg, err))
 			continue
 		}
 		if updated {

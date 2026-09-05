@@ -113,7 +113,7 @@
 
   function updateCheckTargetLabel(target: string): string {
     const key = target === 'core'
-      ? 'dialog.updatecheck_failed.target_core'
+      ? 'tab.core'
       : 'dialog.updatecheck_failed.target_app';
     const value = R3[key];
     return value !== undefined && value !== key ? value : target;
@@ -203,13 +203,14 @@
 
   const R3 = useLocaleRecord([
     'dialog.updatecheck_failed.target_app',
-    'dialog.updatecheck_failed.target_core'
+    'tab.core'
   ]);
 
   const L = useLocale([
     'common.cancel',
     'common.close',
     'common.quit',
+    'common.retry_via_core',
     'configs.btn.delete',
     'dialog.config_style.btn.ignore',
     'dialog.config_style.btn.to_client',
@@ -226,10 +227,8 @@
     'dialog.configs_update_failed.body',
     'dialog.config_download_failed.title',
     'dialog.config_download_failed.body',
-    'dialog.config_download_failed.btn_retry',
     'dialog.updatecheck_failed.title',
     'dialog.updatecheck_failed.body',
-    'dialog.updatecheck_failed.btn_retry',
     'dialog.core_incompatible.title',
     'dialog.core_incompatible.body',
     'dialog.core_incompatible.btn_settings'
@@ -415,7 +414,12 @@
       <ul class="max-h-60 overflow-auto divide-y divide-border rounded-xl border border-border">
         {#each $appState.configsUpdateFailed.failures as failure (failure.name)}
           <li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-            <span class="font-medium truncate">{failure.name}</span>
+            <span class="min-w-0">
+              <span class="font-medium truncate block">{failure.name}</span>
+              {#if failure.lastUpdateAgo}
+                <span class="text-xs text-muted-foreground">{failure.lastUpdateAgo} · {failure.lastUpdate}</span>
+              {/if}
+            </span>
             <span class="text-muted-foreground shrink-0">{failureKindLabel(failure.kind)}</span>
           </li>
         {/each}
@@ -447,7 +451,7 @@
           {#if retryViaCoreBusy}
             <RefreshCw size={16} class="animate-spin" />
           {/if}
-          {L.dialogConfig_download_failedBtn_retry}
+          {L.commonRetry_via_core}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>
@@ -474,7 +478,7 @@
           {#if retryUpdateCheckBusy}
             <RefreshCw size={16} class="animate-spin" />
           {/if}
-          {L.dialogUpdatecheck_failedBtn_retry}
+          {L.commonRetry_via_core}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

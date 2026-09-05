@@ -238,7 +238,7 @@ settings:
         system: System-wide sing-box
         custom: Custom binary
       custom_path: Custom core binary path
-      browse_custom_path: Browse…
+      browse_custom_path: Choose the core binary…
     url_test_url: URL-test URL
     log:
       level:
@@ -431,7 +431,6 @@ dialog:
   config_download_failed:
     title: Config download failed
     body: 'Could not download "{{name}}"; the cached copy was used. You can retry the download through the running core.'
-    btn_retry: Retry via core
   core_incompatible:
     title: Unsupported core version
     body: 'The selected sing-box core is too old or unreadable; version {{min}} or newer is required. Pick another core source in the settings.'
@@ -440,8 +439,6 @@ dialog:
     title: Update check failed
     body: 'Could not check {{target}} for updates ({{kind}}). You can retry through the running core — it will be started first if needed.'
     target_app: the application
-    target_core: the core
-    btn_retry: Retry via core
   configs_update_failed:
     title: Config update failed
     body: 'Could not refresh any of the configs due for an update ({{attempted}} of {{total}} in the list). Check your internet connection.'
@@ -553,3 +550,4 @@ common:
   debug: Debug
   info: Info
   quit: Quit
+  retry_via_core: Retry via core
