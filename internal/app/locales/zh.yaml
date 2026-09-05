@@ -103,6 +103,7 @@ connection_details:
   close_connection: 关闭连接
 core:
   pick_version: 选择版本…
+  change_source: 更改来源…
   prerelease: 预发布
   external_managed: 核心由外部管理（系统/自定义来源）
   update:
@@ -239,6 +240,7 @@ settings:
         custom: 自定义二进制文件
       custom_path: 自定义核心二进制文件路径
       browse_custom_path: 选择核心二进制文件…
+      system_not_found: 未找到系统级 sing-box（已检查 PATH 和标准安装位置）
     url_test_url: URL 测试地址
     log:
       level:
@@ -327,6 +329,9 @@ log:
 about:
   updaters:
     repository: 仓库
+    backend: 后端
+  backend_name:
+    github: GitHub
   commit_info:
     prefix: 提交：
   build_info:
@@ -361,6 +366,8 @@ about:
     downloading: '正在下载…'
     external_managed: 此构建由外部包管理器更新
   channel:
+    label: 渠道：
+    auto: 自动
     external_managed: '更新由包管理器管理：{{channel}}'
     external_hint: 更新检查取决于安装渠道 — 请在相应渠道（例如您的 AUR 助手或包管理器）中检查更新。
   release_notes:

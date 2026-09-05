@@ -3,6 +3,7 @@
 package wails
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -160,5 +161,56 @@ func (b *Bindings) browseCoreBinary() error {
 	}
 	_ = cfg.Save()
 	b.emit("settings:changed", map[string]any{"core.source.custom_path": path})
+	return nil
+}
+
+// SetCoreSourceMode switches the core source mode (official/system/custom)
+// from the updates tab; the choice is persisted in core.source.mode. system
+// requires a compatible system-installed sing-box; custom opens the file
+// picker when no path is stored yet.
+func (b *Bindings) SetCoreSourceMode(mode string) error {
+	cfg := b.app.Controller.Config()
+	switch mode {
+	case core.CoreSourceOfficial:
+	case core.CoreSourceSystem:
+		bin := core.FindSystemCore()
+		if bin == "" {
+			err := errors.New(b.t("settings", "core", "source", "system_not_found"))
+			b.toast("error", err.Error(), "")
+			return err
+		}
+		if _, err := core.CheckCoreCompatibility(bin); err != nil {
+			b.toastErr(err)
+			return err
+		}
+	case core.CoreSourceCustom:
+		path := cfg.MustGet("core", "source", "custom_path").String()
+		if path == "" {
+			if err := b.browseCoreBinary(); err != nil {
+				return err
+			}
+			path = cfg.MustGet("core", "source", "custom_path").String()
+			if path == "" {
+				// Picker cancelled; keep the current mode.
+				return nil
+			}
+		}
+		if _, err := core.CheckCoreCompatibility(path); err != nil {
+			b.toastErr(err)
+			return err
+		}
+	default:
+		err := fmt.Errorf("unknown core source mode %q", mode)
+		b.toastErr(err)
+		return err
+	}
+	if err := cfg.MustGet("core", "source", "mode").Update(mode); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	_ = cfg.Save()
+	b.emit("settings:changed", map[string]any{"core.source.mode": mode})
+	// The mode change swaps the core binary; setcap state follows it.
+	b.emit("privileges:changed", struct{}{})
 	return nil
 }

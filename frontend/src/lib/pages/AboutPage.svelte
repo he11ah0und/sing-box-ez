@@ -46,6 +46,7 @@
     DownloadCoreVersion,
     ListCoreVersions,
     IsCoreManaged,
+    SetCoreSourceMode,
     CancelUpdate,
     OpenDataDir,
     OpenProjectURL,
@@ -71,6 +72,8 @@
   let coreProcessing = $state(false);
   let coreManaged = $state(true);
   let showVersionPicker = $state(false);
+  let showSourcePicker = $state(false);
+  let sourceBusy = $state(false);
   let coreVersions = $state<CoreRelease[]>([]);
   let versionsLoading = $state(false);
   // Downloads run in a modal: set to the updater whose transfer is active.
@@ -110,14 +113,23 @@
     'about.btn.open_data',
     'about.release_notes.title',
     'about.updaters.repository',
+    'about.updaters.backend',
+    'about.backend_name.github',
+    'about.channel.label',
+    'about.channel.auto',
     'core.installed',
     'core.latest',
     'core.btn.download',
     'core.update.downloading',
     'core.update.installing',
     'core.pick_version',
+    'core.change_source',
     'core.prerelease',
     'core.external_managed',
+    'settings.core.source.mode.label',
+    'settings.core.source.mode.official',
+    'settings.core.source.mode.system',
+    'settings.core.source.mode.custom',
     'about.channel.external_managed',
     'about.channel.external_hint'
   ]);
@@ -299,11 +311,50 @@
     selfUpdate = null;
     checkUpdate();
   }
+
+  // Update backends are chosen at compile time; known ids get a display name.
+  function backendName(id: string): string {
+    return id === 'github' ? L.aboutBackend_nameGithub : id;
+  }
+
+  // The core source lives in the config (core.source.mode); the updates tab
+  // switches it like the app branch picker switches channels.
+  const coreSourceMode = $derived(($appState.settings?.['core.source.mode'] as string) || 'official');
+  const coreSourceModes = ['official', 'system', 'custom'] as const;
+
+  function coreSourceLabel(mode: string): string {
+    switch (mode) {
+      case 'system': return L.settingsCoreSourceModeSystem;
+      case 'custom': return L.settingsCoreSourceModeCustom;
+      default: return L.settingsCoreSourceModeOfficial;
+    }
+  }
+
+  async function setCoreSource(mode: string) {
+    if (sourceBusy || mode === coreSourceMode) return;
+    sourceBusy = true;
+    try {
+      await SetCoreSourceMode(mode);
+      // The mode swap changes the binary, its version and managed status.
+      coreManaged = await IsCoreManaged();
+      const core = await GetCoreInfo();
+      appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, ...core } }));
+      showSourcePicker = false;
+    } catch {
+      // The backend already reported the failure with a toast.
+    } finally {
+      sourceBusy = false;
+    }
+  }
 </script>
 
-{#snippet appUpdaterBody()}
+{#snippet appUpdaterBody(u: UpdaterEntry)}
   <!-- App self-updater: channel picker, check, install, progress. -->
   <div class="space-y-4">
+    <p class="text-sm text-muted-foreground">
+      {L.aboutUpdatersBackend}: {backendName(u.sourceBackend)} ·
+      {L.aboutChannelLabel}{updateChannel?.name ?? ''} ({L.aboutChannelAuto})
+    </p>
     <div class="flex items-center justify-between gap-2">
       <p class="text-sm text-muted-foreground">{L.aboutBranchLabel} {currentBranch}</p>
       <Button variant="outline" size="sm" onclick={() => showBranchPicker = true}>
@@ -367,9 +418,18 @@
   </div>
 {/snippet}
 
-{#snippet coreUpdaterBody()}
+{#snippet coreUpdaterBody(u: UpdaterEntry)}
   <!-- Core updater: installed/latest versions and the download action. -->
   <div class="space-y-4">
+    <p class="text-sm text-muted-foreground">{L.aboutUpdatersBackend}: {backendName(u.sourceBackend)}</p>
+    <div class="flex items-center justify-between gap-2">
+      <p class="text-sm text-muted-foreground">
+        {L.settingsCoreSourceModeLabel}: {coreSourceLabel(coreSourceMode)}
+      </p>
+      <Button variant="outline" size="sm" onclick={() => showSourcePicker = true}>
+        {L.coreChange_source}
+      </Button>
+    </div>
     {#if !coreLoaded}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Skeleton class="h-[76px] w-full rounded-xl" />
@@ -426,10 +486,10 @@
               {#if updateChannel?.external}
                 {@render externalUpdaterBody()}
               {:else}
-                {@render appUpdaterBody()}
+                {@render appUpdaterBody(u)}
               {/if}
             {:else if u.name === 'core-updater'}
-              {@render coreUpdaterBody()}
+              {@render coreUpdaterBody(u)}
             {:else}
               <p class="text-sm text-muted-foreground">{u.sourceBackend} → {u.applyBackend}</p>
             {/if}
@@ -597,7 +657,7 @@
               class="w-full text-left px-4 py-3 hover:bg-accent transition flex items-center justify-between gap-3"
               onclick={() => downloadCoreVersion(rel.version)}
             >
-              <span class="font-medium">v{rel.version}</span>
+              <span class="font-medium">{rel.version}</span>
               <span class="flex items-center gap-2 text-sm text-muted-foreground">
                 {#if rel.prerelease}
                   <Badge variant="secondary">{L.corePrerelease}</Badge>
@@ -609,5 +669,30 @@
         {/each}
       </ul>
     {/if}
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Core source picker: official (managed download), system binary or a
+     custom path. Custom asks for a file when none is configured. -->
+<Dialog.Root open={showSourcePicker} onOpenChange={(open) => { if (!open) showSourcePicker = false; }}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>{L.coreChange_source}</Dialog.Title>
+    </Dialog.Header>
+    <div class="flex flex-col gap-2">
+      {#each coreSourceModes as mode (mode)}
+        <button
+          class={cn(
+            'w-full text-left px-4 py-3 rounded-xl border border-border bg-secondary hover:bg-accent transition',
+            mode === coreSourceMode && 'text-primary',
+            sourceBusy && 'opacity-50 pointer-events-none'
+          )}
+          disabled={sourceBusy}
+          onclick={() => setCoreSource(mode)}
+        >
+          {coreSourceLabel(mode)} {#if mode === coreSourceMode}✓{/if}
+        </button>
+      {/each}
+    </div>
   </Dialog.Content>
 </Dialog.Root>

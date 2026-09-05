@@ -103,6 +103,7 @@ connection_details:
   close_connection: Close connection
 core:
   pick_version: Choose version…
+  change_source: Change source…
   prerelease: pre-release
   external_managed: The core is managed outside the app (system/custom source)
   update:
@@ -239,6 +240,7 @@ settings:
         custom: Custom binary
       custom_path: Custom core binary path
       browse_custom_path: Choose the core binary…
+      system_not_found: System-wide sing-box not found (checked PATH and standard install locations)
     url_test_url: URL-test URL
     log:
       level:
@@ -327,6 +329,9 @@ log:
 about:
   updaters:
     repository: Repository
+    backend: Backend
+  backend_name:
+    github: GitHub
   commit_info:
     prefix: 'Commit: '
   build_info:
@@ -361,6 +366,8 @@ about:
     downloading: Downloading…
     external_managed: This build is updated by an external package manager
   channel:
+    label: 'Channel: '
+    auto: auto
     external_managed: 'Updates are managed by the package manager: {{channel}}'
     external_hint: Update checks are tied to the install channel — check for updates there (for example, via your AUR helper or package manager).
   release_notes:

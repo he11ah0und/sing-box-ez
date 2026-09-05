@@ -103,6 +103,7 @@ connection_details:
   close_connection: Закрыть соединение
 core:
   pick_version: Выбрать версию…
+  change_source: Изменить источник…
   prerelease: пре-релиз
   external_managed: Ядро управляется вне приложения (системный/свой источник)
   update:
@@ -239,6 +240,7 @@ settings:
         custom: Свой бинарник
       custom_path: Путь к своему бинарнику ядра
       browse_custom_path: Выбрать бинарник ядра…
+      system_not_found: Системный sing-box не найден (проверены PATH и стандартные пути установки)
     url_test_url: URL для URL-теста
     log:
       level:
@@ -327,6 +329,9 @@ log:
 about:
   updaters:
     repository: Репозиторий
+    backend: Бэкенд
+  backend_name:
+    github: GitHub
   commit_info:
     prefix: 'Коммит: '
   build_info:
@@ -361,6 +366,8 @@ about:
     downloading: 'Загрузка…'
     external_managed: Эта сборка обновляется внешним пакетным менеджером
   channel:
+    label: 'Канал: '
+    auto: авто
     external_managed: 'Обновления управляются пакетным менеджером: {{channel}}'
     external_hint: Проверка обновлений зависит от канала установки — проверяйте обновления там (например, через ваш AUR helper или пакетный менеджер).
   release_notes:
