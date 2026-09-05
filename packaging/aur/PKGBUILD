@@ -1,0 +1,45 @@
+# Maintainer: he11ah0und
+#
+# Local-verification variant: the source is the local git checkout, so the
+# package tracks the current branch. For AUR publication switch source=()
+# to the release tarball (https://.../archive/v$pkgver.tar.gz) with a real
+# sha256sums entry, and generate .SRCINFO (makepkg --printsrcinfo).
+
+pkgname=sing-box-ez
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="GUI client for the sing-box proxy core"
+arch=('x86_64')
+url="https://github.com/he11ah0und/sing-box-ez"
+# TODO: the repo ships no LICENSE file — pick one before AUR publication.
+license=('custom')
+depends=('webkitgtk-6.0' 'gtk4')
+makedepends=('git' 'go' 'nodejs' 'npm')
+source=("sing-box-ez::git+file:///mnt/local1/work/code/sing-box-ez#branch=wails-migration")
+sha256sums=('SKIP')
+
+pkgver() {
+  # Single source of truth: the VERSION file in the repo.
+  cat "$srcdir/$pkgname/VERSION"
+}
+
+prepare() {
+  cd "$pkgname"
+  # The Makefile expects the wails3 CLI matching go.mod in GOPATH/bin.
+  export PATH="$(go env GOPATH)/bin:$PATH"
+  go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+}
+
+build() {
+  cd "$pkgname"
+  export PATH="$(go env GOPATH)/bin:$PATH"
+  # CHANNEL=aur: no self-update code; updates are pacman's job.
+  make build CHANNEL=aur
+}
+
+package() {
+  cd "$pkgname"
+  install -Dm755 "build/sing-box-ez-amd64-linux-gcc-gui" "$pkgdir/usr/bin/sing-box-ez"
+  install -Dm644 "packaging/aur/sing-box-ez.desktop" "$pkgdir/usr/share/applications/sing-box-ez.desktop"
+  install -Dm644 "build/appicon.png" "$pkgdir/usr/share/pixmaps/sing-box-ez.png"
+}
