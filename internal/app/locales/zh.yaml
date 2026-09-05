@@ -237,6 +237,8 @@ settings:
   privileges:
     setcap: 应用 setcap
     setcap_remove: 移除 setcap
+    setcap_done: setcap 已应用——TUN 无需 root 即可工作
+    setcap_removed: setcap 已移除——TUN 将需要 root 权限
     setcap_confirm: setcap 未应用到核心二进制文件。立即应用以无需 root 使用 TUN？
     setcap_remove_confirm: 移除核心二进制文件的 cap_net_admin 能力？TUN 将需要 root 权限。
     restart_admin: 以管理员身份重启

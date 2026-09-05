@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Save, RotateCcw, ShieldCheck, Trash2 } from '@lucide/svelte';
+  import { Save, RotateCcw, ShieldCheck, Trash2, LoaderCircle } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { fly } from 'svelte/transition';
   import { appState } from '../stores/appState.js';
@@ -146,8 +146,10 @@
     try {
       await RunConfigAction(entry.path);
       await loadPrivileges();
+      // Success: the backend shows a result toast; close the confirm dialog.
+      confirmActionOpen = false;
     } catch {
-      // The backend already reported the failure with a toast.
+      // Keep the dialog open on failure; the backend already toasted the error.
     } finally {
       privProcessing = false;
     }
@@ -396,7 +398,15 @@
     </div>
   {/key}
 
-  <AlertDialog.Root bind:open={confirmActionOpen}>
+  <AlertDialog.Root
+    open={confirmActionOpen}
+    onOpenChange={(open) => {
+      // While the action runs the dialog stays open: close requests are
+      // ignored so the spinner remains visible until success or failure.
+      if (privProcessing && !open) return;
+      confirmActionOpen = open;
+    }}
+  >
     <AlertDialog.Content>
       <AlertDialog.Header>
         <AlertDialog.Title>{confirmAction ? actionLabel(confirmAction) : ''}</AlertDialog.Title>
@@ -405,9 +415,21 @@
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
-        <AlertDialog.Action onclick={() => confirmAction && runAction(confirmAction)}>
-          {L.dialogBtnConfirm}
+        <AlertDialog.Cancel disabled={privProcessing}>{L.commonCancel}</AlertDialog.Cancel>
+        <AlertDialog.Action
+          disabled={privProcessing}
+          onclick={(e) => {
+            // Prevent the default close: the dialog closes on success in
+            // runAction and stays open on failure.
+            e.preventDefault();
+            if (confirmAction) runAction(confirmAction);
+          }}
+        >
+          {#if privProcessing}
+            <LoaderCircle size={16} class="animate-spin" />
+          {:else}
+            {L.dialogBtnConfirm}
+          {/if}
         </AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>

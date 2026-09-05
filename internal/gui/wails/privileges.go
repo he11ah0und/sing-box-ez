@@ -114,5 +114,14 @@ func (b *Bindings) RunConfigAction(path string) error {
 		b.toastErr(err)
 		return err
 	}
+	// The setcap toggle reads back the resulting capability state to pick the
+	// right success message; restart_admin exits the app and needs no toast.
+	if entry.Action == "setcap" {
+		if b.app.Controller.GetPrivilegeTabState().HasSetcap {
+			b.toastT("success", []string{"settings", "privileges", "setcap_done"})
+		} else {
+			b.toastT("success", []string{"settings", "privileges", "setcap_removed"})
+		}
+	}
 	return nil
 }

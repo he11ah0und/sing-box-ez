@@ -237,6 +237,8 @@ settings:
   privileges:
     setcap: Apply setcap
     setcap_remove: Remove setcap
+    setcap_done: setcap applied — TUN works without root
+    setcap_removed: setcap removed — TUN will require root
     setcap_confirm: setcap is not applied to the core binary. Apply it now to enable TUN without root?
     setcap_remove_confirm: Remove the cap_net_admin capability from the core binary? TUN will require root.
     restart_admin: Restart as administrator

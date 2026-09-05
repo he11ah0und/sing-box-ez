@@ -237,6 +237,8 @@ settings:
   privileges:
     setcap: Применить setcap
     setcap_remove: Убрать setcap
+    setcap_done: setcap применён — TUN работает без root
+    setcap_removed: setcap убран — для TUN потребуется root
     setcap_confirm: setcap не применён к бинарнику ядра. Применить сейчас для TUN без root?
     setcap_remove_confirm: Убрать capability cap_net_admin с бинарника ядра? Для TUN потребуется root.
     restart_admin: Перезапустить от администратора
