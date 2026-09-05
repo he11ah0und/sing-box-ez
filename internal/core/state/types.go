@@ -98,10 +98,13 @@ type ConnectionGroup struct {
 // while the core is connected. Frontends never poll: they seed from
 // Poller.State and then apply pushed updates.
 type Update struct {
-	Phase       string       `json:"phase"`
-	Status      *Status      `json:"status"`
-	Info        *Info        `json:"info"`
-	Mode        string       `json:"mode"`
+	Phase  string  `json:"phase"`
+	Status *Status `json:"status"`
+	Info   *Info   `json:"info"`
+	Mode   string  `json:"mode"`
+	// ModeList holds the clash modes the running core accepts for SetMode.
+	// Empty for cores that do not report a mode list.
+	ModeList    []string     `json:"modeList"`
 	Groups      []Group      `json:"groups"`
 	Connections []Connection `json:"connections"`
 	// ConnGroups aggregates Connections by target; inactive groups are kept

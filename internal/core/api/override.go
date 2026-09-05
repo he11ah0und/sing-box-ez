@@ -91,6 +91,17 @@ func applySingBoxAPI(tree map[string]any, host string, port int, secret string) 
 		"secret":      secret,
 	})
 	tree["services"] = services
+
+	// The gRPC API exposes clash modes through the core's clash server, which
+	// only exists when experimental.clash_api is configured. Register a
+	// headless one (no external_controller, so no HTTP listener) to keep mode
+	// switching working; an existing clash_api block is left untouched.
+	experimental := getOrCreateMap(tree, "experimental")
+	if _, ok := experimental["clash_api"]; !ok {
+		experimental["clash_api"] = map[string]any{
+			"default_mode": "rule",
+		}
+	}
 }
 
 func getOrCreateMap(tree map[string]any, key string) map[string]any {

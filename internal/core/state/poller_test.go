@@ -129,8 +129,8 @@ type stubAPIClient struct {
 	api.CoreAPIClient
 }
 
-func (stubAPIClient) Groups(context.Context) ([]api.Group, error) { return nil, nil }
-func (stubAPIClient) Mode(context.Context) (string, error)        { return "rule", nil }
+func (stubAPIClient) Groups(context.Context) ([]api.Group, error)    { return nil, nil }
+func (stubAPIClient) Mode(context.Context) (string, []string, error) { return "rule", nil, nil }
 func (stubAPIClient) Connections(context.Context) ([]api.Connection, error) {
 	return []api.Connection{{ID: "a", UplinkTotal: 10, DownlinkTotal: 20}}, nil
 }

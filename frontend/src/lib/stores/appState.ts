@@ -83,6 +83,9 @@ export interface ApiState {
   status: APIStatus | null;
   info: APIInfo | null;
   mode: string;
+  // modeList holds the clash modes the running core accepts; empty when the
+  // core does not report a list (older sing-box / plain Clash API).
+  modeList: string[];
   groups: APIGroup[];
   connections: APIConnection[];
   // connGroups aggregates connections by target; inactive groups are kept
@@ -144,7 +147,7 @@ export const appState = writable<AppState>({
   selfUpdate: { downloading: false, downloadProgress: 0 },
   styleCheck: null,
   selfUpdateInfo: null,
-  api: { phase: 'stopped', status: null, info: null, mode: '', groups: [], connections: [], connGroups: [] }
+  api: { phase: 'stopped', status: null, info: null, mode: '', modeList: [], groups: [], connections: [], connGroups: [] }
 });
 
 export function appendAppLog(line: string) {

@@ -66,6 +66,20 @@ func TestApplyOverrideSingBoxAPI(t *testing.T) {
 		t.Fatalf("unexpected listen_port: %v", svc["listen_port"])
 	}
 
+	// A headless clash_api block (no external_controller) must be registered
+	// so the gRPC clash-mode endpoints work.
+	experimental := tree["experimental"].(map[string]any)
+	clashAPI, ok := experimental["clash_api"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing headless clash_api block: %v", experimental)
+	}
+	if clashAPI["default_mode"] != "rule" {
+		t.Fatalf("unexpected default_mode: %v", clashAPI["default_mode"])
+	}
+	if _, hasListener := clashAPI["external_controller"]; hasListener {
+		t.Fatalf("headless clash_api must not set external_controller: %v", clashAPI)
+	}
+
 	parser, _ := singboxconfig.NewConfigParserForVersion("1.14.0")
 	if _, err := parser.Parse(out); err != nil {
 		t.Fatalf("parse output: %v", err)

@@ -106,7 +106,7 @@ type CoreAPIClient interface {
 	Status(ctx context.Context) (*Status, error)
 	Groups(ctx context.Context) ([]Group, error)
 	SelectGroup(ctx context.Context, group, outbound string) error
-	Mode(ctx context.Context) (string, error)
+	Mode(ctx context.Context) (current string, list []string, err error)
 	SetMode(ctx context.Context, mode string) error
 	Connections(ctx context.Context) ([]Connection, error)
 	CloseConnection(ctx context.Context, id string) error

@@ -22,7 +22,12 @@
   import type { Group as APIGroup } from '../../../bindings/sing-box-ez/internal/core/state/models.js';
   import { formatSpeed, formatTime } from '../utils/format.js';
 
-  const modes = ['rule', 'global', 'direct'];
+  // Mode options come from the running core (sing-box reports its accepted
+  // clash modes via GetClashModeStatus); the static list is the fallback for
+  // cores that do not report one.
+  const modes = $derived(
+    $appState.api.modeList.length > 0 ? $appState.api.modeList : ['rule', 'global', 'direct']
+  );
   // Proxy mode labels: "rule" is shared with connection details via
   // common.rule; the rest keep their own keys.
   const modeKeys: Record<string, string> = {

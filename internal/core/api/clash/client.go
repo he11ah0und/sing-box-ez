@@ -160,18 +160,19 @@ func (c *Client) SelectGroup(ctx context.Context, group, outbound string) error 
 }
 
 // Mode implements api.CoreAPIClient.
-func (c *Client) Mode(ctx context.Context) (string, error) {
+func (c *Client) Mode(ctx context.Context) (string, []string, error) {
 	req, err := c.req(ctx, "GET", "/configs", nil)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	var cfg struct {
-		Mode string `json:"mode"`
+		Mode     string   `json:"mode"`
+		ModeList []string `json:"mode-list"`
 	}
 	if err := c.doJSON(req, &cfg); err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return cfg.Mode, nil
+	return cfg.Mode, cfg.ModeList, nil
 }
 
 // SetMode implements api.CoreAPIClient.

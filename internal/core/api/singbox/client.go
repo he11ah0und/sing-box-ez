@@ -90,12 +90,12 @@ func (c *Client) SelectGroup(ctx context.Context, group, outbound string) error 
 }
 
 // Mode implements api.CoreAPIClient.
-func (c *Client) Mode(ctx context.Context) (string, error) {
+func (c *Client) Mode(ctx context.Context) (string, []string, error) {
 	resp, err := c.started.GetClashModeStatus(c.ctx(ctx), &emptypb.Empty{})
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return resp.CurrentMode, nil
+	return resp.CurrentMode, resp.ModeList, nil
 }
 
 // SetMode implements api.CoreAPIClient.

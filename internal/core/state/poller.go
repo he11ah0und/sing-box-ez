@@ -345,7 +345,7 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 	callCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	groups, gErr := p.lastClient.Groups(callCtx)
 	conns, cErr := p.lastClient.Connections(callCtx)
-	mode, mErr := p.lastClient.Mode(callCtx)
+	mode, modeList, mErr := p.lastClient.Mode(callCtx)
 	cancel()
 
 	status := toStatus(&ev.Status, connectedAt)
@@ -365,12 +365,14 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 		Status:      &status,
 		Info:        toInfo(p.d.Info()),
 		Mode:        p.state.Mode,
+		ModeList:    p.state.ModeList,
 		Groups:      p.state.Groups,
 		Connections: p.state.Connections,
 		ConnGroups:  p.state.ConnGroups,
 	}
 	if mErr == nil {
 		next.Mode = mode
+		next.ModeList = modeList
 	}
 	if gErr == nil {
 		next.Groups = toGroups(filterGroupsByName(groups, p.groupFilter))

@@ -82,6 +82,7 @@ function applyApiState(data: APIStateUpdate | null | undefined) {
       status: data?.status ?? null,
       info: data?.info ?? null,
       mode: data?.mode ?? '',
+      modeList: data?.modeList ?? [],
       groups: data?.groups ?? [],
       connections: data?.connections ?? [],
       connGroups: data?.connGroups ?? []
