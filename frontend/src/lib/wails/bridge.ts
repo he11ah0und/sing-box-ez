@@ -79,6 +79,13 @@ interface ConfigUpdateFailurePayload {
   kind?: string;
 }
 
+// Mirrors core.ConfigsUpdateReport.
+interface ConfigsUpdateReportPayload {
+  attempted?: number;
+  total?: number;
+  failures?: ConfigUpdateFailurePayload[];
+}
+
 // applyApiState stores the latest backend-pushed core API snapshot.
 // A session change (core (re)start) resets the traffic graph history; the
 // session counter survives the hidden-window event gating that drops the
@@ -235,12 +242,17 @@ export function initWailsEvents(): Promise<unknown> {
     }));
   });
 
-  Events.On('configs:update_failed', (event: WailsEvent<ConfigUpdateFailurePayload[]>) => {
-    const failures = (event.data ?? []).filter((f) => f?.name);
+  Events.On('configs:update_failed', (event: WailsEvent<ConfigsUpdateReportPayload>) => {
+    const data = event.data;
+    const failures = (data?.failures ?? []).filter((f) => f?.name);
     if (failures.length === 0) return;
     appState.update((s) => ({
       ...s,
-      configsUpdateFailed: failures.map((f) => ({ name: f.name ?? '', kind: f.kind ?? 'other' }))
+      configsUpdateFailed: {
+        attempted: data?.attempted ?? failures.length,
+        total: data?.total ?? failures.length,
+        failures: failures.map((f) => ({ name: f.name ?? '', kind: f.kind ?? 'other' }))
+      }
     }));
   });
 

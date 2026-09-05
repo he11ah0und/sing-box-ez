@@ -129,7 +129,9 @@ export interface AppState {
   // configsUpdateFailed is set by the configs:update_failed event: every
   // config due for a background refresh failed to download — App shows a
   // dialog listing the configs with the classified failure reason.
-  configsUpdateFailed: { name: string; kind: string }[] | null;
+  // attempted = how many were due (all failed), total = remote configs in
+  // the list; the dialog needs both to keep its wording truthful.
+  configsUpdateFailed: { attempted: number; total: number; failures: { name: string; kind: string }[] } | null;
   // configDownloadFailed is set by the config:download_failed event: the
   // start flow could not download the active config and used the cached
   // copy — App offers a retry through the running core's proxy.

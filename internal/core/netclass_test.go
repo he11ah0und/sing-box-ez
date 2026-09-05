@@ -96,26 +96,35 @@ func TestUpdateOutdatedConfigsAllFailed(t *testing.T) {
 	ic.backend.AddConfig(staleRemote("b", "http://127.0.0.1:1/b"))
 
 	configs := ic.backend.GetConfigs()
-	_, failures := ic.updateOutdatedConfigs(configs, nil)
-	if len(failures) != 2 {
-		t.Fatalf("expected 2 failures, got %+v", failures)
+	_, report := ic.updateOutdatedConfigs(configs, nil)
+	if report == nil || len(report.Failures) != 2 {
+		t.Fatalf("expected 2 failures, got %+v", report)
 	}
-	for _, f := range failures {
+	if report.Attempted != 2 || report.Total != 2 {
+		t.Fatalf("expected attempted=2 total=2, got %+v", report)
+	}
+	for _, f := range report.Failures {
 		if f.Kind != FailureRefused {
 			t.Fatalf("config %q: kind %q, want %q", f.Name, f.Kind, FailureRefused)
 		}
 	}
 }
 
-// A single failed config stays silent: one sample proves nothing about
-// connectivity (the per-config path reports it instead).
-func TestUpdateOutdatedConfigsSingleFailureSilent(t *testing.T) {
+// A single due config failing still reports — but the report shows it was
+// one config out of a larger list, so the UI wording stays truthful.
+func TestUpdateOutdatedConfigsSingleFailureReported(t *testing.T) {
 	ic := newFailureTestIC(t)
 	ic.backend.AddConfig(staleRemote("a", "http://127.0.0.1:1/a"))
+	fresh := staleRemote("fresh", "http://127.0.0.1:1/b")
+	fresh.LastUpdate = config.Timestamp{Time: time.Now()}
+	ic.backend.AddConfig(fresh)
 
-	_, failures := ic.updateOutdatedConfigs(ic.backend.GetConfigs(), nil)
-	if len(failures) != 0 {
-		t.Fatalf("expected no reported failures for a single due config, got %+v", failures)
+	_, report := ic.updateOutdatedConfigs(ic.backend.GetConfigs(), nil)
+	if report == nil || len(report.Failures) != 1 {
+		t.Fatalf("expected 1 failure, got %+v", report)
+	}
+	if report.Attempted != 1 || report.Total != 2 {
+		t.Fatalf("expected attempted=1 total=2, got %+v", report)
 	}
 }
 
@@ -130,9 +139,9 @@ func TestUpdateOutdatedConfigsPartialFailureSilent(t *testing.T) {
 	ic.backend.AddConfig(staleRemote("ok", srv.URL))
 	ic.backend.AddConfig(staleRemote("dead", "http://127.0.0.1:1/dead"))
 
-	_, failures := ic.updateOutdatedConfigs(ic.backend.GetConfigs(), nil)
-	if len(failures) != 0 {
-		t.Fatalf("expected no reported failures on partial success, got %+v", failures)
+	_, report := ic.updateOutdatedConfigs(ic.backend.GetConfigs(), nil)
+	if report != nil {
+		t.Fatalf("expected no report on partial success, got %+v", report)
 	}
 }
 
@@ -143,8 +152,8 @@ func TestUpdateOutdatedConfigsNothingDue(t *testing.T) {
 	fresh.LastUpdate = config.Timestamp{Time: time.Now()}
 	ic.backend.AddConfig(fresh)
 
-	_, failures := ic.updateOutdatedConfigs(ic.backend.GetConfigs(), nil)
-	if len(failures) != 0 {
-		t.Fatalf("expected no failures when nothing is due, got %+v", failures)
+	_, report := ic.updateOutdatedConfigs(ic.backend.GetConfigs(), nil)
+	if report != nil {
+		t.Fatalf("expected no report when nothing is due, got %+v", report)
 	}
 }

@@ -400,17 +400,20 @@
   </AlertDialog.Root>
 {/if}
 
-{#if $appState.configsUpdateFailed && $appState.configsUpdateFailed.length > 0}
+{#if $appState.configsUpdateFailed}
   <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) closeConfigsUpdateFailed(); }}>
     <AlertDialog.Content>
       <AlertDialog.Header>
         <AlertDialog.Title class="text-destructive">{L.dialogConfigs_update_failedTitle}</AlertDialog.Title>
         <AlertDialog.Description>
-          {format(L.dialogConfigs_update_failedBody, { count: $appState.configsUpdateFailed.length })}
+          {format(L.dialogConfigs_update_failedBody, {
+            attempted: $appState.configsUpdateFailed.attempted,
+            total: $appState.configsUpdateFailed.total
+          })}
         </AlertDialog.Description>
       </AlertDialog.Header>
       <ul class="max-h-60 overflow-auto divide-y divide-border rounded-xl border border-border">
-        {#each $appState.configsUpdateFailed as failure (failure.name)}
+        {#each $appState.configsUpdateFailed.failures as failure (failure.name)}
           <li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
             <span class="font-medium truncate">{failure.name}</span>
             <span class="text-muted-foreground shrink-0">{failureKindLabel(failure.kind)}</span>

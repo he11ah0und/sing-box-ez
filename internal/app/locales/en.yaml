@@ -444,7 +444,7 @@ dialog:
     btn_retry: Retry via core
   configs_update_failed:
     title: Config update failed
-    body: 'Could not refresh any of the configs due for an update ({{count}}). Check your internet connection.'
+    body: 'Could not refresh any of the configs due for an update ({{attempted}} of {{total}} in the list). Check your internet connection.'
     kind_refused: connection refused
     kind_timeout: connection timed out
     kind_dns: DNS resolution failed

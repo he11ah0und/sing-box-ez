@@ -24,6 +24,17 @@ type ConfigUpdateFailure struct {
 	Kind string `json:"kind"`
 }
 
+// ConfigsUpdateReport summarizes a background update run in which every
+// config due for a refresh failed: Attempted configs were due (all of them
+// are in Failures), out of Total remote configs in the list. The UI needs
+// both numbers: one due config failing reads very differently from the whole
+// list failing.
+type ConfigsUpdateReport struct {
+	Attempted int                   `json:"attempted"`
+	Total     int                   `json:"total"`
+	Failures  []ConfigUpdateFailure `json:"failures"`
+}
+
 // InteractiveController wraps Backend with GUI-specific callbacks and background loops.
 type InteractiveController struct {
 	// backend is the core backend used for all operations.
@@ -67,10 +78,10 @@ type InteractiveController struct {
 	// progress while StartService runs.
 	OnPhaseChange func(phase string)
 	// OnConfigsUpdateFailed is invoked after a background config update run in
-	// which at least two configs were due and every one of them failed to
-	// download (e.g. no direct connectivity). A single failure is not enough:
-	// it proves nothing about connectivity.
-	OnConfigsUpdateFailed func(failures []ConfigUpdateFailure)
+	// which every config due for an update failed to download (e.g. no direct
+	// connectivity). The report carries attempted/total counts so the UI can
+	// tell "the only due config failed" from "the whole list failed".
+	OnConfigsUpdateFailed func(report ConfigsUpdateReport)
 
 	stopped bool
 	stopMu  sync.Mutex
@@ -376,30 +387,32 @@ func (ic *InteractiveController) checkAllConfigs() {
 	}
 
 	active := ic.backend.GetActiveConfig()
-	activeUpdated, failures := ic.updateOutdatedConfigs(configs, active)
+	activeUpdated, report := ic.updateOutdatedConfigs(configs, active)
 
 	if activeUpdated {
 		ic.onActiveConfigUpdated()
 	}
 	// Notify the UI only when every config that was due for an update failed:
 	// partial failures are already logged per config and stay silent.
-	if len(failures) > 0 && ic.OnConfigsUpdateFailed != nil {
-		ic.OnConfigsUpdateFailed(failures)
+	if report != nil && ic.OnConfigsUpdateFailed != nil {
+		ic.OnConfigsUpdateFailed(*report)
 	}
 }
 
-func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRecord, active *config.ConfigRecord) (bool, []ConfigUpdateFailure) {
+func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRecord, active *config.ConfigRecord) (bool, *ConfigsUpdateReport) {
 	autoUpdateConfigs := ic.backend.Config().MustGet("updates", "auto_update_configs").Bool()
 	autoUpdateOnHashMismatch := ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool()
 
 	activeUpdated := false
 	var failures []ConfigUpdateFailure
 	dueCount := 0
+	total := 0
 	for i := range configs {
 		cfg := &configs[i]
 		if cfg.IsLocal() {
 			continue
 		}
+		total++
 		attempted, updated, err := ic.tryUpdateConfig(cfg, active, autoUpdateConfigs, autoUpdateOnHashMismatch)
 		if !attempted {
 			continue
@@ -413,13 +426,13 @@ func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRe
 			activeUpdated = true
 		}
 	}
-	// Only an across-the-board wipeout is worth a dialog; a single failed
-	// config proves nothing about connectivity and has its own per-config
-	// reporting path.
-	if dueCount < 2 || len(failures) < dueCount {
+	// Only an across-the-board wipeout is worth a dialog: every config that
+	// was due failed. The report carries due vs total counts so the UI does
+	// not read "one due config failed" as "no config works at all".
+	if dueCount == 0 || len(failures) < dueCount {
 		return activeUpdated, nil
 	}
-	return activeUpdated, failures
+	return activeUpdated, &ConfigsUpdateReport{Attempted: dueCount, Total: total, Failures: failures}
 }
 
 // tryUpdateConfig reports whether an update was attempted at all (the config
