@@ -7,6 +7,7 @@
   import { useLocale, useLocaleRecord } from '@he11ah0und/localengine-web';
 
   import Page from '../components/Page.svelte';
+  import { Button } from '$lib/components/ui/button/index.js';
   import * as Card from '$lib/components/ui/card/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
   import OverviewPage from './OverviewPage.svelte';
@@ -14,6 +15,7 @@
   import ConnectionsPage from './ConnectionsPage.svelte';
   import {
     Start,
+    Stop,
     Restart,
     GetStatus,
     GetConfigs,
@@ -27,7 +29,8 @@
     'main.active.placeholder',
     'configs.empty',
     'main.btn.start',
-    'main.active.label'
+    'main.active.label',
+    'common.cancel'
   ]);
 
   // The phase namespace is registered via a wildcard; the label below the
@@ -95,6 +98,12 @@
     callBinding(Start());
   }
 
+  // Cancels the API wait: the core process is up but its API never answers,
+  // so the way out is to stop the core — the poller then lands on stopped.
+  function handleCancelWait() {
+    callBinding(Stop());
+  }
+
   async function activateConfig(name: string) {
     if (!name || name === $appState.activeConfig?.name) return;
     processing = true;
@@ -153,6 +162,11 @@
       </button>
       {#if busy}
         <p class="text-sm text-muted-foreground">{R.mainPhase[apiPhase]}</p>
+        {#if apiPhase === 'waiting_api'}
+          <Button variant="outline" size="sm" disabled={processing} onclick={handleCancelWait}>
+            {L.commonCancel}
+          </Button>
+        {/if}
       {/if}
     </div>
 
