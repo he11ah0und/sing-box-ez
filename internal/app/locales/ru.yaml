@@ -25,6 +25,7 @@ main:
     restart: Перезапуск
     restarted: Ядро перезапущено
     switch: Переключить
+    skip_update: Пропустить обновление
   tabs:
     overview: Обзор
   api:

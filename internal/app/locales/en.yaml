@@ -25,6 +25,7 @@ main:
     restart: Restart
     restarted: Core restarted
     switch: Switch
+    skip_update: Skip update
   tabs:
     overview: Overview
   api:

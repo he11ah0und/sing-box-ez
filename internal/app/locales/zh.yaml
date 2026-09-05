@@ -25,6 +25,7 @@ main:
     restart: 重启
     restarted: 内核已重启
     switch: 切换
+    skip_update: 跳过更新
   tabs:
     overview: 概览
   api:

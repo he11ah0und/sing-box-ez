@@ -223,6 +223,15 @@ func (b *Bindings) CancelStart() {
 	_ = b.app.Controller.Stop()
 }
 
+// SkipConfigUpdate aborts only the in-flight config download of the start
+// flow (the "skip" button of the preparing_config phase); the start
+// continues with the cached config.
+func (b *Bindings) SkipConfigUpdate() {
+	if b.app.Controller != nil {
+		b.app.Controller.SkipConfigDownload()
+	}
+}
+
 // setPhaseHint stores the current core lifecycle stage for the state poller.
 func (b *Bindings) setPhaseHint(phase string) {
 	b.corePhaseHint.Store(phase)

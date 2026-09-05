@@ -55,6 +55,11 @@ type Controller struct {
 	// after the first one finishes instead of downloading the same profile
 	// twice and triggering a redundant restart.
 	configUpdateMu sync.Mutex
+
+	// downloadCancel cancels the in-flight config download of the start
+	// flow (the GUI's "skip update" button); nil when no download runs.
+	downloadMu     sync.Mutex
+	downloadCancel context.CancelFunc
 }
 
 // NewController creates a new controller and wires framework services.
@@ -253,12 +258,28 @@ func (c *Controller) refreshActiveConfig(ctx context.Context) error {
 	}
 
 	c.terminal.TInfof("core.controller.config_updating")
-	data, err := c.manager.UpdateConfig(ctx)
+	// The download runs on a child context so the GUI's "skip" button can
+	// abort just the download (falling back to the cached config) without
+	// cancelling the whole start flow.
+	downloadCtx, downloadCancel := context.WithCancel(ctx)
+	c.downloadMu.Lock()
+	c.downloadCancel = downloadCancel
+	c.downloadMu.Unlock()
+	data, err := c.manager.UpdateConfig(downloadCtx)
+	downloadCancel()
+	c.downloadMu.Lock()
+	c.downloadCancel = nil
+	c.downloadMu.Unlock()
 	if err != nil {
 		// A cancelled start must not fall back to the cached config:
 		// the user aborted, the core must not come up.
 		if ctx.Err() != nil {
 			return ErrStartCancelled
+		}
+		// A skipped download falls back to the cached config like a failed
+		// one, but says so in the log.
+		if downloadCtx.Err() != nil {
+			c.terminal.TInfof("core.controller.config_update_skipped")
 		}
 		// The network backend already logs the download failure with context.
 		if !c.HasCachedConfig(active.Name) {
@@ -272,6 +293,17 @@ func (c *Controller) refreshActiveConfig(ctx context.Context) error {
 	_ = c.cfg.Save()
 	c.terminal.TInfof("core.controller.config_update_finished")
 	return nil
+}
+
+// SkipConfigDownload aborts the in-flight config download of the start flow;
+// the start continues with the cached config. A no-op when no download runs.
+func (c *Controller) SkipConfigDownload() {
+	c.downloadMu.Lock()
+	cancel := c.downloadCancel
+	c.downloadMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 // UpdateConfigIfDue downloads the named remote config only when it is still

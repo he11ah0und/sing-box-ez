@@ -16,6 +16,7 @@
   import {
     Start,
     CancelStart,
+    SkipConfigUpdate,
     Restart,
     GetStatus,
     GetConfigs,
@@ -30,7 +31,8 @@
     'configs.empty',
     'main.btn.start',
     'main.active.label',
-    'common.cancel'
+    'common.cancel',
+    'main.btn.skip_update'
   ]);
 
   // The phase namespace is registered via a wildcard; the label below the
@@ -104,6 +106,12 @@
     callBinding(CancelStart());
   }
 
+  // Skips only the config download of the start flow; the start continues
+  // with the cached config.
+  function handleSkipUpdate() {
+    callBinding(SkipConfigUpdate());
+  }
+
   async function activateConfig(name: string) {
     if (!name || name === $appState.activeConfig?.name) return;
     processing = true;
@@ -162,14 +170,23 @@
       </button>
       {#if busy}
         <p class="text-sm text-muted-foreground">{R.mainPhase[apiPhase]}</p>
-        <!-- Every start-flow phase is cancellable: the binding aborts the
-             in-flight preparation and stops the core if it already came
-             up. Only "stopping" itself offers no way back. -->
-        {#if apiPhase !== 'stopping'}
-          <Button variant="outline" size="sm" disabled={processing} onclick={handleCancelWait}>
-            {L.commonCancel}
-          </Button>
-        {/if}
+        <div class="flex items-center gap-2">
+          <!-- The config update of the start flow is skippable: the start
+               continues with the cached config. -->
+          {#if apiPhase === 'preparing_config'}
+            <Button variant="outline" size="sm" disabled={processing} onclick={handleSkipUpdate}>
+              {L.mainBtnSkipUpdate}
+            </Button>
+          {/if}
+          <!-- Every start-flow phase is cancellable: the binding aborts the
+               in-flight preparation and stops the core if it already came
+               up. Only "stopping" itself offers no way back. -->
+          {#if apiPhase !== 'stopping'}
+            <Button variant="outline" size="sm" disabled={processing} onclick={handleCancelWait}>
+              {L.commonCancel}
+            </Button>
+          {/if}
+        </div>
       {/if}
     </div>
 

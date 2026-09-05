@@ -44,6 +44,7 @@ core:
     default_interval_set: "Default interval set to %dh"
     auto_restart: "Auto-restart: %v"
     config_updating: Updating config...
+    config_update_skipped: Config update skipped by user
     using_existing_config: Using existing config
     config_update_finished: Config updated
     sing_box_started: Sing-box started
