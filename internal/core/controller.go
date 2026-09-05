@@ -446,7 +446,7 @@ func (c *Controller) ListCoreVersions(ctx context.Context) ([]CoreRelease, error
 	out := make([]CoreRelease, len(releases))
 	for i, r := range releases {
 		out[i] = CoreRelease{
-			Version:     r.Version,
+			Version:     strings.TrimPrefix(r.Version, "v"),
 			Prerelease:  r.Prerelease,
 			PublishedAt: r.PublishedAt.Format("2006-01-02"),
 		}
@@ -740,7 +740,10 @@ func (c *Controller) GetLatestCoreVersion() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return info.Latest, nil
+	// The release tag carries a leading "v" ("v1.14.0") while the installed
+	// version reported by the binary does not ("1.13.21") — display them in
+	// the same shape.
+	return strings.TrimPrefix(info.Latest, "v"), nil
 }
 
 // IsCoreManaged reports whether the core binary is managed by the app
