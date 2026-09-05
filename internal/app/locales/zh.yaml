@@ -200,6 +200,8 @@ configs:
     done: 配置文件已重新创建
   orphans:
     deleted: 残留的配置文件已删除
+  retry_via_core:
+    done: 已通过核心代理更新配置
 validation:
   ok: 未检测到已弃用或已删除的字段。
   summary_errors: 发现 {{errors}} 个严重错误和 {{warnings}} 个警告。
@@ -415,6 +417,10 @@ dialog:
 
       应用无法验证自身版本，也无法自行更新。继续使用意味着运行来源未经验证且永远不会更新的二进制文件 — 建议退出并通过 {{channel}} 重新安装。'
     btn_continue: 仍要继续
+  config_download_failed:
+    title: 配置下载失败
+    body: '无法下载 "{{name}}"；已使用缓存副本。可以通过正在运行的核心重试下载。'
+    btn_retry: 通过核心重试
   configs_update_failed:
     title: 配置更新失败
     body: '所有待更新的配置（{{count}} 个）均无法下载。请检查网络连接。'

@@ -195,6 +195,40 @@ func buildClientInbounds(proxyEnabled bool) []any {
 	return []any{tun, mixed}
 }
 
+// MixedProxyAddr returns the listen address (host:port) of the first mixed
+// inbound in the tree, or "" when there is none. The core's local HTTP/SOCKS
+// proxy lives there; a download routed through it exits via the active
+// outbound, which helps when direct access to a subscription URL is blocked.
+func MixedProxyAddr(tree map[string]any) string {
+	raw, ok := tree["inbounds"]
+	if !ok {
+		return ""
+	}
+	inbounds, ok := raw.([]any)
+	if !ok {
+		return ""
+	}
+	for _, item := range inbounds {
+		in, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if t, _ := in["type"].(string); t != "mixed" {
+			continue
+		}
+		host, _ := in["listen"].(string)
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		port, ok := in["listen_port"].(float64)
+		if !ok || port <= 0 {
+			continue
+		}
+		return fmt.Sprintf("%s:%d", host, int(port))
+	}
+	return ""
+}
+
 // ParseTree parses raw JSON bytes into a config tree.
 func ParseTree(data []byte) (map[string]any, error) {
 	var tree map[string]any

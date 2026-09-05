@@ -217,6 +217,15 @@ export function initWailsEvents(): Promise<unknown> {
     }));
   });
 
+  Events.On('config:download_failed', (event: WailsEvent<ConfigUpdateFailurePayload>) => {
+    const data = event.data ?? {};
+    if (!data.name) return;
+    appState.update((s) => ({
+      ...s,
+      configDownloadFailed: { name: data.name ?? '', kind: data.kind ?? 'other' }
+    }));
+  });
+
   Events.On('configs:update_failed', (event: WailsEvent<ConfigUpdateFailurePayload[]>) => {
     const failures = (event.data ?? []).filter((f) => f?.name);
     if (failures.length === 0) return;

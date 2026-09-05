@@ -200,6 +200,8 @@ configs:
     done: Config file recreated
   orphans:
     deleted: Leftover config files deleted
+  retry_via_core:
+    done: Config updated through the core proxy
 validation:
   ok: No deprecated or removed fields detected.
   summary_errors: Found {{errors}} critical errors and {{warnings}} warnings.
@@ -415,6 +417,10 @@ dialog:
 
       The app cannot verify its own version and cannot update itself. Continuing means running a binary of unverified provenance that will never update — it is safer to quit and reinstall via {{channel}}.'
     btn_continue: Continue anyway
+  config_download_failed:
+    title: Config download failed
+    body: 'Could not download "{{name}}"; the cached copy was used. You can retry the download through the running core.'
+    btn_retry: Retry via core
   configs_update_failed:
     title: Config update failed
     body: 'Could not refresh any of the configs due for an update ({{count}}). Check your internet connection.'

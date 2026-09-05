@@ -197,6 +197,46 @@ func (b *Bindings) DeleteOrphanedConfigs(names []string) error {
 	return nil
 }
 
+// RetryConfigUpdateViaCore re-downloads a remote profile through the running
+// core's local proxy (its mixed inbound). When the core is down it is started
+// first with the pre-start config refresh skipped once, and when the refreshed
+// profile is the active one the core restarts to apply it. Used by the dialog
+// shown after a start fell back to the cached config.
+func (b *Bindings) RetryConfigUpdateViaCore(name string) error {
+	c := b.app.Controller
+	if c == nil {
+		err := fmt.Errorf("local controller unavailable")
+		b.toastErr(err)
+		return err
+	}
+	if !c.IsRunning() {
+		c.SkipNextConfigUpdate()
+		var err error
+		if b.ic != nil {
+			err = b.ic.StartService()
+		} else {
+			err = c.Start()
+		}
+		if err != nil {
+			b.toastErr(err)
+			return err
+		}
+	}
+	if err := c.DownloadConfigViaCoreProxy(name); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	b.emitConfigsChanged()
+	if active := c.Config().GetActiveConfig(); active != nil && active.Name == name {
+		if err := c.Restart(); err != nil {
+			b.toastErr(err)
+			return err
+		}
+	}
+	b.toastT("success", []string{"configs", "retry_via_core", "done"})
+	return nil
+}
+
 // PickConfigFile opens the native file picker to choose a source file for a
 // local profile. It returns the selected path, or an empty string when the
 // dialog was cancelled or is unavailable.

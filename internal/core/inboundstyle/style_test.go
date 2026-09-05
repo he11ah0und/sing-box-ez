@@ -115,3 +115,39 @@ func TestApplyOverrideToClient(t *testing.T) {
 		t.Fatalf("expected 1 inbound when proxy off, got %d", len(inbounds2))
 	}
 }
+
+func TestMixedProxyAddr(t *testing.T) {
+	cases := []struct {
+		name string
+		tree map[string]any
+		want string
+	}{
+		{"no inbounds", map[string]any{}, ""},
+		{"tun only", map[string]any{"inbounds": []any{map[string]any{"type": "tun"}}}, ""},
+		{
+			"mixed with listen",
+			map[string]any{"inbounds": []any{map[string]any{"type": "mixed", "listen": "127.0.0.1", "listen_port": 2080.0}}},
+			"127.0.0.1:2080",
+		},
+		{
+			"mixed default host",
+			map[string]any{"inbounds": []any{map[string]any{"type": "mixed", "listen_port": 9090.0}}},
+			"127.0.0.1:9090",
+		},
+		{
+			"mixed without port skipped",
+			map[string]any{"inbounds": []any{
+				map[string]any{"type": "mixed"},
+				map[string]any{"type": "mixed", "listen_port": 1080.0},
+			}},
+			"127.0.0.1:1080",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := MixedProxyAddr(tc.tree); got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

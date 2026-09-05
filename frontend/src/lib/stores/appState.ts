@@ -130,6 +130,10 @@ export interface AppState {
   // config due for a background refresh failed to download — App shows a
   // dialog listing the configs with the classified failure reason.
   configsUpdateFailed: { name: string; kind: string }[] | null;
+  // configDownloadFailed is set by the config:download_failed event: the
+  // start flow could not download the active config and used the cached
+  // copy — App offers a retry through the running core's proxy.
+  configDownloadFailed: { name: string; kind: string } | null;
   api: ApiState;
 }
 
@@ -169,6 +173,7 @@ export const appState = writable<AppState>({
   selfUpdateInfo: null,
   updateChannelError: null,
   configsUpdateFailed: null,
+  configDownloadFailed: null,
   api: { phase: 'stopped', status: null, info: null, mode: '', modeList: [], groups: [], connections: [], connGroups: [], session: 0 }
 });
 

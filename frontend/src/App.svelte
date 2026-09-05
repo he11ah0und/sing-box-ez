@@ -6,7 +6,7 @@
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
   import { signalLocaleReady, useLocale, useLocaleRecord, format } from '@he11ah0und/localengine-web';
-  import { GetTheme, SetFallbackType, QuitApp, GetOrphanedConfigs, DeleteOrphanedConfigs } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import { GetTheme, SetFallbackType, QuitApp, GetOrphanedConfigs, DeleteOrphanedConfigs, RetryConfigUpdateViaCore } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type { OrphanedConfig } from '../bindings/sing-box-ez/internal/core/models.js';
   import { currentLevel, enterSubNav, setSubTab, setRootPage } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
@@ -90,6 +90,26 @@
     appState.update((s) => ({ ...s, configsUpdateFailed: null }));
   }
 
+  let retryViaCoreBusy = $state(false);
+
+  function closeConfigDownloadFailed() {
+    appState.update((s) => ({ ...s, configDownloadFailed: null }));
+  }
+
+  async function retryViaCore() {
+    const pending = $appState.configDownloadFailed;
+    if (!pending || retryViaCoreBusy) return;
+    retryViaCoreBusy = true;
+    try {
+      await RetryConfigUpdateViaCore(pending.name);
+      closeConfigDownloadFailed();
+    } catch {
+      // The backend already reported the failure with a toast; keep the dialog.
+    } finally {
+      retryViaCoreBusy = false;
+    }
+  }
+
   const kindKeys: Record<string, string> = {
     refused: 'dialog.configs_update_failed.kind_refused',
     timeout: 'dialog.configs_update_failed.kind_timeout',
@@ -171,7 +191,10 @@
     'dialog.orphan_configs.body',
     'dialog.orphan_configs.btn_keep',
     'dialog.configs_update_failed.title',
-    'dialog.configs_update_failed.body'
+    'dialog.configs_update_failed.body',
+    'dialog.config_download_failed.title',
+    'dialog.config_download_failed.body',
+    'dialog.config_download_failed.btn_retry'
   ]);
 
   // The channel-error dialog is not dismissible by click-away/Escape: the
@@ -346,6 +369,31 @@
       <AlertDialog.Footer>
         <Button variant="outline" onclick={closeConfigsUpdateFailed}>
           {L.commonClose}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
+
+{#if $appState.configDownloadFailed && $appState.status.running}
+  <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) closeConfigDownloadFailed(); }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title class="text-destructive">{L.dialogConfig_download_failedTitle}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {format(L.dialogConfig_download_failedBody, { name: $appState.configDownloadFailed.name })}
+          {' '}({failureKindLabel($appState.configDownloadFailed.kind)})
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <Button variant="outline" disabled={retryViaCoreBusy} onclick={closeConfigDownloadFailed}>
+          {L.commonClose}
+        </Button>
+        <Button disabled={retryViaCoreBusy} onclick={retryViaCore}>
+          {#if retryViaCoreBusy}
+            <RefreshCw size={16} class="animate-spin" />
+          {/if}
+          {L.dialogConfig_download_failedBtn_retry}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

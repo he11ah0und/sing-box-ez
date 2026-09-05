@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/he11ah0und/logger"
@@ -22,6 +24,7 @@ import (
 	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework"
 	"sing-box-ez/internal/framework/fs"
+	fwnet "sing-box-ez/internal/framework/net"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/util/openfile"
 	"sing-box-ez/internal/singboxconfig"
@@ -61,6 +64,23 @@ type Controller struct {
 	// flow (the GUI's "skip update" button); nil when no download runs.
 	downloadMu     sync.Mutex
 	downloadCancel context.CancelFunc
+
+	// proxyAddr is the listen address of the running core's mixed inbound,
+	// captured from the final config tree at (re)start; "" when the core is
+	// stopped or has no mixed inbound.
+	proxyMu   sync.Mutex
+	proxyAddr string
+
+	// skipNextRefresh makes the next start flow skip the active config
+	// refresh exactly once — the "retry via core" flow updates the config
+	// through the running core's proxy instead of before the start.
+	skipNextRefresh atomic.Bool
+
+	// OnConfigDownloadFailed is invoked when the start flow could not
+	// download the active config and fell back to the cached copy (a genuine
+	// failure, not a user skip). The GUI offers a retry through the running
+	// core's proxy.
+	OnConfigDownloadFailed func(name string, err error)
 }
 
 // NewController creates a new controller and wires framework services.
@@ -246,6 +266,11 @@ func (c *Controller) refreshActiveConfig(ctx context.Context) error {
 	c.configUpdateMu.Lock()
 	defer c.configUpdateMu.Unlock()
 
+	if c.skipNextRefresh.CompareAndSwap(true, false) {
+		c.terminal.TInfof("core.controller.config_update_skipped_once")
+		return nil
+	}
+
 	active := c.cfg.GetActiveConfig()
 	if active == nil {
 		return ErrNoActiveConfig
@@ -287,6 +312,11 @@ func (c *Controller) refreshActiveConfig(ctx context.Context) error {
 			return errors.New("no config available")
 		}
 		c.terminal.TInfof("core.controller.using_existing_config")
+		// A genuine download failure (not a user skip) with a cached fallback:
+		// let the GUI offer a retry through the running core's proxy.
+		if c.OnConfigDownloadFailed != nil && downloadCtx.Err() == nil {
+			c.OnConfigDownloadFailed(active.Name, err)
+		}
 		return nil
 	}
 	c.saveConfigHash(active.Name, data)
@@ -347,9 +377,11 @@ func (c *Controller) Start() error {
 	}
 	// Refuse early when the final config needs OS privileges the app lacks;
 	// otherwise the core spawns and dies on a late, opaque tun setup error.
-	if tree, terr := inboundstyle.ParseTree(data); terr == nil &&
-		inboundstyle.NeedsPrivileges(tree) && !c.privileges.HasRequiredPrivileges() {
-		return ErrPrivilegesRequired
+	if tree, terr := inboundstyle.ParseTree(data); terr == nil {
+		c.setProxyAddr(inboundstyle.MixedProxyAddr(tree))
+		if inboundstyle.NeedsPrivileges(tree) && !c.privileges.HasRequiredPrivileges() {
+			return ErrPrivilegesRequired
+		}
 	}
 	if err := c.manager.StartWithConfig(data); err != nil {
 		return err
@@ -363,7 +395,75 @@ func (c *Controller) Stop() error {
 	if err := c.manager.Stop(); err != nil {
 		return err
 	}
+	c.setProxyAddr("")
 	c.terminal.TInfof("core.controller.sing_box_stopped")
+	return nil
+}
+
+// SkipNextConfigUpdate makes the next start flow skip the active config
+// refresh once; the start then uses the cached copy as-is.
+func (c *Controller) SkipNextConfigUpdate() {
+	c.skipNextRefresh.Store(true)
+}
+
+func (c *Controller) setProxyAddr(addr string) {
+	c.proxyMu.Lock()
+	c.proxyAddr = addr
+	c.proxyMu.Unlock()
+}
+
+// CoreProxyAddr returns the listen address ("host:port") of the running
+// core's mixed inbound, or "" when the core is stopped or has none.
+func (c *Controller) CoreProxyAddr() string {
+	c.proxyMu.Lock()
+	defer c.proxyMu.Unlock()
+	return c.proxyAddr
+}
+
+// DownloadConfigViaCoreProxy downloads a remote profile through the running
+// core's local proxy (its mixed inbound) and refreshes the cached copy. Used
+// when direct access to the subscription URL is blocked but the core itself
+// can reach it.
+func (c *Controller) DownloadConfigViaCoreProxy(name string) error {
+	addr := c.CoreProxyAddr()
+	if !c.manager.IsRunning() || addr == "" {
+		return c.terminal.TErrorf("core.controller.no_core_proxy")
+	}
+	rec := c.cfg.GetConfigByName(name)
+	if rec == nil || rec.IsLocal() {
+		return fmt.Errorf("config %q is not a remote profile", name)
+	}
+
+	c.configUpdateMu.Lock()
+	defer c.configUpdateMu.Unlock()
+
+	// The core process is up, but the mixed inbound may still be binding its
+	// port; wait briefly for it to accept connections.
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		conn, derr := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+		if derr == nil {
+			_ = conn.Close()
+			break
+		}
+		if time.Now().After(deadline) {
+			return c.terminal.TErrorf("core.controller.no_core_proxy")
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	client := fwnet.NewClientViaProxy(c.terminal, addr)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	data, err := c.manager.DownloadConfigForWith(ctx, name, rec.URL, client)
+	if err != nil {
+		// The network backend already logged the failure with context.
+		return err
+	}
+	c.saveConfigHash(name, data)
+	c.cfg.SetLastUpdateFor(name, time.Now())
+	_ = c.cfg.Save()
+	c.terminal.TInfof("core.controller.config_updated", name)
 	return nil
 }
 
@@ -377,6 +477,9 @@ func (c *Controller) Restart() error {
 	data, err = c.applyOverrides(data, active)
 	if err != nil {
 		return err
+	}
+	if tree, terr := inboundstyle.ParseTree(data); terr == nil {
+		c.setProxyAddr(inboundstyle.MixedProxyAddr(tree))
 	}
 	if err := c.manager.Stop(); err != nil {
 		return err

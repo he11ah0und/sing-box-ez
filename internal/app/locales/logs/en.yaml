@@ -50,7 +50,9 @@ core:
     auto_restart: "Auto-restart: %v"
     config_updating: Updating config...
     config_update_skipped: Config update skipped by user
+    config_update_skipped_once: Config update skipped for this start (retry via core pending)
     using_existing_config: Using existing config
+    no_core_proxy: Core is not running or has no local proxy inbound; cannot download via core
     config_update_finished: Config updated
     sing_box_started: Sing-box started
     sing_box_stopped: Sing-box stopped

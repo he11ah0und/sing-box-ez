@@ -816,6 +816,16 @@ func (w *WailsApp) Run() error {
 	ic.OnConfigsUpdateFailed = func(failures []core.ConfigUpdateFailure) {
 		bindings.emit("configs:update_failed", failures)
 	}
+	// The start flow fell back to the cached config: the frontend offers a
+	// retry through the running core's proxy (config:download_failed).
+	if w.app.Controller != nil {
+		w.app.Controller.OnConfigDownloadFailed = func(name string, err error) {
+			bindings.emit("config:download_failed", map[string]string{
+				"name": name,
+				"kind": core.DownloadErrorKind(err),
+			})
+		}
+	}
 	ic.OnVersionChange = func(ver string) {
 		bindings.emit("core:version", map[string]string{"installed": ver})
 	}

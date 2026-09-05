@@ -342,11 +342,21 @@ func (m *Manager) hasCachedConfig(name string) bool {
 }
 
 func (m *Manager) DownloadConfigFor(ctx context.Context, name, url string) ([]byte, error) {
+	return m.downloadConfigFor(ctx, name, url, m.net)
+}
+
+// DownloadConfigForWith is DownloadConfigFor with an explicit HTTP client —
+// used to route the download through the running core's local proxy.
+func (m *Manager) DownloadConfigForWith(ctx context.Context, name, url string, client *net.Client) ([]byte, error) {
+	return m.downloadConfigFor(ctx, name, url, client)
+}
+
+func (m *Manager) downloadConfigFor(ctx context.Context, name, url string, client *net.Client) ([]byte, error) {
 	path := m.cachedConfig(name)
 	if err := m.fsys.Root().Subdir("configs").MkdirAll(0750); err != nil {
 		return nil, err
 	}
-	data, err := m.net.GetBytes(ctx, url)
+	data, err := client.GetBytes(ctx, url)
 	if err != nil {
 		return nil, err
 	}

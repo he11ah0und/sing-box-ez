@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -28,6 +29,19 @@ type Client struct {
 func NewClient(parent *logger.LogTerminal) *Client {
 	return &Client{
 		HTTP:     &http.Client{Timeout: defaultTimeout},
+		Log:      parent.Allocate("net"),
+		Progress: nil,
+	}
+}
+
+// NewClientViaProxy creates a Client whose requests go through the local
+// HTTP proxy at proxyAddr ("host:port") — typically the running core's mixed
+// inbound, so the traffic exits via the active outbound.
+func NewClientViaProxy(parent *logger.LogTerminal, proxyAddr string) *Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = http.ProxyURL(&url.URL{Scheme: "http", Host: proxyAddr})
+	return &Client{
+		HTTP:     &http.Client{Timeout: defaultTimeout, Transport: transport},
 		Log:      parent.Allocate("net"),
 		Progress: nil,
 	}
