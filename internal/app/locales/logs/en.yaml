@@ -38,6 +38,11 @@ core:
     opening_config_dir: "Opening config directory: %s"
     only_local_recreate: Only local configs can be recreated
     recreated_local_config: "Recreated local config: %s"
+    import_config_not_found: "Config not found for import: %s"
+    only_local_import: Only local configs can import a source file
+    import_read_failed: "Failed to read source file: %v"
+    import_not_json: "Source file is not valid JSON: %s"
+    local_config_imported: "Local config content imported: %s"
     setcap_failed: "setcap failed: %v; tip: run manually: sudo setcap cap_net_admin=+ep ./sing-box"
     setcap_applied: setcap applied successfully.
     log_limit_set: "Log limit set to %d"

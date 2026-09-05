@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -915,6 +916,60 @@ func (c *Controller) RecreateLocalConfig(name string) error {
 		return fmt.Errorf("failed to recreate local config: %w", err)
 	}
 	c.terminal.TInfof("core.controller.recreated_local_config", name)
+	return nil
+}
+
+// ConfigNameAvailable reports whether name is free for a new profile.
+// exclude names the profile being edited, which may keep its own name.
+func (c *Controller) ConfigNameAvailable(name, exclude string) bool {
+	if name == "" {
+		return false
+	}
+	if name == exclude {
+		return true
+	}
+	return c.cfg.GetConfigByName(name) == nil
+}
+
+// LocalConfigModTime returns the modification time of the cached config file
+// of a local profile, which acts as its "last updated" timestamp.
+func (c *Controller) LocalConfigModTime(name string) (time.Time, error) {
+	fi, err := c.fwApp.FS.Root().File(c.manager.cachedConfig(name)).Stat()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("stat config file: %w", err)
+	}
+	return fi.ModTime(), nil
+}
+
+// ImportLocalConfigFile replaces the cached content of a local profile with
+// the contents of a user-picked file and stores its content hash.
+func (c *Controller) ImportLocalConfigFile(name, sourcePath string) error {
+	rec := c.cfg.GetConfigByName(name)
+	if rec == nil {
+		return c.terminal.TErrorf("core.controller.import_config_not_found", name)
+	}
+	if !rec.IsLocal() {
+		return c.terminal.TErrorf("core.controller.only_local_import")
+	}
+	// #nosec G304 — the path comes from the user's own file picker.
+	data, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return c.terminal.TErrorf("core.controller.import_read_failed", err)
+	}
+	if !json.Valid(data) {
+		return c.terminal.TErrorf("core.controller.import_not_json", sourcePath)
+	}
+	if err := c.fwApp.FS.Root().Subdir("configs").MkdirAll(0750); err != nil {
+		return err
+	}
+	// The scoped FS logs write failures itself.
+	if err := c.fwApp.FS.Root().File(c.manager.cachedConfig(name)).AtomicWrite(data, 0640); err != nil {
+		return err
+	}
+	rec.Hash = config.HashConfig(data)
+	c.cfg.UpdateConfig(name, *rec)
+	_ = c.cfg.Save()
+	c.terminal.TInfof("core.controller.local_config_imported", name)
 	return nil
 }
 

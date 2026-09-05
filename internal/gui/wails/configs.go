@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
+
 	"sing-box-ez/internal/core/inboundstyle"
 	"sing-box-ez/internal/framework/version"
 	"sing-box-ez/internal/singboxconfig"
@@ -43,7 +45,15 @@ func (b *Bindings) GetConfigMeta() map[string]ConfigMeta {
 		if !rec.LastUpdate.IsZero() {
 			meta.LastPlain = version.HumanDurationPlain(time.Since(rec.LastUpdate.Time))
 		}
-		if next := rec.NextUpdate(); !next.IsZero() {
+		if rec.IsLocal() {
+			// A local profile is never downloaded: its "last update" is the
+			// config file's mtime, and no scheduled update applies.
+			if mt, err := b.app.Controller.LocalConfigModTime(rec.Name); err == nil {
+				meta.LastPlain = version.HumanDurationPlain(time.Since(mt))
+			}
+			meta.NextPlain = ""
+			meta.Overdue = false
+		} else if next := rec.NextUpdate(); !next.IsZero() {
 			if rec.ShouldUpdate() || !time.Now().Before(next) {
 				meta.Overdue = true
 			} else {
@@ -158,4 +168,32 @@ func (b *Bindings) IsConfigHashMismatch(name string) bool {
 // the named profile.
 func (b *Bindings) HasCachedConfig(name string) bool {
 	return b.app.Controller.HasCachedConfig(name)
+}
+
+// ConfigNameAvailable reports whether a profile name is free to use. exclude
+// names the profile being edited, which may keep its own name.
+func (b *Bindings) ConfigNameAvailable(name, exclude string) bool {
+	return b.app.Controller.ConfigNameAvailable(name, exclude)
+}
+
+// PickConfigFile opens the native file picker to choose a source file for a
+// local profile. It returns the selected path, or an empty string when the
+// dialog was cancelled or is unavailable.
+func (b *Bindings) PickConfigFile() string {
+	app := application.Get()
+	if app == nil {
+		return ""
+	}
+	path, err := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:                b.t("configs", "dialog", "pick_file"),
+		CanChooseFiles:       true,
+		AllowsOtherFileTypes: true,
+		Filters: []application.FileFilter{
+			{DisplayName: "JSON", Pattern: "*.json"},
+		},
+	}).PromptForSingleSelection()
+	if err != nil {
+		return ""
+	}
+	return path
 }

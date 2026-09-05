@@ -141,9 +141,17 @@ func (b *Bindings) GetActiveConfig() *ActiveConfig {
 	if rec == nil {
 		return nil
 	}
+	lastUpdate := rec.LastUpdate.Time
+	if rec.IsLocal() {
+		// A local profile has no download history; its file mtime is the
+		// meaningful "last updated" moment.
+		if mt, err := b.app.Controller.LocalConfigModTime(rec.Name); err == nil {
+			lastUpdate = mt
+		}
+	}
 	return &ActiveConfig{
 		ConfigRecord:  rec,
-		LastUpdateAgo: version.HumanDuration(rec.LastUpdate.Time),
+		LastUpdateAgo: version.HumanDuration(lastUpdate),
 	}
 }
 
@@ -156,20 +164,34 @@ func (b *Bindings) ActivateConfig(name string) error {
 	return nil
 }
 
-// AddConfig creates a new profile.
-func (b *Bindings) AddConfig(rec config.ConfigRecord) error {
+// AddConfig creates a new profile. For a local profile, a non-empty
+// sourcePath imports that file as the profile's config content.
+func (b *Bindings) AddConfig(rec config.ConfigRecord, sourcePath string) error {
 	if err := b.app.Controller.AddConfig(rec); err != nil {
 		b.toastErr(err)
 		return err
 	}
+	if sourcePath != "" && rec.IsLocal() {
+		if err := b.app.Controller.ImportLocalConfigFile(rec.Name, sourcePath); err != nil {
+			b.toastErr(err)
+			return err
+		}
+	}
 	return nil
 }
 
-// EditConfig updates an existing profile.
-func (b *Bindings) EditConfig(oldName string, rec config.ConfigRecord) error {
+// EditConfig updates an existing profile. For a local profile, a non-empty
+// sourcePath replaces the cached config content with that file.
+func (b *Bindings) EditConfig(oldName string, rec config.ConfigRecord, sourcePath string) error {
 	if err := b.app.Controller.EditConfig(oldName, rec); err != nil {
 		b.toastErr(err)
 		return err
+	}
+	if sourcePath != "" && rec.IsLocal() {
+		if err := b.app.Controller.ImportLocalConfigFile(rec.Name, sourcePath); err != nil {
+			b.toastErr(err)
+			return err
+		}
 	}
 	return nil
 }

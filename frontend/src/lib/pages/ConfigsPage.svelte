@@ -237,11 +237,11 @@
     initialRecord = null;
   }
 
-  async function handleSave(rec: ConfigRecord) {
+  async function handleSave(rec: ConfigRecord, sourcePath: string) {
     if (editing) {
-      await EditConfig(editing, rec);
+      await EditConfig(editing, rec, sourcePath);
     } else {
-      await AddConfig(rec);
+      await AddConfig(rec, sourcePath);
     }
     closeForm();
     await load();

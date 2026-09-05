@@ -163,6 +163,7 @@ configs:
     validation_result: Validation result
     validation_error: Validation failed
     file_missing: Config file missing
+    pick_file: Select config file
     btn:
       update_now: Update now
       open: Open
@@ -183,6 +184,10 @@ configs:
     server: server
   url: URL / Path
   interval: Update interval (h)
+  source_file: Source file (optional)
+  browse: Browse…
+  name_available: Name is available
+  name_taken: Name is already in use
   update:
     overdue: overdue
   empty: No configs yet.

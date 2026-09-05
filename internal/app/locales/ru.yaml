@@ -163,6 +163,7 @@ configs:
     validation_result: Результат проверки
     validation_error: Ошибка проверки
     file_missing: Файл конфига отсутствует
+    pick_file: Выберите файл конфигурации
     btn:
       update_now: Обновить сейчас
       open: Открыть
@@ -183,6 +184,10 @@ configs:
     server: 'сервер'
   url: 'URL / Путь'
   interval: 'Интервал обновления (ч)'
+  source_file: 'Файл-источник (необязательно)'
+  browse: 'Обзор…'
+  name_available: 'Имя свободно'
+  name_taken: 'Имя уже занято'
   update:
     overdue: просрочено
   empty: 'Конфигов пока нет.'

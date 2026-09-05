@@ -163,6 +163,7 @@ configs:
     validation_result: 验证结果
     validation_error: 验证失败
     file_missing: 配置文件缺失
+    pick_file: 选择配置文件
     btn:
       update_now: 立即更新
       open: 打开
@@ -183,6 +184,10 @@ configs:
     server: '服务器'
   url: 'URL / 路径'
   interval: '更新间隔（小时）'
+  source_file: '源文件（可选）'
+  browse: '浏览…'
+  name_available: '名称可用'
+  name_taken: '名称已被占用'
   update:
     overdue: 已过期
   empty: '暂无配置。'
