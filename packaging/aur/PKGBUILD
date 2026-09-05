@@ -47,8 +47,12 @@ prepare() {
   ln -sfn /mnt/local1/work/code/logger "$srcdir/logger"
   ln -sfn /mnt/local1/work/code/projectspec "$srcdir/projectspec"
   # The Makefile expects the wails3 CLI matching go.mod in GOPATH/bin.
+  # Skip the install when it is already present: go module fetches need
+  # the proxy, which may be unreachable without a tunnel.
   export PATH="$(go env GOPATH)/bin:$PATH"
-  go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+  if ! command -v wails3 >/dev/null 2>&1; then
+    go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+  fi
 }
 
 build() {
