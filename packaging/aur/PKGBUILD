@@ -7,11 +7,14 @@
 #
 # _branch is the upstream branch this package tracks; it is shown in the
 # About page so users can tell which channel their artifact came from. An
-# alpha package (separate PKGBUILD, pkgname=sing-box-ez-alpha) would track
-# "testing" instead.
+# alpha package (separate PKGBUILD, pkgname=sing-box-ez-gui-alpha) would
+# track "testing" instead.
 _branch=wails-migration
 
-pkgname=sing-box-ez
+# The GUI package; a CLI-only build (nogui tag) will be a separate
+# sing-box-ez-cli package. The binary keeps the plain name — the GUI app
+# is the primary deliverable.
+pkgname=sing-box-ez-gui
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="GUI client for the sing-box proxy core"
@@ -22,6 +25,8 @@ license=('custom')
 depends=('webkitgtk-6.0' 'gtk4')
 makedepends=('git' 'go' 'nodejs' 'npm')
 options=('!debug')
+provides=('sing-box-ez')
+conflicts=('sing-box-ez')
 source=("sing-box-ez::git+file:///mnt/local1/work/code/sing-box-ez#branch=${_branch}"
         "sing-box-ez.desktop"
         # build/appicon.png is gitignored, so the package ships its own copy.
@@ -30,11 +35,11 @@ sha256sums=('SKIP' 'SKIP' 'SKIP')
 
 pkgver() {
   # Single source of truth: the VERSION file in the repo.
-  cat "$srcdir/$pkgname/VERSION"
+  cat "$srcdir/sing-box-ez/VERSION"
 }
 
 prepare() {
-  cd "$pkgname"
+  cd sing-box-ez
   # frontend depends on "@he11ah0und/localengine-web": "file:../../localengine/web"
   # — a sibling checkout outside the repo. For local verification link the
   # sibling into the srcdir; before AUR publication the package must be
@@ -56,7 +61,7 @@ prepare() {
 }
 
 build() {
-  cd "$pkgname"
+  cd sing-box-ez
   export PATH="$(go env GOPATH)/bin:$PATH"
   # CHANNEL=aur: no self-update code; updates are pacman's job.
   # Branch/commit/date are passed explicitly: makepkg checks sources out
@@ -69,7 +74,7 @@ build() {
 }
 
 package() {
-  cd "$pkgname"
+  cd sing-box-ez
   install -Dm755 "build/sing-box-ez-amd64-linux-gcc-gui" "$pkgdir/usr/bin/sing-box-ez"
   install -Dm644 "$srcdir/sing-box-ez.desktop" "$pkgdir/usr/share/applications/sing-box-ez.desktop"
   install -Dm644 "$srcdir/appicon.png" "$pkgdir/usr/share/pixmaps/sing-box-ez.png"
