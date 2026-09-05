@@ -101,6 +101,16 @@ func New(args []string, runGUI func(*App) bool) (*App, error) {
 
 	cfg := fwApp.Config.(*config.AppConfig)
 
+	// Pick the core source mode on a fresh install: a compatible system
+	// sing-box wins, otherwise the managed download. Manual "custom" is only
+	// ever chosen by the user.
+	if cfg.MustGet("core", "source", "mode").String() == "" {
+		mode := core.DetectCoreSourceMode(cfg)
+		_ = cfg.MustGet("core", "source", "mode").Update(mode)
+		_ = cfg.Save()
+		fwApp.Logger.Root.TInfof("app.core_source_detected", mode)
+	}
+
 	app := &App{
 		App:         fwApp,
 		Profiles:    cfg.Profiles,

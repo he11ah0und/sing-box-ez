@@ -101,6 +101,7 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 	// attributed to [core][fs] instead of the generic root terminal.
 	coreFS := fs.NewOSWithLog(cfg.DataDir, parent.Allocate("core").Allocate("fs"))
 	manager := NewManager(cfg.DataDir, coreFS, coreUpdater, fwApp.Logger)
+	manager.SetBinaryResolver(func() string { return ResolveCoreBinary(cfg, cfg.DataDir) })
 	if active != nil {
 		manager.SetConfigName(active.Name)
 	}
@@ -232,6 +233,9 @@ func (c *Controller) PrepareConfig(ctx context.Context) (*config.ConfigRecord, e
 
 	if !c.CoreExists() {
 		return nil, ErrCoreMissing
+	}
+	if _, err := CheckCoreCompatibility(c.manager.coreBinary()); err != nil {
+		return nil, err
 	}
 	c.manager.SetConfigURL(active.URL)
 	c.manager.SetConfigName(active.Name)
@@ -418,6 +422,56 @@ func (c *Controller) CoreProxyAddr() string {
 	c.proxyMu.Lock()
 	defer c.proxyMu.Unlock()
 	return c.proxyAddr
+}
+
+// CoreRelease is a pickable core release for the official-mode version list.
+type CoreRelease struct {
+	Version     string `json:"version"`
+	Prerelease  bool   `json:"prerelease"`
+	PublishedAt string `json:"publishedAt"`
+}
+
+// ListCoreVersions lists the available core releases (official source mode).
+func (c *Controller) ListCoreVersions(ctx context.Context) ([]CoreRelease, error) {
+	if !c.IsCoreManaged() {
+		return nil, fmt.Errorf("core releases are listed only for the managed core source")
+	}
+	releases, err := c.manager.ListCoreReleases(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CoreRelease, len(releases))
+	for i, r := range releases {
+		out[i] = CoreRelease{
+			Version:     r.Version,
+			Prerelease:  r.Prerelease,
+			PublishedAt: r.PublishedAt.Format("2006-01-02"),
+		}
+	}
+	return out, nil
+}
+
+// DownloadCoreVersionContext installs a specific core release chosen by the
+// user; the progress/install-start callbacks mirror DownloadCoreContext.
+func (c *Controller) DownloadCoreVersionContext(ctx context.Context, ver string, onProgress ProgressFunc, onInstallStart func()) (string, error) {
+	if c.manager.updater == nil {
+		return "", fmt.Errorf("core updater not configured")
+	}
+	if !c.IsCoreManaged() {
+		return "", fmt.Errorf("core updates are managed outside the app (core source mode)")
+	}
+	current, _ := GetCoreVersion(c.manager.coreBinary())
+	if current != "" && !strings.HasPrefix(current, "v") {
+		current = "v" + current
+	}
+	info, err := c.manager.updater.CheckVersion(ctx, ver, current)
+	if err != nil {
+		return "", err
+	}
+	if info.ReleaseCount == 0 {
+		return "", fmt.Errorf("no matching asset in release %s", ver)
+	}
+	return c.installCoreUpdate(ctx, info, onProgress, onInstallStart)
 }
 
 // DownloadConfigViaCoreProxy downloads a remote profile through the running
@@ -686,6 +740,14 @@ func (c *Controller) GetLatestCoreVersion() (string, error) {
 	return info.Latest, nil
 }
 
+// IsCoreManaged reports whether the core binary is managed by the app
+// (official source mode) — only then do core update checks and downloads
+// apply; system/custom cores are updated outside the app.
+func (c *Controller) IsCoreManaged() bool {
+	m := c.cfg.MustGet("core", "source", "mode").String()
+	return m == "" || m == CoreSourceOfficial
+}
+
 // CheckCoreUpdateViaProxy checks for a core update routing the request
 // through the local proxy at proxyAddr ("host:port") — typically the running
 // core's mixed inbound, used when direct access to the release source is
@@ -733,6 +795,9 @@ func (c *Controller) DownloadCoreContext(ctx context.Context, onProgress Progres
 	if c.manager.updater == nil {
 		return "", fmt.Errorf("core updater not configured")
 	}
+	if !c.IsCoreManaged() {
+		return "", fmt.Errorf("core updates are managed outside the app (core source mode)")
+	}
 
 	info, err := c.manager.CheckCoreUpdate(ctx)
 	if err != nil {
@@ -744,6 +809,14 @@ func (c *Controller) DownloadCoreContext(ctx context.Context, onProgress Progres
 	}
 	c.terminal.TInfof("core.controller.latest_core_version", info.Latest)
 
+	return c.installCoreUpdate(ctx, info, onProgress, onInstallStart)
+}
+
+// installCoreUpdate downloads and installs the core release described by
+// info, stopping a running core right before the binary replacement and
+// starting it again afterwards. onInstallStart, when non-nil, is called once
+// the download finishes and the replacement begins.
+func (c *Controller) installCoreUpdate(ctx context.Context, info *updater.UpdateInfo, onProgress ProgressFunc, onInstallStart func()) (string, error) {
 	info.Files = []updater.UpdateFile{{
 		Asset:    info.Asset,
 		DestPath: ".",

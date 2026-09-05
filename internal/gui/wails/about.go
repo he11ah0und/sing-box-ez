@@ -281,6 +281,9 @@ func (b *Bindings) checkSelfUpdateAvailable() {
 }
 
 func (b *Bindings) checkCoreUpdateAvailable() {
+	if !b.app.Controller.IsCoreManaged() {
+		return
+	}
 	cfg := b.app.Controller.Config()
 	if !cfg.MustGet("updates", "auto_check_core").Bool() {
 		return

@@ -138,6 +138,10 @@ export interface AppState {
   // update check ("app" or "core") failed on connectivity — App offers a
   // retry through the running core's proxy.
   updateCheckFailed: { target: string; kind: string } | null;
+  // coreIncompatible is set by the core:incompatible event: the selected core
+  // binary is older than the minimum supported version — App shows a dialog
+  // leading to the core source settings.
+  coreIncompatible: { min: string } | null;
   api: ApiState;
 }
 
@@ -179,6 +183,7 @@ export const appState = writable<AppState>({
   configsUpdateFailed: null,
   configDownloadFailed: null,
   updateCheckFailed: null,
+  coreIncompatible: null,
   api: { phase: 'stopped', status: null, info: null, mode: '', modeList: [], groups: [], connections: [], connGroups: [], session: 0 }
 });
 

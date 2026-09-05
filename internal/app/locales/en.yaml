@@ -102,6 +102,9 @@ connection_details:
   process: Process
   close_connection: Close connection
 core:
+  pick_version: Choose version…
+  prerelease: pre-release
+  external_managed: The core is managed outside the app (system/custom source)
   update:
     checking: Checking version...
     downloading: Downloading...
@@ -228,6 +231,14 @@ settings:
     start_on_launch: Start core on launch
     proxy:
       enabled: Enable proxy (mixed + TUN HTTP proxy)
+    source:
+      mode:
+        label: Core source
+        official: Managed download
+        system: System-wide sing-box
+        custom: Custom binary
+      custom_path: Custom core binary path
+      browse_custom_path: Browse…
     url_test_url: URL-test URL
     log:
       level:
@@ -421,6 +432,10 @@ dialog:
     title: Config download failed
     body: 'Could not download "{{name}}"; the cached copy was used. You can retry the download through the running core.'
     btn_retry: Retry via core
+  core_incompatible:
+    title: Unsupported core version
+    body: 'The selected sing-box core is too old or unreadable; version {{min}} or newer is required. Pick another core source in the settings.'
+    btn_settings: Open core settings
   updatecheck_failed:
     title: Update check failed
     body: 'Could not check {{target}} for updates ({{kind}}). You can retry through the running core — it will be started first if needed.'

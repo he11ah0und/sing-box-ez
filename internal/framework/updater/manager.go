@@ -71,6 +71,26 @@ func (m *Manager) CheckWithCurrent(ctx context.Context, channel, current string)
 	return info, nil
 }
 
+// CheckVersion returns update information for a specific release version
+// (e.g. a user-picked core version), comparing against the provided current
+// version string.
+func (m *Manager) CheckVersion(ctx context.Context, ver, current string) (*UpdateInfo, error) {
+	if m.Source == nil {
+		return nil, m.Log.TErrorf("updater.no_source_backend")
+	}
+	release, err := m.Source.ReleaseByVersion(ctx, ver)
+	if err != nil {
+		return nil, err
+	}
+	tags := m.AssetCriteria.Tags
+	useFallback := false
+	if len(tags) == 0 {
+		tags = currentAssetTags(false)
+		useFallback = version.BuildBackend != "" && version.BuildOS == "linux"
+	}
+	return updateInfoFrom(release, current, tags, useFallback)
+}
+
 // Install installs the update described by info.
 func (m *Manager) Install(ctx context.Context, info *UpdateInfo, progress func(downloaded, total int64)) error {
 	if m.Source == nil {

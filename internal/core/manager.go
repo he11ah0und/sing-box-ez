@@ -40,6 +40,11 @@ type Manager struct {
 	net     *net.Client
 	updater *updater.Manager
 	log     *logger.Logger
+
+	// binaryPath, when set, resolves the core binary path on every call so a
+	// core-source mode switch (official/system/custom) takes effect without
+	// rebuilding the manager.
+	binaryPath func() string
 }
 
 // ProgressFunc is called during downloads: downloaded, total.
@@ -56,7 +61,16 @@ func NewManager(baseDir string, fsys fs.FS, updater *updater.Manager, log *logge
 	}
 }
 
+// SetBinaryResolver installs a resolver for the core binary path (core
+// source mode support); coreBinary falls back to the managed path when unset.
+func (m *Manager) SetBinaryResolver(fn func() string) {
+	m.binaryPath = fn
+}
+
 func (m *Manager) coreBinary() string {
+	if m.binaryPath != nil {
+		return m.binaryPath()
+	}
 	if runtime.GOOS == "windows" {
 		return filepath.Join(m.baseDir, "sing-box.exe")
 	}
@@ -424,6 +438,23 @@ func (m *Manager) UpdateCore(onProgress ProgressFunc) error {
 	if info.ReleaseCount == 0 {
 		return nil
 	}
+	return m.installCoreUpdate(info, onProgress)
+}
+
+// ListCoreReleases returns the available core releases, newest first
+// (prereleases included) — the official-mode version picker.
+func (m *Manager) ListCoreReleases(ctx context.Context) ([]updater.Release, error) {
+	if m.updater == nil {
+		return nil, fmt.Errorf("core updater not configured")
+	}
+	gh, ok := m.updater.Source.(*updater.GitHubBackend)
+	if !ok {
+		return nil, fmt.Errorf("core updater source does not support listing releases")
+	}
+	return gh.ListReleases(ctx)
+}
+
+func (m *Manager) installCoreUpdate(info *updater.UpdateInfo, onProgress ProgressFunc) error {
 	info.Files = []updater.UpdateFile{{
 		Asset:    info.Asset,
 		DestPath: ".",

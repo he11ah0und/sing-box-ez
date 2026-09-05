@@ -403,6 +403,11 @@ export function initWailsEvents(): Promise<unknown> {
     }));
   });
 
+  // A start was refused: the selected core binary is too old.
+  Events.On('core:incompatible', (event: WailsEvent<{ min?: string }>) => {
+    appState.update((s) => ({ ...s, coreIncompatible: { min: event.data?.min ?? '' } }));
+  });
+
   // A start was refused: the config needs privileges the app lacks.
   Events.On('privileges:required', () => {
     appState.update((s) => ({ ...s, privilegesRequired: true }));

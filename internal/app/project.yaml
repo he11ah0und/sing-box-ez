@@ -43,6 +43,23 @@ config:
         type: bool
         default: true
         control: switch
+    # Which sing-box binary to run: official (managed download into the data
+    # dir), system (installed on the OS), custom (user-picked path). Empty
+    # means "not chosen yet" — the app detects a compatible system core once
+    # at startup and then persists the resolved mode.
+    source:
+      mode:
+        type: string
+        default: ""
+        control: select
+        options: [official, system, custom]
+      custom_path:
+        type: string
+        default: ""
+        control: text
+      browse_custom_path:
+        control: action
+        action: browse_core_binary
 
   configs:
     # Remove the cached config file together with the profile on delete.

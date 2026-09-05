@@ -82,7 +82,16 @@
   }
 
   function entriesFor(tab: string): ConfigSpecEntry[] {
-    return spec.filter((e) => tabOf(e.path) === tab);
+    return spec.filter((e) => tabOf(e.path) === tab && entryVisible(e));
+  }
+
+  // The custom core binary path and its browse button only make sense when
+  // the custom core source mode is selected.
+  function entryVisible(e: ConfigSpecEntry): boolean {
+    if (e.path === 'core.source.custom_path' || e.path === 'core.source.browse_custom_path') {
+      return form['core.source.mode'] === 'custom';
+    }
+    return true;
   }
 
   function entryLabel(entry: ConfigSpecEntry): string {

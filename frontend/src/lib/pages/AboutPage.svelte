@@ -30,6 +30,7 @@
   import { Button } from '$lib/components/ui/button/index.js';
   import { Progress } from '$lib/components/ui/progress/index.js';
   import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+  import { Badge } from '$lib/components/ui/badge/index.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import { cn } from '$lib/utils.js';
@@ -42,13 +43,16 @@
     InstallSelfUpdate,
     GetCoreInfo,
     DownloadCore,
+    DownloadCoreVersion,
+    ListCoreVersions,
+    IsCoreManaged,
     CancelUpdate,
     OpenDataDir,
     OpenProjectURL,
     OpenReleaseURL,
     GetReleaseNotes
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
-  import type { SelfUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+  import type { SelfUpdateInfo, CoreRelease } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
   import type { ChannelInfo } from '../../../bindings/sing-box-ez/internal/framework/updater/models.js';
 
   let version = $state<VersionInfo | null>(aboutCache.version);
@@ -65,6 +69,10 @@
   let showBranchPicker = $state(false);
   let coreLoaded = $state(aboutCache.coreLoaded);
   let coreProcessing = $state(false);
+  let coreManaged = $state(true);
+  let showVersionPicker = $state(false);
+  let coreVersions = $state<CoreRelease[]>([]);
+  let versionsLoading = $state(false);
   // Downloads run in a modal: set to the updater whose transfer is active.
   let updateModal = $state<'app' | 'core' | null>(null);
   let cancelling = $state(false);
@@ -107,6 +115,9 @@
     'core.btn.download',
     'core.update.downloading',
     'core.update.installing',
+    'core.pick_version',
+    'core.prerelease',
+    'core.external_managed',
     'about.channel.external_managed',
     'about.channel.external_hint'
   ]);
@@ -130,11 +141,13 @@
       toast.error(String(err));
     }
     try {
-      const [ch, u, core] = await Promise.all([
+      const [ch, u, core, managed] = await Promise.all([
         GetUpdateChannel(),
         GetUpdaters(),
-        GetCoreInfo()
+        GetCoreInfo(),
+        IsCoreManaged()
       ]);
+      coreManaged = managed;
       updateChannel = ch ?? null;
       updaters = u ?? [];
       // Externally managed builds have no release branches to list; the
@@ -192,6 +205,38 @@
     updateModal = 'core';
     try {
       await DownloadCore();
+      const core = await GetCoreInfo();
+      appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, ...core } }));
+    } catch {
+      // The backend already reported the failure with a toast.
+    } finally {
+      coreProcessing = false;
+      appState.update((s) => ({
+        ...s,
+        coreInfo: { ...s.coreInfo, downloading: false, installing: false }
+      }));
+    }
+  }
+
+  async function openVersionPicker() {
+    showVersionPicker = true;
+    if (coreVersions.length > 0 || versionsLoading) return;
+    versionsLoading = true;
+    try {
+      coreVersions = (await ListCoreVersions()) ?? [];
+    } catch {
+      // The backend already reported the failure with a toast.
+    } finally {
+      versionsLoading = false;
+    }
+  }
+
+  async function downloadCoreVersion(ver: string) {
+    showVersionPicker = false;
+    coreProcessing = true;
+    updateModal = 'core';
+    try {
+      await DownloadCoreVersion(ver);
       const core = await GetCoreInfo();
       appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, ...core } }));
     } catch {
@@ -342,12 +387,20 @@
         </div>
       </div>
     {/if}
-    <div class="flex flex-wrap gap-3">
-      <Button disabled={coreProcessing} onclick={downloadCore}>
-        <Download size={16} class={coreProcessing ? 'animate-bounce' : ''} />
-        {L.coreBtnDownload}
-      </Button>
-    </div>
+    {#if coreManaged}
+      <div class="flex flex-wrap gap-3">
+        <Button disabled={coreProcessing} onclick={downloadCore}>
+          <Download size={16} class={coreProcessing ? 'animate-bounce' : ''} />
+          {L.coreBtnDownload}
+        </Button>
+        <Button variant="outline" disabled={coreProcessing} onclick={openVersionPicker}>
+          {L.corePick_version}
+        </Button>
+      </div>
+    {:else}
+      <!-- System/custom core: updates happen outside the app. -->
+      <p class="text-sm text-muted-foreground">{L.coreExternal_managed}</p>
+    {/if}
   </div>
 {/snippet}
 
@@ -521,5 +574,40 @@
         </button>
       {/each}
     </div>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Official core version picker: all GitHub releases, pre-releases flagged. -->
+<Dialog.Root open={showVersionPicker} onOpenChange={(open) => { if (!open) showVersionPicker = false; }}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>{L.corePick_version}</Dialog.Title>
+    </Dialog.Header>
+    {#if versionsLoading}
+      <div class="space-y-2">
+        <Skeleton class="h-10 w-full rounded-xl" />
+        <Skeleton class="h-10 w-full rounded-xl" />
+        <Skeleton class="h-10 w-full rounded-xl" />
+      </div>
+    {:else}
+      <ul class="max-h-72 overflow-auto divide-y divide-border rounded-xl border border-border">
+        {#each coreVersions as rel (rel.version)}
+          <li>
+            <button
+              class="w-full text-left px-4 py-3 hover:bg-accent transition flex items-center justify-between gap-3"
+              onclick={() => downloadCoreVersion(rel.version)}
+            >
+              <span class="font-medium">v{rel.version}</span>
+              <span class="flex items-center gap-2 text-sm text-muted-foreground">
+                {#if rel.prerelease}
+                  <Badge variant="secondary">{L.corePrerelease}</Badge>
+                {/if}
+                {rel.publishedAt}
+              </span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   </Dialog.Content>
 </Dialog.Root>

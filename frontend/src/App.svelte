@@ -229,7 +229,10 @@
     'dialog.config_download_failed.btn_retry',
     'dialog.updatecheck_failed.title',
     'dialog.updatecheck_failed.body',
-    'dialog.updatecheck_failed.btn_retry'
+    'dialog.updatecheck_failed.btn_retry',
+    'dialog.core_incompatible.title',
+    'dialog.core_incompatible.body',
+    'dialog.core_incompatible.btn_settings'
   ]);
 
   // The channel-error dialog is not dismissible by click-away/Escape: the
@@ -249,6 +252,19 @@
     const settings = pageRegistry.find((p) => p.id === 'settings');
     enterSubNav('settings', settings?.tabs ?? []);
     setSubTab('system');
+    setRootPage('settings');
+  }
+
+  function closeCoreIncompatible() {
+    appState.update((s) => ({ ...s, coreIncompatible: null }));
+  }
+
+  // Leads to the core source settings where a compatible core can be picked.
+  function openCoreSettings() {
+    closeCoreIncompatible();
+    const settings = pageRegistry.find((p) => p.id === 'settings');
+    enterSubNav('settings', settings?.tabs ?? []);
+    setSubTab('core');
     setRootPage('settings');
   }
 </script>
@@ -456,6 +472,27 @@
             <RefreshCw size={16} class="animate-spin" />
           {/if}
           {L.dialogUpdatecheck_failedBtn_retry}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
+
+{#if $appState.coreIncompatible}
+  <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) closeCoreIncompatible(); }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title class="text-destructive">{L.dialogCore_incompatibleTitle}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {format(L.dialogCore_incompatibleBody, { min: $appState.coreIncompatible.min })}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <Button variant="outline" onclick={closeCoreIncompatible}>
+          {L.commonClose}
+        </Button>
+        <Button onclick={openCoreSettings}>
+          {L.dialogCore_incompatibleBtn_settings}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

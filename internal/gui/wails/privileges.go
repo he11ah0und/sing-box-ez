@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
+
 	"github.com/he11ah0und/projectspec"
 	"sing-box-ez/internal/core"
 )
@@ -91,6 +93,11 @@ func (b *Bindings) RunConfigAction(path string) error {
 		b.toastErr(err)
 		return err
 	}
+	// The core-binary picker is not a privilege action: it opens a file
+	// dialog, validates compatibility and stores the chosen path.
+	if entry.Action == "browse_core_binary" {
+		return b.browseCoreBinary()
+	}
 	var handler func() error
 	switch entry.Action {
 	case "setcap":
@@ -123,5 +130,35 @@ func (b *Bindings) RunConfigAction(path string) error {
 			b.toastT("success", []string{"settings", "privileges", "setcap_removed"})
 		}
 	}
+	return nil
+}
+
+// browseCoreBinary opens a file dialog for the custom core binary path,
+// verifies the picked binary against MinCoreVersion and stores the path.
+func (b *Bindings) browseCoreBinary() error {
+	app := application.Get()
+	if app == nil {
+		return nil
+	}
+	path, err := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:                b.t("settings", "core", "source", "browse_custom_path"),
+		CanChooseFiles:       true,
+		AllowsOtherFileTypes: true,
+	}).PromptForSingleSelection()
+	if err != nil || path == "" {
+		// Cancelled dialogs are not an error.
+		return nil
+	}
+	if _, err := core.CheckCoreCompatibility(path); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	cfg := b.app.Controller.Config()
+	if err := cfg.MustGet("core", "source", "custom_path").Update(path); err != nil {
+		b.toastErr(err)
+		return err
+	}
+	_ = cfg.Save()
+	b.emit("settings:changed", map[string]any{"core.source.custom_path": path})
 	return nil
 }

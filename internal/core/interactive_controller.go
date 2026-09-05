@@ -54,6 +54,10 @@ type InteractiveController struct {
 	// OnConfigMissing is invoked when StartService fails because no active
 	// config is selected. The GUI layer can navigate to the Configs page.
 	OnConfigMissing func()
+	// OnCoreIncompatible is invoked when StartService fails because the
+	// selected core binary is older than MinCoreVersion. The GUI layer can
+	// navigate to the core settings.
+	OnCoreIncompatible func()
 	// OnConfigStyleCheck is invoked when the active config does not look like a
 	// client config and no fallback_type has been chosen. The GUI should show a
 	// dialog and call choose with "ignore" or "to_client".
@@ -257,6 +261,10 @@ func (ic *InteractiveController) handlePrepareConfigError(err error) {
 	case errors.Is(err, ErrNoActiveConfig):
 		if ic.OnConfigMissing != nil {
 			ic.OnConfigMissing()
+		}
+	case errors.Is(err, ErrCoreIncompatible):
+		if ic.OnCoreIncompatible != nil {
+			ic.OnCoreIncompatible()
 		}
 	}
 }

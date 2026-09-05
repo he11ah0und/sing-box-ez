@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"runtime"
 
@@ -134,7 +135,8 @@ func (c *PrivilegeController) GetPrivilegeTabState() PrivilegeTabState {
 		state.ShowRestartAdminBtn = !state.IsAdmin
 	case "linux":
 		state.HasSetcap = HasNetAdminCapability(c.manager.coreBinary())
-		state.ShowSetcapBtn = !state.HasSetcap
+		state.ShowSetcapBtn = !state.HasSetcap &&
+			c.cfg.MustGet("core", "source", "mode").String() != CoreSourceSystem
 		status := c.RefreshPrivilegeStatus()
 		switch status {
 		case "active":
@@ -158,12 +160,27 @@ func (c *PrivilegeController) RestartAsAdmin(restartFn func() error) error {
 
 // ApplySetcap applies setcap and returns any error.
 func (c *PrivilegeController) ApplySetcap() error {
+	if err := c.checkSetcapTarget(); err != nil {
+		return err
+	}
 	return SetNetAdminCapabilityGUI(c.manager.coreBinary())
+}
+
+// checkSetcapTarget refuses to modify a system-installed core: that file is
+// owned by the OS package manager.
+func (c *PrivilegeController) checkSetcapTarget() error {
+	if c.cfg.MustGet("core", "source", "mode").String() == CoreSourceSystem {
+		return errors.New("setcap is not applied to a system-installed core; use the package manager or switch the core source")
+	}
+	return nil
 }
 
 // ToggleSetcap applies cap_net_admin to the core binary when it is missing
 // and removes it when present (Linux). It returns a plain error; callers log.
 func (c *PrivilegeController) ToggleSetcap() error {
+	if err := c.checkSetcapTarget(); err != nil {
+		return err
+	}
 	bin := c.manager.coreBinary()
 	if HasNetAdminCapability(bin) {
 		return RemoveNetAdminCapabilityGUI(bin)

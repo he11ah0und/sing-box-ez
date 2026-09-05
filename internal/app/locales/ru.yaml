@@ -102,6 +102,9 @@ connection_details:
   process: Процесс
   close_connection: Закрыть соединение
 core:
+  pick_version: Выбрать версию…
+  prerelease: пре-релиз
+  external_managed: Ядро управляется вне приложения (системный/свой источник)
   update:
     checking: Проверка версии...
     downloading: Загрузка...
@@ -228,6 +231,14 @@ settings:
     start_on_launch: Запускать ядро при старте программы
     proxy:
       enabled: Включить proxy (mixed + TUN HTTP proxy)
+    source:
+      mode:
+        label: Источник ядра
+        official: Управляемая загрузка
+        system: Системный sing-box
+        custom: Свой бинарник
+      custom_path: Путь к своему бинарнику ядра
+      browse_custom_path: Обзор…
     url_test_url: URL для URL-теста
     log:
       level:
@@ -421,6 +432,10 @@ dialog:
     title: Не удалось загрузить конфиг
     body: 'Не удалось загрузить "{{name}}"; использована кэшированная копия. Можно повторить загрузку через запущенное ядро.'
     btn_retry: Повторить через ядро
+  core_incompatible:
+    title: Неподдерживаемая версия ядра
+    body: 'Выбранное ядро sing-box слишком старое или не читается; требуется версия {{min}} или новее. Выберите другой источник ядра в настройках.'
+    btn_settings: Открыть настройки ядра
   updatecheck_failed:
     title: Не удалось проверить обновления
     body: 'Не удалось проверить обновления: {{target}} ({{kind}}). Можно повторить через запущенное ядро — при необходимости оно будет запущено.'

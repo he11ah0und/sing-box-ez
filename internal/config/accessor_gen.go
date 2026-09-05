@@ -26,6 +26,7 @@ type CoreAccessor struct {
 	StartOnLaunch        *fwconfig.Cell
 	Log                  *CoreLogAccessor
 	Proxy                *CoreProxyAccessor
+	Source               *CoreSourceAccessor
 }
 
 type CoreLogAccessor struct {
@@ -34,6 +35,11 @@ type CoreLogAccessor struct {
 
 type CoreProxyAccessor struct {
 	Enabled *fwconfig.Cell
+}
+
+type CoreSourceAccessor struct {
+	Mode       *fwconfig.Cell
+	CustomPath *fwconfig.Cell
 }
 
 type ConfigsAccessor struct {
@@ -98,6 +104,10 @@ func NewAccessor(sheet *fwconfig.Sheet) *Accessor {
 			},
 			Proxy: &CoreProxyAccessor{
 				Enabled: sheet.MustGet("core", "proxy", "enabled"),
+			},
+			Source: &CoreSourceAccessor{
+				Mode:       sheet.MustGet("core", "source", "mode"),
+				CustomPath: sheet.MustGet("core", "source", "custom_path"),
 			},
 		},
 		Configs: &ConfigsAccessor{

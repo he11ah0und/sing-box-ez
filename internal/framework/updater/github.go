@@ -238,6 +238,27 @@ func (b *GitHubBackend) ReleaseByVersion(ctx context.Context, version string) (R
 	return Release{}, lastErr
 }
 
+// ListReleases returns all releases of the repository, newest first
+// (prereleases included) — used by the core version picker.
+func (b *GitHubBackend) ListReleases(ctx context.Context) ([]Release, error) {
+	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiReleasesURL(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var raw []ghRelease
+	if err := b.doJSON(req, &raw); err != nil {
+		return nil, err
+	}
+	sort.Slice(raw, func(i, j int) bool {
+		return raw[i].PublishedAt.After(raw[j].PublishedAt)
+	})
+	out := make([]Release, len(raw))
+	for i, r := range raw {
+		out[i] = b.toRelease(r)
+	}
+	return out, nil
+}
+
 // DownloadAsset implements Source.
 func (b *GitHubBackend) DownloadAsset(ctx context.Context, asset Asset, w io.Writer, progress func(downloaded, total int64)) error {
 	if asset.URL == "" {

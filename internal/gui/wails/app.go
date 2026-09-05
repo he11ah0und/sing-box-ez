@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -361,6 +362,57 @@ func (b *Bindings) DownloadCore() error {
 	b.toastT("success", []string{"core", "update", "installed"})
 	// Replacing the core binary drops its file capabilities; open settings
 	// views re-read the setcap state on this event.
+	b.emit("privileges:changed", struct{}{})
+	return nil
+}
+
+// IsCoreManaged reports whether the core binary is managed by the app
+// (official source mode) — the core update UI is hidden otherwise.
+func (b *Bindings) IsCoreManaged() bool {
+	return b.app.Controller.IsCoreManaged()
+}
+
+// ListCoreVersions lists the installable core releases (newest first,
+// prereleases included) for the official-mode version picker.
+func (b *Bindings) ListCoreVersions() []core.CoreRelease {
+	ctx, cancel := context.WithTimeout(b.ctx, 30*time.Second)
+	defer cancel()
+	releases, err := b.app.Controller.ListCoreVersions(ctx)
+	if err != nil {
+		b.toastErr(err)
+		return nil
+	}
+	return releases
+}
+
+// DownloadCoreVersion downloads and installs the picked core release.
+func (b *Bindings) DownloadCoreVersion(ver string) error {
+	ctx, cancel := context.WithCancel(b.ctx)
+	defer cancel()
+	b.registerUpdateCancel("core", cancel)
+	defer b.unregisterUpdateCancel("core")
+	_, err := b.app.Controller.DownloadCoreVersionContext(ctx, ver, func(downloaded, total int64) {
+		progress := 0
+		if total > 0 {
+			progress = int(float64(downloaded) / float64(total) * 100)
+		}
+		b.emit("update:progress", map[string]int64{
+			"downloaded": downloaded,
+			"total":      total,
+			"progress":   int64(progress),
+		})
+	}, func() {
+		b.emit("update:phase", "installing")
+	})
+	if err != nil && (errors.Is(err, context.Canceled) || ctx.Err() != nil) {
+		// User-requested cancel (CancelUpdate): not an error, no toast.
+		return nil
+	}
+	if err != nil {
+		b.toastErr(err)
+		return err
+	}
+	b.toastT("success", []string{"core", "update", "installed"})
 	b.emit("privileges:changed", struct{}{})
 	return nil
 }
@@ -855,6 +907,9 @@ func (w *WailsApp) Run() error {
 		body := localengine.T("notify", "config_missing", "body")
 		bindings.notify(title, body)
 		bindings.showDialog(title, body)
+	}
+	ic.OnCoreIncompatible = func() {
+		bindings.emit("core:incompatible", map[string]string{"min": core.MinCoreVersion})
 	}
 	ic.OnConfigStyleCheck = func(style inboundstyle.Style, rec *config.ConfigRecord, choose func(string)) {
 		bindings.styleCheckMu.Lock()

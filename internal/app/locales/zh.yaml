@@ -102,6 +102,9 @@ connection_details:
   process: 进程
   close_connection: 关闭连接
 core:
+  pick_version: 选择版本…
+  prerelease: 预发布
+  external_managed: 核心由外部管理（系统/自定义来源）
   update:
     checking: 正在检查版本…
     downloading: 下载中…
@@ -228,6 +231,14 @@ settings:
     start_on_launch: 启动时启动核心
     proxy:
       enabled: 启用代理（mixed + TUN HTTP 代理）
+    source:
+      mode:
+        label: 核心来源
+        official: 托管下载
+        system: 系统级 sing-box
+        custom: 自定义二进制文件
+      custom_path: 自定义核心二进制文件路径
+      browse_custom_path: 浏览…
     url_test_url: URL 测试地址
     log:
       level:
@@ -421,6 +432,10 @@ dialog:
     title: 配置下载失败
     body: '无法下载 "{{name}}"；已使用缓存副本。可以通过正在运行的核心重试下载。'
     btn_retry: 通过核心重试
+  core_incompatible:
+    title: 核心版本不受支持
+    body: '所选的 sing-box 核心过旧或无法读取；需要 {{min}} 或更新版本。请在设置中选择其他核心来源。'
+    btn_settings: 打开核心设置
   updatecheck_failed:
     title: 更新检查失败
     body: '无法检查{{target}}的更新（{{kind}}）。可以通过正在运行的核心重试——如有必要将先启动核心。'
