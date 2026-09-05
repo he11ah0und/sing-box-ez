@@ -4,6 +4,12 @@
 # package tracks the current branch. For AUR publication switch source=()
 # to the release tarball (https://.../archive/v$pkgver.tar.gz) with a real
 # sha256sums entry, and generate .SRCINFO (makepkg --printsrcinfo).
+#
+# _branch is the upstream branch this package tracks; it is shown in the
+# About page so users can tell which channel their artifact came from. An
+# alpha package (separate PKGBUILD, pkgname=sing-box-ez-alpha) would track
+# "testing" instead.
+_branch=wails-migration
 
 pkgname=sing-box-ez
 pkgver=0.1.0
@@ -16,7 +22,7 @@ license=('custom')
 depends=('webkitgtk-6.0' 'gtk4')
 makedepends=('git' 'go' 'nodejs' 'npm')
 options=('!debug')
-source=("sing-box-ez::git+file:///mnt/local1/work/code/sing-box-ez#branch=wails-migration"
+source=("sing-box-ez::git+file:///mnt/local1/work/code/sing-box-ez#branch=${_branch}"
         "sing-box-ez.desktop"
         # build/appicon.png is gitignored, so the package ships its own copy.
         "appicon.png")
@@ -49,7 +55,13 @@ build() {
   cd "$pkgname"
   export PATH="$(go env GOPATH)/bin:$PATH"
   # CHANNEL=aur: no self-update code; updates are pacman's job.
-  make build CHANNEL=aur
+  # Branch/commit/date are passed explicitly: makepkg checks sources out
+  # into a temporary branch literally named "makepkg", which would
+  # otherwise leak into the version metadata via the Makefile defaults.
+  make build CHANNEL=aur \
+    BRANCH="${_branch}" \
+    BUILD_COMMIT="$(git rev-parse --short HEAD)" \
+    COMMIT_DATE="$(git log -1 --format=%cI)"
 }
 
 package() {
