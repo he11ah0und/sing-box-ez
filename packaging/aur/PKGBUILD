@@ -15,8 +15,11 @@ url="https://github.com/he11ah0und/sing-box-ez"
 license=('custom')
 depends=('webkitgtk-6.0' 'gtk4')
 makedepends=('git' 'go' 'nodejs' 'npm')
-source=("sing-box-ez::git+file:///mnt/local1/work/code/sing-box-ez#branch=wails-migration")
-sha256sums=('SKIP')
+source=("sing-box-ez::git+file:///mnt/local1/work/code/sing-box-ez#branch=wails-migration"
+        "sing-box-ez.desktop"
+        # build/appicon.png is gitignored, so the package ships its own copy.
+        "appicon.png")
+sha256sums=('SKIP' 'SKIP' 'SKIP')
 
 pkgver() {
   # Single source of truth: the VERSION file in the repo.
@@ -51,6 +54,6 @@ build() {
 package() {
   cd "$pkgname"
   install -Dm755 "build/sing-box-ez-amd64-linux-gcc-gui" "$pkgdir/usr/bin/sing-box-ez"
-  install -Dm644 "packaging/aur/sing-box-ez.desktop" "$pkgdir/usr/share/applications/sing-box-ez.desktop"
-  install -Dm644 "build/appicon.png" "$pkgdir/usr/share/pixmaps/sing-box-ez.png"
+  install -Dm644 "$srcdir/sing-box-ez.desktop" "$pkgdir/usr/share/applications/sing-box-ez.desktop"
+  install -Dm644 "$srcdir/appicon.png" "$pkgdir/usr/share/pixmaps/sing-box-ez.png"
 }
