@@ -38,7 +38,7 @@ type Backend interface {
 	GetLatestCoreVersion() (string, error)
 	DownloadCoreWithProgress(progress func(downloaded, total int64)) (string, error)
 	DownloadCore(progress ProgressFunc) (string, error)
-	DownloadCoreContext(ctx context.Context, progress ProgressFunc) (string, error)
+	DownloadCoreContext(ctx context.Context, progress ProgressFunc, onInstallStart func()) (string, error)
 
 	GetPrivilegeTabState() PrivilegeTabState
 	RestartAsAdmin() error

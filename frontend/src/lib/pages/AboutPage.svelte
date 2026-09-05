@@ -100,7 +100,8 @@
     'core.installed',
     'core.latest',
     'core.btn.download',
-    'core.update.downloading'
+    'core.update.downloading',
+    'core.update.installing'
   ]);
 
   // The updates tab lists every updater declared in the project spec; the
@@ -176,11 +177,14 @@
       await DownloadCore();
       const core = await GetCoreInfo();
       appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, ...core } }));
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     } finally {
       coreProcessing = false;
-      appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, downloading: false } }));
+      appState.update((s) => ({
+        ...s,
+        coreInfo: { ...s.coreInfo, downloading: false, installing: false }
+      }));
     }
   }
 
@@ -414,8 +418,16 @@
     </Dialog.Header>
     <div class="space-y-2">
       <div class="flex justify-between text-sm">
-        <span>{modalIsApp ? L.aboutUpdateDownloading : L.coreUpdateDownloading}</span>
-        <span>{Math.round(modalProgress * 100)}%</span>
+        <span>
+          {modalIsApp
+            ? L.aboutUpdateDownloading
+            : $appState.coreInfo.installing
+              ? L.coreUpdateInstalling
+              : L.coreUpdateDownloading}
+        </span>
+        {#if modalDownloading}
+          <span>{Math.round(modalProgress * 100)}%</span>
+        {/if}
       </div>
       {#if modalDownloading}
         <Progress value={modalProgress * 100} max={100} />

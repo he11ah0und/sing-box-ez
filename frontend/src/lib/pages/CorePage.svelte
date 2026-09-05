@@ -18,6 +18,7 @@
     'core.installed',
     'core.latest',
     'core.update.downloading',
+    'core.update.installing',
     'core.btn.download',
     'common.refresh'
   ]);
@@ -38,10 +39,16 @@
     try {
       await DownloadCore();
       await load();
-    } catch (err) {
-      toast.error(String(err));
+    } catch {
+      // The backend already reported the failure with a toast.
     } finally {
       processing = false;
+      // No terminal progress/phase event arrives on cancel or failure; reset
+      // the flags so the UI leaves the transfer state.
+      appState.update((s) => ({
+        ...s,
+        coreInfo: { ...s.coreInfo, downloading: false, installing: false }
+      }));
     }
   }
 </script>
@@ -78,11 +85,16 @@
           </div>
           <Progress value={($appState.coreInfo.downloadProgress ?? 0) * 100} max={100} />
         </div>
+      {:else if $appState.coreInfo.installing}
+        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+          <RefreshCw size={16} class="animate-spin" />
+          <span>{L.coreUpdateInstalling}</span>
+        </div>
       {/if}
 
       <div class="flex flex-wrap gap-3">
         <Button
-          disabled={processing || $appState.coreInfo.downloading}
+          disabled={processing || $appState.coreInfo.downloading || $appState.coreInfo.installing}
           onclick={download}
         >
           <Download size={18} />

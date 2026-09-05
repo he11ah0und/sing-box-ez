@@ -354,8 +354,19 @@ export function initWailsEvents(): Promise<unknown> {
       coreInfo: {
         ...s.coreInfo,
         downloading: total > 0 && downloaded < total,
-        downloadProgress: total > 0 ? downloaded / total : 0
+        downloadProgress: total > 0 ? downloaded / total : 0,
+        installing: false
       }
+    }));
+  });
+
+  // update:phase fires when the core download ends and the binary
+  // replacement begins; the install phase reports no byte progress.
+  Events.On('update:phase', (event: WailsEvent<string>) => {
+    if (event.data !== 'installing') return;
+    appState.update((s) => ({
+      ...s,
+      coreInfo: { ...s.coreInfo, downloading: false, downloadProgress: 0, installing: true }
     }));
   });
 

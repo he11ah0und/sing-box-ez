@@ -310,12 +310,22 @@ func (b *Bindings) DownloadCore() error {
 			"total":      total,
 			"progress":   int64(progress),
 		})
+	}, func() {
+		b.emit("update:phase", "installing")
 	})
 	if err != nil && (errors.Is(err, context.Canceled) || ctx.Err() != nil) {
 		// User-requested cancel (CancelUpdate): not an error, no toast.
 		return nil
 	}
-	return err
+	if err != nil {
+		b.toastErr(err)
+		return err
+	}
+	b.toastT("success", []string{"core", "update", "installed"})
+	// Replacing the core binary drops its file capabilities; open settings
+	// views re-read the setcap state on this event.
+	b.emit("privileges:changed", struct{}{})
+	return nil
 }
 
 // GetLocale returns the currently active locale and registered key values.

@@ -107,7 +107,10 @@ export interface AppState {
   // ready flips once the initial backend seeds (traffic history, API state,
   // settings) have settled; the shell shows a loading state until then.
   ready: boolean;
-  coreInfo: CoreInfo;
+  // coreInfo is the backend model plus the frontend-only installing flag:
+  // set by the update:phase event while the downloaded binary is being
+  // installed (the Go model only covers the download phase).
+  coreInfo: CoreInfo & { installing: boolean };
   logs: LogsState;
   traffic: TrafficState;
   dialog: DialogPayload | null;
@@ -129,7 +132,8 @@ export const appState = writable<AppState>({
     installedVersion: '',
     latestVersion: '',
     downloading: false,
-    downloadProgress: 0
+    downloadProgress: 0,
+    installing: false
   },
   logs: { app: [], core: [] },
   traffic: {

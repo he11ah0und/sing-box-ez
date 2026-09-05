@@ -2,6 +2,7 @@
   import { Save, RotateCcw, ShieldCheck, Trash2, LoaderCircle } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { fly } from 'svelte/transition';
+  import { Events } from '@wailsio/runtime';
   import { appState } from '../stores/appState.js';
   import { locale, useLocale, useLocaleRecord } from '@he11ah0und/localengine-web';
   import { subNav } from '../stores/navigation.js';
@@ -171,6 +172,13 @@
 
   $effect(() => {
     if ($subNav.activeTab === 'system') loadPrivileges();
+  });
+
+  // A core update replaces the binary and drops its setcap state; the
+  // backend signals it so an open settings page does not show stale data.
+  $effect(() => {
+    const off = Events.On('privileges:changed', () => loadPrivileges());
+    return () => off();
   });
 
   async function load(force = false) {

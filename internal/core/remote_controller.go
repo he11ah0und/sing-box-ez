@@ -202,9 +202,10 @@ func (r *RemoteController) DownloadCore(progress ProgressFunc) (string, error) {
 	return res.Path, nil
 }
 
-// DownloadCoreContext ignores the context: a remote download cannot be
-// cancelled over the current RPC protocol.
-func (r *RemoteController) DownloadCoreContext(_ context.Context, progress ProgressFunc) (string, error) {
+// DownloadCoreContext ignores the context and the install-phase callback: a
+// remote download cannot be cancelled or phase-split over the current RPC
+// protocol.
+func (r *RemoteController) DownloadCoreContext(_ context.Context, progress ProgressFunc, _ func()) (string, error) {
 	return r.DownloadCore(progress)
 }
 

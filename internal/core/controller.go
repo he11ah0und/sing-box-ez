@@ -486,12 +486,13 @@ func (c *Controller) DownloadCoreWithProgress(onProgress func(downloaded, total 
 }
 
 func (c *Controller) DownloadCore(onProgress ProgressFunc) (string, error) {
-	return c.DownloadCoreContext(context.Background(), onProgress)
+	return c.DownloadCoreContext(context.Background(), onProgress, nil)
 }
 
 // DownloadCoreContext is DownloadCore with a caller-supplied context so the
-// GUI can cancel an in-flight download.
-func (c *Controller) DownloadCoreContext(ctx context.Context, onProgress ProgressFunc) (string, error) {
+// GUI can cancel an in-flight download. onInstallStart, when non-nil, is
+// called once the download finishes and the binary replacement begins.
+func (c *Controller) DownloadCoreContext(ctx context.Context, onProgress ProgressFunc, onInstallStart func()) (string, error) {
 	if c.manager.updater == nil {
 		return "", fmt.Errorf("core updater not configured")
 	}
@@ -518,6 +519,10 @@ func (c *Controller) DownloadCoreContext(ctx context.Context, onProgress Progres
 	// happen on a stopped process.
 	if fa, ok := c.manager.updater.Apply.(*updater.FilesUpdateApply); ok {
 		fa.BeforeInstall = func() error {
+			// The download is complete; the binary replacement begins here.
+			if onInstallStart != nil {
+				onInstallStart()
+			}
 			if !c.manager.IsRunning() {
 				return nil
 			}
