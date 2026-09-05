@@ -60,6 +60,13 @@ config:
       browse_custom_path:
         control: action
         action: browse_core_binary
+      # Release channel for the official (managed) core: stable tracks the
+      # latest stable release, beta also considers pre-releases.
+      channel:
+        type: string
+        default: stable
+        control: select
+        options: [stable, beta]
 
   configs:
     # Remove the cached config file together with the profile on delete.

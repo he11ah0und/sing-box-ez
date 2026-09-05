@@ -34,6 +34,16 @@ const (
 // MinCoreVersion (or whose version cannot be parsed).
 var ErrCoreIncompatible = errors.New("core version is not supported")
 
+// Release channels for the official (managed) core — the core.source.channel
+// setting. System and custom cores are updated outside the app, so the
+// channel only applies to CoreSourceOfficial.
+const (
+	// CoreChannelStable tracks the latest stable release.
+	CoreChannelStable = "stable"
+	// CoreChannelBeta also considers pre-releases.
+	CoreChannelBeta = "beta"
+)
+
 // managedCoreBinary is the path of the app-managed core in the data dir.
 func managedCoreBinary(baseDir string) string {
 	if runtime.GOOS == "windows" {

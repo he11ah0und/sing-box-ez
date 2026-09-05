@@ -736,7 +736,7 @@ func (c *Controller) GetInstalledCoreVersion() (string, error) {
 }
 
 func (c *Controller) GetLatestCoreVersion() (string, error) {
-	info, err := c.manager.CheckCoreUpdate(context.Background())
+	info, err := c.manager.CheckCoreUpdateChannel(context.Background(), c.coreChannel())
 	if err != nil {
 		return "", err
 	}
@@ -754,6 +754,16 @@ func (c *Controller) IsCoreManaged() bool {
 	return m == "" || m == CoreSourceOfficial
 }
 
+// coreChannel returns the configured release channel for the managed core
+// (core.source.channel), defaulting to stable.
+func (c *Controller) coreChannel() string {
+	ch := c.cfg.MustGet("core", "source", "channel").String()
+	if ch == "" {
+		return CoreChannelStable
+	}
+	return ch
+}
+
 // CheckCoreUpdateViaProxy checks for a core update routing the request
 // through the local proxy at proxyAddr ("host:port") — typically the running
 // core's mixed inbound, used when direct access to the release source is
@@ -768,16 +778,31 @@ func (c *Controller) CheckCoreUpdateViaProxy(proxyAddr string) (string, error) {
 		return "", fmt.Errorf("core updater source does not support proxying")
 	}
 	proxied := *src
-	proxied.Source = &updater.GitHubBackend{
+	proxiedGH := &updater.GitHubBackend{
 		BaseURL: gh.BaseURL,
 		Owner:   gh.Owner,
 		Repo:    gh.Repo,
 		Net:     fwnet.NewClientViaProxy(c.terminal, proxyAddr),
 		Log:     gh.Log,
 	}
+	proxied.Source = proxiedGH
 	current, _ := GetCoreVersion(c.manager.coreBinary())
 	if current != "" && !strings.HasPrefix(current, "v") {
 		current = "v" + current
+	}
+	if c.coreChannel() == CoreChannelBeta {
+		releases, err := proxiedGH.ListReleases(context.Background())
+		if err != nil {
+			return "", err
+		}
+		if len(releases) == 0 {
+			return strings.TrimPrefix(current, "v"), nil
+		}
+		info, err := proxied.CheckVersion(context.Background(), releases[0].Version, current)
+		if err != nil {
+			return "", err
+		}
+		return info.Latest, nil
 	}
 	info, err := proxied.CheckWithCurrent(context.Background(), "", current)
 	if err != nil {
@@ -805,7 +830,7 @@ func (c *Controller) DownloadCoreContext(ctx context.Context, onProgress Progres
 		return "", fmt.Errorf("core updates are managed outside the app (core source mode)")
 	}
 
-	info, err := c.manager.CheckCoreUpdate(ctx)
+	info, err := c.manager.CheckCoreUpdateChannel(ctx, c.coreChannel())
 	if err != nil {
 		return "", err
 	}

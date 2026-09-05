@@ -413,12 +413,33 @@ func (m *Manager) DeleteConfigFile(name string) error {
 }
 
 func (m *Manager) CheckCoreUpdate(ctx context.Context) (*updater.UpdateInfo, error) {
+	return m.CheckCoreUpdateChannel(ctx, CoreChannelStable)
+}
+
+// CheckCoreUpdateChannel checks for a core update on the given release
+// channel: stable tracks the latest stable release, beta also considers
+// pre-releases.
+func (m *Manager) CheckCoreUpdateChannel(ctx context.Context, channel string) (*updater.UpdateInfo, error) {
 	if m.updater == nil {
 		return nil, fmt.Errorf("core updater not configured")
 	}
 	current, _ := GetCoreVersion(m.coreBinary())
 	if current != "" && !strings.HasPrefix(current, "v") {
 		current = "v" + current
+	}
+	if channel == CoreChannelBeta {
+		gh, ok := m.updater.Source.(*updater.GitHubBackend)
+		if !ok {
+			return nil, fmt.Errorf("core updater source does not support channels")
+		}
+		releases, err := gh.ListReleases(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if len(releases) == 0 {
+			return &updater.UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
+		}
+		return m.updater.CheckVersion(ctx, releases[0].Version, current)
 	}
 	return m.updater.CheckWithCurrent(ctx, "", current)
 }

@@ -40,6 +40,7 @@ type CoreProxyAccessor struct {
 type CoreSourceAccessor struct {
 	Mode       *fwconfig.Cell
 	CustomPath *fwconfig.Cell
+	Channel    *fwconfig.Cell
 }
 
 type ConfigsAccessor struct {
@@ -108,6 +109,7 @@ func NewAccessor(sheet *fwconfig.Sheet) *Accessor {
 			Source: &CoreSourceAccessor{
 				Mode:       sheet.MustGet("core", "source", "mode"),
 				CustomPath: sheet.MustGet("core", "source", "custom_path"),
+				Channel:    sheet.MustGet("core", "source", "channel"),
 			},
 		},
 		Configs: &ConfigsAccessor{
