@@ -134,6 +134,10 @@ export interface AppState {
   // start flow could not download the active config and used the cached
   // copy — App offers a retry through the running core's proxy.
   configDownloadFailed: { name: string; kind: string } | null;
+  // updateCheckFailed is set by the updatecheck:failed event: a background
+  // update check ("app" or "core") failed on connectivity — App offers a
+  // retry through the running core's proxy.
+  updateCheckFailed: { target: string; kind: string } | null;
   api: ApiState;
 }
 
@@ -174,6 +178,7 @@ export const appState = writable<AppState>({
   updateChannelError: null,
   configsUpdateFailed: null,
   configDownloadFailed: null,
+  updateCheckFailed: null,
   api: { phase: 'stopped', status: null, info: null, mode: '', modeList: [], groups: [], connections: [], connGroups: [], session: 0 }
 });
 

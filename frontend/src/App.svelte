@@ -6,7 +6,7 @@
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
   import { signalLocaleReady, useLocale, useLocaleRecord, format } from '@he11ah0und/localengine-web';
-  import { GetTheme, SetFallbackType, QuitApp, GetOrphanedConfigs, DeleteOrphanedConfigs, RetryConfigUpdateViaCore } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import { GetTheme, SetFallbackType, QuitApp, GetOrphanedConfigs, DeleteOrphanedConfigs, RetryConfigUpdateViaCore, RetryUpdateCheckViaCore } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type { OrphanedConfig } from '../bindings/sing-box-ez/internal/core/models.js';
   import { currentLevel, enterSubNav, setSubTab, setRootPage } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
@@ -91,6 +91,33 @@
   }
 
   let retryViaCoreBusy = $state(false);
+  let retryUpdateCheckBusy = $state(false);
+
+  function closeUpdateCheckFailed() {
+    appState.update((s) => ({ ...s, updateCheckFailed: null }));
+  }
+
+  async function retryUpdateCheck() {
+    const pending = $appState.updateCheckFailed;
+    if (!pending || retryUpdateCheckBusy) return;
+    retryUpdateCheckBusy = true;
+    try {
+      await RetryUpdateCheckViaCore(pending.target);
+      closeUpdateCheckFailed();
+    } catch {
+      // The backend already reported the failure with a toast; keep the dialog.
+    } finally {
+      retryUpdateCheckBusy = false;
+    }
+  }
+
+  function updateCheckTargetLabel(target: string): string {
+    const key = target === 'core'
+      ? 'dialog.updatecheck_failed.target_core'
+      : 'dialog.updatecheck_failed.target_app';
+    const value = R3[key];
+    return value !== undefined && value !== key ? value : target;
+  }
 
   function closeConfigDownloadFailed() {
     appState.update((s) => ({ ...s, configDownloadFailed: null }));
@@ -174,6 +201,11 @@
     'dialog.configs_update_failed.kind_other'
   ]);
 
+  const R3 = useLocaleRecord([
+    'dialog.updatecheck_failed.target_app',
+    'dialog.updatecheck_failed.target_core'
+  ]);
+
   const L = useLocale([
     'common.cancel',
     'common.close',
@@ -194,7 +226,10 @@
     'dialog.configs_update_failed.body',
     'dialog.config_download_failed.title',
     'dialog.config_download_failed.body',
-    'dialog.config_download_failed.btn_retry'
+    'dialog.config_download_failed.btn_retry',
+    'dialog.updatecheck_failed.title',
+    'dialog.updatecheck_failed.body',
+    'dialog.updatecheck_failed.btn_retry'
   ]);
 
   // The channel-error dialog is not dismissible by click-away/Escape: the
@@ -394,6 +429,33 @@
             <RefreshCw size={16} class="animate-spin" />
           {/if}
           {L.dialogConfig_download_failedBtn_retry}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
+
+{#if $appState.updateCheckFailed}
+  <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) closeUpdateCheckFailed(); }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title class="text-destructive">{L.dialogUpdatecheck_failedTitle}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {format(L.dialogUpdatecheck_failedBody, {
+            target: updateCheckTargetLabel($appState.updateCheckFailed.target),
+            kind: failureKindLabel($appState.updateCheckFailed.kind)
+          })}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <Button variant="outline" disabled={retryUpdateCheckBusy} onclick={closeUpdateCheckFailed}>
+          {L.commonClose}
+        </Button>
+        <Button disabled={retryUpdateCheckBusy} onclick={retryUpdateCheck}>
+          {#if retryUpdateCheckBusy}
+            <RefreshCw size={16} class="animate-spin" />
+          {/if}
+          {L.dialogUpdatecheck_failedBtn_retry}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

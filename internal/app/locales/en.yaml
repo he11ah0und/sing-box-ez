@@ -421,6 +421,12 @@ dialog:
     title: Config download failed
     body: 'Could not download "{{name}}"; the cached copy was used. You can retry the download through the running core.'
     btn_retry: Retry via core
+  updatecheck_failed:
+    title: Update check failed
+    body: 'Could not check {{target}} for updates ({{kind}}). You can retry through the running core — it will be started first if needed.'
+    target_app: the application
+    target_core: the core
+    btn_retry: Retry via core
   configs_update_failed:
     title: Config update failed
     body: 'Could not refresh any of the configs due for an update ({{count}}). Check your internet connection.'

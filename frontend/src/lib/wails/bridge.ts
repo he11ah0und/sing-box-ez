@@ -226,6 +226,15 @@ export function initWailsEvents(): Promise<unknown> {
     }));
   });
 
+  Events.On('updatecheck:failed', (event: WailsEvent<{ target?: string; kind?: string }>) => {
+    const data = event.data ?? {};
+    if (!data.target) return;
+    appState.update((s) => ({
+      ...s,
+      updateCheckFailed: { target: data.target ?? '', kind: data.kind ?? 'other' }
+    }));
+  });
+
   Events.On('configs:update_failed', (event: WailsEvent<ConfigUpdateFailurePayload[]>) => {
     const failures = (event.data ?? []).filter((f) => f?.name);
     if (failures.length === 0) return;

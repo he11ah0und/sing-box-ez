@@ -10,7 +10,10 @@ import (
 	"time"
 
 	"github.com/he11ah0und/localengine"
+	"github.com/he11ah0und/logger"
 	"golang.org/x/mod/semver"
+	"sing-box-ez/internal/core"
+	fwnet "sing-box-ez/internal/framework/net"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/util/openurl"
 	"sing-box-ez/internal/framework/version"
@@ -267,6 +270,7 @@ func (b *Bindings) checkSelfUpdateAvailable() {
 	info, err := b.ic.CheckSelfUpdate()
 	if err != nil {
 		b.app.Logger.Root.TWarnf("gui.self_update_check_failed", err)
+		b.emitUpdateCheckFailed("app", err)
 		return
 	}
 	hasUpdate, isDevBuild := selfUpdateStatus(info)
@@ -285,6 +289,7 @@ func (b *Bindings) checkCoreUpdateAvailable() {
 	latest, err := b.app.Controller.GetLatestCoreVersion()
 	if err != nil {
 		// The updater/network layers already log the failure with context.
+		b.emitUpdateCheckFailed("core", err)
 		return
 	}
 	current = normalizeCoreVersion(current)
@@ -297,6 +302,127 @@ func (b *Bindings) checkCoreUpdateAvailable() {
 		"current": current,
 		"latest":  latest,
 	})
+}
+
+// emitUpdateCheckFailed reports a failed update check to the frontend, which
+// offers a retry routed through the running core's proxy. Only connectivity
+// failures qualify — an HTTP error (rate limit, 404) would not be fixed by a
+// proxy retry.
+func (b *Bindings) emitUpdateCheckFailed(target string, err error) {
+	switch core.DownloadErrorKind(err) {
+	case core.FailureRefused, core.FailureTimeout, core.FailureDNS:
+	default:
+		return
+	}
+	b.emit("updatecheck:failed", map[string]string{
+		"target": target,
+		"kind":   core.DownloadErrorKind(err),
+	})
+}
+
+// proxiedGitHubSource returns a copy of src whose HTTP client routes through
+// the local proxy at proxyAddr. Non-GitHub sources cannot be proxied.
+func proxiedGitHubSource(src updater.Source, proxyAddr string, parent *logger.LogTerminal) (updater.Source, error) {
+	gh, ok := src.(*updater.GitHubBackend)
+	if !ok {
+		return nil, fmt.Errorf("update source does not support proxying")
+	}
+	return &updater.GitHubBackend{
+		BaseURL: gh.BaseURL,
+		Owner:   gh.Owner,
+		Repo:    gh.Repo,
+		Net:     fwnet.NewClientViaProxy(parent, proxyAddr),
+		Log:     gh.Log,
+	}, nil
+}
+
+// RetryUpdateCheckViaCore repeats a failed update check ("app" or "core")
+// through the running core's local proxy, starting the core first (with the
+// pre-start config refresh skipped once) when it is down. Starting the core
+// just for the check requires a cached config to run from.
+func (b *Bindings) RetryUpdateCheckViaCore(target string) error {
+	c := b.app.Controller
+	if c == nil {
+		err := fmt.Errorf("local controller unavailable")
+		b.toastErr(err)
+		return err
+	}
+	if !c.IsRunning() {
+		active := c.Config().GetActiveConfig()
+		if active == nil || !c.HasCachedConfig(active.Name) {
+			err := fmt.Errorf("no cached config to start the core with")
+			b.toastErr(err)
+			return err
+		}
+		c.SkipNextConfigUpdate()
+		var err error
+		if b.ic != nil {
+			err = b.ic.StartService()
+		} else {
+			err = c.Start()
+		}
+		if err != nil {
+			b.toastErr(err)
+			return err
+		}
+	}
+	addr := c.CoreProxyAddr()
+	if addr == "" {
+		err := fmt.Errorf("core has no local proxy inbound")
+		b.toastErr(err)
+		return err
+	}
+
+	switch target {
+	case "app":
+		m := updater.CurrentManager()
+		if m == nil {
+			err := fmt.Errorf("self updater not configured")
+			b.toastErr(err)
+			return err
+		}
+		src, err := proxiedGitHubSource(m.Source, addr, b.app.Logger.Root)
+		if err != nil {
+			b.toastErr(err)
+			return err
+		}
+		tmp := *m
+		tmp.Source = src
+		info, err := tmp.Check(context.Background(), version.Branch)
+		if err != nil {
+			b.toastErr(err)
+			return err
+		}
+		hasUpdate, isDevBuild := selfUpdateStatus(info)
+		if hasUpdate || isDevBuild {
+			b.emit("selfupdate:available", toSelfUpdateInfo(info))
+		} else {
+			b.toastT("info", []string{"about", "update", "up_to_date"})
+		}
+	case "core":
+		latest, err := c.CheckCoreUpdateViaProxy(addr)
+		if err != nil {
+			b.toastErr(err)
+			return err
+		}
+		current, _ := c.GetInstalledCoreVersion()
+		current = normalizeCoreVersion(current)
+		latest = normalizeCoreVersion(latest)
+		b.emit("core:version", map[string]string{"latest": latest})
+		if current != latest && latest != "" {
+			b.emit("core:update_available", map[string]string{
+				"current": current,
+				"latest":  latest,
+			})
+		} else {
+			b.toastT("info", []string{"about", "update", "up_to_date"})
+		}
+	default:
+		err := fmt.Errorf("unknown update check target %q", target)
+		b.toastErr(err)
+		return err
+	}
+	return nil
 }
 
 // InstallSelfUpdate downloads and installs the latest app update for a branch.

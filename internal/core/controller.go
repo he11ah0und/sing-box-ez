@@ -686,6 +686,38 @@ func (c *Controller) GetLatestCoreVersion() (string, error) {
 	return info.Latest, nil
 }
 
+// CheckCoreUpdateViaProxy checks for a core update routing the request
+// through the local proxy at proxyAddr ("host:port") — typically the running
+// core's mixed inbound, used when direct access to the release source is
+// blocked. Returns the latest version like GetLatestCoreVersion.
+func (c *Controller) CheckCoreUpdateViaProxy(proxyAddr string) (string, error) {
+	src := c.manager.updater
+	if src == nil {
+		return "", fmt.Errorf("core updater not configured")
+	}
+	gh, ok := src.Source.(*updater.GitHubBackend)
+	if !ok {
+		return "", fmt.Errorf("core updater source does not support proxying")
+	}
+	proxied := *src
+	proxied.Source = &updater.GitHubBackend{
+		BaseURL: gh.BaseURL,
+		Owner:   gh.Owner,
+		Repo:    gh.Repo,
+		Net:     fwnet.NewClientViaProxy(c.terminal, proxyAddr),
+		Log:     gh.Log,
+	}
+	current, _ := GetCoreVersion(c.manager.coreBinary())
+	if current != "" && !strings.HasPrefix(current, "v") {
+		current = "v" + current
+	}
+	info, err := proxied.CheckWithCurrent(context.Background(), "", current)
+	if err != nil {
+		return "", err
+	}
+	return info.Latest, nil
+}
+
 func (c *Controller) DownloadCoreWithProgress(onProgress func(downloaded, total int64)) (string, error) {
 	return c.DownloadCore(onProgress)
 }
