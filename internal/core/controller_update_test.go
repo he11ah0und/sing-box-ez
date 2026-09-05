@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -101,5 +102,69 @@ func TestUpdateConfigIfDueIgnoresLocalAndUnknown(t *testing.T) {
 		if updated {
 			t.Fatalf("expected updated=false for %q", name)
 		}
+	}
+}
+
+func newStaleRemoteController(t *testing.T, url string) *Controller {
+	t.Helper()
+	c := newUpdateTestController(t)
+	c.cfg.Profiles.AddConfig(config.ConfigRecord{
+		Name:                "sub",
+		URL:                 url,
+		Type:                "remote",
+		UpdateIntervalHours: 2,
+		LastUpdate:          config.Timestamp{Time: time.Now().Add(-3 * time.Hour)},
+	})
+	if err := c.manager.CreateLocalConfig("sub"); err != nil {
+		t.Fatal(err)
+	}
+	// PrepareConfig normally wires these before refreshActiveConfig runs.
+	c.manager.SetConfigURL(url)
+	c.manager.SetConfigName("sub")
+	return c
+}
+
+// A genuine download failure with a cached fallback must trigger the
+// download-failed hook (the GUI offers a retry through the core's proxy).
+// This regressed when downloadCancel() ran before the skip check, making
+// downloadCtx.Err() always non-nil and the hook unreachable.
+func TestRefreshActiveConfigReportsDownloadFailure(t *testing.T) {
+	c := newStaleRemoteController(t, "http://127.0.0.1:1/sub")
+
+	var gotName string
+	var gotErr error
+	c.OnConfigDownloadFailed = func(name string, err error) { gotName, gotErr = name, err }
+
+	if err := c.refreshActiveConfig(context.Background()); err != nil {
+		t.Fatalf("refreshActiveConfig: %v", err)
+	}
+	if gotName != "sub" || gotErr == nil {
+		t.Fatalf("expected the download-failed hook for sub, got name=%q err=%v", gotName, gotErr)
+	}
+}
+
+// A user skip (the "skip" button of the config-update phase) falls back to
+// the cached config silently — it is not a failure and must not trigger the
+// download-failed hook.
+func TestRefreshActiveConfigSkipDoesNotReport(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done() // hang until the client goes away
+	}))
+	defer srv.Close()
+
+	c := newStaleRemoteController(t, srv.URL)
+
+	hookCalled := false
+	c.OnConfigDownloadFailed = func(string, error) { hookCalled = true }
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		c.SkipConfigDownload()
+	}()
+	if err := c.refreshActiveConfig(context.Background()); err != nil {
+		t.Fatalf("refreshActiveConfig: %v", err)
+	}
+	if hookCalled {
+		t.Fatal("a user skip must not trigger the download-failed hook")
 	}
 }

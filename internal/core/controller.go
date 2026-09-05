@@ -296,6 +296,9 @@ func (c *Controller) refreshActiveConfig(ctx context.Context) error {
 	c.downloadCancel = downloadCancel
 	c.downloadMu.Unlock()
 	data, err := c.manager.UpdateConfig(downloadCtx)
+	// A user skip cancels downloadCtx while the parent ctx stays alive; decide
+	// before downloadCancel() below makes downloadCtx.Err() always non-nil.
+	skipped := err != nil && ctx.Err() == nil && downloadCtx.Err() != nil
 	downloadCancel()
 	c.downloadMu.Lock()
 	c.downloadCancel = nil
@@ -308,7 +311,7 @@ func (c *Controller) refreshActiveConfig(ctx context.Context) error {
 		}
 		// A skipped download falls back to the cached config like a failed
 		// one, but says so in the log.
-		if downloadCtx.Err() != nil {
+		if skipped {
 			c.terminal.TInfof("core.controller.config_update_skipped")
 		}
 		// The network backend already logs the download failure with context.
@@ -318,7 +321,7 @@ func (c *Controller) refreshActiveConfig(ctx context.Context) error {
 		c.terminal.TInfof("core.controller.using_existing_config")
 		// A genuine download failure (not a user skip) with a cached fallback:
 		// let the GUI offer a retry through the running core's proxy.
-		if c.OnConfigDownloadFailed != nil && downloadCtx.Err() == nil {
+		if c.OnConfigDownloadFailed != nil && !skipped {
 			c.OnConfigDownloadFailed(active.Name, err)
 		}
 		return nil
