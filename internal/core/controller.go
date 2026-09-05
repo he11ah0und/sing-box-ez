@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/he11ah0und/logger"
@@ -48,6 +49,12 @@ type Controller struct {
 	privileges *PrivilegeController
 	apiInfo    *api.Info
 	apiClient  api.CoreAPIClient
+
+	// configUpdateMu serializes config downloads (start flow, background
+	// auto-update, manual update) so a second updater re-checks staleness
+	// after the first one finishes instead of downloading the same profile
+	// twice and triggering a redundant restart.
+	configUpdateMu sync.Mutex
 }
 
 // NewController creates a new controller and wires framework services.
@@ -212,26 +219,8 @@ func (c *Controller) PrepareConfig(ctx context.Context) (*config.ConfigRecord, e
 		return active, nil
 	}
 
-	if active.ShouldUpdate() || !c.HasCachedConfig(active.Name) || (c.cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool() && c.IsConfigHashMismatch(active.Name)) {
-		c.terminal.TInfof("core.controller.config_updating")
-		data, err := c.manager.UpdateConfig(ctx)
-		if err != nil {
-			// A cancelled start must not fall back to the cached config:
-			// the user aborted, the core must not come up.
-			if ctx.Err() != nil {
-				return nil, ErrStartCancelled
-			}
-			// The network backend already logs the download failure with context.
-			if !c.HasCachedConfig(active.Name) {
-				return nil, errors.New("no config available")
-			}
-			c.terminal.TInfof("core.controller.using_existing_config")
-		} else {
-			c.saveConfigHash(active.Name, data)
-			c.cfg.SetLastUpdateFor(active.Name, time.Now())
-			_ = c.cfg.Save()
-			c.terminal.TInfof("core.controller.config_update_finished")
-		}
+	if err := c.refreshActiveConfig(ctx); err != nil {
+		return nil, err
 	}
 
 	if active.Hash == "" && c.HasCachedConfig(active.Name) {
@@ -241,6 +230,76 @@ func (c *Controller) PrepareConfig(ctx context.Context) (*config.ConfigRecord, e
 	}
 
 	return active, nil
+}
+
+// refreshActiveConfig downloads the active remote config when it is due. The
+// due check runs again under the config update lock, so a concurrent
+// background or manual update that already refreshed the profile makes the
+// start flow skip its own download.
+func (c *Controller) refreshActiveConfig(ctx context.Context) error {
+	c.configUpdateMu.Lock()
+	defer c.configUpdateMu.Unlock()
+
+	active := c.cfg.GetActiveConfig()
+	if active == nil {
+		return ErrNoActiveConfig
+	}
+	if active.IsLocal() {
+		return nil
+	}
+	if !active.ShouldUpdate() && c.HasCachedConfig(active.Name) &&
+		!(c.cfg.MustGet("updates", "auto_update_on_hash_mismatch").Bool() && c.IsConfigHashMismatch(active.Name)) {
+		return nil
+	}
+
+	c.terminal.TInfof("core.controller.config_updating")
+	data, err := c.manager.UpdateConfig(ctx)
+	if err != nil {
+		// A cancelled start must not fall back to the cached config:
+		// the user aborted, the core must not come up.
+		if ctx.Err() != nil {
+			return ErrStartCancelled
+		}
+		// The network backend already logs the download failure with context.
+		if !c.HasCachedConfig(active.Name) {
+			return errors.New("no config available")
+		}
+		c.terminal.TInfof("core.controller.using_existing_config")
+		return nil
+	}
+	c.saveConfigHash(active.Name, data)
+	c.cfg.SetLastUpdateFor(active.Name, time.Now())
+	_ = c.cfg.Save()
+	c.terminal.TInfof("core.controller.config_update_finished")
+	return nil
+}
+
+// UpdateConfigIfDue downloads the named remote config only when it is still
+// due (auto-update interval elapsed, or hash mismatch when enabled) at the
+// moment the config update lock is acquired. An updater that finds the
+// profile already refreshed by a concurrent start flow or manual update skips
+// the download and reports updated=false.
+func (c *Controller) UpdateConfigIfDue(name string, autoUpdate, onHashMismatch bool) (bool, error) {
+	c.configUpdateMu.Lock()
+	defer c.configUpdateMu.Unlock()
+
+	rec := c.cfg.GetConfigByName(name)
+	if rec == nil || rec.IsLocal() {
+		return false, nil
+	}
+	due := (autoUpdate && rec.ShouldUpdate()) || (onHashMismatch && c.IsConfigHashMismatch(name))
+	if !due {
+		return false, nil
+	}
+
+	c.terminal.TInfof("core.controller.config_updating")
+	if err := c.DownloadConfigFor(name, rec.URL); err != nil {
+		return false, fmt.Errorf("update failed: %w", err)
+	}
+	c.cfg.SetLastUpdateFor(name, time.Now())
+	_ = c.cfg.Save()
+	c.terminal.TInfof("core.controller.config_updated", name)
+	return true, nil
 }
 
 func (c *Controller) Start() error {

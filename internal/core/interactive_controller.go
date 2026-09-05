@@ -224,6 +224,13 @@ func (ic *InteractiveController) CancelStart() {
 	}
 }
 
+// StartInFlight reports whether a StartService flow is currently running.
+func (ic *InteractiveController) StartInFlight() bool {
+	ic.startMu.Lock()
+	defer ic.startMu.Unlock()
+	return ic.startCancel != nil
+}
+
 // reportPhase forwards the start-flow stage to the UI callback, if set.
 func (ic *InteractiveController) reportPhase(phase string) {
 	if ic.OnPhaseChange != nil {
@@ -375,6 +382,18 @@ func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRe
 }
 
 func (ic *InteractiveController) tryUpdateConfig(cfg *config.ConfigRecord, active *config.ConfigRecord, autoUpdateConfigs, autoUpdateOnHashMismatch bool) bool {
+	if ic.Controller != nil {
+		// The due check repeats under the controller's config update lock:
+		// a start flow or manual update that already refreshed the profile
+		// makes this a no-op instead of a redundant download + restart.
+		updated, err := ic.Controller.UpdateConfigIfDue(cfg.Name, autoUpdateConfigs, autoUpdateOnHashMismatch)
+		if err != nil {
+			// The network backend already logs the failure with context.
+			return false
+		}
+		return updated && active != nil && cfg.Name == active.Name
+	}
+
 	needsUpdate := autoUpdateConfigs && cfg.ShouldUpdate()
 	needsHashUpdate := autoUpdateOnHashMismatch && ic.backend.IsConfigHashMismatch(cfg.Name)
 	if !needsUpdate && !needsHashUpdate {
@@ -396,7 +415,17 @@ func (ic *InteractiveController) onActiveConfigUpdated() {
 	if !ic.backend.Config().MustGet("updates", "auto_restart_on_config_update").Bool() || !ic.backend.IsRunning() {
 		return
 	}
+	// A start in flight already loads the freshest config via PrepareConfig;
+	// restarting now would tear down the API the UI just connected to.
+	if ic.StartInFlight() {
+		ic.backend.Terminal().TInfof("core.interactive.auto_restart_skipped_start_in_flight")
+		return
+	}
 	ic.backend.Terminal().TInfof("core.interactive.active_config_updated_restarting")
+	// Report the restart as a phase so the UI shows "restarting" instead of an
+	// unexplained drop back to waiting_api.
+	ic.reportPhase(state.PhaseRestarting)
+	defer ic.reportPhase("")
 	if err := ic.backend.Restart(); err != nil {
 		_ = ic.backend.Terminal().TErrorf("core.auto_restart_failed", err)
 	}

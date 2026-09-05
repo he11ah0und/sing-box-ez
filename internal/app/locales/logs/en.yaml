@@ -65,6 +65,7 @@ core:
     stop_failed: "Failed to stop: %v"
     auto_updating_config: "Auto-updating config: %s"
     active_config_updated_restarting: "Active config updated, restarting core..."
+    auto_restart_skipped_start_in_flight: "Active config updated while a start is in flight, skipping auto-restart"
   log_override:
     save_failed: "failed to save core log level: %v"
     updated: "Core log level updated"
