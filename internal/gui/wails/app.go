@@ -552,9 +552,12 @@ func (b *Bindings) GetAppLogs() []string {
 	return b.app.Controller.GetLogLines()
 }
 
-// GetCoreLogs returns the latest sing-box core log lines.
+// GetCoreLogs returns the latest sing-box core log lines. Raw lines (with
+// ANSI escapes) are returned so the debug page can render them with the
+// same colors as the live log:core event stream; plain-text consumers
+// (clipboard copy) use GetCoreLogCleanLines.
 func (b *Bindings) GetCoreLogs() []string {
-	return b.app.Controller.GetCoreLogCleanLines()
+	return b.app.Controller.GetCoreLogLines()
 }
 
 // ClearAppLogs clears the application log buffer.
