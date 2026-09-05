@@ -15,6 +15,7 @@ url="https://github.com/he11ah0und/sing-box-ez"
 license=('custom')
 depends=('webkitgtk-6.0' 'gtk4')
 makedepends=('git' 'go' 'nodejs' 'npm')
+options=('!debug')
 source=("sing-box-ez::git+file:///mnt/local1/work/code/sing-box-ez#branch=wails-migration"
         "sing-box-ez.desktop"
         # build/appicon.png is gitignored, so the package ships its own copy.
