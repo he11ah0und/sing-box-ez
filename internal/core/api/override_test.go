@@ -59,8 +59,11 @@ func TestApplyOverrideSingBoxAPI(t *testing.T) {
 	if svc["type"] != "api" {
 		t.Fatalf("unexpected service type: %v", svc["type"])
 	}
-	if svc["listen"] != "127.0.0.1:19090" {
+	if svc["listen"] != "127.0.0.1" {
 		t.Fatalf("unexpected listen: %v", svc["listen"])
+	}
+	if svc["listen_port"] != float64(19090) {
+		t.Fatalf("unexpected listen_port: %v", svc["listen_port"])
 	}
 
 	parser, _ := singboxconfig.NewConfigParserForVersion("1.14.0")

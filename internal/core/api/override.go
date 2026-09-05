@@ -61,7 +61,7 @@ func ApplyOverride(data []byte, version, host string, port int, secret string) (
 	out, _, err := parser.Override(data, func(tree map[string]any) bool {
 		switch backend {
 		case BackendSingBox:
-			applySingBoxAPI(tree, addr, secret)
+			applySingBoxAPI(tree, host, port, secret)
 		default:
 			applyClashAPI(tree, addr, secret)
 		}
@@ -82,12 +82,13 @@ func applyClashAPI(tree map[string]any, addr, secret string) {
 	}
 }
 
-func applySingBoxAPI(tree map[string]any, addr, secret string) {
+func applySingBoxAPI(tree map[string]any, host string, port int, secret string) {
 	services := getOrCreateSlice(tree, "services")
 	services = append(services, map[string]any{
-		"type":   "api",
-		"listen": addr,
-		"secret": secret,
+		"type":        "api",
+		"listen":      host,
+		"listen_port": port,
+		"secret":      secret,
 	})
 	tree["services"] = services
 }
