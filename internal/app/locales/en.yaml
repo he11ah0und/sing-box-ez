@@ -104,6 +104,7 @@ connection_details:
 core:
   pick_version: Choose version…
   change_source: Change source…
+  change_channel: Change channel…
   prerelease: pre-release
   external_managed: The core is managed outside the app (system/custom source)
   update:
@@ -241,6 +242,10 @@ settings:
       custom_path: Custom core binary path
       browse_custom_path: Choose the core binary…
       system_not_found: System-wide sing-box not found (checked PATH and standard install locations)
+      channel:
+        label: Core release channel
+        stable: Stable
+        beta: Beta
     url_test_url: URL-test URL
     log:
       level:

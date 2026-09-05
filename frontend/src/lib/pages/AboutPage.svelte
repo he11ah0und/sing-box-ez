@@ -47,6 +47,7 @@
     ListCoreVersions,
     IsCoreManaged,
     SetCoreSourceMode,
+    SetConfigValues,
     CancelUpdate,
     OpenDataDir,
     OpenProjectURL,
@@ -74,6 +75,8 @@
   let showVersionPicker = $state(false);
   let showSourcePicker = $state(false);
   let sourceBusy = $state(false);
+  let showChannelPicker = $state(false);
+  let channelBusy = $state(false);
   let coreVersions = $state<CoreRelease[]>([]);
   let versionsLoading = $state(false);
   // Downloads run in a modal: set to the updater whose transfer is active.
@@ -124,12 +127,16 @@
     'core.update.installing',
     'core.pick_version',
     'core.change_source',
+    'core.change_channel',
     'core.prerelease',
     'core.external_managed',
     'settings.core.source.mode.label',
     'settings.core.source.mode.official',
     'settings.core.source.mode.system',
     'settings.core.source.mode.custom',
+    'settings.core.source.channel.label',
+    'settings.core.source.channel.stable',
+    'settings.core.source.channel.beta',
     'about.channel.external_managed',
     'about.channel.external_hint'
   ]);
@@ -346,6 +353,31 @@
       sourceBusy = false;
     }
   }
+
+  // The core release channel (core.source.channel) only applies to the
+  // managed core; it lives in the config like the source mode does.
+  const coreChannel = $derived(($appState.settings?.['core.source.channel'] as string) || 'stable');
+  const coreChannels = ['stable', 'beta'] as const;
+
+  function coreChannelLabel(ch: string): string {
+    return ch === 'beta' ? L.settingsCoreSourceChannelBeta : L.settingsCoreSourceChannelStable;
+  }
+
+  async function setCoreChannel(ch: string) {
+    if (channelBusy || ch === coreChannel) return;
+    channelBusy = true;
+    try {
+      await SetConfigValues({ 'core.source.channel': ch });
+      // Re-resolve the latest version for the new channel.
+      const core = await GetCoreInfo();
+      appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, ...core } }));
+      showChannelPicker = false;
+    } catch {
+      // The backend already reported the failure with a toast.
+    } finally {
+      channelBusy = false;
+    }
+  }
 </script>
 
 {#snippet appUpdaterBody(u: UpdaterEntry)}
@@ -430,6 +462,17 @@
         {L.coreChange_source}
       </Button>
     </div>
+    {#if coreManaged}
+      <!-- The channel only matters while the app manages the core. -->
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-sm text-muted-foreground">
+          {L.settingsCoreSourceChannelLabel}: {coreChannelLabel(coreChannel)}
+        </p>
+        <Button variant="outline" size="sm" onclick={() => showChannelPicker = true}>
+          {L.coreChange_channel}
+        </Button>
+      </div>
+    {/if}
     {#if !coreLoaded}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Skeleton class="h-[76px] w-full rounded-xl" />
@@ -691,6 +734,31 @@
           onclick={() => setCoreSource(mode)}
         >
           {coreSourceLabel(mode)} {#if mode === coreSourceMode}✓{/if}
+        </button>
+      {/each}
+    </div>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Core release channel picker: stable tracks the latest stable release,
+     beta also considers pre-releases. Managed (official) cores only. -->
+<Dialog.Root open={showChannelPicker} onOpenChange={(open) => { if (!open) showChannelPicker = false; }}>
+  <Dialog.Content>
+    <Dialog.Header>
+      <Dialog.Title>{L.settingsCoreSourceChannelLabel}</Dialog.Title>
+    </Dialog.Header>
+    <div class="flex flex-col gap-2">
+      {#each coreChannels as ch (ch)}
+        <button
+          class={cn(
+            'w-full text-left px-4 py-3 rounded-xl border border-border bg-secondary hover:bg-accent transition',
+            ch === coreChannel && 'text-primary',
+            channelBusy && 'opacity-50 pointer-events-none'
+          )}
+          disabled={channelBusy}
+          onclick={() => setCoreChannel(ch)}
+        >
+          {coreChannelLabel(ch)} {#if ch === coreChannel}✓{/if}
         </button>
       {/each}
     </div>

@@ -104,6 +104,7 @@ connection_details:
 core:
   pick_version: 选择版本…
   change_source: 更改来源…
+  change_channel: 切换渠道…
   prerelease: 预发布
   external_managed: 核心由外部管理（系统/自定义来源）
   update:
@@ -241,6 +242,10 @@ settings:
       custom_path: 自定义核心二进制文件路径
       browse_custom_path: 选择核心二进制文件…
       system_not_found: 未找到系统级 sing-box（已检查 PATH 和标准安装位置）
+      channel:
+        label: 核心发布渠道
+        stable: 稳定版
+        beta: 测试版
     url_test_url: URL 测试地址
     log:
       level:

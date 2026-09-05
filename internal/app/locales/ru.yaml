@@ -104,6 +104,7 @@ connection_details:
 core:
   pick_version: Выбрать версию…
   change_source: Изменить источник…
+  change_channel: Сменить канал…
   prerelease: пре-релиз
   external_managed: Ядро управляется вне приложения (системный/свой источник)
   update:
@@ -241,6 +242,10 @@ settings:
       custom_path: Путь к своему бинарнику ядра
       browse_custom_path: Выбрать бинарник ядра…
       system_not_found: Системный sing-box не найден (проверены PATH и стандартные пути установки)
+      channel:
+        label: Канал релизов ядра
+        stable: Стабильный
+        beta: Бета
     url_test_url: URL для URL-теста
     log:
       level:

@@ -91,6 +91,11 @@
     if (e.path === 'core.source.custom_path' || e.path === 'core.source.browse_custom_path') {
       return form['core.source.mode'] === 'custom';
     }
+    // The release channel only applies while the app manages the core.
+    if (e.path === 'core.source.channel') {
+      const mode = form['core.source.mode'];
+      return !mode || mode === 'official';
+    }
     return true;
   }
 
