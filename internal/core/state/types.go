@@ -112,6 +112,11 @@ type Update struct {
 	// ConnGroups aggregates Connections by target; inactive groups are kept
 	// until the configured retention elapses.
 	ConnGroups []ConnectionGroup `json:"connGroups"`
+	// Session counts API connection sessions: it increments every time the
+	// poller enters the connected phase. Frontends use it to reset
+	// per-session data (graph history) even when intermediate phase events
+	// were dropped (hidden window event gating).
+	Session uint64 `json:"session"`
 }
 
 // Info describes the runtime connection parameters for the active core API.

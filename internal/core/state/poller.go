@@ -59,6 +59,10 @@ type Poller struct {
 	history []TrafficPoint
 	state   Update
 	phase   string
+	// session counts API connection sessions (process start/restart); the
+	// frontend uses it to reset per-session data like the graph history even
+	// when the phase events in between were dropped (hidden window).
+	session uint64
 
 	// connHistory retains per-connection traffic rate samples keyed by
 	// connection ID; connLast holds the last totals snapshot used to derive
@@ -381,6 +385,10 @@ func (p *Poller) handleEvent(ctx context.Context, ev *api.StatusEvent) {
 		next.Connections = toConnections(conns, rates)
 		next.ConnGroups = connGroups
 	}
+	if p.phase != PhaseConnected {
+		p.session++
+	}
+	next.Session = p.session
 	p.state = next
 	p.phase = PhaseConnected
 	p.mu.Unlock()

@@ -74,20 +74,33 @@ interface StyleCheckPayload {
 }
 
 // applyApiState stores the latest backend-pushed core API snapshot.
+// A session change (core (re)start) resets the traffic graph history; the
+// session counter survives the hidden-window event gating that drops the
+// intermediate phase events.
 function applyApiState(data: APIStateUpdate | null | undefined) {
-  appState.update((s) => ({
-    ...s,
-    api: {
-      phase: data?.phase ?? 'stopped',
-      status: data?.status ?? null,
-      info: data?.info ?? null,
-      mode: data?.mode ?? '',
-      modeList: data?.modeList ?? [],
-      groups: data?.groups ?? [],
-      connections: data?.connections ?? [],
-      connGroups: data?.connGroups ?? []
-    }
-  }));
+  appState.update((s) => {
+    // Phase-only updates carry session 0: keep the last known session.
+    const incoming = data?.session ?? 0;
+    const sessionChanged = incoming !== 0 && s.api.session !== 0 && incoming !== s.api.session;
+    const session = incoming !== 0 ? incoming : s.api.session;
+    return {
+      ...s,
+      api: {
+        phase: data?.phase ?? 'stopped',
+        status: data?.status ?? null,
+        info: data?.info ?? null,
+        mode: data?.mode ?? '',
+        modeList: data?.modeList ?? [],
+        groups: data?.groups ?? [],
+        connections: data?.connections ?? [],
+        connGroups: data?.connGroups ?? [],
+        session
+      },
+      traffic: sessionChanged
+        ? { ...s.traffic, history: { times: [], up: [], down: [] } }
+        : s.traffic
+    };
+  });
 }
 
 function showNotification(data: NotificationPayload) {
@@ -243,6 +256,25 @@ export function initWailsEvents(): Promise<unknown> {
   Events.On('traffic:updated', (event: WailsEvent<TrafficPayload>) => {
     const data = event.data ?? {};
     appState.update((s) => {
+      // The session ended (stop/restart): drop the retained samples so the
+      // graph starts empty instead of stitching the dead session to the next.
+      if (data.connected === false) {
+        return {
+          ...s,
+          traffic: {
+            ...s.traffic,
+            up: 0,
+            down: 0,
+            upTotal: 0,
+            downTotal: 0,
+            upRate: '0 B/s',
+            downRate: '0 B/s',
+            connected: false,
+            connections: 0,
+            history: { times: [], up: [], down: [] }
+          }
+        };
+      }
       const maxPoints = Math.max(2, s.settings?.['core.traffic_graph_history'] || 60);
       const times = [...s.traffic.history.times, Date.now()].slice(-maxPoints);
       const upHistory = [...s.traffic.history.up, data.up ?? 0].slice(-maxPoints);

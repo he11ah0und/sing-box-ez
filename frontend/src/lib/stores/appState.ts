@@ -91,6 +91,9 @@ export interface ApiState {
   // connGroups aggregates connections by target; inactive groups are kept
   // until the configured retention elapses.
   connGroups: APIConnectionGroup[];
+  // session counts core API connection sessions; a change means the core
+  // was (re)started and per-session data must reset.
+  session: number;
 }
 
 export interface AppState {
@@ -147,7 +150,7 @@ export const appState = writable<AppState>({
   selfUpdate: { downloading: false, downloadProgress: 0 },
   styleCheck: null,
   selfUpdateInfo: null,
-  api: { phase: 'stopped', status: null, info: null, mode: '', modeList: [], groups: [], connections: [], connGroups: [] }
+  api: { phase: 'stopped', status: null, info: null, mode: '', modeList: [], groups: [], connections: [], connGroups: [], session: 0 }
 });
 
 export function appendAppLog(line: string) {
