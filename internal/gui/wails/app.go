@@ -813,6 +813,9 @@ func (w *WailsApp) Run() error {
 	ic.OnConfigUpdate = func() {
 		bindings.emitConfigsChanged()
 	}
+	ic.OnConfigsUpdateFailed = func(failures []core.ConfigUpdateFailure) {
+		bindings.emit("configs:update_failed", failures)
+	}
 	ic.OnVersionChange = func(ver string) {
 		bindings.emit("core:version", map[string]string{"installed": ver})
 	}

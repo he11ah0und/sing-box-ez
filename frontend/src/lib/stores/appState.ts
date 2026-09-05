@@ -126,6 +126,10 @@ export interface AppState {
   // externally managed build (AUR, ...) failed to verify its own version —
   // App shows a blocking danger dialog with Quit / Continue anyway.
   updateChannelError: { channel: string; error: string } | null;
+  // configsUpdateFailed is set by the configs:update_failed event: every
+  // config due for a background refresh failed to download — App shows a
+  // dialog listing the configs with the classified failure reason.
+  configsUpdateFailed: { name: string; kind: string }[] | null;
   api: ApiState;
 }
 
@@ -164,6 +168,7 @@ export const appState = writable<AppState>({
   styleCheck: null,
   selfUpdateInfo: null,
   updateChannelError: null,
+  configsUpdateFailed: null,
   api: { phase: 'stopped', status: null, info: null, mode: '', modeList: [], groups: [], connections: [], connGroups: [], session: 0 }
 });
 

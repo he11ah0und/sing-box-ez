@@ -120,11 +120,11 @@ lua:
   install_script_failed: "install script failed: %v"
 net:
   request: "%s %s"
-  request_failed: "%s %s failed: %v"
+  request_failed: "%s %s failed: %w"
   request_status: "%s %s returned %s: %s"
   get: "GET %s"
   create_request: "create request for %s: %v"
-  get_failed: "GET %s failed: %v"
+  get_failed: "GET %s failed: %w"
   get_status: "GET %s returned %s: %s"
   download_failed: "download %s failed: %v"
   downloading: "downloading %s → %s"

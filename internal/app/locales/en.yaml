@@ -415,6 +415,14 @@ dialog:
 
       The app cannot verify its own version and cannot update itself. Continuing means running a binary of unverified provenance that will never update — it is safer to quit and reinstall via {{channel}}.'
     btn_continue: Continue anyway
+  configs_update_failed:
+    title: Config update failed
+    body: 'Could not refresh any of the configs due for an update ({{count}}). Check your internet connection.'
+    kind_refused: connection refused
+    kind_timeout: connection timed out
+    kind_dns: DNS resolution failed
+    kind_http: server returned an error
+    kind_other: unknown error
   orphan_configs:
     title: Leftover config files
     body: '{{count}} cached file(s) remain from removed configs:'

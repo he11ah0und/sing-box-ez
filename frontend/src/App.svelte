@@ -86,6 +86,23 @@
     }
   }
 
+  function closeConfigsUpdateFailed() {
+    appState.update((s) => ({ ...s, configsUpdateFailed: null }));
+  }
+
+  const kindKeys: Record<string, string> = {
+    refused: 'dialog.configs_update_failed.kind_refused',
+    timeout: 'dialog.configs_update_failed.kind_timeout',
+    dns: 'dialog.configs_update_failed.kind_dns',
+    http: 'dialog.configs_update_failed.kind_http'
+  };
+
+  function failureKindLabel(kind: string): string {
+    const key = kindKeys[kind] ?? 'dialog.configs_update_failed.kind_other';
+    const value = R2[key];
+    return value !== undefined && value !== key ? value : kind;
+  }
+
   function orphanDate(o: OrphanedConfig): string {
     if (!o.modTime) return '—';
     const d = new Date(o.modTime);
@@ -129,8 +146,17 @@
   const styleCheckTitle = $derived.by(() => styleText('title'));
   const styleCheckBody = $derived.by(() => styleText('body'));
 
+  const R2 = useLocaleRecord([
+    'dialog.configs_update_failed.kind_refused',
+    'dialog.configs_update_failed.kind_timeout',
+    'dialog.configs_update_failed.kind_dns',
+    'dialog.configs_update_failed.kind_http',
+    'dialog.configs_update_failed.kind_other'
+  ]);
+
   const L = useLocale([
     'common.cancel',
+    'common.close',
     'common.quit',
     'configs.btn.delete',
     'dialog.config_style.btn.ignore',
@@ -143,7 +169,9 @@
     'dialog.channel_error.btn_continue',
     'dialog.orphan_configs.title',
     'dialog.orphan_configs.body',
-    'dialog.orphan_configs.btn_keep'
+    'dialog.orphan_configs.btn_keep',
+    'dialog.configs_update_failed.title',
+    'dialog.configs_update_failed.body'
   ]);
 
   // The channel-error dialog is not dismissible by click-away/Escape: the
@@ -292,6 +320,32 @@
         </Button>
         <Button variant="destructive" disabled={orphanDeleting} onclick={deleteOrphanedConfigs}>
           {L.configsBtnDelete}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
+
+{#if $appState.configsUpdateFailed && $appState.configsUpdateFailed.length > 0}
+  <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) closeConfigsUpdateFailed(); }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title class="text-destructive">{L.dialogConfigs_update_failedTitle}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {format(L.dialogConfigs_update_failedBody, { count: $appState.configsUpdateFailed.length })}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <ul class="max-h-60 overflow-auto divide-y divide-border rounded-xl border border-border">
+        {#each $appState.configsUpdateFailed as failure (failure.name)}
+          <li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+            <span class="font-medium truncate">{failure.name}</span>
+            <span class="text-muted-foreground shrink-0">{failureKindLabel(failure.kind)}</span>
+          </li>
+        {/each}
+      </ul>
+      <AlertDialog.Footer>
+        <Button variant="outline" onclick={closeConfigsUpdateFailed}>
+          {L.commonClose}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

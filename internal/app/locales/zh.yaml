@@ -415,6 +415,14 @@ dialog:
 
       应用无法验证自身版本，也无法自行更新。继续使用意味着运行来源未经验证且永远不会更新的二进制文件 — 建议退出并通过 {{channel}} 重新安装。'
     btn_continue: 仍要继续
+  configs_update_failed:
+    title: 配置更新失败
+    body: '所有待更新的配置（{{count}} 个）均无法下载。请检查网络连接。'
+    kind_refused: 连接被拒绝
+    kind_timeout: 连接超时
+    kind_dns: DNS 解析失败
+    kind_http: 服务器返回错误
+    kind_other: 未知错误
   orphan_configs:
     title: 残留的配置文件
     body: '已删除的配置仍有 {{count}} 个缓存文件：'

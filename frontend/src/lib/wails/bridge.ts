@@ -73,6 +73,12 @@ interface StyleCheckPayload {
   style?: string;
 }
 
+// Mirrors core.ConfigUpdateFailure; kind is one of refused/timeout/dns/http/other.
+interface ConfigUpdateFailurePayload {
+  name?: string;
+  kind?: string;
+}
+
 // applyApiState stores the latest backend-pushed core API snapshot.
 // A session change (core (re)start) resets the traffic graph history; the
 // session counter survives the hidden-window event gating that drops the
@@ -208,6 +214,15 @@ export function initWailsEvents(): Promise<unknown> {
       ...s,
       configs: data.configs ?? s.configs,
       activeConfig: data.active ?? s.activeConfig
+    }));
+  });
+
+  Events.On('configs:update_failed', (event: WailsEvent<ConfigUpdateFailurePayload[]>) => {
+    const failures = (event.data ?? []).filter((f) => f?.name);
+    if (failures.length === 0) return;
+    appState.update((s) => ({
+      ...s,
+      configsUpdateFailed: failures.map((f) => ({ name: f.name ?? '', kind: f.kind ?? 'other' }))
     }));
   });
 

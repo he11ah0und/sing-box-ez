@@ -17,6 +17,13 @@ import (
 	"sing-box-ez/internal/framework/version"
 )
 
+// ConfigUpdateFailure describes one config that failed its background update.
+type ConfigUpdateFailure struct {
+	Name string `json:"name"`
+	// Kind is one of the Failure* constants (refused/timeout/dns/http/other).
+	Kind string `json:"kind"`
+}
+
 // InteractiveController wraps Backend with GUI-specific callbacks and background loops.
 type InteractiveController struct {
 	// backend is the core backend used for all operations.
@@ -55,6 +62,9 @@ type InteractiveController struct {
 	// Phase* constants in internal/core/state) so the UI can show granular
 	// progress while StartService runs.
 	OnPhaseChange func(phase string)
+	// OnConfigsUpdateFailed is invoked after a background config update run in
+	// which every due config failed to download (e.g. no direct connectivity).
+	OnConfigsUpdateFailed func(failures []ConfigUpdateFailure)
 
 	stopped bool
 	stopMu  sync.Mutex
@@ -356,32 +366,53 @@ func (ic *InteractiveController) checkAllConfigs() {
 	}
 
 	active := ic.backend.GetActiveConfig()
-	activeUpdated := ic.updateOutdatedConfigs(configs, active)
+	activeUpdated, failures := ic.updateOutdatedConfigs(configs, active)
 
 	if activeUpdated {
 		ic.onActiveConfigUpdated()
 	}
+	// Notify the UI only when every config that was due for an update failed:
+	// partial failures are already logged per config and stay silent.
+	if len(failures) > 0 && ic.OnConfigsUpdateFailed != nil {
+		ic.OnConfigsUpdateFailed(failures)
+	}
 }
 
-func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRecord, active *config.ConfigRecord) bool {
+func (ic *InteractiveController) updateOutdatedConfigs(configs []config.ConfigRecord, active *config.ConfigRecord) (bool, []ConfigUpdateFailure) {
 	autoUpdateConfigs := ic.backend.Config().MustGet("updates", "auto_update_configs").Bool()
 	autoUpdateOnHashMismatch := ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool()
 
 	activeUpdated := false
+	var failures []ConfigUpdateFailure
+	dueCount := 0
 	for i := range configs {
 		cfg := &configs[i]
 		if cfg.IsLocal() {
 			continue
 		}
-		updated := ic.tryUpdateConfig(cfg, active, autoUpdateConfigs, autoUpdateOnHashMismatch)
+		attempted, updated, err := ic.tryUpdateConfig(cfg, active, autoUpdateConfigs, autoUpdateOnHashMismatch)
+		if !attempted {
+			continue
+		}
+		dueCount++
+		if err != nil {
+			failures = append(failures, ConfigUpdateFailure{Name: cfg.Name, Kind: DownloadErrorKind(err)})
+			continue
+		}
 		if updated {
 			activeUpdated = true
 		}
 	}
-	return activeUpdated
+	// Only an across-the-board wipeout is worth a dialog.
+	if dueCount == 0 || len(failures) < dueCount {
+		return activeUpdated, nil
+	}
+	return activeUpdated, failures
 }
 
-func (ic *InteractiveController) tryUpdateConfig(cfg *config.ConfigRecord, active *config.ConfigRecord, autoUpdateConfigs, autoUpdateOnHashMismatch bool) bool {
+// tryUpdateConfig reports whether an update was attempted at all (the config
+// was due), whether the attempt refreshed the active profile, and the failure.
+func (ic *InteractiveController) tryUpdateConfig(cfg *config.ConfigRecord, active *config.ConfigRecord, autoUpdateConfigs, autoUpdateOnHashMismatch bool) (attempted, activeUpdated bool, err error) {
 	if ic.Controller != nil {
 		// The due check repeats under the controller's config update lock:
 		// a start flow or manual update that already refreshed the profile
@@ -389,23 +420,26 @@ func (ic *InteractiveController) tryUpdateConfig(cfg *config.ConfigRecord, activ
 		updated, err := ic.Controller.UpdateConfigIfDue(cfg.Name, autoUpdateConfigs, autoUpdateOnHashMismatch)
 		if err != nil {
 			// The network backend already logs the failure with context.
-			return false
+			return true, false, err
 		}
-		return updated && active != nil && cfg.Name == active.Name
+		if !updated {
+			return false, false, nil
+		}
+		return true, active != nil && cfg.Name == active.Name, nil
 	}
 
 	needsUpdate := autoUpdateConfigs && cfg.ShouldUpdate()
 	needsHashUpdate := autoUpdateOnHashMismatch && ic.backend.IsConfigHashMismatch(cfg.Name)
 	if !needsUpdate && !needsHashUpdate {
-		return false
+		return false, false, nil
 	}
 
 	ic.backend.Terminal().TInfof("core.interactive.auto_updating_config", cfg.Name)
 	if err := ic.backend.UpdateConfigNow(cfg.Name, cfg.URL); err != nil {
 		// The download/network backend already logs the failure with context.
-		return false
+		return true, false, err
 	}
-	return active != nil && cfg.Name == active.Name
+	return true, active != nil && cfg.Name == active.Name, nil
 }
 
 func (ic *InteractiveController) onActiveConfigUpdated() {
