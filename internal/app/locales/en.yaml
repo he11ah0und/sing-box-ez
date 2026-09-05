@@ -198,6 +198,8 @@ configs:
     done: Config updated
   recreate:
     done: Config file recreated
+  orphans:
+    deleted: Leftover config files deleted
 validation:
   ok: No deprecated or removed fields detected.
   summary_errors: Found {{errors}} critical errors and {{warnings}} warnings.
@@ -232,6 +234,8 @@ settings:
         error: Error
     traffic_graph_history: Traffic graph history
     connections_retention: Keep inactive connections (min)
+  configs:
+    delete_cache_on_remove: Delete cached file when removing a config
   log:
     limit: 'Log limit (lines, 0=unlimited):'
   ui:
@@ -410,8 +414,11 @@ dialog:
 
 
       The app cannot verify its own version and cannot update itself. Continuing means running a binary of unverified provenance that will never update — it is safer to quit and reinstall via {{channel}}.'
-    btn_quit: Quit
     btn_continue: Continue anyway
+  orphan_configs:
+    title: Leftover config files
+    body: 'Cached files remain for removed configs: {{names}}'
+    btn_keep: Keep
   privileges:
     title: Privileges Required
     msg_linux: 'sing-box needs elevated privileges to create the TUN device.
@@ -495,7 +502,6 @@ tray:
   menu:
     show: Show
     minimize: Minimize
-    quit: Quit
 locale:
   name: English
 common:
@@ -511,3 +517,4 @@ common:
   system: System
   debug: Debug
   info: Info
+  quit: Quit

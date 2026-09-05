@@ -11,6 +11,7 @@ import {
   Palette,
   RefreshCw,
   Cog,
+  FileCog,
   Gauge,
   Waypoints,
   ArrowLeftRight
@@ -77,6 +78,7 @@ export const pageRegistry: PageMeta[] = [
       // core/system reuse the existing generic keys (same labels) to avoid
       // duplicate locale values; the rest use the settings.tab.* convention.
       { id: 'core', key: 'tab.core', icon: Cpu },
+      { id: 'configs', key: 'tab.configs', icon: FileCog },
       { id: 'log', key: 'settings.tab.log', icon: ScrollText },
       { id: 'ui', key: 'settings.tab.ui', icon: Palette },
       { id: 'updates', key: 'settings.tab.updates', icon: RefreshCw },

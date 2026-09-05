@@ -9,6 +9,7 @@ import fwconfig "github.com/he11ah0und/config"
 // straight to the sheet and stay in sync with the rest of the app.
 type Accessor struct {
 	Core    *CoreAccessor
+	Configs *ConfigsAccessor
 	Log     *LogAccessor
 	UI      *UIAccessor
 	Updates *UpdatesAccessor
@@ -33,6 +34,10 @@ type CoreLogAccessor struct {
 
 type CoreProxyAccessor struct {
 	Enabled *fwconfig.Cell
+}
+
+type ConfigsAccessor struct {
+	DeleteCacheOnRemove *fwconfig.Cell
 }
 
 type LogAccessor struct {
@@ -94,6 +99,9 @@ func NewAccessor(sheet *fwconfig.Sheet) *Accessor {
 			Proxy: &CoreProxyAccessor{
 				Enabled: sheet.MustGet("core", "proxy", "enabled"),
 			},
+		},
+		Configs: &ConfigsAccessor{
+			DeleteCacheOnRemove: sheet.MustGet("configs", "delete_cache_on_remove"),
 		},
 		Log: &LogAccessor{
 			Level: sheet.MustGet("log", "level"),

@@ -378,6 +378,16 @@ func (m *Manager) RenameConfigFile(oldName, newName string) error {
 	return m.fsys.Root().File(oldPath).Rename(filepath.Base(newPath))
 }
 
+// DeleteConfigFile removes the cached config file for the given name. A
+// missing file is not an error.
+func (m *Manager) DeleteConfigFile(name string) error {
+	f := m.fsys.Root().File(m.cachedConfig(name))
+	if !f.Exists() {
+		return nil
+	}
+	return f.Remove()
+}
+
 func (m *Manager) CheckCoreUpdate(ctx context.Context) (*updater.UpdateInfo, error) {
 	if m.updater == nil {
 		return nil, fmt.Errorf("core updater not configured")

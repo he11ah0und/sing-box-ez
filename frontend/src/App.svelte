@@ -6,7 +6,7 @@
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
   import { signalLocaleReady, useLocale, useLocaleRecord, format } from '@he11ah0und/localengine-web';
-  import { GetTheme, SetFallbackType, QuitApp } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import { GetTheme, SetFallbackType, QuitApp, GetOrphanedConfigs, DeleteOrphanedConfigs } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import { currentLevel, enterSubNav, setSubTab, setRootPage } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
   import Shell from '$lib/components/Shell.svelte';
@@ -20,6 +20,10 @@
 
   let ActivePage = $state<Component | null>(null);
   let loadToken = 0;
+  // Cached config files left behind by deleted profiles; shown once per
+  // launch in a dialog offering to remove them.
+  let orphanedConfigs = $state<string[]>([]);
+  let orphanDeleting = $state(false);
 
   $effect(() => {
     const id = $currentLevel.id;
@@ -51,6 +55,13 @@
       Promise.allSettled([seeds, themeSeed]).then(() => {
         appState.update((s) => ({ ...s, ready: true }));
       });
+      // One-shot startup scan for config cache leftovers; the dialog offers
+      // to delete or keep them.
+      GetOrphanedConfigs()
+        .then((list) => {
+          if (list && list.length > 0) orphanedConfigs = list;
+        })
+        .catch(() => {});
       tick().then(() => setTimeout(signalLocaleReady, 0));
     } catch (err) {
       console.error('Failed to init Wails events:', err);
@@ -60,6 +71,18 @@
 
   function closeDialog() {
     appState.update((s) => ({ ...s, dialog: null }));
+  }
+
+  async function deleteOrphanedConfigs() {
+    orphanDeleting = true;
+    try {
+      await DeleteOrphanedConfigs(orphanedConfigs);
+      orphanedConfigs = [];
+    } catch {
+      // The backend already reported the failure with a toast.
+    } finally {
+      orphanDeleting = false;
+    }
   }
 
   function clearStyleCheck() {
@@ -101,6 +124,8 @@
 
   const L = useLocale([
     'common.cancel',
+    'common.quit',
+    'configs.btn.delete',
     'dialog.config_style.btn.ignore',
     'dialog.config_style.btn.to_client',
     'dialog.privileges_required.title',
@@ -108,8 +133,10 @@
     'dialog.privileges_required.btn_settings',
     'dialog.channel_error.title',
     'dialog.channel_error.body',
-    'dialog.channel_error.btn_quit',
-    'dialog.channel_error.btn_continue'
+    'dialog.channel_error.btn_continue',
+    'dialog.orphan_configs.title',
+    'dialog.orphan_configs.body',
+    'dialog.orphan_configs.btn_keep'
   ]);
 
   // The channel-error dialog is not dismissible by click-away/Escape: the
@@ -228,7 +255,28 @@
           {L.dialogChannel_errorBtn_continue}
         </Button>
         <Button variant="destructive" onclick={() => QuitApp()}>
-          {L.dialogChannel_errorBtn_quit}
+          {L.commonQuit}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
+
+{#if orphanedConfigs.length > 0}
+  <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) orphanedConfigs = []; }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>{L.dialogOrphan_configsTitle}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {format(L.dialogOrphan_configsBody, { names: orphanedConfigs.join(', ') })}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <Button variant="outline" onclick={() => (orphanedConfigs = [])}>
+          {L.dialogOrphan_configsBtn_keep}
+        </Button>
+        <Button variant="destructive" disabled={orphanDeleting} onclick={deleteOrphanedConfigs}>
+          {L.configsBtnDelete}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

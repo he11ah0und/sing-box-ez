@@ -198,6 +198,8 @@ configs:
     done: 配置已更新
   recreate:
     done: 配置文件已重新创建
+  orphans:
+    deleted: 残留的配置文件已删除
 validation:
   ok: 未检测到已弃用或已删除的字段。
   summary_errors: 发现 {{errors}} 个严重错误和 {{warnings}} 个警告。
@@ -232,6 +234,8 @@ settings:
         error: 错误
     traffic_graph_history: 流量图表历史
     connections_retention: 保留非活动连接（分钟）
+  configs:
+    delete_cache_on_remove: 删除配置时同时删除缓存文件
   log:
     limit: 日志行数限制（0=无限制）：
   ui:
@@ -410,8 +414,11 @@ dialog:
 
 
       应用无法验证自身版本，也无法自行更新。继续使用意味着运行来源未经验证且永远不会更新的二进制文件 — 建议退出并通过 {{channel}} 重新安装。'
-    btn_quit: 退出
     btn_continue: 仍要继续
+  orphan_configs:
+    title: 残留的配置文件
+    body: '已删除的配置仍有缓存文件：{{names}}'
+    btn_keep: 保留
   privileges:
     title: 需要权限
     msg_linux: 'sing-box 需要提升的权限来创建 TUN 设备。
@@ -494,7 +501,6 @@ tray:
   menu:
     show: 显示
     minimize: 最小化
-    quit: 退出
 locale:
   name: 中文
 common:
@@ -510,3 +516,4 @@ common:
   system: 系统
   debug: 调试
   info: 信息
+  quit: 退出

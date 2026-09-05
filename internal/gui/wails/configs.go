@@ -176,6 +176,26 @@ func (b *Bindings) ConfigNameAvailable(name, exclude string) bool {
 	return b.app.Controller.ConfigNameAvailable(name, exclude)
 }
 
+// GetOrphanedConfigs lists cached config files that no longer have a matching
+// profile (leftovers from deleted profiles).
+func (b *Bindings) GetOrphanedConfigs() []string {
+	return b.app.Controller.OrphanedConfigs()
+}
+
+// DeleteOrphanedConfigs removes the cached files of the named orphan entries
+// and reports the result with a toast.
+func (b *Bindings) DeleteOrphanedConfigs(names []string) error {
+	for _, name := range names {
+		if err := b.app.Controller.DeleteCachedConfig(name); err != nil {
+			b.toastErr(err)
+			return err
+		}
+	}
+	b.emitConfigsChanged()
+	b.toastT("success", []string{"configs", "orphans", "deleted"})
+	return nil
+}
+
 // PickConfigFile opens the native file picker to choose a source file for a
 // local profile. It returns the selected path, or an empty string when the
 // dialog was cancelled or is unavailable.

@@ -144,7 +144,7 @@ func (t *Tray) buildMenu() *systray.Menu {
 		menu.Add(startStopLabel, startStopAction)
 		menu.AddSeparator()
 	}
-	menu.Add(localengine.T("tray", "menu", "quit"), t.quit)
+	menu.Add(localengine.T("common", "quit"), t.quit)
 	return menu
 }
 

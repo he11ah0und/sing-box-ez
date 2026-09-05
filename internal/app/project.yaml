@@ -44,6 +44,13 @@ config:
         default: true
         control: switch
 
+  configs:
+    # Remove the cached config file together with the profile on delete.
+    delete_cache_on_remove:
+      type: bool
+      default: true
+      control: switch
+
   log:
     # Rendered by a custom UI block (not shown in the settings UI).
     level:

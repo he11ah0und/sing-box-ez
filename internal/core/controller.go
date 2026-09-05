@@ -781,8 +781,41 @@ func (c *Controller) EditConfig(oldName string, rec config.ConfigRecord) error {
 func (c *Controller) DeleteConfig(name string) error {
 	c.cfg.RemoveConfig(name)
 	_ = c.cfg.Save()
+	if c.cfg.MustGet("configs", "delete_cache_on_remove").Bool() {
+		// The scoped FS logs removal failures itself.
+		if err := c.manager.DeleteConfigFile(name); err != nil {
+			return fmt.Errorf("delete cached config file: %w", err)
+		}
+	}
 	c.terminal.TInfof("core.controller.config_deleted", name)
 	return nil
+}
+
+// DeleteCachedConfig removes the cached config file of the named profile or
+// orphan without touching the profiles list.
+func (c *Controller) DeleteCachedConfig(name string) error {
+	return c.manager.DeleteConfigFile(name)
+}
+
+// OrphanedConfigs lists cached config file names (without extension) that
+// have no matching profile — leftovers from deleted profiles.
+func (c *Controller) OrphanedConfigs() []string {
+	entries, err := c.fwApp.FS.Root().Subdir("configs").ReadDir()
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		profile := strings.TrimSuffix(name, ".json")
+		if c.cfg.GetConfigByName(profile) == nil {
+			out = append(out, profile)
+		}
+	}
+	return out
 }
 
 func (c *Controller) ActivateConfig(name string) error {
