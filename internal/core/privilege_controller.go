@@ -1,6 +1,7 @@
 package core
 
 import (
+	"os"
 	"runtime"
 
 	"github.com/he11ah0und/localengine"
@@ -56,7 +57,8 @@ func NewPrivilegeController(cfg *config.AppConfig, manager *Manager, parent *log
 func (c *PrivilegeController) HasRequiredPrivileges() bool {
 	switch runtime.GOOS {
 	case "linux":
-		return HasNetAdminCapability(c.manager.coreBinary())
+		// A root-run app needs no file capabilities on the core binary.
+		return os.Geteuid() == 0 || HasNetAdminCapability(c.manager.coreBinary())
 	case "windows":
 		return IsAdmin()
 	default:

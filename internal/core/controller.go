@@ -31,6 +31,10 @@ var (
 	ErrNoActiveConfig = errors.New("no active config. Please add and activate a config in the Configs tab")
 	// ErrStartCancelled marks a start flow aborted by the user (CancelStart).
 	ErrStartCancelled = errors.New("start cancelled")
+	// ErrPrivilegesRequired marks a start refused because the config needs
+	// elevated OS privileges (tun/redirect/tproxy inbound) the app does not
+	// have: setcap on the core binary (Linux) or an admin restart (Windows).
+	ErrPrivilegesRequired = errors.New("config requires elevated privileges (tun/transparent inbound): apply setcap to the core binary (Linux) or restart as administrator (Windows)")
 )
 
 // Controller is the core application API used by both CLI and GUI.
@@ -248,6 +252,12 @@ func (c *Controller) Start() error {
 	data, err = c.applyOverrides(data, active)
 	if err != nil {
 		return err
+	}
+	// Refuse early when the final config needs OS privileges the app lacks;
+	// otherwise the core spawns and dies on a late, opaque tun setup error.
+	if tree, terr := inboundstyle.ParseTree(data); terr == nil &&
+		inboundstyle.NeedsPrivileges(tree) && !c.privileges.HasRequiredPrivileges() {
+		return ErrPrivilegesRequired
 	}
 	if err := c.manager.StartWithConfig(data); err != nil {
 		return err

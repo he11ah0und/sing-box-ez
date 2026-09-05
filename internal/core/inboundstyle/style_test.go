@@ -63,6 +63,29 @@ func TestApplyOverrideProxyOff(t *testing.T) {
 	}
 }
 
+func TestNeedsPrivileges(t *testing.T) {
+	cases := []struct {
+		name string
+		tree map[string]any
+		want bool
+	}{
+		{"no_inbounds", map[string]any{}, false},
+		{"mixed", map[string]any{"inbounds": []any{map[string]any{"type": "mixed"}}}, false},
+		{"http_socks", map[string]any{"inbounds": []any{map[string]any{"type": "http"}, map[string]any{"type": "socks"}}}, false},
+		{"tun", map[string]any{"inbounds": []any{map[string]any{"type": "mixed"}, map[string]any{"type": "tun"}}}, true},
+		{"redirect", map[string]any{"inbounds": []any{map[string]any{"type": "redirect"}}}, true},
+		{"tproxy", map[string]any{"inbounds": []any{map[string]any{"type": "tproxy"}}}, true},
+		{"garbage", map[string]any{"inbounds": "nope"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NeedsPrivileges(tc.tree); got != tc.want {
+				t.Fatalf("NeedsPrivileges() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestApplyOverrideToClient(t *testing.T) {
 	tree := map[string]any{
 		"inbounds": []any{

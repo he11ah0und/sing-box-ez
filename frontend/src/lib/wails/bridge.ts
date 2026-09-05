@@ -370,6 +370,11 @@ export function initWailsEvents(): Promise<unknown> {
     }));
   });
 
+  // A start was refused: the config needs privileges the app lacks.
+  Events.On('privileges:required', () => {
+    appState.update((s) => ({ ...s, privilegesRequired: true }));
+  });
+
   Events.On('selfupdate:progress', (event: WailsEvent<UpdateProgressPayload>) => {
     const data = event.data ?? {};
     const total = data.total ?? 0;

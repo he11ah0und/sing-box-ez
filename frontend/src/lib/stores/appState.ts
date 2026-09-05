@@ -114,6 +114,10 @@ export interface AppState {
   logs: LogsState;
   traffic: TrafficState;
   dialog: DialogPayload | null;
+  // privilegesRequired is set by the privileges:required event: a start was
+  // refused because the config needs setcap/admin; App shows a dialog that
+  // leads to the privilege settings.
+  privilegesRequired: boolean;
   startup: StartupState;
   selfUpdate: SelfUpdateState;
   styleCheck: StyleCheckState | null;
@@ -150,6 +154,7 @@ export const appState = writable<AppState>({
     history: { times: [], up: [], down: [] }
   },
   dialog: null,
+  privilegesRequired: false,
   startup: { show: false, options: [], selected: null },
   selfUpdate: { downloading: false, downloadProgress: 0 },
   styleCheck: null,

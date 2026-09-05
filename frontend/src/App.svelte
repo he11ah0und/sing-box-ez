@@ -7,11 +7,11 @@
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
   import { signalLocaleReady, useLocale, useLocaleRecord } from '@he11ah0und/localengine-web';
   import { GetTheme, SetFallbackType } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
-  import { currentLevel } from '$lib/stores/navigation.js';
+  import { currentLevel, enterSubNav, setSubTab, setRootPage } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
   import Shell from '$lib/components/Shell.svelte';
   import StartupPage from '$lib/pages/StartupPage.svelte';
-  import { loadPage } from '$lib/pages/index.js';
+  import { loadPage, pageRegistry } from '$lib/pages/index.js';
   import { Toaster } from '$lib/components/ui/sonner/index.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
@@ -102,8 +102,25 @@
   const L = useLocale([
     'common.cancel',
     'dialog.config_style.btn.ignore',
-    'dialog.config_style.btn.to_client'
+    'dialog.config_style.btn.to_client',
+    'dialog.privileges_required.title',
+    'dialog.privileges_required.body',
+    'dialog.privileges_required.btn_settings'
   ]);
+
+  function closePrivilegesDialog() {
+    appState.update((s) => ({ ...s, privilegesRequired: false }));
+  }
+
+  // Leads to the settings tab that fixes the missing privilege (setcap on
+  // Linux, restart-as-admin on Windows).
+  function openPrivilegeSettings() {
+    closePrivilegesDialog();
+    const settings = pageRegistry.find((p) => p.id === 'settings');
+    enterSubNav('settings', settings?.tabs ?? []);
+    setSubTab('system');
+    setRootPage('settings');
+  }
 </script>
 
 <Tooltip.Provider>
@@ -155,6 +172,27 @@
         </Button>
         <Button onclick={() => resolveStyleCheck($appState.styleCheck!, 'to_client')}>
           {L.dialogConfig_styleBtnTo_client}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
+
+{#if $appState.privilegesRequired}
+  <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) closePrivilegesDialog(); }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>{L.dialogPrivileges_requiredTitle}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {L.dialogPrivileges_requiredBody}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <Button variant="outline" onclick={closePrivilegesDialog}>
+          {L.commonCancel}
+        </Button>
+        <Button onclick={openPrivilegeSettings}>
+          {L.dialogPrivileges_requiredBtn_settings}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

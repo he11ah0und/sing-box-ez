@@ -59,6 +59,32 @@ func DetectFromConfig(tree map[string]any) Style {
 	return Detect(inbounds)
 }
 
+// NeedsPrivileges reports whether the config contains inbounds that require
+// elevated OS privileges to operate: tun (creates a network interface) and
+// the Linux transparent-proxy types redirect/tproxy (CAP_NET_ADMIN). Plain
+// listener inbounds (mixed/http/socks) only bind local ports and need none.
+func NeedsPrivileges(tree map[string]any) bool {
+	raw, ok := tree["inbounds"]
+	if !ok {
+		return false
+	}
+	inbounds, ok := raw.([]any)
+	if !ok {
+		return false
+	}
+	for _, item := range inbounds {
+		in, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch t, _ := in["type"].(string); t {
+		case "tun", "redirect", "tproxy":
+			return true
+		}
+	}
+	return false
+}
+
 // ApplyOverride mutates the config tree according to the proxy toggle and fallback type.
 func ApplyOverride(tree map[string]any, proxyEnabled bool, fallbackType string) error {
 	switch fallbackType {

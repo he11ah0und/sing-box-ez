@@ -390,6 +390,10 @@ dialog:
     btn:
       ignore: Run anyway
       to_client: Convert to client
+  privileges_required:
+    title: Elevated privileges required
+    body: The config uses a TUN (or transparent proxy) inbound, which requires elevated privileges. Apply setcap to the core binary (Linux) or restart the app as administrator (Windows) in the settings.
+    btn_settings: Open settings
   privileges:
     title: Privileges Required
     msg_linux: 'sing-box needs elevated privileges to create the TUN device.

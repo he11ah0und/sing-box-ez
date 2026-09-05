@@ -390,6 +390,10 @@ dialog:
     btn:
       ignore: 仍要启动
       to_client: 转换为 client
+  privileges_required:
+    title: 需要提升的权限
+    body: 配置使用了 TUN（或透明代理）inbound，需要提升的权限。请在设置中为内核二进制文件应用 setcap（Linux）或以管理员身份重启应用（Windows）。
+    btn_settings: 打开设置
   privileges:
     title: 需要权限
     msg_linux: 'sing-box 需要提升的权限来创建 TUN 设备。

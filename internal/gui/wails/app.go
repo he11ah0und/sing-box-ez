@@ -201,6 +201,12 @@ func (b *Bindings) Start() error {
 		if errors.Is(err, core.ErrStartCancelled) {
 			return nil
 		}
+		// Missing privileges for a tun/transparent config: the frontend shows
+		// a dialog that leads to the privilege settings instead of a toast.
+		if errors.Is(err, core.ErrPrivilegesRequired) {
+			b.emit("privileges:required", struct{}{})
+			return nil
+		}
 		b.toastErr(err, "main", "btn", "start")
 	}
 	return err
