@@ -25,6 +25,11 @@ pkgver() {
 
 prepare() {
   cd "$pkgname"
+  # frontend depends on "@he11ah0und/localengine-web": "file:../../localengine/web"
+  # — a sibling checkout outside the repo. For local verification link the
+  # sibling into the srcdir; before AUR publication the package must be
+  # published to npm or vendored into the repo instead.
+  ln -sfn /mnt/local1/work/code/localengine "$srcdir/localengine"
   # The Makefile expects the wails3 CLI matching go.mod in GOPATH/bin.
   export PATH="$(go env GOPATH)/bin:$PATH"
   go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
