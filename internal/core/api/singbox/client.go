@@ -149,7 +149,7 @@ func (c *Client) URLTest(ctx context.Context, group, testURL string, timeout tim
 
 // SubscribeStatus implements api.CoreAPIClient.
 func (c *Client) SubscribeStatus(ctx context.Context, interval time.Duration) (<-chan *api.StatusEvent, func(), error) {
-	stream, err := c.started.SubscribeStatus(c.ctx(ctx), &pb.SubscribeStatusRequest{Interval: int64(interval / time.Millisecond)})
+	stream, err := c.started.SubscribeStatus(c.ctx(ctx), &pb.SubscribeStatusRequest{Interval: int64(interval)})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -188,7 +188,7 @@ func (c *Client) SubscribeStatus(ctx context.Context, interval time.Duration) (<
 
 // SubscribeConnections implements api.CoreAPIClient.
 func (c *Client) SubscribeConnections(ctx context.Context, interval time.Duration) (<-chan *api.ConnectionEvent, func(), error) {
-	stream, err := c.started.SubscribeConnections(c.ctx(ctx), &pb.SubscribeConnectionsRequest{Interval: int64(interval / time.Millisecond)})
+	stream, err := c.started.SubscribeConnections(c.ctx(ctx), &pb.SubscribeConnectionsRequest{Interval: int64(interval)})
 	if err != nil {
 		return nil, nil, err
 	}
