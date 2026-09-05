@@ -30,6 +30,12 @@ prepare() {
   # sibling into the srcdir; before AUR publication the package must be
   # published to npm or vendored into the repo instead.
   ln -sfn /mnt/local1/work/code/localengine "$srcdir/localengine"
+  # go.mod overrides three modules via replace to sibling checkouts
+  # (../logger, ../localengine, ../projectspec) — same problem on the Go
+  # side. Before AUR publication the replaces must go (pin released module
+  # versions); locally we link the siblings in.
+  ln -sfn /mnt/local1/work/code/logger "$srcdir/logger"
+  ln -sfn /mnt/local1/work/code/projectspec "$srcdir/projectspec"
   # The Makefile expects the wails3 CLI matching go.mod in GOPATH/bin.
   export PATH="$(go env GOPATH)/bin:$PATH"
   go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
