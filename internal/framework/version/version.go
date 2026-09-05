@@ -6,6 +6,10 @@ import (
 )
 
 var (
+	// Version is the semver of the build, injected from the VERSION file via
+	// ldflags (without the leading "v"). Empty for builds made outside the
+	// Makefile.
+	Version   = ""
 	Branch    = "unknown"
 	BuildDate = "unknown"
 	Commit    = "unknown"
@@ -19,18 +23,31 @@ var (
 	CommitDate    = "unknown"
 )
 
+// Tag returns the release tag for this build ("v"+Version), or "" when the
+// build carries no semver.
+func Tag() string {
+	if Version == "" || Version == "unknown" {
+		return ""
+	}
+	return "v" + Version
+}
+
 func Info() string {
 	bd := buildDateString()
+	label := Branch
+	if Tag() != "" {
+		label = Tag()
+	}
 	switch {
 	case bd == "":
 		if Commit == "unknown" || Commit == "" {
-			return Branch
+			return label
 		}
-		return fmt.Sprintf("%s (%s)", Branch, Commit)
+		return fmt.Sprintf("%s (%s)", label, Commit)
 	case Commit == "unknown" || Commit == "":
-		return fmt.Sprintf("%s (%s)", Branch, bd)
+		return fmt.Sprintf("%s (%s)", label, bd)
 	default:
-		return fmt.Sprintf("%s (%s %s)", Branch, bd, Commit)
+		return fmt.Sprintf("%s (%s %s)", label, bd, Commit)
 	}
 }
 

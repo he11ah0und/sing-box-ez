@@ -218,7 +218,7 @@
 
   async function fetchReleaseNotes() {
     try {
-      const body = await GetReleaseNotes(version?.commit || 'latest');
+      const body = await GetReleaseNotes(version?.versionTag || version?.commit || 'latest');
       releaseNotes = body;
       showNotes = true;
     } catch {
@@ -227,7 +227,7 @@
   }
 
   async function openReleaseNotes() {
-    const tag = version?.commit || 'latest';
+    const tag = version?.versionTag || version?.commit || 'latest';
     await OpenReleaseURL(tag);
   }
 
@@ -249,6 +249,9 @@
         {L.aboutBtnSwitch_branch}
       </Button>
     </div>
+    {#if version?.isDev}
+      <p class="text-sm text-primary">{L.aboutDev_buildLabel}</p>
+    {/if}
     <div class="flex flex-wrap gap-3">
       <Button
         disabled={checking || installing}
@@ -358,6 +361,7 @@
         </Card.Header>
         <Card.Content class="space-y-3">
           <p class="text-sm text-muted-foreground">
+            {#if version.version}v{version.version} · {/if}
             {L.aboutCommit_infoPrefix} {version.branch}
             {#if version.commit}, {version.commit}{/if}
             {#if version.commitDate}, {version.commitDate}{/if}

@@ -163,6 +163,31 @@ func TestCommitsMatch(t *testing.T) {
 	}
 }
 
+func TestSameRelease(t *testing.T) {
+	tests := []struct {
+		name string
+		a    string
+		b    string
+		want bool
+	}{
+		{"semver equal", "v0.1.0", "v0.1.0", true},
+		{"semver different patch", "v0.1.1", "v0.1.0", false},
+		{"semver prerelease differs", "v0.1.0-testing.abc1234", "v0.1.0", false},
+		{"semver vs hash", "v0.1.0", "eb6db22", false},
+		{"legacy hash prefix", "eb6db22e67e2c4ff043e3e66559eba0ab61d1660", "eb6db22", true},
+		{"legacy hash different", "eb6db22", "4cce75f", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sameRelease(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("sameRelease(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGitHubBackendToReleaseVersionFallback(t *testing.T) {
 	b := &GitHubBackend{}
 

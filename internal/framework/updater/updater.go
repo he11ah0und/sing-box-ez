@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"strings"
 
+	"golang.org/x/mod/semver"
+
 	"sing-box-ez/internal/framework/version"
 )
 
@@ -100,7 +102,7 @@ func updateInfoFrom(release Release, current string, tags []string, useFallback 
 	if current == "" {
 		current = currentVersionLabel("")
 	}
-	if commitsMatch(release.Version, current) {
+	if sameRelease(release.Version, current) {
 		return &UpdateInfo{Current: current, Latest: current, ReleaseCount: 0}, nil
 	}
 
@@ -122,10 +124,12 @@ func updateInfoFrom(release Release, current string, tags []string, useFallback 
 	return info, nil
 }
 
-// currentVersionLabel returns the current build commit if known, otherwise the
-// branch name. This makes update messages show "commit → commit" instead of
-// "branch → commit".
+// currentVersionLabel returns the current build version label: the semver tag
+// when the build carries one, else the commit, else the branch name.
 func currentVersionLabel(branch string) string {
+	if tag := version.Tag(); tag != "" {
+		return tag
+	}
 	if version.Commit != "" && version.Commit != "unknown" {
 		return version.Commit
 	}
@@ -157,6 +161,16 @@ func currentAssetTags(fallback bool) []string {
 		tags = append(tags, version.BuildBackend)
 	}
 	return tags
+}
+
+// sameRelease reports whether two version labels denote the same release.
+// Semver tags compare by semver equality; legacy hash builds fall back to
+// commit-prefix matching.
+func sameRelease(a, b string) bool {
+	if semver.IsValid(a) && semver.IsValid(b) {
+		return semver.Compare(a, b) == 0
+	}
+	return commitsMatch(a, b)
 }
 
 func commitsMatch(a, b string) bool {

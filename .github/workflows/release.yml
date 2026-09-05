@@ -14,7 +14,7 @@ jobs:
   prepare-release:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.commit.outputs.short }}
+      tag: ${{ steps.commit.outputs.tag }}
       body: ${{ steps.commit.outputs.message }}
       matrix: ${{ steps.matrix.outputs.json }}
     steps:
@@ -26,16 +26,34 @@ jobs:
       - name: Get commit info
         id: commit
         run: |
-          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          short=$(git rev-parse --short HEAD)
+          echo "short=$short" >> "$GITHUB_OUTPUT"
 
+          # The release tag comes from the VERSION file (single source of
+          # truth for the app semver), not from the commit hash.
+          version=$(cat VERSION)
           if [ "${{ github.ref_name }}" = "testing" ]; then
-            # For testing, base the changelog on the previous testing hash tag.
-            # Exclude the main 'latest' tag so testing release notes only
-            # include commits since the last testing build.
-            last_tag=$(git tag --list --sort=-creatordate --merged HEAD | grep -v -E '^(latest|latest-testing)$' | head -n 1)
+            # Testing releases are semver prereleases of the current VERSION.
+            tag="v${version}-testing.${short}"
+            # Base the changelog on the previous testing tag. Exclude the
+            # main 'latest' tag so testing release notes only include
+            # commits since the last testing build.
+            last_tag=$(git tag --list 'v*-testing.*' --sort=-creatordate --merged HEAD | head -n 1)
+            if [ -z "$last_tag" ]; then
+              last_tag=$(git tag --list --sort=-creatordate --merged HEAD | grep -v -E '^(latest|latest-testing|v[0-9])' | head -n 1)
+            fi
           else
-            last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            tag="v${version}"
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              echo "::error::Tag $tag already exists — bump the VERSION file"
+              exit 1
+            fi
+            last_tag=$(git tag --list 'v[0-9]*' --sort=-v:refname --merged HEAD | grep -v -- '-testing' | head -n 1)
+            if [ -z "$last_tag" ]; then
+              last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            fi
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if [ -n "$last_tag" ]; then
             range="${last_tag}..HEAD"
           else

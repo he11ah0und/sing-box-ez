@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/he11ah0und/localengine"
+	"golang.org/x/mod/semver"
 	"sing-box-ez/internal/framework/updater"
 	"sing-box-ez/internal/framework/util/openurl"
 	"sing-box-ez/internal/framework/version"
@@ -17,6 +18,8 @@ import (
 
 // VersionInfo holds build metadata for the about page.
 type VersionInfo struct {
+	Version     string `json:"version"`
+	VersionTag  string `json:"versionTag"`
 	Branch      string `json:"branch"`
 	Commit      string `json:"commit"`
 	CommitDate  string `json:"commitDate"`
@@ -93,6 +96,8 @@ func (b *Bindings) GetVersionInfo() VersionInfo {
 		buildDate = dt.Format("2006-01-02 15:04:05")
 	}
 	return VersionInfo{
+		Version:     version.Version,
+		VersionTag:  version.Tag(),
 		Branch:      version.Branch,
 		Commit:      version.Commit,
 		CommitDate:  commitDate,
@@ -156,9 +161,19 @@ func toSelfUpdateInfo(info *updater.UpdateInfo) SelfUpdateInfo {
 }
 
 // selfUpdateStatus reports whether the app is behind the latest release or
-// ahead of it (dev build). Ported from the Gio startupUpdateStatus.
+// ahead of it (dev build). Semver builds compare by version; legacy hash
+// builds fall back to commit-date comparison.
 func selfUpdateStatus(info *updater.UpdateInfo) (hasUpdate, isDevBuild bool) {
 	if info.ReleaseCount == 0 || info.Current == info.Latest {
+		return false, false
+	}
+	if semver.IsValid(info.Current) && semver.IsValid(info.Latest) {
+		switch semver.Compare(info.Latest, info.Current) {
+		case 1:
+			return true, false
+		case -1:
+			return false, true
+		}
 		return false, false
 	}
 	currentDate, err := version.CommitDateTime()

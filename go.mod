@@ -12,6 +12,7 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/wailsapp/wails/v3 v3.0.0-beta.16
 	github.com/yuin/gopher-lua v1.1.2
+	golang.org/x/mod v0.38.0
 	golang.org/x/sys v0.47.0
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12

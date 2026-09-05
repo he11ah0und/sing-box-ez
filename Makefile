@@ -32,7 +32,12 @@ GOARCH := $(ARCH)
 
 # On Windows with GUI, hide the console window.
 WIN_GUI_FLAG := $(if $(filter windows,$(GOOS)),-H windowsgui,)
+
+# App semver, single source of truth: the VERSION file at the repo root.
+VERSION ?= $(shell cat VERSION 2>/dev/null || echo "unknown")
+
 LDFLAGS := -s -w $(WIN_GUI_FLAG) \
+	-X 'sing-box-ez/internal/framework/version.Version=$(VERSION)' \
 	-X 'sing-box-ez/internal/framework/version.Branch=$(BRANCH)' \
 	-X 'sing-box-ez/internal/framework/version.BuildDate=$(BUILD_DATE)' \
 	-X 'sing-box-ez/internal/framework/version.Commit=$(BUILD_COMMIT)' \
@@ -44,6 +49,7 @@ LDFLAGS := -s -w $(WIN_GUI_FLAG) \
 	-X 'sing-box-ez/internal/framework/version.CommitDate=$(COMMIT_DATE)'
 
 NOGUI_LDFLAGS := -s -w \
+	-X 'sing-box-ez/internal/framework/version.Version=$(VERSION)' \
 	-X 'sing-box-ez/internal/framework/version.Branch=$(BRANCH)' \
 	-X 'sing-box-ez/internal/framework/version.BuildDate=$(BUILD_DATE)' \
 	-X 'sing-box-ez/internal/framework/version.Commit=$(BUILD_COMMIT)' \
