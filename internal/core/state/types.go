@@ -21,8 +21,10 @@ const (
 	PhasePreparingConfig = "preparing_config"
 	// PhaseCheckingConfig: the config style is being detected before start.
 	PhaseCheckingConfig = "checking_config"
-	// PhaseStarting: a start/restart was requested, the process is spawning.
+	// PhaseStarting: a start was requested, the process is spawning.
 	PhaseStarting = "starting"
+	// PhaseRestarting: a restart of a running core was requested.
+	PhaseRestarting = "restarting"
 	// PhaseStopping: a stop was requested, the process is shutting down.
 	PhaseStopping = "stopping"
 	// PhaseWaiting: the process is up but the API does not answer yet.

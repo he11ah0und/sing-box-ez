@@ -227,14 +227,17 @@ func (b *Bindings) Stop() error {
 	return nil
 }
 
-// Restart restarts the sing-box core.
+// Restart restarts the sing-box core. A success toast is shown because the
+// phase flash (connected → restarting → connected) can be shorter than a
+// poll tick and otherwise leaves no visible trace of the restart.
 func (b *Bindings) Restart() error {
-	b.setPhaseHint(state.PhaseStarting)
+	b.setPhaseHint(state.PhaseRestarting)
 	defer b.setPhaseHint("")
 	if err := b.app.Controller.Restart(); err != nil {
 		b.toastErr(err, "main", "btn", "restart")
 		return err
 	}
+	b.toastT("success", []string{"main", "btn", "restarted"})
 	return nil
 }
 

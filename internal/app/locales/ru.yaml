@@ -23,6 +23,7 @@ main:
     start: Старт
     stop: Стоп
     restart: Перезапуск
+    restarted: Ядро перезапущено
     switch: Переключить
   tabs:
     overview: Обзор
@@ -48,6 +49,7 @@ main:
     starting: Запуск…
     stopping: Остановка…
     waiting_api: Ожидание API…
+    restarting: Перезапуск…
   dashboard:
     upload: Отправка
     download: Приём

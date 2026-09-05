@@ -23,6 +23,7 @@ main:
     start: 启动
     stop: 停止
     restart: 重启
+    restarted: 内核已重启
     switch: 切换
   tabs:
     overview: 概览
@@ -48,6 +49,7 @@ main:
     starting: 启动中…
     stopping: 停止中…
     waiting_api: 等待 API…
+    restarting: 正在重启…
   dashboard:
     upload: 上传
     download: 下载

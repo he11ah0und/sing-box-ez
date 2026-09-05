@@ -23,6 +23,7 @@ main:
     start: Start
     stop: Stop
     restart: Restart
+    restarted: Core restarted
     switch: Switch
   tabs:
     overview: Overview
@@ -48,6 +49,7 @@ main:
     starting: Starting…
     stopping: Stopping…
     waiting_api: Waiting for API…
+    restarting: Restarting…
   dashboard:
     upload: Upload
     download: Download
