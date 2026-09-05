@@ -336,6 +336,10 @@ about:
     latest: '最新：'
     up_to_date: '已是最新版本'
     downloading: '正在下载…'
+    external_managed: 此构建由外部包管理器更新
+  channel:
+    external_managed: '更新由包管理器管理：{{channel}}'
+    external_hint: 更新检查取决于安装渠道 — 请在相应渠道（例如您的 AUR 助手或包管理器）中检查更新。
   release_notes:
     title: 发布说明
     error: 获取发布说明失败
@@ -394,6 +398,14 @@ dialog:
     title: 需要提升的权限
     body: 配置使用了 TUN（或透明代理）inbound，需要提升的权限。请在设置中为内核二进制文件应用 setcap（Linux）或以管理员身份重启应用（Windows）。
     btn_settings: 打开设置
+  channel_error:
+    title: 包管理器冲突
+    body: '此构建通过 {{channel}} 更新，但包管理器无法识别正在运行的二进制文件：{{error}}
+
+
+      应用无法验证自身版本，也无法自行更新。继续使用意味着运行来源未经验证且永远不会更新的二进制文件 — 建议退出并通过 {{channel}} 重新安装。'
+    btn_quit: 退出
+    btn_continue: 仍要继续
   privileges:
     title: 需要权限
     msg_linux: 'sing-box 需要提升的权限来创建 TUN 设备。

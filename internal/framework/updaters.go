@@ -31,7 +31,14 @@ func (a *App) buildUpdatersFromSpec(spec *projectspec.Spec, loadInstallScript fu
 		}
 		switch u.Apply.Backend {
 		case "self":
+			if !updater.SelfUpdateEnabled {
+				// Externally managed build (e.g. AUR package): the app cannot
+				// update itself, so no self-update manager is constructed.
+				continue
+			}
 			mgr.Apply = updater.NewSelfUpdateApply(mgr.Log, fs.NewOSWithLog(u.Apply.BaseDir, mgr.Log.Allocate("fs")))
+			// The self-update manager doubles as the package-level default.
+			updater.SetManager(mgr)
 		case "files":
 			apply := updater.NewFilesUpdateApply(mgr.Log, fs.NewOSWithLog(u.Apply.BaseDir, mgr.Log.Allocate("fs")))
 			apply.BaseDir = u.Apply.BaseDir

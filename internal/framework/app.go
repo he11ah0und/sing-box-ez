@@ -267,11 +267,11 @@ func NewApp(cfg Config) (*App, error) {
 		app.Updaters = updaters
 	} else if cfg.BuildUpdaters != nil {
 		app.Updaters = cfg.BuildUpdaters(app)
-	}
-	for _, mgr := range app.Updaters {
-		if mgr.Apply != nil {
-			updater.SetManager(mgr)
-			break
+		for _, mgr := range app.Updaters {
+			if mgr.Apply != nil {
+				updater.SetManager(mgr)
+				break
+			}
 		}
 	}
 

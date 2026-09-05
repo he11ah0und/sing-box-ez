@@ -579,6 +579,15 @@ func (b *Bindings) ResetData() error {
 	return nil
 }
 
+// QuitApp terminates the application. Used by the blocking channel-error
+// dialog shown when an externally managed build cannot verify its own
+// version.
+func (b *Bindings) QuitApp() {
+	if wailsAppInstance != nil {
+		wailsAppInstance.Quit()
+	}
+}
+
 // GetAppLogs returns the latest application log lines.
 func (b *Bindings) GetAppLogs() []string {
 	return b.app.Controller.GetLogLines()

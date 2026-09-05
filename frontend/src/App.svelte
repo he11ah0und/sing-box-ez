@@ -5,8 +5,8 @@
   import { RefreshCw } from '@lucide/svelte';
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
-  import { signalLocaleReady, useLocale, useLocaleRecord } from '@he11ah0und/localengine-web';
-  import { GetTheme, SetFallbackType } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import { signalLocaleReady, useLocale, useLocaleRecord, format } from '@he11ah0und/localengine-web';
+  import { GetTheme, SetFallbackType, QuitApp } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import { currentLevel, enterSubNav, setSubTab, setRootPage } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
   import Shell from '$lib/components/Shell.svelte';
@@ -105,8 +105,18 @@
     'dialog.config_style.btn.to_client',
     'dialog.privileges_required.title',
     'dialog.privileges_required.body',
-    'dialog.privileges_required.btn_settings'
+    'dialog.privileges_required.btn_settings',
+    'dialog.channel_error.title',
+    'dialog.channel_error.body',
+    'dialog.channel_error.btn_quit',
+    'dialog.channel_error.btn_continue'
   ]);
+
+  // The channel-error dialog is not dismissible by click-away/Escape: the
+  // user must pick Quit or Continue anyway explicitly.
+  function closeChannelError() {
+    appState.update((s) => ({ ...s, updateChannelError: null }));
+  }
 
   function closePrivilegesDialog() {
     appState.update((s) => ({ ...s, privilegesRequired: false }));
@@ -193,6 +203,32 @@
         </Button>
         <Button onclick={openPrivilegeSettings}>
           {L.dialogPrivileges_requiredBtn_settings}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
+
+{#if $appState.updateChannelError}
+  <AlertDialog.Root open={true}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title class="text-destructive">
+          {L.dialogChannel_errorTitle}
+        </AlertDialog.Title>
+        <AlertDialog.Description>
+          {format(L.dialogChannel_errorBody, {
+            channel: $appState.updateChannelError.channel,
+            error: $appState.updateChannelError.error
+          })}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <Button variant="outline" onclick={closeChannelError}>
+          {L.dialogChannel_errorBtn_continue}
+        </Button>
+        <Button variant="destructive" onclick={() => QuitApp()}>
+          {L.dialogChannel_errorBtn_quit}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

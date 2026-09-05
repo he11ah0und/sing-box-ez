@@ -375,6 +375,22 @@ export function initWailsEvents(): Promise<unknown> {
     appState.update((s) => ({ ...s, privilegesRequired: true }));
   });
 
+  // An externally managed build failed to verify its own version — blocking
+  // danger dialog (Quit / Continue anyway) rendered by App.
+  Events.On(
+    'update:channel_error',
+    (event: WailsEvent<{ channel?: { id?: string; name?: string }; error?: string }>) => {
+      const data = event.data ?? {};
+      appState.update((s) => ({
+        ...s,
+        updateChannelError: {
+          channel: data.channel?.name ?? data.channel?.id ?? '',
+          error: data.error ?? ''
+        }
+      }));
+    }
+  );
+
   Events.On('selfupdate:progress', (event: WailsEvent<UpdateProgressPayload>) => {
     const data = event.data ?? {};
     const total = data.total ?? 0;

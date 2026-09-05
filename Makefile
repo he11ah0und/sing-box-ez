@@ -26,6 +26,9 @@ OS       ?= $(shell go env GOOS)
 ARCH     ?= $(shell go env GOARCH)
 COMPILER ?= gcc
 PLUGINS  ?= 1
+# Update channel: empty = self-update from release sources; "aur" = the build
+# is managed by an external package manager and carries no self-update code.
+CHANNEL  ?=
 
 GOOS   := $(OS)
 GOARCH := $(ARCH)
@@ -63,10 +66,10 @@ NOGUI_LDFLAGS := -s -w \
 comma := ,
 empty :=
 space := $(empty) $(empty)
-TAG_LIST := $(if $(filter 0,$(PLUGINS)),noplugins,)
+TAG_LIST := $(if $(filter aur,$(CHANNEL)),aur,)$(if $(filter 0,$(PLUGINS)),noplugins,)
 BUILD_TAGS := $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 
-NOGUI_TAG_LIST := nogui$(if $(filter 0,$(PLUGINS)), noplugins,)
+NOGUI_TAG_LIST := nogui$(if $(filter aur,$(CHANNEL)), aur,)$(if $(filter 0,$(PLUGINS)), noplugins,)
 NOGUI_BUILD_TAGS := -tags "$(subst $(space),$(comma),$(strip $(NOGUI_TAG_LIST)))"
 
 EXT             := $(if $(filter windows,$(GOOS)),.exe,)
@@ -240,7 +243,7 @@ build:
 	cd frontend && npm run build
 	@echo "Building GUI binary..."
 	CGO_ENABLED=1 GOOS=$(GOOS) GOARCH=$(GOARCH) \
-		$(GO) build -trimpath -buildvcs=false -ldflags "$(LDFLAGS)" -o $(GUI_OUTPUT) .
+		$(GO) build -trimpath -buildvcs=false $(BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(GUI_OUTPUT) .
 	@echo "Built: $(GUI_OUTPUT)"
 
 build-nogui:

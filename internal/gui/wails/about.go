@@ -61,6 +61,26 @@ type UpdaterEntry struct {
 	InstallScript string   `json:"installScript"`
 }
 
+// GetUpdateChannel returns the update channel this build belongs to
+// (self-update or an external package manager, selected at compile time).
+func (b *Bindings) GetUpdateChannel() updater.ChannelInfo {
+	return updater.ActiveChannel()
+}
+
+// errExternalChannel is returned by self-update bindings on builds managed
+// by an external package manager.
+var errExternalChannel = errors.New("self-update is unavailable: this build is managed by an external package manager")
+
+// guardExternalChannel reports whether the self-update bindings must refuse
+// to run because the build is externally managed.
+func (b *Bindings) guardExternalChannel() error {
+	if !updater.ActiveChannel().External {
+		return nil
+	}
+	b.toastT("error", []string{"about", "update", "external_managed"})
+	return errExternalChannel
+}
+
 // GetUpdaters returns the updater definitions from the project spec so the
 // updates tab lists every update manager the app was built with.
 func (b *Bindings) GetUpdaters() []UpdaterEntry {
@@ -111,6 +131,9 @@ func (b *Bindings) GetVersionInfo() VersionInfo {
 
 // GetBranches returns the available release channels.
 func (b *Bindings) GetBranches() ([]UpdateChannel, error) {
+	if err := b.guardExternalChannel(); err != nil {
+		return nil, err
+	}
 	channels, err := b.ic.GetBranches()
 	if err != nil {
 		return nil, err
@@ -124,6 +147,9 @@ func (b *Bindings) GetBranches() ([]UpdateChannel, error) {
 
 // CheckSelfUpdate checks for an app update on the given branch.
 func (b *Bindings) CheckSelfUpdate(branch string) (SelfUpdateInfo, error) {
+	if err := b.guardExternalChannel(); err != nil {
+		return SelfUpdateInfo{}, err
+	}
 	info, err := b.ic.CheckSelfUpdateForBranch(branch)
 	if err != nil {
 		b.toastErr(err)
@@ -206,12 +232,32 @@ func normalizeCoreVersion(v string) string {
 // Each check respects its updates.auto_check_* setting and only reports an
 // available update; installation is always initiated by the user.
 func (b *Bindings) runUpdateChecks() {
+	b.verifyUpdateChannel()
 	b.checkSelfUpdateAvailable()
 	b.checkCoreUpdateAvailable()
 }
 
+// verifyUpdateChannel asks the active update channel to confirm the version
+// of the running binary. On externally managed builds (AUR, ...) a failure
+// means the packaged binary is not tracked by the package manager — the app
+// cannot update itself and its provenance is unverified — so the GUI warns
+// the user with a blocking danger dialog.
+func (b *Bindings) verifyUpdateChannel() {
+	channel := updater.ActiveChannel()
+	if !channel.External {
+		return
+	}
+	if _, err := updater.ChannelCurrentVersion(); err != nil {
+		b.app.Logger.Root.TErrorf("gui.channel_version_check_failed", err)
+		b.emit("update:channel_error", map[string]any{
+			"channel": channel,
+			"error":   err.Error(),
+		})
+	}
+}
+
 func (b *Bindings) checkSelfUpdateAvailable() {
-	if b.ic == nil {
+	if b.ic == nil || updater.ActiveChannel().External {
 		return
 	}
 	cfg := b.app.Controller.Config()
@@ -255,6 +301,9 @@ func (b *Bindings) checkCoreUpdateAvailable() {
 
 // InstallSelfUpdate downloads and installs the latest app update for a branch.
 func (b *Bindings) InstallSelfUpdate(branch string) error {
+	if err := b.guardExternalChannel(); err != nil {
+		return err
+	}
 	u := b.ic.SelfUpdater()
 	if u == nil {
 		err := fmt.Errorf("self updater not configured")
@@ -311,12 +360,41 @@ func (b *Bindings) OpenURL(url string) error {
 	return nil
 }
 
+// selfUpdateLinker resolves the project/release URL provider: the
+// self-updater source on regular builds, or the spec-declared "updater"
+// source on externally managed builds that ship no self-update manager.
+func (b *Bindings) selfUpdateLinker() (updater.Linker, error) {
+	if b.app.SelfUpdater != nil {
+		if l, ok := b.app.SelfUpdater.Source.(updater.Linker); ok {
+			return l, nil
+		}
+		return nil, fmt.Errorf("self-updater source %q does not expose project URLs", b.app.SelfUpdater.Source.Name())
+	}
+	if spec := b.app.Spec; spec != nil {
+		for _, u := range spec.Updaters {
+			if u.Name != "updater" || u.Source.Backend != "github" {
+				continue
+			}
+			var src updater.Source
+			if u.Source.BaseURL != "" {
+				src = updater.NewGitHubEnterpriseBackend(b.app.Logger.Root, u.Source.BaseURL, u.Source.Owner, u.Source.Repo)
+			} else {
+				src = updater.NewGitHubBackend(b.app.Logger.Root, u.Source.Owner, u.Source.Repo)
+			}
+			if l, ok := src.(updater.Linker); ok {
+				return l, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("no updater source exposes project URLs")
+}
+
 // OpenProjectURL opens the application repository page in the default
 // browser. The URL comes from the self-updater source, not from a literal.
 func (b *Bindings) OpenProjectURL() error {
-	l, ok := b.app.SelfUpdater.Source.(updater.Linker)
-	if !ok {
-		return fmt.Errorf("self-updater source %q does not expose project URLs", b.app.SelfUpdater.Source.Name())
+	l, err := b.selfUpdateLinker()
+	if err != nil {
+		return err
 	}
 	return b.OpenURL(l.ProjectURL())
 }
@@ -324,9 +402,9 @@ func (b *Bindings) OpenProjectURL() error {
 // OpenReleaseURL opens the release page for the given tag in the default
 // browser. The URL comes from the self-updater source, not from a literal.
 func (b *Bindings) OpenReleaseURL(tag string) error {
-	l, ok := b.app.SelfUpdater.Source.(updater.Linker)
-	if !ok {
-		return fmt.Errorf("self-updater source %q does not expose project URLs", b.app.SelfUpdater.Source.Name())
+	l, err := b.selfUpdateLinker()
+	if err != nil {
+		return err
 	}
 	return b.OpenURL(l.ReleaseURL(tag))
 }
@@ -340,6 +418,9 @@ func humanDurationOrEmpty(t time.Time, err error) string {
 }
 
 func (b *Bindings) GetReleaseNotes(ver string) (string, error) {
+	if err := b.guardExternalChannel(); err != nil {
+		return "", err
+	}
 	release, err := updater.GetReleaseByVersion(ver)
 	if err != nil {
 		b.toastT("error", []string{"about", "release_notes", "error"})

@@ -90,6 +90,7 @@ fs:
   open_file: "open file %q: %w"
 gui:
   self_update_check_failed: "background self-update check failed: %v"
+  channel_version_check_failed: "update channel could not verify the running binary version: %v"
   locale_wildcard_no_match: "locale wildcard %q matched no keys"
   config_meta_style_failed: "detect config style for %q: %v"
   tray:

@@ -4,6 +4,7 @@
     UpdateChannel,
     UpdaterEntry
   } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+  import type { ChannelInfo } from '../../../bindings/sing-box-ez/internal/framework/updater/models.js';
 
   // Module-level snapshot cache: revisiting About renders the last data
   // instantly (no skeleton flash) while load() refreshes it in the
@@ -12,8 +13,9 @@
     version: VersionInfo | null;
     branches: UpdateChannel[];
     updaters: UpdaterEntry[];
+    updateChannel: ChannelInfo | null;
     coreLoaded: boolean;
-  } = { version: null, branches: [], updaters: [], coreLoaded: false };
+  } = { version: null, branches: [], updaters: [], updateChannel: null, coreLoaded: false };
 </script>
 
 <script lang="ts">
@@ -21,7 +23,7 @@
   import { toast } from 'svelte-sonner';
   import { fly } from 'svelte/transition';
   import { appState } from '../stores/appState.js';
-  import { useLocale } from '@he11ah0und/localengine-web';
+  import { useLocale, format } from '@he11ah0und/localengine-web';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
@@ -35,6 +37,7 @@
     GetVersionInfo,
     GetBranches,
     GetUpdaters,
+    GetUpdateChannel,
     CheckSelfUpdate,
     InstallSelfUpdate,
     GetCoreInfo,
@@ -46,10 +49,12 @@
     GetReleaseNotes
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type { SelfUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+  import type { ChannelInfo } from '../../../bindings/sing-box-ez/internal/framework/updater/models.js';
 
   let version = $state<VersionInfo | null>(aboutCache.version);
   let branches = $state<UpdateChannel[]>(aboutCache.branches);
   let updaters = $state<UpdaterEntry[]>(aboutCache.updaters);
+  let updateChannel = $state<ChannelInfo | null>(aboutCache.updateChannel);
   let currentBranch = $state(aboutCache.version?.branch ?? '');
   let selfUpdate = $state<SelfUpdateInfo | null>(null);
   let checking = $state(false);
@@ -101,7 +106,9 @@
     'core.latest',
     'core.btn.download',
     'core.update.downloading',
-    'core.update.installing'
+    'core.update.installing',
+    'about.channel.external_managed',
+    'about.channel.external_hint'
   ]);
 
   // The updates tab lists every updater declared in the project spec; the
@@ -113,19 +120,23 @@
 
   async function load() {
     try {
-      const [v, b, u, core] = await Promise.all([
+      const [v, ch, u, core] = await Promise.all([
         GetVersionInfo(),
-        GetBranches(),
+        GetUpdateChannel(),
         GetUpdaters(),
         GetCoreInfo()
       ]);
       version = v;
       currentBranch = v?.branch ?? 'main';
-      branches = b ?? [];
+      updateChannel = ch ?? null;
       updaters = u ?? [];
+      // Externally managed builds have no release branches to list; the
+      // binding refuses the call on such builds.
+      branches = ch?.external ? [] : (await GetBranches()) ?? [];
       aboutCache.version = v;
       aboutCache.branches = branches;
       aboutCache.updaters = updaters;
+      aboutCache.updateChannel = updateChannel;
       appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, ...core } }));
     } catch (err) {
       toast.error(String(err));
@@ -294,6 +305,17 @@
   </div>
 {/snippet}
 
+{#snippet externalUpdaterBody()}
+  <!-- Externally managed build (AUR, ...): no self-update UI; the package
+       manager owns updates. -->
+  <div class="space-y-2">
+    <p class="text-sm">
+      {format(L.aboutChannelExternal_managed, { channel: updateChannel?.name ?? '' })}
+    </p>
+    <p class="text-sm text-muted-foreground">{L.aboutChannelExternal_hint}</p>
+  </div>
+{/snippet}
+
 {#snippet coreUpdaterBody()}
   <!-- Core updater: installed/latest versions and the download action. -->
   <div class="space-y-4">
@@ -342,7 +364,11 @@
           </Card.Header>
           <Card.Content>
             {#if u.name === 'updater'}
-              {@render appUpdaterBody()}
+              {#if updateChannel?.external}
+                {@render externalUpdaterBody()}
+              {:else}
+                {@render appUpdaterBody()}
+              {/if}
             {:else if u.name === 'core-updater'}
               {@render coreUpdaterBody()}
             {:else}

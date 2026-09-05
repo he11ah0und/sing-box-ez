@@ -336,6 +336,10 @@ about:
     latest: 'Latest:'
     up_to_date: Up to date
     downloading: Downloading…
+    external_managed: This build is updated by an external package manager
+  channel:
+    external_managed: 'Updates are managed by the package manager: {{channel}}'
+    external_hint: Update checks are tied to the install channel — check for updates there (for example, via your AUR helper or package manager).
   release_notes:
     title: Release notes
     error: Failed to fetch release notes
@@ -394,6 +398,14 @@ dialog:
     title: Elevated privileges required
     body: The config uses a TUN (or transparent proxy) inbound, which requires elevated privileges. Apply setcap to the core binary (Linux) or restart the app as administrator (Windows) in the settings.
     btn_settings: Open settings
+  channel_error:
+    title: Package manager mismatch
+    body: 'This build updates through {{channel}}, but the package manager does not recognize the running binary: {{error}}
+
+
+      The app cannot verify its own version and cannot update itself. Continuing means running a binary of unverified provenance that will never update — it is safer to quit and reinstall via {{channel}}.'
+    btn_quit: Quit
+    btn_continue: Continue anyway
   privileges:
     title: Privileges Required
     msg_linux: 'sing-box needs elevated privileges to create the TUN device.
