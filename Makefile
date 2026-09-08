@@ -9,7 +9,7 @@ GO_BIN := $(GOPATH)/bin
 
 # Private he11ah0und modules are fetched directly via git, bypassing
 # proxy.golang.org and the checksum database.
-export GOPRIVATE := github.com
+export GOPRIVATE := github.com/he11ah0und
 
 BRANCH     := $(shell git branch --show-current 2>/dev/null || git describe --tags --exact-match 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
