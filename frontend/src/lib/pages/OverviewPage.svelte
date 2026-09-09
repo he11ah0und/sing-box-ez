@@ -83,10 +83,12 @@
     }
   });
 
-  const configTypeLabels: Record<string, string> = {
+  // Must stay derived: L.* still holds the raw keys until the locale values
+  // arrive, and a plain const would freeze those keys into the badge.
+  const configTypeLabels = $derived<Record<string, string>>({
     remote: L.configsTypeRemote,
     local: L.configsTypeLocal
-  };
+  });
   const activeBadge = $derived(
     $appState.activeConfig ? (configTypeLabels[$appState.activeConfig.type] ?? '') : ''
   );
