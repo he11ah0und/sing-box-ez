@@ -134,7 +134,11 @@ func NewController(cfg *config.AppConfig, fwApp *framework.App, parent *logger.L
 		if err != nil {
 			return nil, err
 		}
-		return c.applyInboundsOverride(data, c.cfg.GetActiveConfig())
+		data, err = c.applyInboundsOverride(data, c.cfg.GetActiveConfig())
+		if err != nil {
+			return nil, err
+		}
+		return c.applyCacheFileOverride(data, c.cfg.GetActiveName())
 	})
 	return c
 }
@@ -564,6 +568,11 @@ func (c *Controller) applyOverrides(data []byte, rec *config.ConfigRecord) ([]by
 	}
 
 	data, err = c.applyInboundsOverride(data, rec)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err = c.applyCacheFileOverride(data, c.cfg.GetActiveName())
 	if err != nil {
 		return nil, err
 	}
