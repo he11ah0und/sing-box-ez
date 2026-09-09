@@ -109,9 +109,10 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 			continue
 		}
 		g := api.Group{
-			Tag:      name,
-			Type:     p.Type,
-			Selected: p.Now,
+			Tag:        name,
+			Type:       p.Type,
+			Selectable: p.Type == "Selector",
+			Selected:   p.Now,
 		}
 		if len(p.History) > 0 {
 			last := p.History[len(p.History)-1]

@@ -59,7 +59,12 @@
   });
 
   const visibleGroups = $derived(
-    apiGroups.filter((g) => g.type !== 'Fallback' && g.type !== 'LoadBalance')
+    // Group types arrive capitalized from Clash API ("Fallback") and
+    // lowercase from sing-box API ("fallback") — compare case-insensitively.
+    apiGroups.filter((g) => {
+      const t = g.type.toLowerCase();
+      return t !== 'fallback' && t !== 'loadbalance';
+    })
   );
 
   async function selectNode(group: string, node: string) {
@@ -154,7 +159,7 @@
                 {#if group.delayValid}
                   <Badge variant="outline">{`${group.delay} ms`}</Badge>
                 {/if}
-                {#if group.type !== 'URLTest' && group.tag !== 'GLOBAL'}
+                {#if group.type.toLowerCase() !== 'urltest' && group.tag !== 'GLOBAL'}
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -183,7 +188,7 @@
                        literals in cn() calls. -->
                   <button
                     class="w-full px-4 py-2 flex items-center justify-between hover:bg-accent transition {node.tag === group.selected ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}"
-                    disabled={group.type !== 'Selector'}
+                    disabled={!group.selectable}
                     onclick={() => selectNode(group.tag, node.tag)}
                   >
                     <span class="truncate">{node.tag}</span>

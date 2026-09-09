@@ -44,3 +44,27 @@ func TestClientStatus(t *testing.T) {
 		t.Fatalf("unexpected version: %s", status.Version)
 	}
 }
+
+func TestGroupsFromProtoSelectable(t *testing.T) {
+	groups := groupsFromProto(&pb.Groups{
+		Group: []*pb.Group{
+			{Tag: "proxy", Type: "selector", Selectable: true, Selected: "node1",
+				Items: []*pb.GroupItem{{Tag: "node1", Type: "trojan"}, {Tag: "node2", Type: "trojan"}}},
+			{Tag: "auto", Type: "urltest", Selectable: false, Selected: "node1",
+				Items: []*pb.GroupItem{{Tag: "node1", Type: "trojan"}}},
+		},
+	})
+	if len(groups) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(groups))
+	}
+	byTag := map[string]bool{}
+	for _, g := range groups {
+		byTag[g.Tag] = g.Selectable
+	}
+	if !byTag["proxy"] {
+		t.Fatal("selector group must be selectable")
+	}
+	if byTag["auto"] {
+		t.Fatal("urltest group must not be selectable")
+	}
+}

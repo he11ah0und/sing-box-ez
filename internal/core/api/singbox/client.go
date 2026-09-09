@@ -246,9 +246,10 @@ func groupsFromProto(g *pb.Groups) []api.Group {
 	var out []api.Group
 	for _, group := range g.GetGroup() {
 		item := api.Group{
-			Tag:      group.GetTag(),
-			Type:     group.GetType(),
-			Selected: group.GetSelected(),
+			Tag:        group.GetTag(),
+			Type:       group.GetType(),
+			Selectable: group.GetSelectable(),
+			Selected:   group.GetSelected(),
 		}
 		for _, n := range group.GetItems() {
 			if n.GetTag() == "" {

@@ -37,8 +37,12 @@ type Node struct {
 
 // Group describes an outbound group (Selector, URLTest, etc.).
 type Group struct {
-	Tag        string
-	Type       string
+	Tag  string
+	Type string
+	// Selectable reports whether the group accepts manual node selection
+	// (selector-type groups only; urltest/fallback/loadbalance pick their
+	// outbound automatically).
+	Selectable bool
 	Selected   string
 	Nodes      []Node
 	Delay      int

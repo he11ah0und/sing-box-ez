@@ -160,6 +160,7 @@ type Node struct {
 type Group struct {
 	Tag        string `json:"tag"`
 	Type       string `json:"type"`
+	Selectable bool   `json:"selectable"`
 	Selected   string `json:"selected"`
 	Nodes      []Node `json:"nodes"`
 	Delay      int    `json:"delay"`
@@ -272,6 +273,7 @@ func toGroup(g api.Group) Group {
 	return Group{
 		Tag:        g.Tag,
 		Type:       g.Type,
+		Selectable: g.Selectable,
 		Selected:   g.Selected,
 		Nodes:      nodes,
 		Delay:      g.Delay,

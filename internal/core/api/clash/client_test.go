@@ -36,6 +36,7 @@ func TestClientGroups(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"proxies": map[string]any{
 				"Proxy": map[string]any{"type": "Selector", "now": "Node1", "all": []string{"Node1", "Node2"}},
+				"Auto":  map[string]any{"type": "URLTest", "now": "Node1", "all": []string{"Node1"}},
 				"Node1": map[string]any{"type": "Shadowsocks"},
 			},
 		})
@@ -47,11 +48,18 @@ func TestClientGroups(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Groups: %v", err)
 	}
-	if len(groups) != 1 {
-		t.Fatalf("expected 1 group, got %d", len(groups))
+	if len(groups) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(groups))
 	}
-	if groups[0].Tag != "Proxy" || groups[0].Selected != "Node1" || len(groups[0].Nodes) != 2 {
-		t.Fatalf("unexpected group: %+v", groups[0])
+	// Groups are sorted by tag: Auto, Proxy.
+	if groups[0].Tag != "Auto" || groups[0].Selectable {
+		t.Fatalf("urltest group must not be selectable: %+v", groups[0])
+	}
+	if groups[1].Tag != "Proxy" || groups[1].Selected != "Node1" || len(groups[1].Nodes) != 2 {
+		t.Fatalf("unexpected group: %+v", groups[1])
+	}
+	if !groups[1].Selectable {
+		t.Fatalf("selector group must be selectable: %+v", groups[1])
 	}
 }
 
