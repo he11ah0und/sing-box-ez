@@ -187,9 +187,11 @@ func TestGroupTrackerCollectsProtocolsAndRoutes(t *testing.T) {
 	now := time.Now()
 
 	c1 := conn("a", "example.com", "1.2.3.4:443", 10, 100)
+	c1.Protocol = "tls"
 	c1.OutboundType = "vless"
 	c1.Chain = []string{"proxy", "auto", "node1"}
 	c2 := conn("b", "example.com", "5.6.7.8:443", 20, 200)
+	c2.Protocol = "quic"
 	c2.OutboundType = "trojan"
 	c2.Chain = []string{"proxy", "auto", "node2"}
 	tr.update([]api.Connection{c1, c2}, now, time.Hour)
@@ -205,9 +207,13 @@ func TestGroupTrackerCollectsProtocolsAndRoutes(t *testing.T) {
 	if g.Active {
 		t.Fatal("group must be inactive after all members closed")
 	}
-	wantProtocols := []string{"trojan", "vless"}
+	wantProtocols := []string{"quic", "tls"}
 	if len(g.Protocols) != 2 || g.Protocols[0] != wantProtocols[0] || g.Protocols[1] != wantProtocols[1] {
 		t.Fatalf("protocols = %v, want %v", g.Protocols, wantProtocols)
+	}
+	wantOutbound := []string{"trojan", "vless"}
+	if len(g.OutboundProtocols) != 2 || g.OutboundProtocols[0] != wantOutbound[0] || g.OutboundProtocols[1] != wantOutbound[1] {
+		t.Fatalf("outboundProtocols = %v, want %v", g.OutboundProtocols, wantOutbound)
 	}
 	wantRoutes := []string{"proxy → auto → node1", "proxy → auto → node2"}
 	if len(g.Routes) != 2 || g.Routes[0] != wantRoutes[0] || g.Routes[1] != wantRoutes[1] {

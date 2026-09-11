@@ -70,11 +70,14 @@ type connGroup struct {
 	// their members used.
 	ip4, ip6         int
 	lastIp4, lastIp6 int
-	// protocols/routes collect the distinct outbound types and routes
-	// (chains) ever seen on members of this group, including closed ones,
-	// so the UI can offer real filter values even for inactive groups.
-	protocols map[string]struct{}
-	routes    map[string]struct{}
+	// protocols/routes collect the distinct sniffed protocols (route rule
+	// protocol: tls, quic, ...) and routes (chains) ever seen on members of
+	// this group, including closed ones, so the UI can offer real filter
+	// values even for inactive groups. outboundProtocols does the same for
+	// the outbound types (vless, trojan, ...).
+	protocols         map[string]struct{}
+	outboundProtocols map[string]struct{}
+	routes            map[string]struct{}
 }
 
 // connGroupsMax caps how many groups are retained.
@@ -127,20 +130,24 @@ func (t *groupTracker) update(conns []api.Connection, now time.Time, retention t
 		g := t.groups[key]
 		if g == nil {
 			g = &connGroup{
-				target:    key,
-				network:   c.Network,
-				members:   make(map[string]connTotals),
-				spans:     []ConnSpan{},
-				protocols: make(map[string]struct{}),
-				routes:    make(map[string]struct{}),
+				target:            key,
+				network:           c.Network,
+				members:           make(map[string]connTotals),
+				spans:             []ConnSpan{},
+				protocols:         make(map[string]struct{}),
+				outboundProtocols: make(map[string]struct{}),
+				routes:            make(map[string]struct{}),
 			}
 			t.groups[key] = g
 		}
 		if g.firstSeen.IsZero() {
 			g.firstSeen = now
 		}
+		if c.Protocol != "" {
+			g.protocols[c.Protocol] = struct{}{}
+		}
 		if c.OutboundType != "" {
-			g.protocols[c.OutboundType] = struct{}{}
+			g.outboundProtocols[c.OutboundType] = struct{}{}
 		}
 		if route := routeOf(c); route != "" {
 			g.routes[route] = struct{}{}
@@ -232,6 +239,7 @@ func (t *groupTracker) snapshot(rates map[string]TrafficPoint, now time.Time, so
 			IPv6:      g.ip6,
 		}
 		cg.Protocols = sortedKeys(g.protocols)
+		cg.OutboundProtocols = sortedKeys(g.outboundProtocols)
 		cg.Routes = sortedKeys(g.routes)
 		if cg.IPv4 == 0 && cg.IPv6 == 0 {
 			cg.IPv4, cg.IPv6 = g.lastIp4, g.lastIp6

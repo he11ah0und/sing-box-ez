@@ -86,6 +86,7 @@ main:
     filter_port: Port
     filter_route: Route
     filter_protocol: Protocol
+    filter_outbound_protocol: Outbound protocol
     filter_reset: Reset
     sort: Sort
     close_group: Close connections

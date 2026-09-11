@@ -50,6 +50,7 @@
     'main.connections.filter_port',
     'main.connections.filter_route',
     'main.connections.filter_protocol',
+    'main.connections.filter_outbound_protocol',
     'main.connections.filter_reset',
     'main.connections.sort',
     'main.connections.close_group',
@@ -93,18 +94,23 @@
   let routeFilter = $state('all');
   let networkFilter = $state<'all' | 'tcp' | 'udp'>('all');
   let protocolFilter = $state('all');
+  let outboundProtocolFilter = $state('all');
   const routeOptions = $derived(
     [...new Set(apiConnGroups.flatMap((g) => g.routes ?? []))].sort()
   );
   const protocolOptions = $derived(
     [...new Set(apiConnGroups.flatMap((g) => g.protocols ?? []))].sort()
   );
+  const outboundProtocolOptions = $derived(
+    [...new Set(apiConnGroups.flatMap((g) => g.outboundProtocols ?? []))].sort()
+  );
   const connFiltersActive = $derived(
     connSearch.trim() !== '' ||
       portFilter.trim() !== '' ||
       routeFilter !== 'all' ||
       networkFilter !== 'all' ||
-      protocolFilter !== 'all'
+      protocolFilter !== 'all' ||
+      outboundProtocolFilter !== 'all'
   );
   let showConnFilter = $state(false);
   let showConnSort = $state(false);
@@ -115,6 +121,7 @@
     routeFilter = 'all';
     networkFilter = 'all';
     protocolFilter = 'all';
+    outboundProtocolFilter = 'all';
   }
 
   // groupMatches applies the connection filters to one group. Route and
@@ -140,6 +147,7 @@
       if (groupNet !== networkFilter && !memberHit) return false;
     }
     if (protocolFilter !== 'all' && !(g.protocols ?? []).includes(protocolFilter)) return false;
+    if (outboundProtocolFilter !== 'all' && !(g.outboundProtocols ?? []).includes(outboundProtocolFilter)) return false;
     return true;
   }
 
@@ -804,6 +812,20 @@
           <Select.Content>
             <Select.Item value="all" label={L.mainConnectionsFilter_all} />
             {#each protocolOptions as proto (proto)}
+              <Select.Item value={proto} label={proto} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+      <div class="space-y-1">
+        <Label>{L.mainConnectionsFilter_outbound_protocol}</Label>
+        <Select.Root type="single" bind:value={outboundProtocolFilter}>
+          <Select.Trigger class="w-full truncate">
+            {outboundProtocolFilter === 'all' ? L.mainConnectionsFilter_all : outboundProtocolFilter}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="all" label={L.mainConnectionsFilter_all} />
+            {#each outboundProtocolOptions as proto (proto)}
               <Select.Item value={proto} label={proto} />
             {/each}
           </Select.Content>

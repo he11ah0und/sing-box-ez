@@ -94,11 +94,14 @@ type ConnectionGroup struct {
 	// they hold the last known counts.
 	IPv4 int `json:"ipv4"`
 	IPv6 int `json:"ipv6"`
-	// Protocols/Routes are the distinct outbound types and routes (chains)
-	// seen on members of this group, live and closed alike; the UI builds
-	// filter options from them.
+	// Protocols/Routes are the distinct sniffed protocols (route rule
+	// protocol) and routes (chains) seen on members of this group, live and
+	// closed alike; the UI builds filter options from them.
 	Protocols []string `json:"protocols"`
-	Routes    []string `json:"routes"`
+	// OutboundProtocols are the distinct outbound types (vless, trojan, ...)
+	// seen on members of this group.
+	OutboundProtocols []string `json:"outboundProtocols"`
+	Routes            []string `json:"routes"`
 }
 
 // Update is the full snapshot of the core API state pushed to frontends

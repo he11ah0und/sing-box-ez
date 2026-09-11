@@ -86,6 +86,7 @@ main:
     filter_port: Порт
     filter_route: Маршрут
     filter_protocol: Протокол
+    filter_outbound_protocol: Протокол outbound
     filter_reset: Сбросить
     sort: Сортировка
     close_group: Закрыть соединения

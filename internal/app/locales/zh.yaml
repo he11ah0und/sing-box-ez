@@ -86,6 +86,7 @@ main:
     filter_port: 端口
     filter_route: 路由
     filter_protocol: 协议
+    filter_outbound_protocol: 出站协议
     filter_reset: 重置
     sort: 排序
     close_group: 关闭全部连接
