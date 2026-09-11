@@ -7,6 +7,9 @@ meta:
 # selectable language. Keys must not be repeated in any locale file.
 app:
   title: Sing-box EZ
+about:
+  backend_name:
+    github: GitHub
 configs:
   dialog:
     url: URL

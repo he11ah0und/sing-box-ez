@@ -87,7 +87,6 @@ main:
     filter_route: 路由
     filter_protocol: 协议
     filter_outbound_protocol: 出站协议
-    filter_reset: 重置
     sort: 排序
     close_group: 关闭全部连接
     varies: 成员间不同
@@ -321,8 +320,6 @@ about:
   updaters:
     repository: 仓库
     backend: 后端
-  backend_name:
-    github: GitHub
   commit_info:
     prefix: 提交：
   build_info:

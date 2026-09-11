@@ -87,7 +87,6 @@ main:
     filter_route: Route
     filter_protocol: Protocol
     filter_outbound_protocol: Outbound protocol
-    filter_reset: Reset
     sort: Sort
     close_group: Close connections
     varies: varies by member
@@ -321,8 +320,6 @@ about:
   updaters:
     repository: Repository
     backend: Backend
-  backend_name:
-    github: GitHub
   commit_info:
     prefix: 'Commit: '
   build_info:

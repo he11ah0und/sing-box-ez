@@ -51,7 +51,7 @@
     'main.connections.filter_route',
     'main.connections.filter_protocol',
     'main.connections.filter_outbound_protocol',
-    'main.connections.filter_reset',
+    'common.reset',
     'main.connections.sort',
     'main.connections.close_group',
     'main.connections.varies',
@@ -852,7 +852,7 @@
     </div>
     <Dialog.Footer>
       <Button variant="outline" onclick={resetConnFilters} disabled={!connFiltersActive}>
-        {L.mainConnectionsFilter_reset}
+        {L.commonReset}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>
