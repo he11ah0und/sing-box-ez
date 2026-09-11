@@ -103,6 +103,7 @@ connection_details:
   uplink: Отправлено
   downlink: Получено
   created: Создано
+  closed: Закрыто
   user: Пользователь
   process: Процесс
   close_connection: Закрыть соединение

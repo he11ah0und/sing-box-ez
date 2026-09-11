@@ -103,6 +103,7 @@ connection_details:
   uplink: Uplink
   downlink: Downlink
   created: Created
+  closed: Closed at
   user: User
   process: Process
   close_connection: Close connection

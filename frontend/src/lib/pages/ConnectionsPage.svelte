@@ -70,6 +70,7 @@
     'connection_details.uplink',
     'connection_details.downlink',
     'connection_details.created',
+    'connection_details.closed',
     'connection_details.user',
     'connection_details.process',
     'connection_details.close_connection'
@@ -446,8 +447,14 @@
       : L.mainGraphDetails_title
   );
 
-  function formatConnectionTarget(conn: APIConnection): string {
-    if (conn.domain) {
+  // joinType renders "tag (type)" when both are set and differ, whichever
+  // single value is present otherwise (inbound/outbound detail rows).
+  function joinType(tag: string | undefined, type: string | undefined): string {
+    if (tag && type && tag !== type) return `${tag} (${type})`;
+    return tag || type || '';
+  }
+
+  function formatConnectionTarget(conn: APIConnection): string {    if (conn.domain) {
       const { port } = splitHostPort(conn.destination);
       return port ? `${conn.domain}:${port}` : conn.domain;
     }
@@ -596,18 +603,28 @@
     </Dialog.Header>
     {#if selectedConn}
       {@const c = selectedConn}
-      <!-- Route-level fields (inbound/network/source/...) live in the group
-           details dialog: members of a group share them. -->
+      <!-- Every non-empty field of the connection renders as a row; the
+           backends fill different subsets (Clash API has no sniffed
+           protocol, sing-box has no chain on some setups), so anything
+           empty simply hides. -->
       <div class="space-y-3 text-sm">
         {@render DetailRow('ID', c.id)}
         {@render DetailRow(L.pluginsInfoStatus, apiConnections.some((x) => x.id === c.id) ? L.mainConnectionsActive : L.mainConnectionsInactive)}
+        {@render DetailRow(L.connection_detailsInbound, joinType(c.inbound, c.inboundType))}
+        {@render DetailRow(L.connection_detailsNetwork, c.network)}
+        {@render DetailRow(L.connection_detailsSource, c.source)}
+        {@render DetailRow(L.connection_detailsDestination, c.destination)}
+        {@render DetailRow(L.connection_detailsDomain, c.domain)}
+        {@render DetailRow(L.mainConnectionsFilter_protocol, c.protocol)}
+        {@render DetailRow(L.commonRule, c.rule)}
+        {@render DetailRow(L.connection_detailsOutbound, joinType(c.outbound, c.outboundType))}
+        {@render DetailRow(L.connection_detailsChain, c.chain?.join(' → '))}
         {@render DetailRow(L.connection_detailsUplink, `${formatSpeed(c.uplink)} (${formatBytes(c.uplinkTotal)})`)}
         {@render DetailRow(L.connection_detailsDownlink, `${formatSpeed(c.downlink)} (${formatBytes(c.downlinkTotal)})`)}
         {@render DetailRow(L.connection_detailsCreated, formatTime(c.createdAt) + (c.createdAgo ? ` (${c.createdAgo})` : ''))}
-        {#if c.processInfo?.userName}
-          {@render DetailRow(L.connection_detailsUser, c.processInfo.userName)}
-          {@render DetailRow(L.connection_detailsProcess, c.processInfo.processPath)}
-        {/if}
+        {@render DetailRow(L.connection_detailsClosed, c.closedAt && new Date(c.closedAt).getFullYear() > 2000 ? formatTime(c.closedAt) : '')}
+        {@render DetailRow(L.connection_detailsUser, c.user || c.processInfo?.userName)}
+        {@render DetailRow(L.connection_detailsProcess, c.processInfo?.processPath)}
         {#if connGraphId === c.id}
           <div class="space-y-1 pt-1">
             <p class="text-muted-foreground">{L.mainGraphDetails_title}</p>
@@ -675,6 +692,7 @@
         {@render DetailRow(L.connection_detailsSource, sharedMemberField(g, (c) => c.source))}
         {@render DetailRow(L.connection_detailsDestination, sharedMemberField(g, (c) => c.destination))}
         {@render DetailRow(L.connection_detailsDomain, sharedMemberField(g, (c) => c.domain))}
+        {@render DetailRow(L.mainConnectionsFilter_protocol, sharedMemberField(g, (c) => c.protocol))}
         {@render DetailRow(L.commonRule, sharedMemberField(g, (c) => c.rule))}
         {@render DetailRow(L.connection_detailsOutbound, sharedMemberField(g, (c) => c.outbound || c.outboundType))}
         {@render DetailRow(L.connection_detailsChain, sharedMemberField(g, (c) => c.chain?.join(' → ')))}

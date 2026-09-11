@@ -103,6 +103,7 @@ connection_details:
   uplink: 上行
   downlink: 下行
   created: 创建时间
+  closed: 关闭时间
   user: 用户
   process: 进程
   close_connection: 关闭连接
