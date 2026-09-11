@@ -83,6 +83,10 @@ main:
     sort_total: Весь трафик
     search: Поиск
     filter: Фильтр
+    filter_port: Порт
+    filter_route: Маршрут
+    filter_protocol: Протокол
+    filter_reset: Сбросить
     sort: Сортировка
     close_group: Закрыть соединения
     varies: различается

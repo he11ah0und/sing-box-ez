@@ -104,3 +104,5 @@ frontend/src/lib/wails/bridge.ts:      console.warn('GetConfigValues failed:', e
 frontend/src/lib/wails/bridge.ts:      console.warn('GetLocale failed:', err);
 frontend/src/lib/wails/bridge.ts:      console.warn('GetTrafficHistory failed:', err);
 frontend/src/lib/wails/custom.ts:      console.warn('WebSocket IPC error:', err);
+frontend/src/lib/pages/ConnectionsPage.svelte:            <Select.Item value="tcp" label="TCP" />
+frontend/src/lib/pages/ConnectionsPage.svelte:            <Select.Item value="udp" label="UDP" />

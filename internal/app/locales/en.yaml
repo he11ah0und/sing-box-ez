@@ -83,6 +83,10 @@ main:
     sort_total: Total Traffic
     search: Search
     filter: Filter
+    filter_port: Port
+    filter_route: Route
+    filter_protocol: Protocol
+    filter_reset: Reset
     sort: Sort
     close_group: Close connections
     varies: varies by member

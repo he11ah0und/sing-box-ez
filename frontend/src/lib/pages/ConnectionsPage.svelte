@@ -15,6 +15,8 @@
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
+  import { Label } from '$lib/components/ui/label/index.js';
+  import * as Select from '$lib/components/ui/select/index.js';
   import {
     CloseAPIConnections,
     CloseAPIConnection,
@@ -44,6 +46,11 @@
     'main.connections.total_connections',
     'main.connections.search',
     'main.connections.filter',
+    'main.connections.filter_all',
+    'main.connections.filter_port',
+    'main.connections.filter_route',
+    'main.connections.filter_protocol',
+    'main.connections.filter_reset',
     'main.connections.sort',
     'main.connections.close_group',
     'main.connections.varies',
@@ -76,12 +83,73 @@
   // Connection search filters groups by target substring (IP or domain);
   // it lives in the filter dialog so the header stays compact on mobile.
   let connSearch = $state('');
+  // Additional filters in the same dialog: destination port, route
+  // (outbound/chain), network (tcp/udp) and outbound protocol type.
+  let portFilter = $state('');
+  let routeFilter = $state('');
+  let networkFilter = $state<'all' | 'tcp' | 'udp'>('all');
+  let protocolFilter = $state('');
+  const connFiltersActive = $derived(
+    connSearch.trim() !== '' ||
+      portFilter.trim() !== '' ||
+      routeFilter.trim() !== '' ||
+      networkFilter !== 'all' ||
+      protocolFilter.trim() !== ''
+  );
   let showConnFilter = $state(false);
   let showConnSort = $state(false);
-  const visibleConnGroups = $derived.by(() => {
+
+  function resetConnFilters() {
+    connSearch = '';
+    portFilter = '';
+    routeFilter = '';
+    networkFilter = 'all';
+    protocolFilter = '';
+  }
+
+  // groupMatches applies the connection filters to one group. Member-level
+  // fields (route, protocol) match when ANY live member matches; inactive
+  // groups have no live members, so member-based filters exclude them.
+  function groupMatches(g: APIConnectionGroup): boolean {
     const q = connSearch.trim().toLowerCase();
-    if (!q) return apiConnGroups;
-    return apiConnGroups.filter((g) => g.target.toLowerCase().includes(q));
+    if (q && !g.target.toLowerCase().includes(q)) return false;
+    const port = portFilter.trim();
+    if (port) {
+      const groupPort = splitHostPort(g.target).port;
+      const memberHit = groupMembers(g).some(
+        (c) => splitHostPort(c.destination).port === port
+      );
+      if (groupPort !== port && !memberHit) return false;
+    }
+    const route = routeFilter.trim().toLowerCase();
+    if (route) {
+      const hit = groupMembers(g).some(
+        (c) =>
+          (c.chain?.join(' → ') ?? '').toLowerCase().includes(route) ||
+          (c.outbound ?? '').toLowerCase().includes(route)
+      );
+      if (!hit) return false;
+    }
+    if (networkFilter !== 'all') {
+      const groupNet = (g.network ?? '').toLowerCase();
+      const memberHit = groupMembers(g).some(
+        (c) => (c.network ?? '').toLowerCase() === networkFilter
+      );
+      if (groupNet !== networkFilter && !memberHit) return false;
+    }
+    const proto = protocolFilter.trim().toLowerCase();
+    if (proto) {
+      const hit = groupMembers(g).some((c) =>
+        (c.outboundType ?? '').toLowerCase().includes(proto)
+      );
+      if (!hit) return false;
+    }
+    return true;
+  }
+
+  const visibleConnGroups = $derived.by(() => {
+    if (!connFiltersActive) return apiConnGroups;
+    return apiConnGroups.filter(groupMatches);
   });
   // Group details dialog (right-click on a group row) follows the live group
   // from the store so the timeline keeps ticking while it is open.
@@ -101,6 +169,11 @@
     date: L.mainConnectionsSort_date,
     traffic: L.mainConnectionsSort_traffic,
     total: L.mainConnectionsSort_total
+  });
+  const networkLabels = $derived<Record<'all' | 'tcp' | 'udp', string>>({
+    all: L.mainConnectionsFilter_all,
+    tcp: 'TCP',
+    udp: 'UDP'
   });
 
   async function setConnSort(mode: ConnSortMode) {
@@ -410,7 +483,7 @@
           <Button
             variant="outline"
             size="sm"
-            class={connSearch.trim() ? 'text-primary' : ''}
+            class={connFiltersActive ? 'text-primary' : ''}
             onclick={() => (showConnFilter = true)}
             aria-label={L.mainConnectionsFilter}
           >
@@ -680,18 +753,52 @@
   />
 {/if}
 
-<!-- Filter dialog: currently holds only the target search; new filter
-     variables go here as they appear. -->
+<!-- Filter dialog: target search plus port/route/network/protocol filters;
+     all applied live to the group list. -->
 <Dialog.Root open={showConnFilter} onOpenChange={(open) => { if (!open) showConnFilter = false; }}>
   <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title>{L.mainConnectionsFilter}</Dialog.Title>
     </Dialog.Header>
-    <Input
-      placeholder={L.mainConnectionsSearch}
-      bind:value={connSearch}
-      autofocus
-    />
+    <div class="space-y-3">
+      <div class="space-y-1">
+        <Label for="conn-filter-search">{L.mainConnectionsSearch}</Label>
+        <Input
+          id="conn-filter-search"
+          placeholder={L.mainConnectionsSearch}
+          bind:value={connSearch}
+          autofocus
+        />
+      </div>
+      <div class="space-y-1">
+        <Label for="conn-filter-port">{L.mainConnectionsFilter_port}</Label>
+        <Input id="conn-filter-port" placeholder="443" bind:value={portFilter} />
+      </div>
+      <div class="space-y-1">
+        <Label for="conn-filter-route">{L.mainConnectionsFilter_route}</Label>
+        <Input id="conn-filter-route" bind:value={routeFilter} />
+      </div>
+      <div class="space-y-1">
+        <Label>{L.connection_detailsNetwork}</Label>
+        <Select.Root type="single" bind:value={networkFilter}>
+          <Select.Trigger class="w-full">{networkLabels[networkFilter]}</Select.Trigger>
+          <Select.Content>
+            <Select.Item value="all" label={L.mainConnectionsFilter_all} />
+            <Select.Item value="tcp" label="TCP" />
+            <Select.Item value="udp" label="UDP" />
+          </Select.Content>
+        </Select.Root>
+      </div>
+      <div class="space-y-1">
+        <Label for="conn-filter-protocol">{L.mainConnectionsFilter_protocol}</Label>
+        <Input id="conn-filter-protocol" bind:value={protocolFilter} />
+      </div>
+    </div>
+    <Dialog.Footer>
+      <Button variant="outline" onclick={resetConnFilters} disabled={!connFiltersActive}>
+        {L.mainConnectionsFilter_reset}
+      </Button>
+    </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
 
