@@ -181,3 +181,47 @@ func TestGroupTrackerIPVersions(t *testing.T) {
 		t.Fatalf("inactive group must retain last IP counts, got %d/%d", g.IPv4, g.IPv6)
 	}
 }
+
+func TestGroupTrackerCollectsProtocolsAndRoutes(t *testing.T) {
+	tr := newGroupTracker()
+	now := time.Now()
+
+	c1 := conn("a", "example.com", "1.2.3.4:443", 10, 100)
+	c1.OutboundType = "vless"
+	c1.Chain = []string{"proxy", "auto", "node1"}
+	c2 := conn("b", "example.com", "5.6.7.8:443", 20, 200)
+	c2.OutboundType = "trojan"
+	c2.Chain = []string{"proxy", "auto", "node2"}
+	tr.update([]api.Connection{c1, c2}, now, time.Hour)
+
+	// Both connections close: the values must survive on the inactive group.
+	tr.update(nil, now.Add(time.Minute), time.Hour)
+
+	groups := tr.snapshot(nil, now.Add(time.Minute), "date")
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	g := groups[0]
+	if g.Active {
+		t.Fatal("group must be inactive after all members closed")
+	}
+	wantProtocols := []string{"trojan", "vless"}
+	if len(g.Protocols) != 2 || g.Protocols[0] != wantProtocols[0] || g.Protocols[1] != wantProtocols[1] {
+		t.Fatalf("protocols = %v, want %v", g.Protocols, wantProtocols)
+	}
+	wantRoutes := []string{"proxy → auto → node1", "proxy → auto → node2"}
+	if len(g.Routes) != 2 || g.Routes[0] != wantRoutes[0] || g.Routes[1] != wantRoutes[1] {
+		t.Fatalf("routes = %v, want %v", g.Routes, wantRoutes)
+	}
+}
+
+func TestRouteOfFallsBackToOutbound(t *testing.T) {
+	c := api.Connection{Outbound: "direct"}
+	if got := routeOf(c); got != "direct" {
+		t.Fatalf("routeOf without chain = %q, want %q", got, "direct")
+	}
+	c.Chain = []string{"proxy", "node1"}
+	if got := routeOf(c); got != "proxy → node1" {
+		t.Fatalf("routeOf with chain = %q", got)
+	}
+}

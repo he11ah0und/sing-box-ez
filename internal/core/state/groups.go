@@ -3,6 +3,7 @@ package state
 import (
 	"net"
 	"sort"
+	"strings"
 	"time"
 
 	"sing-box-ez/internal/core/api"
@@ -37,6 +38,16 @@ func ipVersionOf(c api.Connection) int {
 	return 6
 }
 
+// routeOf renders the connection's route (outbound chain) for display and
+// filtering, e.g. "proxy → auto → node1"; falls back to the bare outbound
+// tag when the backend reports no chain.
+func routeOf(c api.Connection) string {
+	if len(c.Chain) > 0 {
+		return strings.Join(c.Chain, " → ")
+	}
+	return c.Outbound
+}
+
 // connGroup is the tracked state of one connection group.
 type connGroup struct {
 	target    string
@@ -59,6 +70,11 @@ type connGroup struct {
 	// their members used.
 	ip4, ip6         int
 	lastIp4, lastIp6 int
+	// protocols/routes collect the distinct outbound types and routes
+	// (chains) ever seen on members of this group, including closed ones,
+	// so the UI can offer real filter values even for inactive groups.
+	protocols map[string]struct{}
+	routes    map[string]struct{}
 }
 
 // connGroupsMax caps how many groups are retained.
@@ -76,6 +92,20 @@ type groupTracker struct {
 
 func newGroupTracker() *groupTracker {
 	return &groupTracker{groups: make(map[string]*connGroup)}
+}
+
+// sortedKeys returns the keys of a set as a sorted slice (nil for an empty
+// set, so the JSON field stays absent instead of []).
+func sortedKeys(set map[string]struct{}) []string {
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // reset drops all tracked groups (the core stopped).
@@ -97,15 +127,23 @@ func (t *groupTracker) update(conns []api.Connection, now time.Time, retention t
 		g := t.groups[key]
 		if g == nil {
 			g = &connGroup{
-				target:  key,
-				network: c.Network,
-				members: make(map[string]connTotals),
-				spans:   []ConnSpan{},
+				target:    key,
+				network:   c.Network,
+				members:   make(map[string]connTotals),
+				spans:     []ConnSpan{},
+				protocols: make(map[string]struct{}),
+				routes:    make(map[string]struct{}),
 			}
 			t.groups[key] = g
 		}
 		if g.firstSeen.IsZero() {
 			g.firstSeen = now
+		}
+		if c.OutboundType != "" {
+			g.protocols[c.OutboundType] = struct{}{}
+		}
+		if route := routeOf(c); route != "" {
+			g.routes[route] = struct{}{}
 		}
 		switch ipVersionOf(c) {
 		case 4:
@@ -193,6 +231,8 @@ func (t *groupTracker) snapshot(rates map[string]TrafficPoint, now time.Time, so
 			IPv4:      g.ip4,
 			IPv6:      g.ip6,
 		}
+		cg.Protocols = sortedKeys(g.protocols)
+		cg.Routes = sortedKeys(g.routes)
 		if cg.IPv4 == 0 && cg.IPv6 == 0 {
 			cg.IPv4, cg.IPv6 = g.lastIp4, g.lastIp6
 		}

@@ -83,18 +83,28 @@
   // Connection search filters groups by target substring (IP or domain);
   // it lives in the filter dialog so the header stays compact on mobile.
   let connSearch = $state('');
-  // Additional filters in the same dialog: destination port, route
-  // (outbound/chain), network (tcp/udp) and outbound protocol type.
+  // Additional filters in the same dialog: destination port (free text),
+  // route and outbound protocol type. Route/protocol are selects fed by the
+  // values the backend tracker observed on real connections — live ones and
+  // closed ones kept in the group history alike (ConnectionGroup.routes /
+  // .protocols), so the options always reflect what actually went through
+  // the core instead of being typed by hand.
   let portFilter = $state('');
-  let routeFilter = $state('');
+  let routeFilter = $state('all');
   let networkFilter = $state<'all' | 'tcp' | 'udp'>('all');
-  let protocolFilter = $state('');
+  let protocolFilter = $state('all');
+  const routeOptions = $derived(
+    [...new Set(apiConnGroups.flatMap((g) => g.routes ?? []))].sort()
+  );
+  const protocolOptions = $derived(
+    [...new Set(apiConnGroups.flatMap((g) => g.protocols ?? []))].sort()
+  );
   const connFiltersActive = $derived(
     connSearch.trim() !== '' ||
       portFilter.trim() !== '' ||
-      routeFilter.trim() !== '' ||
+      routeFilter !== 'all' ||
       networkFilter !== 'all' ||
-      protocolFilter.trim() !== ''
+      protocolFilter !== 'all'
   );
   let showConnFilter = $state(false);
   let showConnSort = $state(false);
@@ -102,14 +112,14 @@
   function resetConnFilters() {
     connSearch = '';
     portFilter = '';
-    routeFilter = '';
+    routeFilter = 'all';
     networkFilter = 'all';
-    protocolFilter = '';
+    protocolFilter = 'all';
   }
 
-  // groupMatches applies the connection filters to one group. Member-level
-  // fields (route, protocol) match when ANY live member matches; inactive
-  // groups have no live members, so member-based filters exclude them.
+  // groupMatches applies the connection filters to one group. Route and
+  // protocol match exactly against the group's observed value lists, which
+  // cover live and closed members, so inactive groups stay filterable.
   function groupMatches(g: APIConnectionGroup): boolean {
     const q = connSearch.trim().toLowerCase();
     if (q && !g.target.toLowerCase().includes(q)) return false;
@@ -121,15 +131,7 @@
       );
       if (groupPort !== port && !memberHit) return false;
     }
-    const route = routeFilter.trim().toLowerCase();
-    if (route) {
-      const hit = groupMembers(g).some(
-        (c) =>
-          (c.chain?.join(' → ') ?? '').toLowerCase().includes(route) ||
-          (c.outbound ?? '').toLowerCase().includes(route)
-      );
-      if (!hit) return false;
-    }
+    if (routeFilter !== 'all' && !(g.routes ?? []).includes(routeFilter)) return false;
     if (networkFilter !== 'all') {
       const groupNet = (g.network ?? '').toLowerCase();
       const memberHit = groupMembers(g).some(
@@ -137,13 +139,7 @@
       );
       if (groupNet !== networkFilter && !memberHit) return false;
     }
-    const proto = protocolFilter.trim().toLowerCase();
-    if (proto) {
-      const hit = groupMembers(g).some((c) =>
-        (c.outboundType ?? '').toLowerCase().includes(proto)
-      );
-      if (!hit) return false;
-    }
+    if (protocolFilter !== 'all' && !(g.protocols ?? []).includes(protocolFilter)) return false;
     return true;
   }
 
@@ -775,8 +771,18 @@
         <Input id="conn-filter-port" placeholder="443" bind:value={portFilter} />
       </div>
       <div class="space-y-1">
-        <Label for="conn-filter-route">{L.mainConnectionsFilter_route}</Label>
-        <Input id="conn-filter-route" bind:value={routeFilter} />
+        <Label>{L.mainConnectionsFilter_route}</Label>
+        <Select.Root type="single" bind:value={routeFilter}>
+          <Select.Trigger class="w-full truncate">
+            {routeFilter === 'all' ? L.mainConnectionsFilter_all : routeFilter}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="all" label={L.mainConnectionsFilter_all} />
+            {#each routeOptions as route (route)}
+              <Select.Item value={route} label={route} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
       </div>
       <div class="space-y-1">
         <Label>{L.connection_detailsNetwork}</Label>
@@ -790,8 +796,18 @@
         </Select.Root>
       </div>
       <div class="space-y-1">
-        <Label for="conn-filter-protocol">{L.mainConnectionsFilter_protocol}</Label>
-        <Input id="conn-filter-protocol" bind:value={protocolFilter} />
+        <Label>{L.mainConnectionsFilter_protocol}</Label>
+        <Select.Root type="single" bind:value={protocolFilter}>
+          <Select.Trigger class="w-full truncate">
+            {protocolFilter === 'all' ? L.mainConnectionsFilter_all : protocolFilter}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="all" label={L.mainConnectionsFilter_all} />
+            {#each protocolOptions as proto (proto)}
+              <Select.Item value={proto} label={proto} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
       </div>
     </div>
     <Dialog.Footer>
