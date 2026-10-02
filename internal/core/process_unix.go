@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func setProcessGroup(cmd *exec.Cmd) {
@@ -29,40 +30,79 @@ func KillProcess(pid int, elevated bool) error {
 	return killTree(pid)
 }
 
+// Soft-stop timing: give the process time to clean up (sing-box tears down
+// tun ip rules and nftables redirects on SIGTERM), then escalate to SIGKILL
+// if it is still alive.
+const (
+	stopWaitStep  = 100 * time.Millisecond
+	stopWaitLimit = 5 * time.Second
+)
+
+// signalTree sends sig to the process group led by pid (children are placed
+// there via setProcessGroup), falling back to the process itself when it is
+// not a group leader. An already-gone target (ESRCH) is not an error, so
+// stopping a dead process stays idempotent.
+func signalTree(pid int, sig syscall.Signal) error {
+	if err := syscall.Kill(-pid, sig); err != nil {
+		if !errors.Is(err, syscall.ESRCH) {
+			return err
+		}
+		if err := syscall.Kill(pid, sig); err != nil && !errors.Is(err, syscall.ESRCH) {
+			return err
+		}
+	}
+	return nil
+}
+
+// waitProcessGone polls until pid disappears or limit elapses. It returns true
+// when the process is gone.
+func waitProcessGone(pid int, limit time.Duration) bool {
+	deadline := time.Now().Add(limit)
+	for ProcessExists(pid) {
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(stopWaitStep)
+	}
+	return true
+}
+
+// pkexecKillGroup signals the process group led by pid through pkexec. A
+// vanished target is treated as success so elevated stops are idempotent.
+func pkexecKillGroup(pid int, sig string) error {
+	// #nosec G204 — pkexec and kill are system binaries; pid is a validated process ID.
+	// The "--" separator keeps kill from parsing the negative process-group id as an option.
+	err := exec.Command("pkexec", "kill", sig, "--", "-"+strconv.Itoa(pid)).Run()
+	if err != nil && !ProcessExists(pid) {
+		return nil
+	}
+	return err
+}
+
 func killTreeElevated(pid int) error {
-	// #nosec G204 — pkexec and pgrep are system binaries; pid is validated process ID.
-	out, err := exec.Command("pkexec", "pgrep", "-P", strconv.Itoa(pid)).Output()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
-			// pgrep returns 1 when no children found — that's OK
-		}
+	if !ProcessExists(pid) {
+		return nil
 	}
-	for line := range strings.SplitSeq(string(out), "\n") {
-		if childPid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil && childPid > 0 {
-			// #nosec G204 — pkexec and kill are system binaries; childPid is validated from pgrep output.
-			_ = exec.Command("pkexec", "kill", "-9", strconv.Itoa(childPid)).Run()
-		}
+	if err := pkexecKillGroup(pid, "-TERM"); err != nil {
+		return err
 	}
-	// #nosec G204 — pkexec and kill are system binaries; pid is validated process ID.
-	return exec.Command("pkexec", "kill", "-9", strconv.Itoa(pid)).Run()
+	if waitProcessGone(pid, stopWaitLimit) {
+		return nil
+	}
+	return pkexecKillGroup(pid, "-9")
 }
 
 func killTree(pid int) error {
-	// #nosec G204 — pgrep is a system binary; pid is a validated process ID.
-	out, err := exec.Command("pgrep", "-P", strconv.Itoa(pid)).Output()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
-			// pgrep returns 1 when no children found — that's OK
-		}
+	if !ProcessExists(pid) {
+		return nil
 	}
-	for line := range strings.SplitSeq(string(out), "\n") {
-		if childPid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil && childPid > 0 {
-			_ = killTree(childPid)
-		}
+	if err := signalTree(pid, syscall.SIGTERM); err != nil {
+		return err
 	}
-	return syscall.Kill(pid, syscall.SIGKILL)
+	if waitProcessGone(pid, stopWaitLimit) {
+		return nil
+	}
+	return signalTree(pid, syscall.SIGKILL)
 }
 
 func resolveAbsPath(path string) (string, error) {
