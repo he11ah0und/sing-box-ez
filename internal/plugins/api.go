@@ -3,11 +3,11 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	lua "github.com/yuin/gopher-lua"
 )
@@ -104,23 +104,10 @@ func registerHTTP(L *lua.LState) {
 
 func luaHTTPGet(L *lua.LState) int {
 	url := L.CheckString(1)
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(url)
+	body, err := downloader.GetBytes(context.Background(), url)
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))
-		return 2
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		L.Push(lua.LNil)
-		L.Push(lua.LString(err.Error()))
-		return 2
-	}
-	if resp.StatusCode != http.StatusOK {
-		L.Push(lua.LNil)
-		L.Push(lua.LString(fmt.Sprintf("HTTP %d", resp.StatusCode)))
 		return 2
 	}
 	L.Push(lua.LString(body))
@@ -131,8 +118,9 @@ func luaHTTPGet(L *lua.LState) int {
 func luaHTTPPost(L *lua.LState) int {
 	url := L.CheckString(1)
 	body := L.CheckString(2)
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(url, "application/json", strings.NewReader(body))
+	resp, err := downloader.Post(context.Background(), url, strings.NewReader(body), int64(len(body)), http.Header{
+		"Content-Type": []string{"application/json"},
+	})
 	if err != nil {
 		L.Push(lua.LNil)
 		L.Push(lua.LString(err.Error()))

@@ -6,9 +6,9 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,13 +19,9 @@ import (
 // Returns the loaded manifest.
 func InstallFromURL(url string) (*Manifest, error) {
 	// #nosec G107 — URL is supplied by the user via CLI/GUI and validated by HTTP transport and archive extraction.
-	resp, err := http.Get(url)
+	data, err := downloader.GetBytes(context.Background(), url)
 	if err != nil {
 		return nil, fmt.Errorf("download failed: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download HTTP %d", resp.StatusCode)
 	}
 
 	tmpFile, err := os.CreateTemp("", "plugin-*.tmp")
@@ -34,15 +30,14 @@ func InstallFromURL(url string) (*Manifest, error) {
 	}
 	defer os.Remove(tmpFile.Name())
 
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+	if _, err := tmpFile.Write(data); err != nil {
 		_ = tmpFile.Close()
 		return nil, fmt.Errorf("save failed: %w", err)
 	}
 	_ = tmpFile.Close()
 
 	// Determine format and extract.
-	contentType := resp.Header.Get("Content-Type")
-	extractDir, err := extractArchive(tmpFile.Name(), url, contentType)
+	extractDir, err := extractArchive(tmpFile.Name(), url, "")
 	if err != nil {
 		return nil, err
 	}

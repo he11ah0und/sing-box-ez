@@ -210,6 +210,12 @@ config:
       default: ""
       disabled: true
 
+# Outgoing HTTP identity: the User-Agent all of the app's manual HTTPS
+# connections send. $VERSION is the app semver (fallback "dev"), $GOOS the
+# runtime platform ("linux", "windows", ...).
+net:
+  user_agent: sing-box-ez/$VERSION/$GOOS
+
 updaters:
   # App self-updater (asset is a raw binary).
   - name: updater

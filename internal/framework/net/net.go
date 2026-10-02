@@ -17,6 +17,35 @@ import (
 
 const defaultTimeout = 30 * time.Second
 
+// defaultUserAgent is the User-Agent applied to every request made through
+// clients created by this package, unless the request already carries its
+// own User-Agent header. It is set once at startup from the project spec
+// (net.user_agent) via SetDefaultUserAgent.
+var defaultUserAgent string
+
+// SetDefaultUserAgent sets the User-Agent that clients created afterwards
+// apply to their requests. Pass "" to restore the net/http default
+// (Go-http-client). It is intended to be called once during app startup.
+func SetDefaultUserAgent(ua string) {
+	defaultUserAgent = ua
+}
+
+// uaTransport wraps a RoundTripper and sets the default User-Agent on
+// requests that do not already have one.
+type uaTransport struct {
+	base http.RoundTripper
+}
+
+func (t *uaTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if defaultUserAgent == "" || req.Header.Get("User-Agent") != "" {
+		return t.base.RoundTrip(req)
+	}
+	r := req.Clone(req.Context())
+	r.Header = req.Header.Clone()
+	r.Header.Set("User-Agent", defaultUserAgent)
+	return t.base.RoundTrip(r)
+}
+
 // Client is a scoped HTTP client that logs under its own terminal and reports
 // progress for upload/download operations.
 type Client struct {
@@ -28,7 +57,7 @@ type Client struct {
 // NewClient creates a Client with a logger allocated under parent.
 func NewClient(parent *logger.LogTerminal) *Client {
 	return &Client{
-		HTTP:     &http.Client{Timeout: defaultTimeout},
+		HTTP:     &http.Client{Timeout: defaultTimeout, Transport: &uaTransport{base: http.DefaultTransport}},
 		Log:      parent.Allocate("net"),
 		Progress: nil,
 	}
@@ -41,7 +70,7 @@ func NewClientViaProxy(parent *logger.LogTerminal, proxyAddr string) *Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = http.ProxyURL(&url.URL{Scheme: "http", Host: proxyAddr})
 	return &Client{
-		HTTP:     &http.Client{Timeout: defaultTimeout, Transport: transport},
+		HTTP:     &http.Client{Timeout: defaultTimeout, Transport: &uaTransport{base: transport}},
 		Log:      parent.Allocate("net"),
 		Progress: nil,
 	}

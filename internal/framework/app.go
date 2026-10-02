@@ -12,8 +12,10 @@ import (
 
 	"sing-box-ez/internal/framework/cli"
 	"sing-box-ez/internal/framework/fs"
+	fwnet "sing-box-ez/internal/framework/net"
 	"sing-box-ez/internal/framework/rpc"
 	"sing-box-ez/internal/framework/updater"
+	"sing-box-ez/internal/framework/version"
 
 	"github.com/he11ah0und/config"
 	"github.com/he11ah0und/localengine"
@@ -173,12 +175,20 @@ func NewApp(cfg Config) (*App, error) {
 	var spec *projectspec.Spec
 	if len(cfg.ProjectSpec) > 0 {
 		var err error
+		specVersion := version.Version
+		if specVersion == "" {
+			specVersion = "dev"
+		}
 		spec, err = projectspec.Load(cfg.ProjectSpec, projectspec.Vars{
 			"BASE_DIR": dataDir,
 			"DATA_DIR": dataDir,
+			"VERSION":  specVersion,
 		})
 		if err != nil {
 			return nil, err
+		}
+		if spec.Net.UserAgent != "" {
+			fwnet.SetDefaultUserAgent(spec.Net.UserAgent)
 		}
 	}
 

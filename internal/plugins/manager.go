@@ -3,16 +3,22 @@
 package plugins
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 
+	"github.com/he11ah0und/logger"
 	"sing-box-ez/internal/config"
+	fwnet "sing-box-ez/internal/framework/net"
 )
+
+// downloader is the package-scoped HTTP client for plugin remote operations
+// (installs, update checks, Lua http.* calls). It logs under [plugins][net]
+// and sends the app-wide default User-Agent.
+var downloader = fwnet.NewClient(logger.NewLogger(100).Root.Allocate("plugins"))
 
 // Manager manages loaded plugin engines and plugin metadata.
 type Manager struct {
@@ -212,15 +218,7 @@ func (m *Manager) CheckUpdate(name string) (bool, string, error) {
 	}
 
 	// Fetch the remote manifest.
-	resp, err := http.Get(mf.UpdateURL)
-	if err != nil {
-		return false, "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return false, "", fmt.Errorf("update check HTTP %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := downloader.GetBytes(context.Background(), mf.UpdateURL)
 	if err != nil {
 		return false, "", err
 	}
