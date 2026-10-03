@@ -157,6 +157,15 @@ jobs:
         if: matrix.gui == 1
         run: make wails3
 
+      - name: Checkout frontend dependency (localengine web)
+        if: matrix.gui == 1
+        run: |
+          # frontend/package.json depends on @he11ah0und/localengine-web through
+          # a file: path into the sibling checkout. The localengine version in
+          # go.mod is the source of truth for which ref to use.
+          version=$(sed -n 's#.*github.com/he11ah0und/localengine \(v[^ ]*\).*#\1#p' go.mod | head -n 1)
+          git clone --depth 1 --branch "$version" https://github.com/he11ah0und/localengine ../localengine
+
       - name: Build ${{ matrix.name }}
         run: |
           # GUI builds need the Wails CLI + frontend toolchain; CLI builds are
