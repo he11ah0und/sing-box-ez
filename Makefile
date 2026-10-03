@@ -255,7 +255,7 @@ build: wails3
 	@mkdir -p $(BUILD_DIR)
 	@echo "Building: OS=$(GOOS) ARCH=$(GOARCH) GUI=1"
 	@echo "Installing frontend dependencies..."
-	cd frontend && npm install
+	cd frontend && npm install --include=dev
 	@echo "Generating Wails v3 bindings..."
 	$(WAILS3) generate bindings -clean=true -ts -i
 	@echo "Building frontend..."

@@ -30,7 +30,7 @@ dev_mode:
       - "*.ts"
     git_ignore: true
   executes:
-    - cmd: cd frontend && npm install --omit=none
+    - cmd: cd frontend && npm install --include=dev
       type: blocking
     - cmd: wails3 generate bindings -clean=true -ts -i
       type: blocking
