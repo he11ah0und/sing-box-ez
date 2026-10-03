@@ -1,14 +1,18 @@
-.PHONY: all build build-nogui run run-nogui dev clean deps test vet fmt fmt-check lint ineffassign-check security complexity outdated analyze i18n-hardcode i18n-hardcode-update help
+.PHONY: all build build-nogui run run-nogui dev clean deps test vet fmt fmt-check lint ineffassign-check security complexity outdated analyze i18n-hardcode i18n-hardcode-update wails3 help
 
 APP_NAME := sing-box-ez
 BUILD_DIR := ./build
 GO := go
-WAILS3 := $(shell go env GOPATH)/bin/wails3
 GOPATH := $(shell go env GOPATH)
 GO_BIN := $(GOPATH)/bin
+# The Wails v3 CLI is a GUI-only build tool: it generates the TypeScript
+# bindings the frontend imports. Pinned to the version required by go.mod so
+# code generation stays in step with the runtime library.
+WAILS3_VERSION ?= $(shell sed -n 's#.*github.com/wailsapp/wails/v3 \(v[^ ]*\).*#\1#p' go.mod | head -n 1)
+WAILS3 := $(GO_BIN)/wails3
 
-# Private he11ah0und modules are fetched directly via git, bypassing
-# proxy.golang.org and the checksum database.
+# he11ah0und modules are fetched directly via git, bypassing proxy.golang.org
+# and the checksum database (their hashes live only in go.sum).
 export GOPRIVATE := github.com/he11ah0und
 
 BRANCH     := $(shell git branch --show-current 2>/dev/null || git describe --tags --exact-match 2>/dev/null || echo "unknown")
@@ -232,11 +236,26 @@ defs:
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
-build:
+# The Wails v3 CLI belongs to the GUI build only: it generates the TypeScript
+# bindings the frontend imports. build-nogui never invokes it, nor the frontend
+# toolchain. Reinstalled when the installed binary drifts from the go.mod pin.
+# Note: wails3 prints its version to stderr, so both streams are merged.
+wails3:
+	@if [ -z "$(WAILS3_VERSION)" ]; then \
+		echo "Could not read the wails v3 version from go.mod" >&2; exit 1; \
+	fi
+	@if [ -x "$(WAILS3)" ] && "$(WAILS3)" version 2>&1 | grep -qF "$(WAILS3_VERSION)"; then \
+		echo "wails3 $(WAILS3_VERSION) already installed"; \
+	else \
+		echo "Installing wails3 $(WAILS3_VERSION)..."; \
+		$(GO) install github.com/wailsapp/wails/v3/cmd/wails3@$(WAILS3_VERSION); \
+	fi
+
+build: wails3
 	@mkdir -p $(BUILD_DIR)
 	@echo "Building: OS=$(GOOS) ARCH=$(GOARCH) GUI=1"
 	@echo "Installing frontend dependencies..."
-	cd frontend && npm install --omit=none
+	cd frontend && npm install
 	@echo "Generating Wails v3 bindings..."
 	$(WAILS3) generate bindings -clean=true -ts -i
 	@echo "Building frontend..."
@@ -256,7 +275,7 @@ build-nogui:
 # ---------------------------------------------------------------------------
 # Development & run
 # ---------------------------------------------------------------------------
-dev:
+dev: wails3
 	PATH=$(GO_BIN):$(PATH) $(WAILS3) dev -config ./build/config.yml
 
 run: build

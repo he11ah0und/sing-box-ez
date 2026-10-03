@@ -26,3 +26,7 @@ AGENTS.md
 frontend/bindings/
 frontend/dist/
 frontend/node_modules/
+
+# Local Go workspace — sibling module overrides for development
+go.work
+go.work.sum

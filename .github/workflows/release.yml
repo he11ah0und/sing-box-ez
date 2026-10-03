@@ -89,29 +89,15 @@ jobs:
       - name: Generate build matrix
         id: matrix
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            cat << 'EOF' > matrix.json
+          cat << 'EOF' > matrix.json
           [
-            {"name":"linux-gui-wayland","os":"linux","arch":"amd64","gui":1,"backend":"wayland","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-wayland"},
-            {"name":"linux-gui-x11","os":"linux","arch":"amd64","gui":1,"backend":"x11","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-x11"},
+            {"name":"linux-gui","os":"linux","arch":"amd64","gui":1,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui"},
             {"name":"linux-cli-gcc","os":"linux","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-cli"},
             {"name":"linux-cli-musl","os":"linux","arch":"amd64","gui":0,"compiler":"musl","artifact":"build/sing-box-ez-amd64-linux-musl-cli"},
             {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
             {"name":"windows-cli","os":"windows","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-cli.exe"}
           ]
           EOF
-          else
-            cat << 'EOF' > matrix.json
-          [
-            {"name":"linux-wayland","os":"linux","arch":"amd64","gui":1,"backend":"wayland","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-wayland"},
-            {"name":"linux-x11","os":"linux","arch":"amd64","gui":1,"backend":"x11","compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-gui-x11"},
-            {"name":"linux-cli-gcc","os":"linux","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-cli"},
-            {"name":"linux-cli-musl","os":"linux","arch":"amd64","gui":0,"compiler":"musl","artifact":"build/sing-box-ez-amd64-linux-musl-cli"},
-            {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
-            {"name":"windows-cli","os":"windows","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-cli.exe"}
-          ]
-          EOF
-          fi
           {
             echo 'json<<EOF'
             cat matrix.json
@@ -165,18 +151,27 @@ jobs:
             ARCH=${{ matrix.arch }} \
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
-            PLUGINS=0 \
-            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
+            PLUGINS=0
+
+      - name: Install Wails v3 CLI
+        if: matrix.gui == 1
+        run: make wails3
 
       - name: Build ${{ matrix.name }}
         run: |
-          make build \
+          # GUI builds need the Wails CLI + frontend toolchain; CLI builds are
+          # a plain Go build and must not touch either.
+          if [ "${{ matrix.gui }}" = "1" ]; then
+            target=build
+          else
+            target=build-nogui
+          fi
+          make "$target" \
             OS=${{ matrix.os }} \
             ARCH=${{ matrix.arch }} \
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
-            PLUGINS=0 \
-            $( [ -n "${{ matrix.backend }}" ] && echo "GUI_BACKEND=${{ matrix.backend }}" )
+            PLUGINS=0
 
       - name: Write status
         if: always()

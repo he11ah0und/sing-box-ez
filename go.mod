@@ -25,7 +25,7 @@ require (
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-webgpu/goffi v0.6.3 // indirect
-	github.com/he11ah0und/projectspec v0.1.1
+	github.com/he11ah0und/projectspec v0.1.2
 	github.com/he11ah0und/yamltree v0.1.2 // indirect
 	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -38,9 +38,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260904194346-d0f1323225a4 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
-
-replace github.com/he11ah0und/localengine => ../localengine
-
-replace github.com/he11ah0und/logger => ../logger
-
-replace github.com/he11ah0und/projectspec => ../projectspec

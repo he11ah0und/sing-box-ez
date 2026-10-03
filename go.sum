@@ -31,6 +31,12 @@ github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aN
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/he11ah0und/config v0.2.2 h1:CijB/WuF7qums+OHgT7zP8rhlACYrWQRbAiAWNXcIcY=
 github.com/he11ah0und/config v0.2.2/go.mod h1:MLnTf6wx8eKnEzENLLOjmHqCVHhZVCXVHIO6CV3dc9c=
+github.com/he11ah0und/localengine v0.3.2 h1:MGcFVcn+5NPFi3h64pEYAA2u7V/zp1d+qAFRoeZWSRY=
+github.com/he11ah0und/localengine v0.3.2/go.mod h1:fZOtnoWA7uG76Ty/Fdb7i7EnzVSoidy9vygvF+J9dmQ=
+github.com/he11ah0und/logger v0.1.2 h1:wTq3NhpshX77Bw4u89ocZeAmj4dc/yqGEqtAtoAYROE=
+github.com/he11ah0und/logger v0.1.2/go.mod h1:e3M24aKj1dHnxw9wzjzrkb/APCSaOIdO0K2EnICk/oc=
+github.com/he11ah0und/projectspec v0.1.2 h1:lhkxZnrj4X6rm14R4CBXHxanACrxQbRl0IEEwcJe+Ak=
+github.com/he11ah0und/projectspec v0.1.2/go.mod h1:d1ON06UwKM07wcWXZc1GDFpTmX4LVl+njizuUU3rJYo=
 github.com/he11ah0und/yamltree v0.1.2 h1:fk+WDKMA8/cUd5132mxu12VAz79wdGqqd9yg0qLnF0g=
 github.com/he11ah0und/yamltree v0.1.2/go.mod h1:WpQvyd3evJqxF4W4Qax3hhKPKTN9bIxy3mXsh1Jypnk=
 github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 h1:njuLRcjAuMKr7kI3D85AXWkw6/+v9PwtV6M6o11sWHQ=
