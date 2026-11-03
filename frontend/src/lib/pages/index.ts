@@ -1,6 +1,6 @@
 import type { Component } from 'svelte';
 import {
-  Home,
+  House,
   List,
   Settings as SettingsIcon,
   Bug,
@@ -54,7 +54,7 @@ export const pageRegistry: PageMeta[] = [
   {
     id: 'main',
     key: 'tab.main',
-    icon: Home,
+    icon: House,
     nav: true,
     bottomNav: true,
     order: 0,

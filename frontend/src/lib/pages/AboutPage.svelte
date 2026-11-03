@@ -54,8 +54,8 @@
     OpenReleaseURL,
     GetReleaseNotes
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
-  import type { SelfUpdateInfo, CoreRelease } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
-  import type { ChannelInfo } from '../../../bindings/sing-box-ez/internal/framework/updater/models.js';
+  import type { SelfUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
+  import type { CoreRelease } from '../../../bindings/sing-box-ez/internal/core/models.js';
 
   let version = $state<VersionInfo | null>(aboutCache.version);
   let branches = $state<UpdateChannel[]>(aboutCache.branches);
@@ -316,7 +316,7 @@
     currentBranch = name;
     showBranchPicker = false;
     selfUpdate = null;
-    checkUpdate();
+    void checkUpdate();
   }
 
   // Update backends are chosen at compile time; known ids get a display name.
@@ -614,8 +614,8 @@
 <Dialog.Root open={updateModal !== null} onOpenChange={() => {}}>
   <Dialog.Content
     showCloseButton={false}
-    onInteractOutside={(e) => e.preventDefault()}
-    onEscapeKeydown={(e) => e.preventDefault()}
+    onInteractOutside={(e: Event) => { e.preventDefault(); }}
+    onEscapeKeydown={(e: Event) => { e.preventDefault(); }}
   >
     <Dialog.Header>
       <Dialog.Title>{modalIsApp ? L.aboutUpdateTitle : L.tabCore}</Dialog.Title>
@@ -671,7 +671,7 @@
             'w-full text-left px-4 py-3 rounded-xl border border-border bg-secondary hover:bg-accent transition',
             branch.name === currentBranch && 'text-primary'
           )}
-          onclick={() => selectBranch(branch.name)}
+          onclick={() => { selectBranch(branch.name); }}
         >
           {branch.name} {#if branch.name === currentBranch}✓{/if}
         </button>

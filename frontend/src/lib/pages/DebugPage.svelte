@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Trash2, RefreshCw, Copy } from '@lucide/svelte';
+  import { Trash, RefreshCw, Copy } from '@lucide/svelte';
   import { fly } from 'svelte/transition';
   import { appState, clearLogs } from '../stores/appState.js';
   import { useLocale } from '@he11ah0und/localengine-web';
@@ -83,7 +83,7 @@
       {L.commonRefresh}
     </Button>
     <Button variant="destructive" disabled={processing} onclick={clear}>
-      <Trash2 size={16} />
+      <Trash size={16} />
       {L.commonClear}
     </Button>
   {/snippet}

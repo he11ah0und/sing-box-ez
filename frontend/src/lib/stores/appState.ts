@@ -96,11 +96,14 @@ export interface ApiState {
   session: number;
 }
 
+// SettingValue is the scalar value a declarative config entry can hold.
+export type SettingValue = string | number | boolean | null;
+
 export interface AppState {
   status: CoreStatus;
   configs: ConfigRecord[];
   activeConfig: ActiveConfig | null;
-  settings: Record<string, any>;
+  settings: Record<string, SettingValue>;
   // settingsLoaded marks that settings were fetched at least once, so pages
   // render from the store instead of re-fetching on every mount.
   settingsLoaded: boolean;

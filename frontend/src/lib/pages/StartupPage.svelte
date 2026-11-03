@@ -29,7 +29,7 @@
             'px-4 py-3 rounded-lg border border-border text-left transition-colors hover:bg-accent',
             $appState.startup.selected === option.id && 'bg-primary text-primary-foreground hover:bg-primary/90 border-transparent'
           )}
-          onclick={() => selectMode(option.id)}
+          onclick={() => { selectMode(option.id); }}
         >
           {option.label}
         </button>

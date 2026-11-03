@@ -122,10 +122,10 @@
   }
 
   function handleStop() {
-    callBinding(Stop());
+    void callBinding(Stop());
   }
   function handleRestart() {
-    callBinding(Restart());
+    void callBinding(Restart());
   }
 
   async function activateConfig(name: string) {
@@ -178,7 +178,8 @@
         g = next;
         continue;
       }
-      const node = (g.nodes ?? []).find((n) => n.tag === g!.selected);
+      const selected = g.selected;
+      const node = (g.nodes ?? []).find((n) => n.tag === selected);
       parts.push(`${g.selected} (${node?.type ?? 'node'})`);
       if (node?.delayValid) delay = `${node.delay} ms`;
       break;
@@ -187,7 +188,7 @@
   }
 
   const outboundChain = $derived(buildOutboundChain(apiGroups));
-  const graphSpan = $derived(Math.max(1, $appState.settings?.['core.traffic_graph_history'] || 60));
+  const graphSpan = $derived(Math.max(1, Number($appState.settings?.['core.traffic_graph_history'] ?? 60)));
 
   // Overview graph detail dialog; fed the live store arrays so it keeps
   // updating while open.
@@ -268,7 +269,7 @@
     <Card.Root>
       <Card.Content class="space-y-2">
         <p class="text-sm text-muted-foreground">{L.mainApiMode}</p>
-        <Select.Root type="single" value={apiMode} onValueChange={(v) => { if (v) setMode(v); }}>
+        <Select.Root type="single" value={apiMode} onValueChange={(v: string) => { if (v) void setMode(v); }}>
           <Select.Trigger class="w-full">{modeLabel}</Select.Trigger>
           <Select.Content>
             {#each modes as m (m)}
@@ -291,7 +292,7 @@
         <Select.Root
           type="single"
           value={$appState.activeConfig?.name ?? ''}
-          onValueChange={(v) => { if (v) activateConfig(v); }}
+          onValueChange={(v: string) => { if (v) void activateConfig(v); }}
           disabled={!$appState.configs.length}
         >
           <Select.Trigger class="w-full">{configSelectLabel}</Select.Trigger>

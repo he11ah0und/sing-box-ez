@@ -103,7 +103,7 @@
   {#if linePath}
     <path d={linePath} fill="none" stroke={color} stroke-width="2" vector-effect="non-scaling-stroke" />
   {/if}
-  {#each markerLines as m (m.color + m.value)}
+  {#each markerLines as m (m.color + String(m.value))}
     <line
       x1="0"
       y1={m.y}

@@ -97,19 +97,19 @@
   }
 
   function handleStart() {
-    callBinding(Start());
+    void callBinding(Start());
   }
 
   // Cancels the start flow: aborts an in-flight config download / style
   // check / process spawn, and stops the core when the API wait never ends.
   function handleCancelWait() {
-    callBinding(CancelStart());
+    void callBinding(CancelStart());
   }
 
   // Skips only the config download of the start flow; the start continues
   // with the cached config.
   function handleSkipUpdate() {
-    callBinding(SkipConfigUpdate());
+    void callBinding(SkipConfigUpdate());
   }
 
   async function activateConfig(name: string) {
@@ -175,7 +175,7 @@
                continues with the cached config. -->
           {#if apiPhase === 'preparing_config'}
             <Button variant="outline" size="sm" disabled={processing} onclick={handleSkipUpdate}>
-              {L.mainBtnSkipUpdate}
+              {L.mainBtnSkip_update}
             </Button>
           {/if}
           <!-- Every start-flow phase is cancellable: the binding aborts the
@@ -196,7 +196,7 @@
         <Select.Root
           type="single"
           value={$appState.activeConfig?.name ?? ''}
-          onValueChange={(v) => { if (v) activateConfig(v); }}
+          onValueChange={(v: string) => { if (v) void activateConfig(v); }}
           disabled={!$appState.configs.length || busy}
         >
           <Select.Trigger class="w-full">{configSelectLabel}</Select.Trigger>

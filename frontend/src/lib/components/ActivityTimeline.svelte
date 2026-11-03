@@ -22,7 +22,7 @@
     const t = setInterval(() => {
       now = Date.now();
     }, 1000);
-    return () => clearInterval(t);
+    return () => { clearInterval(t); };
   });
 
   interface Track {
@@ -169,7 +169,7 @@
       onpointercancel={onPointerUp}
       ondblclick={onReset}
     >
-      {#each tracks as t (t.id + t.start)}
+      {#each tracks as t (t.id + String(t.start))}
         {@const left = leftPct(t)}
         {@const width = widthPct(t)}
         {#if left < 100 && left + width > 0}

@@ -20,6 +20,11 @@ interface PendingCall {
   reject: (reason?: unknown) => void;
 }
 
+// Message shapes exchanged over the dev WebSocket transport.
+type WailsMessage =
+  | { type: 'call'; id: string; error?: string; result?: unknown }
+  | { type: 'event'; name: string; data: unknown };
+
 const isDesktop =
   typeof window !== 'undefined' &&
   (!!window.chrome?.webview?.postMessage ||
@@ -27,7 +32,7 @@ const isDesktop =
     !!window.wails?.invoke);
 
 if (!isDesktop) {
-  const WS_PORT = import.meta.env?.VITE_WS_PORT || '34115';
+  const WS_PORT = import.meta.env.VITE_WS_PORT || '34115';
   const WS_URL = `ws://127.0.0.1:${WS_PORT}/wails/ws`;
   const pending = new Map<string, PendingCall>();
   const queue: PendingCall[] = [];
@@ -83,9 +88,9 @@ if (!isDesktop) {
     });
 
     ws.addEventListener('message', (event) => {
-      let msg: any;
+      let msg: WailsMessage;
       try {
-        msg = JSON.parse(event.data);
+        msg = JSON.parse(event.data as string) as WailsMessage;
       } catch {
         return;
       }

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Save, RotateCcw, ShieldCheck, Trash2, LoaderCircle } from '@lucide/svelte';
+  import { Save, RotateCcw, ShieldCheck, Trash, LoaderCircle } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { fly } from 'svelte/transition';
   import { Events } from '@wailsio/runtime';
-  import { appState } from '../stores/appState.js';
+  import { appState, type SettingValue } from '../stores/appState.js';
   import { locale, useLocale, useLocaleRecord } from '@he11ah0und/localengine-web';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
@@ -40,7 +40,7 @@
   // The form seeds from the cached values snapshot (fetched once by the
   // bridge) so revisits render instantly; GetConfigValues runs again only
   // when the snapshot is missing or the user hits Reset.
-  let form = $state<Record<string, any>>({ ...$appState.settings });
+  let form = $state<Record<string, SettingValue>>({ ...$appState.settings });
   let spec = $state<ConfigSpecEntry[]>([]);
 
   let languages = $state<LanguageOption[]>([]);
@@ -152,7 +152,7 @@
       confirmAction = entry;
       confirmActionOpen = true;
     } else {
-      runAction(entry);
+      void runAction(entry);
     }
   }
 
@@ -185,14 +185,14 @@
   }
 
   $effect(() => {
-    if ($subNav.activeTab === 'system') loadPrivileges();
+    if ($subNav.activeTab === 'system') void loadPrivileges();
   });
 
   // A core update replaces the binary and drops its setcap state; the
   // backend signals it so an open settings page does not show stale data.
   $effect(() => {
-    const off = Events.On('privileges:changed', () => loadPrivileges());
-    return () => off();
+    const off = Events.On('privileges:changed', () => { void loadPrivileges(); });
+    return () => { off(); };
   });
 
   async function load(force = false) {
@@ -233,7 +233,7 @@
   }
 
   function reset() {
-    load(true);
+    void load(true);
   }
 
   // SetLanguage persists ui.language itself and returns the new locale; the
@@ -274,7 +274,10 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {#each switches as entry (entry.path)}
         <Label class="flex items-center gap-3 rounded-xl bg-background border border-border p-3 cursor-pointer">
-          <Switch bind:checked={form[entry.path]} />
+          <Switch
+            checked={form[entry.path] === true}
+            onCheckedChange={(v: boolean) => { form[entry.path] = v; }}
+          />
           <span>{entryLabel(entry)}</span>
         </Label>
       {/each}
@@ -289,7 +292,7 @@
             <Select.Root
               type="single"
               value={String(form[entry.path])}
-              onValueChange={(v) => (form[entry.path] = entry.type === 'int' ? Number(v) : v)}
+              onValueChange={(v: string) => { form[entry.path] = entry.type === 'int' ? Number(v) : v; }}
             >
               <Select.Trigger class="w-full">{optionLabel(entry, form[entry.path])}</Select.Trigger>
               <Select.Content>
@@ -316,7 +319,7 @@
   {#if actions.length > 0}
     <div class="flex flex-wrap gap-2">
       {#each actions as entry (entry.path)}
-        <Button variant="outline" disabled={privProcessing} onclick={() => clickAction(entry)}>
+        <Button variant="outline" disabled={privProcessing} onclick={() => { clickAction(entry); }}>
           {actionLabel(entry)}
         </Button>
       {/each}
@@ -378,7 +381,7 @@
         <div class="space-y-3">
           <p class="font-medium text-destructive">{L.settingsResetTitle}</p>
           <Button variant="destructive" onclick={() => (confirmReset = true)}>
-            <Trash2 size={16} />
+            <Trash size={16} />
             {L.settingsResetBtn}
           </Button>
         </div>
@@ -422,7 +425,7 @@
 
   <AlertDialog.Root
     open={confirmActionOpen}
-    onOpenChange={(open) => {
+    onOpenChange={(open: boolean) => {
       // While the action runs the dialog stays open: close requests are
       // ignored so the spinner remains visible until success or failure.
       if (privProcessing && !open) return;
@@ -440,11 +443,11 @@
         <AlertDialog.Cancel disabled={privProcessing}>{L.commonCancel}</AlertDialog.Cancel>
         <AlertDialog.Action
           disabled={privProcessing}
-          onclick={(e) => {
+          onclick={(e: MouseEvent) => {
             // Prevent the default close: the dialog closes on success in
             // runAction and stays open on failure.
             e.preventDefault();
-            if (confirmAction) runAction(confirmAction);
+            if (confirmAction) void runAction(confirmAction);
           }}
         >
           {#if privProcessing}

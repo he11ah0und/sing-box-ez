@@ -258,12 +258,15 @@ build: wails3
 	cd frontend && npm install --include=dev
 	@echo "Generating Wails v3 bindings..."
 	$(WAILS3) generate bindings -clean=true -ts -i
+	@echo "Analyzing frontend code for bugs and memory leaks..."
+	-cd frontend && npm run lint
 	@echo "Building frontend..."
 	cd frontend && npm run build
 	@echo "Building GUI binary..."
 	CGO_ENABLED=1 GOOS=$(GOOS) GOARCH=$(GOARCH) \
 		$(GO) build -trimpath -buildvcs=false $(BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(GUI_OUTPUT) .
 	@echo "Built: $(GUI_OUTPUT)"
+
 
 build-nogui:
 	@mkdir -p $(BUILD_DIR)

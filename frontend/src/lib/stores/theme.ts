@@ -5,7 +5,7 @@ export type ThemeMode = 'dark' | 'light' | 'system';
 
 export interface ThemeData {
   name: string;
-  mode: ThemeMode | string;
+  mode: ThemeMode | (string & {});
   colors?: Record<string, string>;
   darkColors?: Record<string, string>;
   lightColors?: Record<string, string>;
@@ -81,7 +81,7 @@ function contrastForeground(color: string): string {
 // Maps backend theme colors (hex) onto shadcn CSS tokens.
 // Keys absent from the payload are left untouched (fall back to style.css).
 function applyColors(root: HTMLElement, colors: Record<string, string>) {
-  const set = (token: string, value: string) => root.style.setProperty(token, value);
+  const set = (token: string, value: string) => { root.style.setProperty(token, value); };
 
   if (colors.bg) set('--background', colors.bg);
   if (colors.surface) {

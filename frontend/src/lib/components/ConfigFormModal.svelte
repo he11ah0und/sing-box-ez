@@ -112,7 +112,7 @@
         // The check is advisory only; the backend validates on save anyway.
       }
     }, 300);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); };
   });
 
   async function browse() {
@@ -131,7 +131,7 @@
       name: form.name.trim(),
       url: form.type === 'local' ? '' : form.url.trim(),
       type: form.type,
-      update_interval_hours: Number(form.update_interval_hours),
+      update_interval_hours: form.update_interval_hours,
       last_update: null,
       parent: 'user',
       auto_update: true,

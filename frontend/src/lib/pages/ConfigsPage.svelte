@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Plus, Trash2, Edit2, RefreshCw, ShieldCheck, FileText, FolderOpen, RotateCw, Copy, EllipsisVertical } from '@lucide/svelte';
+  import { Plus, Trash, Pen, RefreshCw, ShieldCheck, FileText, FolderOpen, RotateCw, Copy, EllipsisVertical } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState, type ConfigRecord } from '../stores/appState.js';
   import { useLocale, format } from '@he11ah0und/localengine-web';
@@ -286,17 +286,18 @@
   >
     {#snippet actions()}
       {#if editing && initialRecord?.type === 'local'}
+        {@const rec = editing}
         <div class="flex flex-wrap gap-2 rounded-xl border border-border bg-background p-3">
-          <Button variant="outline" size="sm" onclick={() => openFile(editing!)}>
+          <Button variant="outline" size="sm" onclick={() => openFile(rec)}>
             <FileText size={14} />
             {L.configsDialogBtnOpen}
           </Button>
-          <Button variant="outline" size="sm" onclick={() => openDir(editing!)}>
+          <Button variant="outline" size="sm" onclick={() => openDir(rec)}>
             <FolderOpen size={14} />
             {L.configsDialogBtnOpen_dir}
           </Button>
-          {#if editing && hasCached[editing] === false}
-            <Button variant="outline" size="sm" onclick={() => recreate(editing!)}>
+          {#if editing && !hasCached[editing]}
+            <Button variant="outline" size="sm" onclick={() => recreate(rec)}>
               <RotateCw size={14} />
               {L.configsDialogBtnCreate}
             </Button>
@@ -396,9 +397,9 @@
                         variant="ghost"
                         size="icon"
                         aria-label={L.configsBtnEdit}
-                        onclick={() => startEdit(cfg)}
+                        onclick={() => { startEdit(cfg); }}
                       >
-                        <Edit2 size={16} />
+                        <Pen size={16} />
                       </Button>
                     {/snippet}
                   </Tooltip.Trigger>
@@ -415,7 +416,7 @@
                         aria-label={L.configsBtnDelete}
                         onclick={() => (deleteTarget = cfg.name)}
                       >
-                        <Trash2 size={16} />
+                        <Trash size={16} />
                       </Button>
                     {/snippet}
                   </Tooltip.Trigger>
@@ -446,8 +447,8 @@
                       <ShieldCheck size={14} />
                       {L.configsDialogBtnValidate}
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item onclick={() => startEdit(cfg)}>
-                      <Edit2 size={14} />
+                    <DropdownMenu.Item onclick={() => { startEdit(cfg); }}>
+                      <Pen size={14} />
                       {L.configsBtnEdit}
                     </DropdownMenu.Item>
                     <DropdownMenu.Separator />
@@ -455,7 +456,7 @@
                       class="text-destructive"
                       onclick={() => (deleteTarget = cfg.name)}
                     >
-                      <Trash2 size={14} />
+                      <Trash size={14} />
                       {L.configsBtnDelete}
                     </DropdownMenu.Item>
                   </DropdownMenu.Content>

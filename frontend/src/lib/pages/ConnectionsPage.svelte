@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { ChevronDown, ChevronUp, Filter, ArrowUpDown, CircleX, Check } from '@lucide/svelte';
+  import { ChevronDown, ChevronUp, Funnel, ArrowUpDown, CircleX, Check } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
   import { useLocale } from '@he11ah0und/localengine-web';
@@ -320,7 +320,7 @@
     }
   }
 
-  const graphSpan = $derived(Math.max(1, $appState.settings?.['core.traffic_graph_history'] || 60));
+  const graphSpan = $derived(Math.max(1, Number($appState.settings?.['core.traffic_graph_history'] ?? 60)));
 
   // Per-connection graph history: seeded once from the backend when the
   // connection dialog opens, then extended with live samples from the
@@ -498,7 +498,7 @@
             onclick={() => (showConnFilter = true)}
             aria-label={L.mainConnectionsFilter}
           >
-            <Filter size={16} />
+            <Funnel size={16} />
             <span class="hidden sm:inline">{L.mainConnectionsFilter}</span>
           </Button>
           <Button
@@ -534,12 +534,12 @@
             >
               <button
                 class="w-full text-left p-3 hover:bg-accent transition rounded-xl"
-                onclick={() => onGroupClick(group)}
+                onclick={() => { onGroupClick(group); }}
                 oncontextmenu={(e) => {
                   e.preventDefault();
                   selectedGroupKey = group.key;
                 }}
-                ontouchstart={() => lpStart(group.key)}
+                ontouchstart={() => { lpStart(group.key); }}
                 ontouchend={lpCancel}
                 ontouchmove={lpCancel}
               >
@@ -869,7 +869,7 @@
         <button
           class="w-full text-left px-4 py-3 rounded-xl border border-border bg-secondary hover:bg-accent transition flex items-center justify-between {mode === connSort ? 'text-primary' : ''}"
           onclick={() => {
-            setConnSort(mode);
+            void setConnSort(mode);
             showConnSort = false;
           }}
         >

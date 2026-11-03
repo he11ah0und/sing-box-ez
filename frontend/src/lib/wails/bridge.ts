@@ -1,6 +1,6 @@
 import { Events } from '@wailsio/runtime';
 import { toast } from 'svelte-sonner';
-import { appState, appendAppLog, appendCoreLog, type ConfigRecord } from '../stores/appState.js';
+import { appState, appendAppLog, appendCoreLog, type ConfigRecord, type SettingValue } from '../stores/appState.js';
 import { locale, setLocaleValues } from '@he11ah0und/localengine-web';
 import { initLocale } from '@he11ah0und/localengine-web/backend';
 import { wailsBackend } from '@he11ah0und/localengine-web/adapters/wails';
@@ -171,7 +171,7 @@ export function initWailsEvents(): Promise<unknown> {
 
   // Seed the core API snapshot; api:state events keep it fresh afterwards.
   const apiSeed = GetAPIState()
-    .then((st) => applyApiState(st))
+    .then((st) => { applyApiState(st); })
     .catch((err: unknown) => {
       console.warn('GetAPIState failed:', err);
     });
@@ -277,7 +277,7 @@ export function initWailsEvents(): Promise<unknown> {
     appState.update((s) => ({ ...s, selfUpdateInfo: event.data }));
   });
 
-  Events.On('settings:changed', (event: WailsEvent<Record<string, any>>) => {
+  Events.On('settings:changed', (event: WailsEvent<Record<string, SettingValue>>) => {
     // The payload holds only the paths that were set; merge into the snapshot.
     appState.update((s) => ({
       ...s,
@@ -327,7 +327,7 @@ export function initWailsEvents(): Promise<unknown> {
           }
         };
       }
-      const maxPoints = Math.max(2, s.settings?.['core.traffic_graph_history'] || 60);
+      const maxPoints = Math.max(2, Number(s.settings?.['core.traffic_graph_history'] ?? 60));
       const times = [...s.traffic.history.times, Date.now()].slice(-maxPoints);
       const upHistory = [...s.traffic.history.up, data.up ?? 0].slice(-maxPoints);
       const downHistory = [...s.traffic.history.down, data.down ?? 0].slice(-maxPoints);

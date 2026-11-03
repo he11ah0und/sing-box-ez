@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { RefreshCw, ChevronDown, ChevronUp, Zap, Filter } from '@lucide/svelte';
+  import { RefreshCw, ChevronDown, ChevronUp, Zap, Funnel } from '@lucide/svelte';
   import { appState } from '../stores/appState.js';
   import { useLocale } from '@he11ah0und/localengine-web';
 
@@ -49,7 +49,7 @@
         // The backend already reported the failure with a toast.
       });
     }, 300);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); };
   });
   // The filter lives in the backend poller; clear it when leaving so other
   // consumers of the group list (e.g. the overview outbound chain) see all
@@ -126,7 +126,7 @@
           onclick={() => (showGroupFilter = true)}
           aria-label={L.mainConnectionsFilter}
         >
-          <Filter size={16} />
+          <Funnel size={16} />
           <span class="hidden sm:inline">{L.mainConnectionsFilter}</span>
         </Button>
       </div>
@@ -145,7 +145,7 @@
           <div class="rounded-xl border border-border bg-background overflow-hidden">
             <div
               class="w-full px-4 py-3 flex items-center justify-between hover:bg-accent transition cursor-pointer"
-              onclick={() => toggleGroup(group.tag)}
+              onclick={() => { toggleGroup(group.tag); }}
               role="button"
               tabindex="0"
               onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleGroup(group.tag); }}
@@ -164,7 +164,7 @@
                     variant="ghost"
                     size="icon-sm"
                     disabled={testingGroups.has(group.tag)}
-                    onclick={(e) => { e.stopPropagation(); testGroup(group.tag); }}
+                    onclick={(e: MouseEvent) => { e.stopPropagation(); void testGroup(group.tag); }}
                   >
                     {#if testingGroups.has(group.tag)}
                       <RefreshCw size={16} class="animate-spin" />

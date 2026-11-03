@@ -56,7 +56,7 @@
     };
     mql.addEventListener('change', onChange);
     onChange();
-    return () => mql.removeEventListener('change', onChange);
+    return () => { mql.removeEventListener('change', onChange); };
   });
 
   // Every nav label key is known upfront from the page registry.
@@ -174,11 +174,11 @@
       {#if inSubNav}
         {@render railButton(L.commonBack, ArrowLeft, false, true, back)}
         {#each subTabs as tab (tab.id)}
-          {@render railButton(R[tab.key], tab.icon, $subNav.activeTab === tab.id, false, () => selectTab(tab.id))}
+          {@render railButton(R[tab.key], tab.icon, $subNav.activeTab === tab.id, false, () => { selectTab(tab.id); })}
         {/each}
       {:else}
         {#each mainNavItems as item (item.id)}
-          {@render railButton(R[item.key], item.icon, $currentLevel.id === item.id, false, () => navigate(item.id))}
+          {@render railButton(R[item.key], item.icon, $currentLevel.id === item.id, false, () => { navigate(item.id); })}
         {/each}
       {/if}
     </nav>

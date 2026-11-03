@@ -2,7 +2,7 @@
   import { onMount, type Snippet } from 'svelte';
 
   let {
-    title = '',
+    title: _title = '',
     onLoad = null,
     fullHeight = false,
     extraClass = '',

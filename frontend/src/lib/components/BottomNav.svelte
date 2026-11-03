@@ -42,7 +42,7 @@
     <button
       class="flex flex-col items-center p-2 rounded-lg hover:bg-accent transition-colors"
       class:text-primary={isActive(item.id)}
-      onclick={() => navigate(item.id)}
+      onclick={() => { navigate(item.id); }}
     >
       {#if Icon}<Icon size={22} />{/if}
       <span class="text-xs mt-1">{R[item.key]}</span>

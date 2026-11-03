@@ -29,7 +29,7 @@
   $effect(() => {
     const id = $currentLevel.id;
     const token = ++loadToken;
-    loadPage(id).then((component) => {
+    void loadPage(id).then((component) => {
       if (token === loadToken) ActivePage = component;
     });
   });
@@ -47,13 +47,13 @@
             applyTheme($theme);
           }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.warn('Failed to fetch initial theme:', err);
           applyTheme($theme);
         });
       // The shell stays behind a loading state until the initial backend
       // data (traffic history, API state, settings, theme) has settled.
-      Promise.allSettled([seeds, themeSeed]).then(() => {
+      void Promise.allSettled([seeds, themeSeed]).then(() => {
         appState.update((s) => ({ ...s, ready: true }));
       });
       // One-shot startup scan for config cache leftovers; the dialog offers
@@ -63,7 +63,7 @@
           if (list && list.length > 0) orphanedConfigs = list;
         })
         .catch(() => {});
-      tick().then(() => setTimeout(signalLocaleReady, 0));
+      void tick().then(() => setTimeout(signalLocaleReady, 0));
     } catch (err) {
       console.error('Failed to init Wails events:', err);
       appState.update((s) => ({ ...s, ready: true }));
@@ -300,6 +300,7 @@
 </Dialog.Root>
 
 {#if $appState.styleCheck}
+  {@const sc = $appState.styleCheck}
   <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) clearStyleCheck(); }}>
     <AlertDialog.Content>
       <AlertDialog.Header>
@@ -312,10 +313,10 @@
         <Button variant="outline" onclick={clearStyleCheck}>
           {L.commonCancel}
         </Button>
-        <Button variant="outline" onclick={() => resolveStyleCheck($appState.styleCheck!, 'ignore')}>
+        <Button variant="outline" onclick={() => resolveStyleCheck(sc, 'ignore')}>
           {L.dialogConfig_styleBtnIgnore}
         </Button>
-        <Button onclick={() => resolveStyleCheck($appState.styleCheck!, 'to_client')}>
+        <Button onclick={() => resolveStyleCheck(sc, 'to_client')}>
           {L.dialogConfig_styleBtnTo_client}
         </Button>
       </AlertDialog.Footer>

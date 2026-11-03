@@ -42,7 +42,7 @@
         {@const TabIcon = tab.icon}
         <button
           class="w-full text-left px-4 py-4 rounded-lg bg-card border border-border hover:bg-accent transition-colors flex items-center gap-3"
-          onclick={() => contextPage && openTab(contextPage, tab.id)}
+          onclick={() => { if (contextPage) openTab(contextPage, tab.id); }}
         >
           {#if TabIcon}<TabIcon size={20} />{/if}
           {R[tab.key]}
@@ -58,7 +58,7 @@
             'w-full text-left px-4 py-4 rounded-lg bg-card border border-border hover:bg-accent transition-colors flex items-center gap-3',
             $currentLevel.id === item.id && 'text-primary'
           )}
-          onclick={() => navigate(item.id)}
+          onclick={() => { navigate(item.id); }}
         >
           {#if Icon}<Icon size={20} />{/if}
           {R[item.key]}
