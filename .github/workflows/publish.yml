@@ -108,7 +108,8 @@ jobs:
           sed -i "s/^pkgver=.*/pkgver=${version}/" packaging/aur/PKGBUILD
           sed -i "0,/^sha256sums=/ s/(.*)/( '${hash}' 'SKIP' 'SKIP')/" packaging/aur/PKGBUILD
           cp packaging/aur/PKGBUILD packaging/aur/sing-box-ez.desktop packaging/aur/appicon.png .
-          makepkg --printsrcinfo > .SRCINFO
+          useradd -m builder
+          su builder -c 'makepkg --printsrcinfo' > .SRCINFO
           git clone ssh://aur@aur.archlinux.org/sing-box-ez-gui-bin.git aur-repo || git init aur-repo
           cd aur-repo
           [ -d .git ] || git init
