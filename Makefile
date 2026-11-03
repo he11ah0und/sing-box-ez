@@ -259,7 +259,8 @@ build: wails3
 	@echo "Generating Wails v3 bindings..."
 	$(WAILS3) generate bindings -clean=true -ts -i
 	@echo "Analyzing frontend code for bugs and memory leaks..."
-	-cd frontend && npm run lint
+	cd frontend && npm run lint
+	cd frontend && npx svelte-check --tsconfig ./tsconfig.json
 	@echo "Building frontend..."
 	cd frontend && npm run build
 	@echo "Building GUI binary..."
