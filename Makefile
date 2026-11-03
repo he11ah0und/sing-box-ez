@@ -70,7 +70,7 @@ NOGUI_LDFLAGS := -s -w \
 comma := ,
 empty :=
 space := $(empty) $(empty)
-TAG_LIST := $(if $(filter aur,$(CHANNEL)),aur,)$(if $(filter scoop,$(CHANNEL)),scoop,)$(if $(filter 0,$(PLUGINS)),noplugins,)
+TAG_LIST := $(if $(filter aur,$(CHANNEL)),aur ,)$(if $(filter scoop,$(CHANNEL)),scoop ,)$(if $(filter 0,$(PLUGINS)),noplugins,)
 BUILD_TAGS := $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 
 NOGUI_TAG_LIST := nogui$(if $(filter aur,$(CHANNEL)), aur,)$(if $(filter 0,$(PLUGINS)), noplugins,)
