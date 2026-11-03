@@ -287,6 +287,7 @@ jobs:
     needs: [prepare-release, finalize-release]
     if: ${{ !contains(needs.prepare-release.outputs.tag, '-testing') }}
     uses: ./.github/workflows/publish.yml
+    secrets: inherit
     with:
       tag: ${{ needs.prepare-release.outputs.tag }}
       dry_run: false
