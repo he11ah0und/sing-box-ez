@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "description": "GUI client for the sing-box proxy core",
+  "homepage": "https://github.com/he11ah0und/sing-box-ez",
+  "url": "https://github.com/he11ah0und/sing-box-ez/releases/download/v0.1.0/sing-box-ez-amd64-windows-gcc-gui.exe",
+  "hash": "REPLACE_WITH_SHA256",
+  "bin": "sing-box-ez-amd64-windows-gcc-gui.exe",
+  "shortcuts": [
+    [
+      "sing-box-ez-amd64-windows-gcc-gui.exe",
+      "sing-box-ez"
+    ]
+  ]
+}

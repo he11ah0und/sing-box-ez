@@ -1,81 +1,28 @@
 # Maintainer: he11ah0und
 #
-# Local-verification variant: the source is the local git checkout, so the
-# package tracks the current branch. For AUR publication switch source=()
-# to the release tarball (https://.../archive/v$pkgver.tar.gz) with a real
-# sha256sums entry, and generate .SRCINFO (makepkg --printsrcinfo).
+# Binary (-bin) package: installs the prebuilt GUI binary produced by the
+# release CI, so no Go/npm/Wails toolchain is needed at build time.
+# The CLI package is intentionally not published yet (GUI-only release).
 #
-# _branch is the upstream branch this package tracks; it is shown in the
-# About page so users can tell which channel their artifact came from. An
-# alpha package (separate PKGBUILD, pkgname=sing-box-ez-gui-alpha) would
-# track "testing" instead.
-_branch=wails-migration
-
-# The GUI package; a CLI-only build (nogui tag) will be a separate
-# sing-box-ez-cli package. The binary keeps the plain name — the GUI app
-# is the primary deliverable.
-pkgname=sing-box-ez-gui
+# Before publishing: pick a real license (the repo ships no LICENSE file).
+pkgname=sing-box-ez-gui-bin
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="GUI client for the sing-box proxy core"
+pkgdesc="GUI client for the sing-box proxy core (prebuilt binary)"
 arch=('x86_64')
 url="https://github.com/he11ah0und/sing-box-ez"
-# TODO: the repo ships no LICENSE file — pick one before AUR publication.
 license=('custom')
 depends=('webkitgtk-6.0' 'gtk4')
-makedepends=('git' 'go' 'nodejs' 'npm')
-options=('!debug')
-provides=('sing-box-ez')
-conflicts=('sing-box-ez')
-source=("sing-box-ez::git+file:///mnt/local1/work/code/sing-box-ez#branch=${_branch}"
+provides=('sing-box-ez-gui' 'sing-box-ez')
+conflicts=('sing-box-ez-gui' 'sing-box-ez')
+source=("$pkgname-$pkgver::https://github.com/he11ah0und/sing-box-ez/releases/download/v$pkgver/sing-box-ez-amd64-linux-gcc-gui"
         "sing-box-ez.desktop"
-        # build/appicon.png is gitignored, so the package ships its own copy.
         "appicon.png")
+# The first entry is refreshed by the publish workflow on every release.
 sha256sums=('SKIP' 'SKIP' 'SKIP')
 
-pkgver() {
-  # Single source of truth: the VERSION file in the repo.
-  cat "$srcdir/sing-box-ez/VERSION"
-}
-
-prepare() {
-  cd sing-box-ez
-  # frontend depends on "@he11ah0und/localengine-web": "file:../../localengine/web"
-  # — a sibling checkout outside the repo. For local verification link the
-  # sibling into the srcdir; before AUR publication the package must be
-  # published to npm or vendored into the repo instead.
-  ln -sfn /mnt/local1/work/code/localengine "$srcdir/localengine"
-  # go.mod overrides three modules via replace to sibling checkouts
-  # (../logger, ../localengine, ../projectspec) — same problem on the Go
-  # side. Before AUR publication the replaces must go (pin released module
-  # versions); locally we link the siblings in.
-  ln -sfn /mnt/local1/work/code/logger "$srcdir/logger"
-  ln -sfn /mnt/local1/work/code/projectspec "$srcdir/projectspec"
-  # The Makefile expects the wails3 CLI matching go.mod in GOPATH/bin.
-  # Skip the install when it is already present: go module fetches need
-  # the proxy, which may be unreachable without a tunnel.
-  export PATH="$(go env GOPATH)/bin:$PATH"
-  if ! command -v wails3 >/dev/null 2>&1; then
-    go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
-  fi
-}
-
-build() {
-  cd sing-box-ez
-  export PATH="$(go env GOPATH)/bin:$PATH"
-  # CHANNEL=aur: no self-update code; updates are pacman's job.
-  # Branch/commit/date are passed explicitly: makepkg checks sources out
-  # into a temporary branch literally named "makepkg", which would
-  # otherwise leak into the version metadata via the Makefile defaults.
-  make build CHANNEL=aur \
-    BRANCH="${_branch}" \
-    BUILD_COMMIT="$(git rev-parse --short HEAD)" \
-    COMMIT_DATE="$(git log -1 --format=%cI)"
-}
-
 package() {
-  cd sing-box-ez
-  install -Dm755 "build/sing-box-ez-amd64-linux-gcc-gui" "$pkgdir/usr/bin/sing-box-ez"
+  install -Dm755 "$srcdir/$pkgname-$pkgver" "$pkgdir/usr/bin/sing-box-ez"
   install -Dm644 "$srcdir/sing-box-ez.desktop" "$pkgdir/usr/share/applications/sing-box-ez.desktop"
   install -Dm644 "$srcdir/appicon.png" "$pkgdir/usr/share/pixmaps/sing-box-ez.png"
 }

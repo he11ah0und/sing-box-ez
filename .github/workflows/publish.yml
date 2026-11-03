@@ -1,0 +1,102 @@
+name: Publish packages
+
+# Publishes the GUI package to the Scoop manifest (in this repo) and to the
+# AUR. Runs only for stable (non-prerelease) releases.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  scoop:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the Windows GUI artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release download "$TAG" -p 'sing-box-ez-amd64-windows-gcc-gui.exe' -D artifacts --clobber
+          ls -la artifacts
+
+      - name: Update the Scoop manifest
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          hash=$(sha256sum artifacts/sing-box-ez-amd64-windows-gcc-gui.exe | awk '{print $1}')
+          url="https://github.com/${{ github.repository }}/releases/download/${TAG}/sing-box-ez-amd64-windows-gcc-gui.exe"
+          tmp=$(mktemp)
+          jq --arg v "$version" --arg h "$hash" --arg u "$url" \
+            '.version = $v | .hash = $h | .url = $u' bucket/sing-box-ez-gui.json > "$tmp"
+          mv "$tmp" bucket/sing-box-ez-gui.json
+          cat bucket/sing-box-ez-gui.json
+
+      - name: Commit and push the manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/sing-box-ez-gui.json
+          git diff --cached --quiet && { echo "No manifest change"; exit 0; }
+          git commit -m "scoop: sing-box-ez-gui ${{ github.event.release.tag_name }}"
+          git push
+
+  aur:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install tools
+        run: pacman -Sy --noconfirm --needed git openssh makepkg curl ca-certificates
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the Linux GUI artifact
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          curl -fL -o gui "https://github.com/${{ github.repository }}/releases/download/${TAG}/sing-box-ez-amd64-linux-gcc-gui"
+          ls -la gui
+
+      - name: Set up AUR SSH access
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$AUR_SSH_PRIVATE_KEY" ]; then
+            echo "::error::Secret AUR_SSH_PRIVATE_KEY is not set — add the AUR SSH private key to the repo secrets."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Publish to AUR
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur -o IdentitiesOnly=yes
+        run: |
+          set -e
+          version="${TAG#v}"
+          hash=$(sha256sum gui | awk '{print $1}')
+          sed -i "s/^pkgver=.*/pkgver=${version}/" packaging/aur/PKGBUILD
+          sed -i "0,/^sha256sums=/ s/(.*)/( '${hash}' 'SKIP' 'SKIP')/" packaging/aur/PKGBUILD
+          cp packaging/aur/PKGBUILD packaging/aur/sing-box-ez.desktop packaging/aur/appicon.png .
+          makepkg --printsrcinfo > .SRCINFO
+          git clone ssh://aur@aur.archlinux.org/sing-box-ez-gui-bin.git aur-repo || git init aur-repo
+          cd aur-repo
+          [ -d .git ] || git init
+          git remote set-url origin ssh://aur@aur.archlinux.org/sing-box-ez-gui-bin.git 2>/dev/null || git remote add origin ssh://aur@aur.archlinux.org/sing-box-ez-gui-bin.git
+          cp ../PKGBUILD ../.SRCINFO ../sing-box-ez.desktop ../appicon.png .
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO sing-box-ez.desktop appicon.png
+          git commit -m "sing-box-ez-gui-bin ${version}" || echo "No changes"
+          git push origin HEAD:master || git push origin HEAD:main

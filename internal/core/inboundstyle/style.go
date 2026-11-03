@@ -193,7 +193,6 @@ func buildClientInbounds(proxyEnabled bool) []any {
 				"server_port": 2080,
 			},
 		},
-		"stack":        "system",
 		"strict_route": false,
 	}
 	if !proxyEnabled {
