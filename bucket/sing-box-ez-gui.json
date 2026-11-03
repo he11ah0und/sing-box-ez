@@ -4,7 +4,7 @@
   "homepage": "https://github.com/he11ah0und/sing-box-ez",
   "license": "GPL-3.0",
   "url": "https://github.com/he11ah0und/sing-box-ez/releases/download/v0.1.0/sing-box-ez-amd64-windows-gcc-gui-scoop.exe",
-  "hash": "REPLACE_WITH_SHA256",
+  "hash": "c5d7165177d8d6aedd58d20bc529391ed818883081f48ae423757bef503e526c",
   "bin": "sing-box-ez-amd64-windows-gcc-gui-scoop.exe",
   "shortcuts": [
     [
