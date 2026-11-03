@@ -808,7 +808,11 @@ func (w *WailsApp) Run() error {
 	}
 	bindings.ws = newWSServer(wailsBindings)
 	if err := bindings.ws.start(); err != nil {
-		return fmt.Errorf("start websocket ipc: %w", err)
+		// A second instance cannot own the fixed IPC port: keep the GUI alive
+		// without the WebSocket IPC server instead of exiting before any
+		// window is shown.
+		w.app.Logger.Root.TWarnf("gui.websocket_ipc_start_failed", err)
+		bindings.ws = nil
 	}
 
 	win := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
