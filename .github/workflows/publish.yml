@@ -106,7 +106,7 @@ jobs:
           version="${TAG#v}"
           hash=$(sha256sum gui | awk '{print $1}')
           sed -i "s/^pkgver=.*/pkgver=${version}/" packaging/aur/PKGBUILD
-          sed -i "0,/^sha256sums=/ s/(.*)/( '${hash}' 'SKIP' 'SKIP')/" packaging/aur/PKGBUILD
+          sed -i "s/^sha256sums=.*/sha256sums=('${hash}' 'SKIP' 'SKIP')/" packaging/aur/PKGBUILD
           cp packaging/aur/PKGBUILD packaging/aur/sing-box-ez.desktop packaging/aur/appicon.png .
           useradd -m builder
           workdir=$(mktemp -d)
