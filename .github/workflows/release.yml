@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.commit.outputs.tag }}
+      title: ${{ steps.commit.outputs.title }}
       body: ${{ steps.commit.outputs.message }}
       matrix: ${{ steps.matrix.outputs.json }}
     steps:
@@ -54,6 +55,14 @@ jobs:
             fi
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # The release title is the plain version (no commit hash); only the
+          # tag needs to stay unique per build.
+          if [ "${{ github.ref_name }}" = "testing" ]; then
+            title="v${version}-testing"
+          else
+            title="v${version}"
+          fi
+          echo "title=$title" >> "$GITHUB_OUTPUT"
           if [ -n "$last_tag" ]; then
             range="${last_tag}..HEAD"
           else
@@ -261,7 +270,7 @@ jobs:
         with:
           tag_name: ${{ needs.prepare-release.outputs.tag }}
           target_commitish: ${{ github.ref_name }}
-          name: ${{ needs.prepare-release.outputs.tag }}
+          name: ${{ needs.prepare-release.outputs.title }}
           body_path: release_notes.md
           files: binaries/*
           draft: false
