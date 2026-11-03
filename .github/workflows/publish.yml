@@ -5,13 +5,22 @@ name: Publish packages
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.1.0-testing.efa7959)'
+        required: true
+      dry_run:
+        description: 'Build and verify only, do not push anywhere'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
 jobs:
   scoop:
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,14 +29,14 @@ jobs:
       - name: Download the Windows GUI artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           gh release download "$TAG" -p 'sing-box-ez-amd64-windows-gcc-gui.exe' -D artifacts --clobber
           ls -la artifacts
 
       - name: Update the Scoop manifest
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           version="${TAG#v}"
           hash=$(sha256sum artifacts/sing-box-ez-amd64-windows-gcc-gui.exe | awk '{print $1}')
@@ -44,11 +53,15 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bucket/sing-box-ez-gui.json
           git diff --cached --quiet && { echo "No manifest change"; exit 0; }
-          git commit -m "scoop: sing-box-ez-gui ${{ github.event.release.tag_name }}"
-          git push
+          git commit -m "scoop: sing-box-ez-gui ${TAG}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "dry_run: manifest updated, not pushing"
+          else
+            git push
+          fi
 
   aur:
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
@@ -60,7 +73,7 @@ jobs:
 
       - name: Download the Linux GUI artifact
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           curl -fL -o gui "https://github.com/${{ github.repository }}/releases/download/${TAG}/sing-box-ez-amd64-linux-gcc-gui"
           ls -la gui
@@ -80,7 +93,7 @@ jobs:
 
       - name: Publish to AUR
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
           GIT_SSH_COMMAND: ssh -i ~/.ssh/aur -o IdentitiesOnly=yes
         run: |
           set -e
@@ -99,4 +112,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add PKGBUILD .SRCINFO sing-box-ez.desktop appicon.png
           git commit -m "sing-box-ez-gui-bin ${version}" || echo "No changes"
-          git push origin HEAD:master || git push origin HEAD:main
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "dry_run: PKGBUILD and .SRCINFO generated, not pushing to AUR"
+            cat PKGBUILD .SRCINFO
+          else
+            git push origin HEAD:master || git push origin HEAD:main
+          fi
