@@ -3,11 +3,14 @@
 package updater
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // SelfUpdateEnabled reports whether the self-update apply backend is part of
@@ -50,4 +53,37 @@ func ChannelCurrentVersion() (string, error) {
 		return "", fmt.Errorf("unexpected pacman output: %q", strings.TrimSpace(line))
 	}
 	return fields[1], nil
+}
+
+// aurPackage is the AUR package this build belongs to.
+const aurPackage = "sing-box-ez-gui-bin"
+
+// ChannelLatestVersion queries the AUR RPC interface for the newest published
+// package version instead of relying on an AUR helper being installed.
+func ChannelLatestVersion() (string, error) {
+	url := "https://aur.archlinux.org/rpc/?v=5&type=info&arg[]=" + aurPackage
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("query AUR for %s: %w", aurPackage, err)
+	}
+	defer resp.Body.Close()
+	var payload struct {
+		Results []struct {
+			Version string `json:"Version"`
+		} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return "", fmt.Errorf("decode AUR response for %s: %w", aurPackage, err)
+	}
+	if len(payload.Results) == 0 || payload.Results[0].Version == "" {
+		return "", fmt.Errorf("package %s not found on AUR", aurPackage)
+	}
+	return payload.Results[0].Version, nil
+}
+
+// ChannelUpdateHint returns the pacman/AUR-helper commands that update this
+// package, so the GUI can suggest them instead of self-updating.
+func ChannelUpdateHint() string {
+	return "yay -S " + aurPackage + "  # or: paru -S " + aurPackage + "  # or: makepkg -si"
 }

@@ -70,7 +70,7 @@ NOGUI_LDFLAGS := -s -w \
 comma := ,
 empty :=
 space := $(empty) $(empty)
-TAG_LIST := $(if $(filter aur,$(CHANNEL)),aur,)$(if $(filter 0,$(PLUGINS)),noplugins,)
+TAG_LIST := $(if $(filter aur,$(CHANNEL)),aur,)$(if $(filter scoop,$(CHANNEL)),scoop,)$(if $(filter 0,$(PLUGINS)),noplugins,)
 BUILD_TAGS := $(if $(strip $(TAG_LIST)),-tags "$(subst $(space),$(comma),$(strip $(TAG_LIST)))",)
 
 NOGUI_TAG_LIST := nogui$(if $(filter aur,$(CHANNEL)), aur,)$(if $(filter 0,$(PLUGINS)), noplugins,)
@@ -78,7 +78,8 @@ NOGUI_BUILD_TAGS := -tags "$(subst $(space),$(comma),$(strip $(NOGUI_TAG_LIST)))
 
 EXT             := $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
-GUI_OUTPUT      := $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)-gui$(EXT)
+CHANNEL_SUFFIX  := $(if $(filter scoop,$(CHANNEL)),-scoop,)
+GUI_OUTPUT      := $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)-gui$(CHANNEL_SUFFIX)$(EXT)
 CLI_OUTPUT      := $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)-cli$(EXT)
 
 # Wails v3 uses webkitgtk-6.0 / WebKit2GTK-4.1 on Linux; no extra tag needed.

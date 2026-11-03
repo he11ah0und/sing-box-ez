@@ -104,6 +104,7 @@ jobs:
             {"name":"linux-cli-gcc","os":"linux","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-linux-gcc-cli"},
             {"name":"linux-cli-musl","os":"linux","arch":"amd64","gui":0,"compiler":"musl","artifact":"build/sing-box-ez-amd64-linux-musl-cli"},
             {"name":"windows-gui","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-gui.exe"},
+            {"name":"windows-gui-scoop","os":"windows","arch":"amd64","gui":1,"compiler":"gcc","channel":"scoop","artifact":"build/sing-box-ez-amd64-windows-gcc-gui-scoop.exe"},
             {"name":"windows-cli","os":"windows","arch":"amd64","gui":0,"compiler":"gcc","artifact":"build/sing-box-ez-amd64-windows-gcc-cli.exe"}
           ]
           EOF
@@ -189,7 +190,8 @@ jobs:
             ARCH=${{ matrix.arch }} \
             GUI=${{ matrix.gui }} \
             COMPILER=${{ matrix.compiler }} \
-            PLUGINS=0
+            PLUGINS=0 \
+            CHANNEL=${{ matrix.channel }}
 
       - name: Write status
         if: always()

@@ -52,8 +52,10 @@
     OpenDataDir,
     OpenProjectURL,
     OpenReleaseURL,
-    GetReleaseNotes
+    GetReleaseNotes,
+    CheckExternalUpdate
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import type { ExternalUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
   import type { SelfUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
   import type { CoreRelease } from '../../../bindings/sing-box-ez/internal/core/models.js';
 
@@ -61,6 +63,7 @@
   let branches = $state<UpdateChannel[]>(aboutCache.branches);
   let updaters = $state<UpdaterEntry[]>(aboutCache.updaters);
   let updateChannel = $state<ChannelInfo | null>(aboutCache.updateChannel);
+  let externalInfo = $state<ExternalUpdateInfo | null>(null);
   let currentBranch = $state(aboutCache.version?.branch ?? '');
   let selfUpdate = $state<SelfUpdateInfo | null>(null);
   let checking = $state(false);
@@ -138,7 +141,8 @@
     'settings.core.source.channel.stable',
     'settings.core.source.channel.beta',
     'about.channel.external_managed',
-    'about.channel.external_hint'
+    'about.channel.external_hint',
+    'about.update.latest'
   ]);
 
   // The updates tab lists every updater declared in the project spec; the
@@ -168,6 +172,15 @@
       ]);
       coreManaged = managed;
       updateChannel = ch ?? null;
+      if (updateChannel?.external) {
+        // External channels have no self-update source; ask the package
+        // manager (AUR RPC / the Scoop manifest) for the latest version.
+        try {
+          externalInfo = await CheckExternalUpdate();
+        } catch {
+          externalInfo = null;
+        }
+      }
       updaters = u ?? [];
       // Externally managed builds have no release branches to list; the
       // binding refuses the call on such builds.
@@ -447,6 +460,11 @@
       {format(L.aboutChannelExternal_managed, { channel: updateChannel?.name ?? '' })}
     </p>
     <p class="text-sm text-muted-foreground">{L.aboutChannelExternal_hint}</p>
+    {#if externalInfo}
+      <p class="text-sm text-muted-foreground">
+        {L.aboutUpdateLatest} {externalInfo.latest} — <code>{externalInfo.hint}</code>
+      </p>
+    {/if}
   </div>
 {/snippet}
 

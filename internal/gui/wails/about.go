@@ -148,6 +148,40 @@ func (b *Bindings) GetBranches() ([]UpdateChannel, error) {
 	return out, nil
 }
 
+// ExternalUpdateInfo reports the current and latest versions for externally
+// managed builds (AUR, Scoop), plus the command that performs the update.
+type ExternalUpdateInfo struct {
+	Channel  updater.ChannelInfo `json:"channel"`
+	Current  string              `json:"current"`
+	Latest   string              `json:"latest"`
+	Hint     string              `json:"hint"`
+	Outdated bool                `json:"outdated"`
+}
+
+// CheckExternalUpdate reports the update status for externally managed builds.
+// On self-update builds it returns errExternalChannel.
+func (b *Bindings) CheckExternalUpdate() (ExternalUpdateInfo, error) {
+	channel := updater.ActiveChannel()
+	if !channel.External {
+		return ExternalUpdateInfo{}, errExternalChannel
+	}
+	current, err := updater.ChannelCurrentVersion()
+	if err != nil {
+		return ExternalUpdateInfo{}, err
+	}
+	latest, err := updater.ChannelLatestVersion()
+	if err != nil {
+		return ExternalUpdateInfo{}, err
+	}
+	return ExternalUpdateInfo{
+		Channel:  channel,
+		Current:  current,
+		Latest:   latest,
+		Hint:     updater.ChannelUpdateHint(),
+		Outdated: latest != "" && current != latest,
+	}, nil
+}
+
 // CheckSelfUpdate checks for an app update on the given branch.
 func (b *Bindings) CheckSelfUpdate(branch string) (SelfUpdateInfo, error) {
 	if err := b.guardExternalChannel(); err != nil {

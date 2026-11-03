@@ -1,4 +1,4 @@
-//go:build !aur
+//go:build !aur && !scoop
 
 package updater
 
@@ -18,3 +18,13 @@ func ActiveChannel() ChannelInfo {
 func ChannelCurrentVersion() (string, error) {
 	return currentVersionLabel(""), nil
 }
+
+// ChannelLatestVersion is only meaningful for externally managed channels;
+// self-update builds resolve the latest version through the release source.
+func ChannelLatestVersion() (string, error) {
+	return "", errNotExternalChannel
+}
+
+// ChannelUpdateHint returns the update command for external channels; empty
+// for self-update builds.
+func ChannelUpdateHint() string { return "" }

@@ -31,7 +31,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
-          gh release download "$TAG" -p 'sing-box-ez-amd64-windows-gcc-gui.exe' -D artifacts --clobber
+          gh release download "$TAG" -p 'sing-box-ez-amd64-windows-gcc-gui-scoop.exe' -D artifacts --clobber
           ls -la artifacts
 
       - name: Update the Scoop manifest
@@ -39,8 +39,8 @@ jobs:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           version="${TAG#v}"
-          hash=$(sha256sum artifacts/sing-box-ez-amd64-windows-gcc-gui.exe | awk '{print $1}')
-          url="https://github.com/${{ github.repository }}/releases/download/${TAG}/sing-box-ez-amd64-windows-gcc-gui.exe"
+          hash=$(sha256sum artifacts/sing-box-ez-amd64-windows-gcc-gui-scoop.exe | awk '{print $1}')
+          url="https://github.com/${{ github.repository }}/releases/download/${TAG}/sing-box-ez-amd64-windows-gcc-gui-scoop.exe"
           tmp=$(mktemp)
           jq --arg v "$version" --arg h "$hash" --arg u "$url" \
             '.version = $v | .hash = $h | .url = $u' bucket/sing-box-ez-gui.json > "$tmp"
