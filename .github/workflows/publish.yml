@@ -100,7 +100,7 @@ jobs:
       - name: Publish to AUR
         env:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
-          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur -o IdentitiesOnly=yes
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
         run: |
           set -e
           version="${TAG#v}"
