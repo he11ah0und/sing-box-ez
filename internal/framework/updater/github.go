@@ -136,6 +136,10 @@ func (b *GitHubBackend) doJSON(req *http.Request, out any) error {
 
 // LatestRelease implements Source.
 func (b *GitHubBackend) LatestRelease(ctx context.Context, channel string) (Release, error) {
+	// Prefer the rate-limit-free Atom feed; the REST API is only a fallback.
+	if r, err := b.latestFromAtom(ctx, channel); err == nil {
+		return r, nil
+	}
 	var r Release
 	var err error
 	if channel != "" {
@@ -224,6 +228,10 @@ func (b *GitHubBackend) ReleaseByVersion(ctx context.Context, version string) (R
 
 	var lastErr error
 	for _, tag := range candidates {
+		// The Atom feed avoids the REST API rate limit for recent tags.
+		if r, err := b.releaseByVersionAtom(ctx, tag); err == nil {
+			return r, nil
+		}
 		req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiReleaseByTagURL(tag), nil)
 		if err != nil {
 			return Release{}, err
