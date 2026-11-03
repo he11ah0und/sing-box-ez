@@ -78,7 +78,7 @@ NOGUI_BUILD_TAGS := -tags "$(subst $(space),$(comma),$(strip $(NOGUI_TAG_LIST)))
 
 EXT             := $(if $(filter windows,$(GOOS)),.exe,)
 COMPILER_SUFFIX := -$(COMPILER)
-CHANNEL_SUFFIX  := $(if $(filter scoop,$(CHANNEL)),-scoop,)
+CHANNEL_SUFFIX  := $(if $(filter scoop,$(CHANNEL)),-scoop,)$(if $(filter aur,$(CHANNEL)),-aur,)
 GUI_OUTPUT      := $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)-gui$(CHANNEL_SUFFIX)$(EXT)
 CLI_OUTPUT      := $(BUILD_DIR)/$(APP_NAME)-$(GOARCH)-$(GOOS)-$(COMPILER)-cli$(EXT)
 

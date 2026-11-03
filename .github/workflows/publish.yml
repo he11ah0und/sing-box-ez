@@ -81,7 +81,7 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
-          curl -fL -o gui "https://github.com/${{ github.repository }}/releases/download/${TAG}/sing-box-ez-amd64-linux-gcc-gui"
+          curl -fL -o gui "https://github.com/${{ github.repository }}/releases/download/${TAG}/sing-box-ez-amd64-linux-gcc-gui-aur"
           ls -la gui
 
       - name: Set up AUR SSH access
