@@ -11,8 +11,9 @@ import (
 type Style string
 
 const (
-	// StyleClient means every inbound is a local mixed/tun listener. Inbound
-	// tags are irrelevant: client configs commonly name their inbounds.
+	// StyleClient means every inbound is a local client listener (see
+	// clientInbounds). Inbound tags are irrelevant: client configs commonly
+	// name their inbounds.
 	StyleClient Style = "client"
 	// StyleServer means at least one inbound is not a plain mixed/tun inbound.
 	StyleServer Style = "server"
@@ -26,6 +27,20 @@ const (
 	FallbackToClient = "to_client"
 )
 
+// clientInbounds is the whitelist of inbound types that are local to a client:
+// the mixed/http/socks proxy listeners and the tun / transparent-proxy
+// interfaces. Everything else (vmess, vless, trojan, shadowsocks, hysteria,
+// tuic, ...) is a server-side protocol listener, so it marks the config as a
+// server one. Inbound tags play no role: clients name their inbounds freely.
+var clientInbounds = map[string]bool{
+	"mixed":    true,
+	"http":     true,
+	"socks":    true,
+	"tun":      true,
+	"redirect": true,
+	"tproxy":   true,
+}
+
 // Detect returns the style of the provided inbounds slice.
 func Detect(inbounds []any) Style {
 	if len(inbounds) == 0 {
@@ -37,7 +52,7 @@ func Detect(inbounds []any) Style {
 			return StyleServer
 		}
 		t, _ := in["type"].(string)
-		if t != "mixed" && t != "tun" {
+		if !clientInbounds[t] {
 			return StyleServer
 		}
 	}
