@@ -169,6 +169,7 @@ configs:
       update_now: Update now
       open: Open
       validate: Validate
+      reset_style: Reset style choice
       open_dir: Open location
       create: Create again
       copy: Copy

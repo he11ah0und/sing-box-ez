@@ -27,7 +27,8 @@
     IsConfigHashMismatch,
     HasCachedConfig,
     CopyValidationReport,
-    GetConfigMeta
+    GetConfigMeta,
+    SetFallbackType
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type { ConfigMeta } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
   import type {
@@ -50,6 +51,7 @@
     'configs.dialog.btn.open',
     'configs.dialog.btn.open_dir',
     'configs.dialog.btn.update_now',
+    'configs.dialog.btn.reset_style',
     'configs.dialog.btn.validate',
     'configs.empty',
     'configs.style.client',
@@ -184,6 +186,13 @@
 
   async function openDir(name: string) {
     await OpenConfigDir(name).catch(() => {});
+  }
+
+  // resetStyle clears a previously chosen fallback_type so the config style
+  // check runs again on the next start.
+  async function resetStyle(name: string) {
+    await SetFallbackType(name, '');
+    await load();
   }
 
   async function recreate(name: string) {
@@ -451,6 +460,12 @@
                       <Pen size={14} />
                       {L.configsBtnEdit}
                     </DropdownMenu.Item>
+                    {#if cfg.fallback_type}
+                      <DropdownMenu.Item onclick={() => { void resetStyle(cfg.name); }}>
+                        <RotateCw size={14} />
+                        {L.configsDialogBtnReset_style}
+                      </DropdownMenu.Item>
+                    {/if}
                     <DropdownMenu.Separator />
                     <DropdownMenu.Item
                       class="text-destructive"

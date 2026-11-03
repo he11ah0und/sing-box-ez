@@ -169,6 +169,7 @@ configs:
       update_now: Обновить сейчас
       open: Открыть
       validate: Проверить
+      reset_style: Сбросить выбор стиля
       open_dir: Открыть расположение
       create: Создать заново
       copy: Копировать

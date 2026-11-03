@@ -15,7 +15,8 @@ func TestDetect(t *testing.T) {
 		{"client_mixed", []any{map[string]any{"type": "mixed"}}, StyleClient},
 		{"client_tun", []any{map[string]any{"type": "tun"}}, StyleClient},
 		{"client_mixed_tun", []any{map[string]any{"type": "tun"}, map[string]any{"type": "mixed"}}, StyleClient},
-		{"server_tag", []any{map[string]any{"type": "mixed", "tag": "in"}}, StyleServer},
+		{"client_tagged_mixed", []any{map[string]any{"type": "mixed", "tag": "in"}}, StyleClient},
+		{"client_tagged_tun", []any{map[string]any{"type": "tun", "tag": "tun-in"}}, StyleClient},
 		{"server_other_type", []any{map[string]any{"type": "shadowsocks"}}, StyleServer},
 		{"server_mixed_with_http", []any{map[string]any{"type": "mixed"}, map[string]any{"type": "http"}}, StyleServer},
 	}

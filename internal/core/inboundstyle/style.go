@@ -11,7 +11,8 @@ import (
 type Style string
 
 const (
-	// StyleClient means all inbounds are mixed/tun inbounds without tags.
+	// StyleClient means every inbound is a local mixed/tun listener. Inbound
+	// tags are irrelevant: client configs commonly name their inbounds.
 	StyleClient Style = "client"
 	// StyleServer means at least one inbound is not a plain mixed/tun inbound.
 	StyleServer Style = "server"
@@ -37,9 +38,6 @@ func Detect(inbounds []any) Style {
 		}
 		t, _ := in["type"].(string)
 		if t != "mixed" && t != "tun" {
-			return StyleServer
-		}
-		if tag, _ := in["tag"].(string); tag != "" {
 			return StyleServer
 		}
 	}
