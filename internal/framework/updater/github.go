@@ -195,6 +195,11 @@ func (b *GitHubBackend) latestForChannel(ctx context.Context, channel string) (R
 
 // ListChannels implements Source.
 func (b *GitHubBackend) ListChannels(ctx context.Context) ([]Channel, error) {
+	// Channels are derived from the release tags first; the branches API is
+	// only a fallback when the feed yields nothing.
+	if ch, err := b.channelsFromAtom(ctx); err == nil && len(ch) > 0 {
+		return ch, nil
+	}
 	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiBranchesURL(), nil)
 	if err != nil {
 		return nil, err
@@ -249,6 +254,10 @@ func (b *GitHubBackend) ReleaseByVersion(ctx context.Context, version string) (R
 // ListReleases returns all releases of the repository, newest first
 // (prereleases included) — used by the core version picker.
 func (b *GitHubBackend) ListReleases(ctx context.Context) ([]Release, error) {
+	// Prefer the rate-limit-free Atom feed over the releases API.
+	if out, err := b.listFromAtom(ctx); err == nil && len(out) > 0 {
+		return out, nil
+	}
 	req, err := b.newGitHubRequest(ctx, http.MethodGet, b.apiReleasesURL(), nil)
 	if err != nil {
 		return nil, err

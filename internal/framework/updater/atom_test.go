@@ -133,3 +133,29 @@ func TestAtomPrerelease(t *testing.T) {
 		}
 	}
 }
+
+func TestListReleasesAndChannelsAtom(t *testing.T) {
+	b, _ := newAtomTestBackend(t)
+	rels, err := b.ListReleases(context.Background())
+	if err != nil {
+		t.Fatalf("ListReleases: %v", err)
+	}
+	if len(rels) != 2 {
+		t.Fatalf("want 2 releases from the feed, got %d", len(rels))
+	}
+	if rels[0].Version != "v0.1.0-testing.abc1234" {
+		t.Fatalf("releases must be newest first, got %q", rels[0].Version)
+	}
+
+	chs, err := b.ListChannels(context.Background())
+	if err != nil {
+		t.Fatalf("ListChannels: %v", err)
+	}
+	got := make(map[string]bool)
+	for _, c := range chs {
+		got[c.ID] = true
+	}
+	if !got["main"] || !got["testing"] {
+		t.Fatalf("channels = %v, want main and testing", got)
+	}
+}

@@ -64,13 +64,15 @@ func atomPrerelease(tag string) bool {
 	return false
 }
 
-// atomChannel infers the branch a release was built from using the tag
-// convention; empty means the default (stable) channel.
+// atomChannel infers the release channel from the tag: "testing" for
+// testing-tagged builds and "main" for the stable channel. Branch names other
+// than testing are not discoverable through the feed, so "main" stands for the
+// default/stable channel.
 func atomChannel(tag string) string {
 	if strings.Contains(tag, "-testing") {
 		return "testing"
 	}
-	return ""
+	return "main"
 }
 
 func (b *GitHubBackend) doXML(req *http.Request, out any) error {
@@ -187,6 +189,43 @@ func (b *GitHubBackend) latestFromAtom(ctx context.Context, channel string) (Rel
 	}
 	b.Log.TInfof("updater.no_releases_found", channel)
 	return Release{}, fmt.Errorf("%w %s", ErrNoRelease, channel)
+}
+
+// listFromAtom returns every release present in the feed, newest first.
+func (b *GitHubBackend) listFromAtom(ctx context.Context) ([]Release, error) {
+	entries, err := b.fetchAtom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Release, 0, len(entries))
+	for _, e := range entries {
+		r, err := b.releaseFromAtom(ctx, e)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// channelsFromAtom derives the available channels from the tags in the feed,
+// instead of calling the branches API.
+func (b *GitHubBackend) channelsFromAtom(ctx context.Context) ([]Channel, error) {
+	entries, err := b.fetchAtom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool)
+	var out []Channel
+	for _, e := range entries {
+		ch := atomChannel(e.tag())
+		if ch == "" || seen[ch] {
+			continue
+		}
+		seen[ch] = true
+		out = append(out, Channel{ID: ch, Name: ch})
+	}
+	return out, nil
 }
 
 // releaseByVersionAtom finds an exact tag in the short feed. Older tags that
