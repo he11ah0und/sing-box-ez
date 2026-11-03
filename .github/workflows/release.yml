@@ -279,3 +279,14 @@ jobs:
           prerelease: ${{ github.ref_name != 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The release is created by this workflow's GITHUB_TOKEN, and GitHub does
+  # not start new runs for such events, so publishing is invoked from here
+  # instead of relying on the "release: published" trigger.
+  publish:
+    needs: [prepare-release, finalize-release]
+    if: ${{ !contains(needs.prepare-release.outputs.tag, '-testing') }}
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.prepare-release.outputs.tag }}
+      dry_run: false
