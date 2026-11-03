@@ -47,10 +47,11 @@ const (
 // managedCoreBinary is the path of the app-managed core in the data dir.
 // The core and its companion files live in the "core" subdirectory.
 func managedCoreBinary(baseDir string) string {
+	path := filepath.Join(baseDir, "core", "sing-box")
 	if runtime.GOOS == "windows" {
-		return filepath.Join(baseDir, "core", "sing-box.exe")
+		return path + ".exe"
 	}
-	return filepath.Join(baseDir, "core", "sing-box")
+	return path
 }
 
 // ResolveCoreBinary returns the core binary path for the configured source
