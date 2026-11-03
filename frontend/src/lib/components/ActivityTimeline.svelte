@@ -16,10 +16,14 @@
 
   const L = useLocale(['main.connections.timeline_reset']);
 
-  // Ticks once per second so open tracks grow while the dialog is open.
+  // Open tracks (spans without an end) are the only ones that need the
+  // per-second tick to grow. Skip it when there is nothing open or when the
+  // window is hidden, so an idle timeline does no derived recompute at all.
+  const hasOpenTracks = $derived((spans ?? []).some((s) => !s.end));
   let now = $state(Date.now());
   $effect(() => {
     const t = setInterval(() => {
+      if (document.hidden || !hasOpenTracks) return;
       now = Date.now();
     }, 1000);
     return () => { clearInterval(t); };

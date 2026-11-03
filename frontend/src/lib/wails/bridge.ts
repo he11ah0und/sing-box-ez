@@ -92,7 +92,44 @@ interface ConfigsUpdateReportPayload {
 // A session change (core (re)start) resets the traffic graph history; the
 // session counter survives the hidden-window event gating that drops the
 // intermediate phase events.
+let lastApiSig = '';
+let pendingApiState: APIStateUpdate | null | undefined;
+let visibilityHooked = false;
+
+// apiSig fingerprints everything that can change what the UI shows, except the
+// always-advancing uptime/connectedAgo strings; the minute bucket keeps those
+// two labels refreshing about once a minute while nothing else moves.
+function apiSig(data: APIStateUpdate | null | undefined, minute: number): string {
+  const groups = (data?.groups ?? [])
+    .map((g) => `${g.tag ?? ''}:${g.selected ?? ''}:${g.delay ?? ''}`)
+    .join(',');
+  const conns = (data?.connections ?? []).map((c) => c.id ?? '').join(',');
+  const connGroups = (data?.connGroups ?? [])
+    .map((g) => `${g.key ?? ''}:${g.active ?? ''}:${g.spans?.length ?? 0}`)
+    .join(',');
+  return [
+    data?.phase ?? '', data?.session ?? 0, data?.mode ?? '',
+    data?.status?.uplinkTotal ?? 0, data?.status?.downlinkTotal ?? 0,
+    groups, conns, connGroups, (data?.modeList ?? []).join(','), minute
+  ].join('|');
+}
+
 function applyApiState(data: APIStateUpdate | null | undefined) {
+  pendingApiState = data;
+  // While the window is hidden there is nothing to repaint: keep only the
+  // newest snapshot and apply it once the window becomes visible again.
+  if (typeof document !== 'undefined' && document.hidden) return;
+  flushApiState();
+}
+
+function flushApiState() {
+  // Skip the store update entirely when nothing visible changed: a 1 Hz
+  // snapshot with fresh array references would otherwise invalidate every
+  // list on the page even while the core is idle.
+  const sig = apiSig(pendingApiState, Math.floor(Date.now() / 60000));
+  if (sig === lastApiSig) return;
+  lastApiSig = sig;
+  const data = pendingApiState;
   appState.update((s) => {
     // Phase-only updates carry session 0: keep the last known session.
     const incoming = data?.session ?? 0;
@@ -115,6 +152,15 @@ function applyApiState(data: APIStateUpdate | null | undefined) {
         ? { ...s.traffic, history: { times: [], up: [], down: [] } }
         : s.traffic
     };
+  });
+}
+
+// hookVisibility applies the newest snapshot once the window is shown again.
+function hookVisibility() {
+  if (visibilityHooked || typeof document === 'undefined') return;
+  visibilityHooked = true;
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) flushApiState();
   });
 }
 
@@ -204,6 +250,8 @@ export function initWailsEvents(): Promise<unknown> {
   // The app shell gates on this: it shows a loading state until the initial
   // backend data has arrived (settled, not necessarily succeeded).
   const seeds = Promise.allSettled([historySeed, apiSeed, settingsSeed, localeSeed]);
+
+  hookVisibility();
 
   Events.On('api:state', (event: WailsEvent<APIStateUpdate>) => {
     applyApiState(event.data);
