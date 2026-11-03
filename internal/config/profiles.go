@@ -2,7 +2,6 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"sync"
@@ -22,26 +21,12 @@ type Profiles struct {
 
 // LoadProfiles loads profiles from profiles.yaml inside root.
 // If the file does not exist it returns an empty Profiles struct.
-// A legacy profiles.json file is automatically migrated to profiles.yaml.
 func LoadProfiles(root fs.Directory) (*Profiles, error) {
 	yamlFile := root.File("profiles.yaml")
-	jsonFile := root.File("profiles.json")
 
 	data, err := yamlFile.Read()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			// Migrate legacy JSON profiles if present.
-			if legacy, readErr := jsonFile.Read(); readErr == nil && len(legacy) > 0 {
-				var p Profiles
-				if jerr := json.Unmarshal(legacy, &p); jerr == nil {
-					if p.Configs == nil {
-						p.Configs = []ConfigRecord{}
-					}
-					_ = jsonFile.Remove()
-					_ = p.Save(root)
-					return &p, nil
-				}
-			}
 			return &Profiles{Configs: []ConfigRecord{}}, nil
 		}
 		return nil, err

@@ -30,6 +30,19 @@ type GitHubBackend struct {
 	Repo    string
 	Net     *net.Client
 	Log     *logger.LogTerminal
+
+	// PrereleaseMarkers lists tag substrings that mark a release as a
+	// prerelease. The Atom feed has no prerelease flag, so this is only a
+	// heuristic and can be overridden per repository.
+	PrereleaseMarkers []string
+	// ChannelTags maps a tag substring to the channel it belongs to (for
+	// example "-testing" -> "testing"). Empty means no channel inference:
+	// every release counts as the stable/default channel and named channels
+	// are resolved through the REST API fallback.
+	ChannelTags map[string]string
+	// StableChannel is the channel ID treated as the stable/default one when
+	// a caller names a channel explicitly. "main" is the usual git default.
+	StableChannel string
 }
 
 // NewGitHubBackend returns a GitHubBackend for the public GitHub API.
@@ -37,23 +50,33 @@ type GitHubBackend struct {
 // multiple GitHub backends can be distinguished in the logs.
 func NewGitHubBackend(parent *logger.LogTerminal, owner, repo string) *GitHubBackend {
 	return &GitHubBackend{
-		BaseURL: defaultGitHubAPI,
-		Owner:   owner,
-		Repo:    repo,
-		Net:     net.NewClient(parent),
-		Log:     parent.Allocate("gh-" + owner + "-" + repo),
+		BaseURL:          defaultGitHubAPI,
+		Owner:            owner,
+		Repo:             repo,
+		Net:              net.NewClient(parent),
+		Log:              parent.Allocate("gh-" + owner + "-" + repo),
+		PrereleaseMarkers: defaultPrereleaseMarkers(),
+		StableChannel:    "main",
 	}
 }
 
 // NewGitHubEnterpriseBackend returns a GitHubBackend for a custom GitHub Enterprise instance.
 func NewGitHubEnterpriseBackend(parent *logger.LogTerminal, baseURL, owner, repo string) *GitHubBackend {
 	return &GitHubBackend{
-		BaseURL: baseURL,
-		Owner:   owner,
-		Repo:    repo,
-		Net:     net.NewClient(parent),
-		Log:     parent.Allocate("gh-" + owner + "-" + repo),
+		BaseURL:          baseURL,
+		Owner:            owner,
+		Repo:             repo,
+		Net:              net.NewClient(parent),
+		Log:              parent.Allocate("gh-" + owner + "-" + repo),
+		PrereleaseMarkers: defaultPrereleaseMarkers(),
+		StableChannel:    "main",
 	}
+}
+
+// defaultPrereleaseMarkers lists generic prerelease tag markers used when a
+// repository does not override them. They are conventions, not hard rules.
+func defaultPrereleaseMarkers() []string {
+	return []string{"-testing", "-beta", "-alpha", "-rc", "-pre", "-nightly", "-dev"}
 }
 
 func (b *GitHubBackend) slug() string { return b.Owner + "/" + b.Repo }

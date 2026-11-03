@@ -55,6 +55,9 @@ func newAtomTestBackend(t *testing.T) (*GitHubBackend, *httptest.Server) {
 	t.Cleanup(srv.Close)
 	b := NewGitHubBackend(logger.NewLogger(0).Root, "o", "r")
 	b.BaseURL = srv.URL
+	// Our repository's own convention, configured explicitly like in
+	// framework.buildUpdatersFromSpec.
+	b.ChannelTags = map[string]string{"-testing": "testing"}
 	return b, srv
 }
 
@@ -120,6 +123,7 @@ func TestReleaseByVersionAtom(t *testing.T) {
 }
 
 func TestAtomPrerelease(t *testing.T) {
+	b, _ := newAtomTestBackend(t)
 	cases := map[string]bool{
 		"v1.0.0":                  false,
 		"v1.0.0-testing.abc1234":  true,
@@ -128,9 +132,23 @@ func TestAtomPrerelease(t *testing.T) {
 		"v3.2.0-nightly.20261102": true,
 	}
 	for tag, want := range cases {
-		if got := atomPrerelease(tag); got != want {
-			t.Errorf("atomPrerelease(%q) = %v, want %v", tag, got, want)
+		if got := b.prereleaseTag(tag); got != want {
+			t.Errorf("prereleaseTag(%q) = %v, want %v", tag, got, want)
 		}
+	}
+}
+
+func TestAtomChannelsWithoutMapping(t *testing.T) {
+	b, _ := newAtomTestBackend(t)
+	b.ChannelTags = nil
+	// Without an explicit mapping nothing is inferred: the branches API
+	// fallback owns channel discovery instead of a hardcoded convention.
+	ch, err := b.channelsFromAtom(context.Background())
+	if err != nil {
+		t.Fatalf("channelsFromAtom: %v", err)
+	}
+	if ch != nil {
+		t.Fatalf("expected nil channels without ChannelTags, got %v", ch)
 	}
 }
 

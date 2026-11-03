@@ -52,11 +52,15 @@ func (e atomEntry) publishedAt() time.Time {
 	return t
 }
 
-// atomPrerelease infers the prerelease flag from the tag name, since the Atom
-// feed carries no such flag.
-func atomPrerelease(tag string) bool {
+// prereleaseTag reports whether the tag looks like a prerelease using the
+// backend's configured markers (the Atom feed itself has no such flag).
+func (b *GitHubBackend) prereleaseTag(tag string) bool {
+	markers := b.PrereleaseMarkers
+	if len(markers) == 0 {
+		markers = defaultPrereleaseMarkers()
+	}
 	lower := strings.ToLower(tag)
-	for _, marker := range []string{"-testing", "-beta", "-alpha", "-rc", "-pre", "-nightly", "-dev"} {
+	for _, marker := range markers {
 		if strings.Contains(lower, marker) {
 			return true
 		}
@@ -64,15 +68,20 @@ func atomPrerelease(tag string) bool {
 	return false
 }
 
-// atomChannel infers the release channel from the tag: "testing" for
-// testing-tagged builds and "main" for the stable channel. Branch names other
-// than testing are not discoverable through the feed, so "main" stands for the
-// default/stable channel.
-func atomChannel(tag string) string {
-	if strings.Contains(tag, "-testing") {
-		return "testing"
+// channelForTag maps a tag to a channel using the backend's ChannelTags
+// configuration. Empty means no channel was inferred from the tag.
+func (b *GitHubBackend) channelForTag(tag string) string {
+	for marker, channel := range b.ChannelTags {
+		if strings.Contains(tag, marker) {
+			return channel
+		}
 	}
-	return "main"
+	return ""
+}
+
+// isStableChannel reports whether the requested channel is the stable one.
+func (b *GitHubBackend) isStableChannel(channel string) bool {
+	return channel == "" || channel == b.StableChannel
 }
 
 func (b *GitHubBackend) doXML(req *http.Request, out any) error {
@@ -145,13 +154,17 @@ func (b *GitHubBackend) releaseFromAtom(ctx context.Context, e atomEntry) (Relea
 	if err != nil {
 		return Release{}, err
 	}
+	channel := b.channelForTag(tag)
+	if channel == "" {
+		channel = b.StableChannel
+	}
 	r := Release{
 		Version:     tag,
-		Channel:     atomChannel(tag),
+		Channel:     channel,
 		Name:        e.Title,
 		Body:        e.Content,
 		PublishedAt: e.publishedAt(),
-		Prerelease:  atomPrerelease(tag),
+		Prerelease:  b.prereleaseTag(tag),
 	}
 	for i := range assets {
 		assets[i].Tags = b.assetTags(r, assets[i].Name)
@@ -168,9 +181,9 @@ func (b *GitHubBackend) latestFromAtom(ctx context.Context, channel string) (Rel
 	if err != nil {
 		return Release{}, err
 	}
-	if channel == "" {
+	if b.isStableChannel(channel) {
 		for _, e := range entries {
-			if !atomPrerelease(e.tag()) {
+			if !b.prereleaseTag(e.tag()) {
 				return b.releaseFromAtom(ctx, e)
 			}
 		}
@@ -178,12 +191,12 @@ func (b *GitHubBackend) latestFromAtom(ctx context.Context, channel string) (Rel
 		return Release{}, fmt.Errorf("%w %s", ErrNoRelease, channel)
 	}
 	for _, e := range entries {
-		if atomChannel(e.tag()) == channel && !atomPrerelease(e.tag()) {
+		if b.channelForTag(e.tag()) == channel && !b.prereleaseTag(e.tag()) {
 			return b.releaseFromAtom(ctx, e)
 		}
 	}
 	for _, e := range entries {
-		if atomChannel(e.tag()) == channel && atomPrerelease(e.tag()) {
+		if b.channelForTag(e.tag()) == channel && b.prereleaseTag(e.tag()) {
 			return b.releaseFromAtom(ctx, e)
 		}
 	}
@@ -209,16 +222,25 @@ func (b *GitHubBackend) listFromAtom(ctx context.Context) ([]Release, error) {
 }
 
 // channelsFromAtom derives the available channels from the tags in the feed,
-// instead of calling the branches API.
+// instead of calling the branches API. When no tag-to-channel mapping is
+// configured it returns nil so the branches API fallback is used instead of
+// guessing a convention.
 func (b *GitHubBackend) channelsFromAtom(ctx context.Context) ([]Channel, error) {
+	if len(b.ChannelTags) == 0 {
+		return nil, nil
+	}
 	entries, err := b.fetchAtom(ctx)
 	if err != nil {
 		return nil, err
 	}
 	seen := make(map[string]bool)
 	var out []Channel
+	if b.StableChannel != "" {
+		seen[b.StableChannel] = true
+		out = append(out, Channel{ID: b.StableChannel, Name: b.StableChannel})
+	}
 	for _, e := range entries {
-		ch := atomChannel(e.tag())
+		ch := b.channelForTag(e.tag())
 		if ch == "" || seen[ch] {
 			continue
 		}

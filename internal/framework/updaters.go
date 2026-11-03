@@ -18,11 +18,18 @@ func (a *App) buildUpdatersFromSpec(spec *projectspec.Spec, loadInstallScript fu
 		mgr := updater.NewManager(a.Logger.Root, u.Name)
 		switch u.Source.Backend {
 		case "github":
+			var gh *updater.GitHubBackend
 			if u.Source.BaseURL != "" {
-				mgr.Source = updater.NewGitHubEnterpriseBackend(mgr.Log, u.Source.BaseURL, u.Source.Owner, u.Source.Repo)
+				gh = updater.NewGitHubEnterpriseBackend(mgr.Log, u.Source.BaseURL, u.Source.Owner, u.Source.Repo)
 			} else {
-				mgr.Source = updater.NewGitHubBackend(mgr.Log, u.Source.Owner, u.Source.Repo)
+				gh = updater.NewGitHubBackend(mgr.Log, u.Source.Owner, u.Source.Repo)
 			}
+			// Our own repository encodes the testing channel in tag names;
+			// every other repository keeps the neutral defaults.
+			if u.Source.Owner == "he11ah0und" && u.Source.Repo == "sing-box-ez" {
+				gh.ChannelTags = map[string]string{"-testing": "testing"}
+			}
+			mgr.Source = gh
 		default:
 			return nil, fmt.Errorf("updaters[%q]: unsupported source backend %q", u.Name, u.Source.Backend)
 		}
