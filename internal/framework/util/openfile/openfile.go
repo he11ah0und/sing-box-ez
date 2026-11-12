@@ -14,7 +14,9 @@ func OpenPath(path string) error {
 		return exec.Command("open", path).Start()
 	case "windows":
 		// #nosec G204 — cmd is a system binary; path is an internal config file.
-		return exec.Command("cmd", "/c", "start", "", path).Start()
+		cmd := exec.Command("cmd", "/c", "start", "", path)
+		hideConsole(cmd)
+		return cmd.Start()
 	default:
 		// #nosec G204 — xdg-open is a system binary; path is an internal config file.
 		return exec.Command("xdg-open", path).Start()
