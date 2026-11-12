@@ -1,9 +1,9 @@
 -- Install script for the sing-box core release asset.
 -- The release archive has a single root directory like
 -- sing-box-<version>-<os>-<arch>/ containing the binary and any companion
--- files (licenses, shared libraries, etc.). Everything is extracted into the
--- "core" subdirectory of the data dir so the core keeps its own files
--- together instead of a single flat binary.
+-- files (licenses, shared libraries, etc.). Everything from that root is
+-- extracted into the "core" subdirectory of the data dir, so the core keeps
+-- its own files together instead of a single flat binary.
 
 local binary_name = "sing-box"
 if platform.os == "windows" then
@@ -27,36 +27,6 @@ if not root then
 	return { error = "sing-box root directory not found in archive" }
 end
 
--- copy_dir recursively copies an archive directory into the destination,
--- creating subdirectories as needed and preserving companion libraries.
-local function copy_dir(src_dir, dst_dir)
-	local list, list_err = asset.fs.list_dir(src_dir)
-	if list_err then
-		return list_err
-	end
-	local mkdir_err = fs.mkdir(dst_dir)
-	if mkdir_err then
-		return mkdir_err
-	end
-	for _, e in ipairs(list) do
-		local name = e.name:gsub("/$", "")
-		local src = src_dir .. "/" .. name
-		local dst = dst_dir .. "/" .. name
-		if e.is_dir then
-			local err = copy_dir(src, dst)
-			if err then
-				return err
-			end
-		else
-			local err = fs.copy(asset.fs, src, dst)
-			if err then
-				return err
-			end
-		end
-	end
-	return nil
-end
-
 local dst_dir = "core"
 local old_dir = dst_dir .. ".old"
 
@@ -78,13 +48,31 @@ if fs.exists(dst_dir) then
 	end
 end
 
-local copy_err = copy_dir(root, dst_dir)
-if copy_err then
-	-- Attempt to roll back to the previous core on failure.
-	if fs.exists(old_dir) and not fs.exists(dst_dir) then
-		_ = fs.rename(old_dir, dst_dir)
+local mkdir_err = fs.mkdir(dst_dir)
+if mkdir_err then
+	return { error = "cannot create core dir: " .. tostring(mkdir_err) }
+end
+
+-- Copy every file from the archive root into core/ (binary + companion
+-- files such as LICENSE and any bundled libraries).
+local files, list_err = asset.fs.list_dir(root)
+if list_err then
+	return { error = "cannot list core archive root: " .. tostring(list_err) }
+end
+for _, e in ipairs(files) do
+	local name = e.name:gsub("/$", "")
+	if not e.is_dir then
+		local src = root .. "/" .. name
+		local dst = dst_dir .. "/" .. name
+		local copy_err = fs.copy(asset.fs, src, dst)
+		if copy_err then
+			-- Attempt to roll back to the previous core on failure.
+			if fs.exists(old_dir) and not fs.exists(dst_dir) then
+				_ = fs.rename(old_dir, dst_dir)
+			end
+			return { error = "copy failed: " .. tostring(copy_err) }
+		end
 	end
-	return { error = "copy failed: " .. tostring(copy_err) }
 end
 
 -- Cleanup the rotated directory on success. Ignore errors here; leftovers

@@ -12,12 +12,14 @@
     currentLabel = '',
     latestLabel = '',
     checkLabel = '',
-    upToDateText = '',
     updateTitle = '',
     closeLabel = '',
     hint = '',
+    label = '',
+    actionLabel = '',
     open = $bindable(false),
-    onCheck
+    onCheck,
+    onAction
   }: {
     current?: string;
     latest?: string;
@@ -25,18 +27,22 @@
     currentLabel?: string;
     latestLabel?: string;
     checkLabel?: string;
-    upToDateText?: string;
     updateTitle?: string;
     closeLabel?: string;
     hint?: string;
+    label?: string;
+    actionLabel?: string;
     open?: boolean;
     onCheck: () => void;
+    onAction?: () => void;
   } = $props();
-
-  const hasUpdate = $derived(!!latest && !!current && latest !== current);
 </script>
 
+<div class="space-y-4">
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  {#if label}
+    <p class="col-span-full text-sm text-muted-foreground">{label}</p>
+  {/if}
   <div class="rounded-xl bg-background border border-border p-4">
     <p class="text-sm text-muted-foreground">{currentLabel}</p>
     <p class="text-lg font-medium">{current || '—'}</p>
@@ -51,9 +57,8 @@
     <RefreshCw size={16} class={checking ? 'animate-spin' : ''} />
     {checkLabel}
   </Button>
-  {#if !hasUpdate && latest && current}
-    <span class="text-sm text-muted-foreground">{upToDateText}</span>
-  {/if}
+</div>
+
 </div>
 
 <AlertDialog.Root bind:open>
@@ -65,6 +70,9 @@
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
+      {#if onAction && actionLabel}
+        <AlertDialog.Action onclick={onAction}>{actionLabel}</AlertDialog.Action>
+      {/if}
       <AlertDialog.Cancel>{closeLabel}</AlertDialog.Cancel>
     </AlertDialog.Footer>
   </AlertDialog.Content>

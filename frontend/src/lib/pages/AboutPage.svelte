@@ -51,7 +51,7 @@
     SetConfigValues,
     CancelUpdate,
     OpenDataDir,
-    OpenProjectURL,
+    OpenUpdaterProjectURL,
     OpenReleaseURL,
     GetReleaseNotes,
     CheckExternalUpdate,
@@ -149,7 +149,8 @@
     'about.channel.external_managed',
     'about.channel.external_hint',
     'about.update.latest',
-    'about.update.up_to_date'
+    'about.update.up_to_date',
+    'configs.dialog.btn.copy'
   ]);
 
   // The updates tab lists every updater declared in the project spec; the
@@ -171,15 +172,17 @@
       toast.error(String(err));
     }
     try {
-      const [ch, u, core, managed, br, ext] = await Promise.all([
-        GetUpdateChannel(),
+      const ch = await GetUpdateChannel();
+      updateChannel = ch ?? null;
+      const external = updateChannel?.external ?? false;
+      // On external channels there is no branch list to fetch at all, so the
+      // pointless GetBranches call (and its guard error) is skipped.
+      const [u, core, managed, br, ext] = await Promise.all([
         GetUpdaters(),
         GetCoreInfo(),
         IsCoreManaged(),
-        // External builds refuse both calls; the catches keep them from
-        // becoming sequential blocking requests.
-        GetBranches().catch(() => []),
-        CheckExternalUpdate().catch(() => null)
+        external ? Promise.resolve([]) : GetBranches().catch(() => []),
+        external ? CheckExternalUpdate().catch(() => null) : Promise.resolve(null)
       ]);
       coreManaged = managed;
       updateChannel = ch ?? null;
@@ -232,6 +235,12 @@
   }
 
   // Manual core version check, presented through the same UpdateCard dialog.
+  function copyUpdateCommand() {
+    // External channels update via the package manager, so the dialog offers
+    // to copy the command instead of downloading anything in-app.
+    if (externalInfo?.hint) void navigator.clipboard.writeText(externalInfo.hint);
+  }
+
   async function checkCoreVersion() {
     checkingCore = true;
     try {
@@ -332,8 +341,8 @@
     (modalIsApp ? $appState.selfUpdate.downloadProgress : $appState.coreInfo.downloadProgress) ?? 0
   );
 
-  async function openRepo() {
-    await OpenProjectURL();
+  async function openUpdaterRepo(name: string) {
+    await OpenUpdaterProjectURL(name);
   }
 
   async function openDataDir() {
@@ -485,18 +494,18 @@
 {#snippet externalUpdaterBody()}
   <!-- Externally managed build (AUR, Scoop): the label comes from the build
        channel, and version checks reuse the shared UpdateCard. -->
-  <p class="text-sm text-muted-foreground">{updateChannel?.name ?? ''}</p>
   <UpdateCard
+    label={updateChannel?.name ?? ''}
     current={version?.version ?? ''}
     latest={externalInfo?.latest ?? ''}
     checking={checkingExternal}
     currentLabel={L.coreInstalled}
     latestLabel={L.coreLatest}
     checkLabel={L.aboutBtnCheck_update}
-    upToDateText={L.aboutUpdateUp_to_date}
     updateTitle={L.aboutUpdateTitle}
     closeLabel={L.commonCancel}
-    hint={externalInfo?.hint ?? ''}
+    actionLabel={L.configsDialogBtnCopy}
+    onAction={copyUpdateCommand}
     bind:open={appUpdateOpen}
     onCheck={checkExternalUpdate}
   />
@@ -505,7 +514,6 @@
 {#snippet coreUpdaterBody(u: UpdaterEntry)}
   <!-- Core updater: installed/latest versions and the download action. -->
   <div class="space-y-4">
-    <p class="text-sm text-muted-foreground">{L.aboutUpdatersBackend}: {backendName(u.sourceBackend)}</p>
     <div class="flex items-center justify-between gap-2">
       <p class="text-sm text-muted-foreground">
         {L.settingsCoreSourceModeLabel}: {coreSourceLabel(coreSourceMode)}
@@ -532,25 +540,29 @@
       </div>
     {:else}
       <UpdateCard
+        label={`${L.aboutUpdatersBackend}: ${backendName(u.sourceBackend)}`}
         current={$appState.coreInfo.installedVersion || ''}
         latest={$appState.coreInfo.latestVersion || ''}
         checking={checkingCore}
         currentLabel={L.coreInstalled}
         latestLabel={L.coreLatest}
         checkLabel={L.aboutBtnCheck_update}
-        upToDateText={L.aboutUpdateUp_to_date}
         updateTitle={L.tabCore}
         closeLabel={L.commonCancel}
+        actionLabel={L.coreBtnDownload}
+        onAction={downloadCore}
         bind:open={coreUpdateOpen}
         onCheck={checkCoreVersion}
       />
     {/if}
     {#if coreManaged}
       <div class="flex flex-wrap gap-3">
-        <Button disabled={coreProcessing} onclick={downloadCore}>
-          <Download size={16} class={coreProcessing ? 'animate-bounce' : ''} />
-          {L.coreBtnDownload}
-        </Button>
+        {#if !$appState.coreInfo.installedVersion || $appState.coreInfo.latestVersion !== $appState.coreInfo.installedVersion}
+          <Button disabled={coreProcessing} onclick={downloadCore}>
+            <Download size={16} class={coreProcessing ? 'animate-bounce' : ''} />
+            {L.coreBtnDownload}
+          </Button>
+        {/if}
         <Button variant="outline" disabled={coreProcessing} onclick={openVersionPicker}>
           {L.corePick_version}
         </Button>
@@ -578,6 +590,12 @@
           <Card.Header>
             <Card.Title>{updaterTitles[u.name] ?? u.name}</Card.Title>
             <Card.Description>{L.aboutUpdatersRepository}: {u.owner}/{u.repo}</Card.Description>
+            <Card.Action>
+              <Button variant="outline" size="sm" onclick={() => openUpdaterRepo(u.name)}>
+                <ExternalLink size={16} />
+                {L.aboutBtnOpen_repo}
+              </Button>
+            </Card.Action>
           </Card.Header>
           <Card.Content>
             {#if u.name === 'updater'}
@@ -619,10 +637,6 @@
           {/if}
 
           <div class="flex flex-wrap gap-3 pt-2">
-            <Button onclick={openRepo}>
-              <ExternalLink size={16} />
-              {L.aboutBtnOpen_repo}
-            </Button>
             {#if !version.isDev}
               <Button variant="outline" onclick={fetchReleaseNotes}>
                 <FileText size={16} />

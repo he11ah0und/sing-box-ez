@@ -102,6 +102,7 @@ gui:
   self_update_check_failed: "background self-update check failed: %v"
   config_download_via_proxy: "direct config download failed, retrying through the running core proxy: %v"
   websocket_ipc_start_failed: "websocket ipc start failed; continuing without the IPC server: %v"
+  external_update_check_failed: "external update check failed: %v"
   locale_wildcard_no_match: "locale wildcard %q matched no keys"
   config_meta_style_failed: "detect config style for %q: %v"
   tray:

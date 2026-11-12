@@ -173,12 +173,22 @@ func (b *Bindings) CheckExternalUpdate() (ExternalUpdateInfo, error) {
 	if err != nil {
 		return ExternalUpdateInfo{}, err
 	}
+	// AUR package versions carry a pkgrel suffix (0.1.4-1) while the app semver
+	// does not. Compare without it so an up-to-date AUR install is not reported
+	// as outdated.
+	normalize := func(v string) string {
+		v = strings.TrimPrefix(v, "v")
+		if i := strings.LastIndex(v, "-"); i >= 0 {
+			v = v[:i]
+		}
+		return v
+	}
 	return ExternalUpdateInfo{
 		Channel:  channel,
 		Current:  current,
 		Latest:   latest,
 		Hint:     updater.ChannelUpdateHint(),
-		Outdated: latest != "" && current != latest,
+		Outdated: latest != "" && normalize(current) != normalize(latest),
 	}, nil
 }
 
@@ -280,11 +290,27 @@ func (b *Bindings) runUpdateChecks() {
 }
 
 func (b *Bindings) checkSelfUpdateAvailable() {
-	if b.ic == nil || updater.ActiveChannel().External {
+	if b.ic == nil {
 		return
 	}
 	cfg := b.app.Controller.Config()
 	if !cfg.MustGet("updates", "auto_check_self").Bool() {
+		return
+	}
+	if updater.ActiveChannel().External {
+		// External builds (AUR, Scoop) do not self-update, but they still check
+		// the package source at startup and notify when a newer version exists.
+		info, err := b.CheckExternalUpdate()
+		if err != nil {
+			b.app.Logger.Root.TWarnf("gui.external_update_check_failed", err)
+			return
+		}
+		if info.Outdated {
+			// Localized toast: the "Update to {{version}}" key carries the
+			// placeholder, which is substituted with the package version.
+			text := strings.Replace(b.t("about", "update", "available"), "{{version}}", info.Latest, 1)
+			b.toast("info", text, "")
+		}
 		return
 	}
 	info, err := b.ic.CheckSelfUpdate()
@@ -509,11 +535,11 @@ func (b *Bindings) OpenURL(url string) error {
 	return nil
 }
 
-// selfUpdateLinker resolves the project/release URL provider: the
-// self-updater source on regular builds, or the spec-declared "updater"
-// source on externally managed builds that ship no self-update manager.
-func (b *Bindings) selfUpdateLinker() (updater.Linker, error) {
-	if b.app.SelfUpdater != nil {
+// updaterLinker resolves the project/release URL provider for a named
+// updater. The self-updater uses its live source; other updaters, including
+// externally managed builds, use their source declared in the project spec.
+func (b *Bindings) updaterLinker(name string) (updater.Linker, error) {
+	if name == "updater" && b.app.SelfUpdater != nil {
 		if l, ok := b.app.SelfUpdater.Source.(updater.Linker); ok {
 			return l, nil
 		}
@@ -521,7 +547,7 @@ func (b *Bindings) selfUpdateLinker() (updater.Linker, error) {
 	}
 	if spec := b.app.Spec; spec != nil {
 		for _, u := range spec.Updaters {
-			if u.Name != "updater" || u.Source.Backend != "github" {
+			if u.Name != name || u.Source.Backend != "github" {
 				continue
 			}
 			var src updater.Source
@@ -535,23 +561,29 @@ func (b *Bindings) selfUpdateLinker() (updater.Linker, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("no updater source exposes project URLs")
+	return nil, fmt.Errorf("updater %q has no source exposing project URLs", name)
 }
 
-// OpenProjectURL opens the application repository page in the default
-// browser. The URL comes from the self-updater source, not from a literal.
-func (b *Bindings) OpenProjectURL() error {
-	l, err := b.selfUpdateLinker()
+// OpenUpdaterProjectURL opens the repository page for a named updater in the
+// default browser. The URL comes from the updater source, not from a literal.
+func (b *Bindings) OpenUpdaterProjectURL(name string) error {
+	l, err := b.updaterLinker(name)
 	if err != nil {
 		return err
 	}
 	return b.OpenURL(l.ProjectURL())
 }
 
+// OpenProjectURL opens the application repository page in the default
+// browser. The URL comes from the self-updater source, not from a literal.
+func (b *Bindings) OpenProjectURL() error {
+	return b.OpenUpdaterProjectURL("updater")
+}
+
 // OpenReleaseURL opens the release page for the given tag in the default
 // browser. The URL comes from the self-updater source, not from a literal.
 func (b *Bindings) OpenReleaseURL(tag string) error {
-	l, err := b.selfUpdateLinker()
+	l, err := b.updaterLinker("updater")
 	if err != nil {
 		return err
 	}

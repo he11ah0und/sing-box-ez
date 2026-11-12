@@ -4,6 +4,7 @@
 
 # Agent session working files (index, tasks, notes)
 .session-notes/
+gates.md
 
 # Generated plugin API docs
 docs/plugin-api/
