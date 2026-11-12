@@ -6,7 +6,7 @@
   import { initWailsEvents } from '$lib/wails/bridge.js';
   import { theme, applyTheme, colorScheme, fromThemePayload } from '$lib/stores/theme.js';
   import { signalLocaleReady, useLocale, useLocaleRecord, format } from '@he11ah0und/localengine-web';
-  import { GetTheme, SetFallbackType, QuitApp, GetOrphanedConfigs, DeleteOrphanedConfigs, RetryConfigUpdateViaCore, RetryUpdateCheckViaCore } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
+  import { GetTheme, SetFallbackType, GetOrphanedConfigs, DeleteOrphanedConfigs, RetryConfigUpdateViaCore, RetryUpdateCheckViaCore } from '../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type { OrphanedConfig } from '../bindings/sing-box-ez/internal/core/models.js';
   import { currentLevel, enterSubNav, setSubTab, setRootPage } from '$lib/stores/navigation.js';
   import { appState, type StyleCheckState } from '$lib/stores/appState.js';
@@ -234,12 +234,6 @@
     'dialog.core_incompatible.btn_settings'
   ]);
 
-  // The channel-error dialog is not dismissible by click-away/Escape: the
-  // user must pick Quit or Continue anyway explicitly.
-  function closeChannelError() {
-    appState.update((s) => ({ ...s, updateChannelError: null }));
-  }
-
   function closePrivilegesDialog() {
     appState.update((s) => ({ ...s, privilegesRequired: false }));
   }
@@ -339,32 +333,6 @@
         </Button>
         <Button onclick={openPrivilegeSettings}>
           {L.dialogPrivileges_requiredBtn_settings}
-        </Button>
-      </AlertDialog.Footer>
-    </AlertDialog.Content>
-  </AlertDialog.Root>
-{/if}
-
-{#if $appState.updateChannelError}
-  <AlertDialog.Root open={true}>
-    <AlertDialog.Content>
-      <AlertDialog.Header>
-        <AlertDialog.Title class="text-destructive">
-          {L.dialogChannel_errorTitle}
-        </AlertDialog.Title>
-        <AlertDialog.Description>
-          {format(L.dialogChannel_errorBody, {
-            channel: $appState.updateChannelError.channel,
-            error: $appState.updateChannelError.error
-          })}
-        </AlertDialog.Description>
-      </AlertDialog.Header>
-      <AlertDialog.Footer>
-        <Button variant="outline" onclick={closeChannelError}>
-          {L.dialogChannel_errorBtn_continue}
-        </Button>
-        <Button variant="destructive" onclick={() => QuitApp()}>
-          {L.commonQuit}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>

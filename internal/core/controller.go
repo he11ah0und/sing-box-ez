@@ -915,6 +915,13 @@ func (c *Controller) HasCachedConfig(name string) bool {
 
 func (c *Controller) DownloadConfigFor(name, url string) error {
 	data, err := c.manager.DownloadConfigFor(context.Background(), name, url)
+	if err != nil && c.CoreProxyAddr() != "" {
+		// Direct access failed (for example an internal-only domain that does
+		// not resolve outside the tunnel): retry through the running core's
+		// local proxy, and only report an error if that fails too.
+		c.terminal.TInfof("core.controller.config_download_via_proxy", err)
+		data, err = c.manager.DownloadConfigForWith(context.Background(), name, url, fwnet.NewClientViaProxy(c.terminal, c.CoreProxyAddr()))
+	}
 	if err != nil {
 		return err
 	}

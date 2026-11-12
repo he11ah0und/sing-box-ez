@@ -23,9 +23,10 @@
   import { toast } from 'svelte-sonner';
   import { fly } from 'svelte/transition';
   import { appState } from '../stores/appState.js';
-  import { useLocale, format } from '@he11ah0und/localengine-web';
+  import { useLocale } from '@he11ah0und/localengine-web';
   import { subNav } from '../stores/navigation.js';
   import Page from '../components/Page.svelte';
+  import UpdateCard from '../components/UpdateCard.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Progress } from '$lib/components/ui/progress/index.js';
@@ -53,7 +54,8 @@
     OpenProjectURL,
     OpenReleaseURL,
     GetReleaseNotes,
-    CheckExternalUpdate
+    CheckExternalUpdate,
+    GetLatestCoreVersion
   } from '../../../bindings/sing-box-ez/internal/gui/wails/bindings.js';
   import type { ExternalUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
   import type { SelfUpdateInfo } from '../../../bindings/sing-box-ez/internal/gui/wails/models.js';
@@ -64,6 +66,10 @@
   let updaters = $state<UpdaterEntry[]>(aboutCache.updaters);
   let updateChannel = $state<ChannelInfo | null>(aboutCache.updateChannel);
   let externalInfo = $state<ExternalUpdateInfo | null>(null);
+  let checkingExternal = $state(false);
+  let checkingCore = $state(false);
+  let appUpdateOpen = $state(false);
+  let coreUpdateOpen = $state(false);
   let currentBranch = $state(aboutCache.version?.branch ?? '');
   let selfUpdate = $state<SelfUpdateInfo | null>(null);
   let checking = $state(false);
@@ -142,7 +148,8 @@
     'settings.core.source.channel.beta',
     'about.channel.external_managed',
     'about.channel.external_hint',
-    'about.update.latest'
+    'about.update.latest',
+    'about.update.up_to_date'
   ]);
 
   // The updates tab lists every updater declared in the project spec; the
@@ -164,27 +171,21 @@
       toast.error(String(err));
     }
     try {
-      const [ch, u, core, managed] = await Promise.all([
+      const [ch, u, core, managed, br, ext] = await Promise.all([
         GetUpdateChannel(),
         GetUpdaters(),
         GetCoreInfo(),
-        IsCoreManaged()
+        IsCoreManaged(),
+        // External builds refuse both calls; the catches keep them from
+        // becoming sequential blocking requests.
+        GetBranches().catch(() => []),
+        CheckExternalUpdate().catch(() => null)
       ]);
       coreManaged = managed;
       updateChannel = ch ?? null;
-      if (updateChannel?.external) {
-        // External channels have no self-update source; ask the package
-        // manager (AUR RPC / the Scoop manifest) for the latest version.
-        try {
-          externalInfo = await CheckExternalUpdate();
-        } catch {
-          externalInfo = null;
-        }
-      }
       updaters = u ?? [];
-      // Externally managed builds have no release branches to list; the
-      // binding refuses the call on such builds.
-      branches = ch?.external ? [] : (await GetBranches()) ?? [];
+      branches = br ?? [];
+      externalInfo = ext;
       aboutCache.branches = branches;
       aboutCache.updaters = updaters;
       aboutCache.updateChannel = updateChannel;
@@ -214,6 +215,35 @@
       selfUpdate = null;
     } finally {
       checking = false;
+    }
+  }
+
+  async function checkExternalUpdate() {
+    checkingExternal = true;
+    try {
+      externalInfo = await CheckExternalUpdate();
+      // A found update is presented in a dialog with the update command.
+      if (externalInfo?.outdated) appUpdateOpen = true;
+    } catch {
+      externalInfo = null;
+    } finally {
+      checkingExternal = false;
+    }
+  }
+
+  // Manual core version check, presented through the same UpdateCard dialog.
+  async function checkCoreVersion() {
+    checkingCore = true;
+    try {
+      const v = await GetLatestCoreVersion();
+      appState.update((s) => ({ ...s, coreInfo: { ...s.coreInfo, latestVersion: v } }));
+      if (v && $appState.coreInfo.installedVersion && v !== $appState.coreInfo.installedVersion) {
+        coreUpdateOpen = true;
+      }
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      checkingCore = false;
     }
   }
 
@@ -453,19 +483,23 @@
 {/snippet}
 
 {#snippet externalUpdaterBody()}
-  <!-- Externally managed build (AUR, ...): no self-update UI; the package
-       manager owns updates. -->
-  <div class="space-y-2">
-    <p class="text-sm">
-      {format(L.aboutChannelExternal_managed, { channel: updateChannel?.name ?? '' })}
-    </p>
-    <p class="text-sm text-muted-foreground">{L.aboutChannelExternal_hint}</p>
-    {#if externalInfo}
-      <p class="text-sm text-muted-foreground">
-        {L.aboutUpdateLatest} {externalInfo.latest} — <code>{externalInfo.hint}</code>
-      </p>
-    {/if}
-  </div>
+  <!-- Externally managed build (AUR, Scoop): the label comes from the build
+       channel, and version checks reuse the shared UpdateCard. -->
+  <p class="text-sm text-muted-foreground">{updateChannel?.name ?? ''}</p>
+  <UpdateCard
+    current={version?.version ?? ''}
+    latest={externalInfo?.latest ?? ''}
+    checking={checkingExternal}
+    currentLabel={L.coreInstalled}
+    latestLabel={L.coreLatest}
+    checkLabel={L.aboutBtnCheck_update}
+    upToDateText={L.aboutUpdateUp_to_date}
+    updateTitle={L.aboutUpdateTitle}
+    closeLabel={L.commonCancel}
+    hint={externalInfo?.hint ?? ''}
+    bind:open={appUpdateOpen}
+    onCheck={checkExternalUpdate}
+  />
 {/snippet}
 
 {#snippet coreUpdaterBody(u: UpdaterEntry)}
@@ -497,16 +531,19 @@
         <Skeleton class="h-[76px] w-full rounded-xl" />
       </div>
     {:else}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="rounded-xl bg-background border border-border p-4">
-          <p class="text-sm text-muted-foreground">{L.coreInstalled}</p>
-          <p class="text-lg font-medium">{$appState.coreInfo.installedVersion || '—'}</p>
-        </div>
-        <div class="rounded-xl bg-background border border-border p-4">
-          <p class="text-sm text-muted-foreground">{L.coreLatest}</p>
-          <p class="text-lg font-medium">{$appState.coreInfo.latestVersion || '—'}</p>
-        </div>
-      </div>
+      <UpdateCard
+        current={$appState.coreInfo.installedVersion || ''}
+        latest={$appState.coreInfo.latestVersion || ''}
+        checking={checkingCore}
+        currentLabel={L.coreInstalled}
+        latestLabel={L.coreLatest}
+        checkLabel={L.aboutBtnCheck_update}
+        upToDateText={L.aboutUpdateUp_to_date}
+        updateTitle={L.tabCore}
+        closeLabel={L.commonCancel}
+        bind:open={coreUpdateOpen}
+        onCheck={checkCoreVersion}
+      />
     {/if}
     {#if coreManaged}
       <div class="flex flex-wrap gap-3">

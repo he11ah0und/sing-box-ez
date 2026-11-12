@@ -182,6 +182,12 @@ func (b *Bindings) CheckExternalUpdate() (ExternalUpdateInfo, error) {
 	}, nil
 }
 
+// GetLatestCoreVersion returns the newest available sing-box core version for
+// the configured source, for a manual update check from the About page.
+func (b *Bindings) GetLatestCoreVersion() (string, error) {
+	return b.app.Controller.GetLatestCoreVersion()
+}
+
 // CheckSelfUpdate checks for an app update on the given branch.
 func (b *Bindings) CheckSelfUpdate(branch string) (SelfUpdateInfo, error) {
 	if err := b.guardExternalChannel(); err != nil {
@@ -269,28 +275,8 @@ func normalizeCoreVersion(v string) string {
 // Each check respects its updates.auto_check_* setting and only reports an
 // available update; installation is always initiated by the user.
 func (b *Bindings) runUpdateChecks() {
-	b.verifyUpdateChannel()
 	b.checkSelfUpdateAvailable()
 	b.checkCoreUpdateAvailable()
-}
-
-// verifyUpdateChannel asks the active update channel to confirm the version
-// of the running binary. On externally managed builds (AUR, ...) a failure
-// means the packaged binary is not tracked by the package manager — the app
-// cannot update itself and its provenance is unverified — so the GUI warns
-// the user with a blocking danger dialog.
-func (b *Bindings) verifyUpdateChannel() {
-	channel := updater.ActiveChannel()
-	if !channel.External {
-		return
-	}
-	if _, err := updater.ChannelCurrentVersion(); err != nil {
-		b.app.Logger.Root.TErrorf("gui.channel_version_check_failed", err)
-		b.emit("update:channel_error", map[string]any{
-			"channel": channel,
-			"error":   err.Error(),
-		})
-	}
 }
 
 func (b *Bindings) checkSelfUpdateAvailable() {

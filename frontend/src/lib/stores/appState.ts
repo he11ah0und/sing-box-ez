@@ -125,10 +125,6 @@ export interface AppState {
   selfUpdate: SelfUpdateState;
   styleCheck: StyleCheckState | null;
   selfUpdateInfo: SelfUpdateInfo | null;
-  // updateChannelError is set by the update:channel_error event: an
-  // externally managed build (AUR, ...) failed to verify its own version —
-  // App shows a blocking danger dialog with Quit / Continue anyway.
-  updateChannelError: { channel: string; error: string } | null;
   // configsUpdateFailed is set by the configs:update_failed event: every
   // config due for a background refresh failed to download — App shows a
   // dialog listing the configs with the classified failure reason.
@@ -188,7 +184,6 @@ export const appState = writable<AppState>({
   selfUpdate: { downloading: false, downloadProgress: 0 },
   styleCheck: null,
   selfUpdateInfo: null,
-  updateChannelError: null,
   configsUpdateFailed: null,
   configDownloadFailed: null,
   updateCheckFailed: null,

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
-	"strings"
 	"time"
 )
 
@@ -23,21 +21,10 @@ func ActiveChannel() ChannelInfo {
 
 const scoopPackage = "sing-box-ez-gui"
 
-// ChannelCurrentVersion reports the installed version according to Scoop
-// itself (`scoop list`). A failure means the app is not tracked by Scoop, so
-// its provenance is unverified, mirroring the AUR pacman check.
+// ChannelCurrentVersion reports the running build's own version from its build
+// metadata; no Scoop CLI is invoked for that.
 func ChannelCurrentVersion() (string, error) {
-	out, err := exec.Command("scoop", "list", scoopPackage).Output()
-	if err != nil {
-		return "", fmt.Errorf("scoop list %s: %w", scoopPackage, err)
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[0] == scoopPackage {
-			return fields[1], nil
-		}
-	}
-	return "", fmt.Errorf("package %s not found in scoop list output", scoopPackage)
+	return currentVersionLabel(""), nil
 }
 
 // ChannelLatestVersion reads the version from the Scoop manifest kept in this
