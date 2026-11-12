@@ -50,26 +50,26 @@ type GitHubBackend struct {
 // multiple GitHub backends can be distinguished in the logs.
 func NewGitHubBackend(parent *logger.LogTerminal, owner, repo string) *GitHubBackend {
 	return &GitHubBackend{
-		BaseURL:          defaultGitHubAPI,
-		Owner:            owner,
-		Repo:             repo,
-		Net:              net.NewClient(parent),
-		Log:              parent.Allocate("gh-" + owner + "-" + repo),
+		BaseURL:           defaultGitHubAPI,
+		Owner:             owner,
+		Repo:              repo,
+		Net:               net.NewClient(parent),
+		Log:               parent.Allocate("gh-" + owner + "-" + repo),
 		PrereleaseMarkers: defaultPrereleaseMarkers(),
-		StableChannel:    "main",
+		StableChannel:     "main",
 	}
 }
 
 // NewGitHubEnterpriseBackend returns a GitHubBackend for a custom GitHub Enterprise instance.
 func NewGitHubEnterpriseBackend(parent *logger.LogTerminal, baseURL, owner, repo string) *GitHubBackend {
 	return &GitHubBackend{
-		BaseURL:          baseURL,
-		Owner:            owner,
-		Repo:             repo,
-		Net:              net.NewClient(parent),
-		Log:              parent.Allocate("gh-" + owner + "-" + repo),
+		BaseURL:           baseURL,
+		Owner:             owner,
+		Repo:              repo,
+		Net:               net.NewClient(parent),
+		Log:               parent.Allocate("gh-" + owner + "-" + repo),
 		PrereleaseMarkers: defaultPrereleaseMarkers(),
-		StableChannel:    "main",
+		StableChannel:     "main",
 	}
 }
 

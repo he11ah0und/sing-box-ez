@@ -193,7 +193,7 @@ security:
 	$(GO_BIN)/gosec -quiet -exclude-dir=internal/core/api/singbox/proto ./...
 
 complexity:
-	$(GO_BIN)/gocyclo -over 15 .
+	$(GO_BIN)/gocyclo -over 15 -ignore 'frontend/node_modules|frontend/dist|frontend/bindings|packaging/aur/(src|pkg)|build/' .
 
 # Ratchet guard against hardcoded non-ASCII (and, opt-in, English) text in
 # Go, TS and Svelte sources (he11ah0und/hardcode-scan). The allowlist

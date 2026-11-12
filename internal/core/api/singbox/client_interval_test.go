@@ -14,17 +14,18 @@ import (
 
 type intervalRecorder struct {
 	pb.UnimplementedStartedServiceServer
-	got chan int64
+	status chan int64
+	conns  chan int64
 }
 
 func (m *intervalRecorder) SubscribeStatus(req *pb.SubscribeStatusRequest, stream grpc.ServerStreamingServer[pb.Status]) error {
-	m.got <- req.GetInterval()
+	m.status <- req.GetInterval()
 	<-stream.Context().Done()
 	return nil
 }
 
 func (m *intervalRecorder) SubscribeConnections(req *pb.SubscribeConnectionsRequest, stream grpc.ServerStreamingServer[pb.ConnectionEvents]) error {
-	m.got <- req.GetInterval()
+	m.conns <- req.GetInterval()
 	<-stream.Context().Done()
 	return nil
 }
@@ -33,7 +34,7 @@ func (m *intervalRecorder) SubscribeConnections(req *pb.SubscribeConnectionsRequ
 // (nanoseconds): sending milliseconds instead makes the server tick every
 // microsecond and flood the client.
 func TestSubscribeIntervalIsNanoseconds(t *testing.T) {
-	mock := &intervalRecorder{got: make(chan int64, 2)}
+	mock := &intervalRecorder{status: make(chan int64, 2), conns: make(chan int64, 2)}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -61,10 +62,12 @@ func TestSubscribeIntervalIsNanoseconds(t *testing.T) {
 	}
 	defer stopConns()
 
-	if got := <-mock.got; got != int64(time.Second) {
+	// Read each subscription from its own channel: the two gRPC streams start
+	// concurrently, so asserting on arrival order would be flaky.
+	if got := <-mock.status; got != int64(time.Second) {
 		t.Fatalf("SubscribeStatus interval: got %d, want %d (ns)", got, int64(time.Second))
 	}
-	if got := <-mock.got; got != int64(2*time.Second) {
+	if got := <-mock.conns; got != int64(2*time.Second) {
 		t.Fatalf("SubscribeConnections interval: got %d, want %d (ns)", got, int64(2*time.Second))
 	}
 }
