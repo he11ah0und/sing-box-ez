@@ -33,13 +33,7 @@ func TestClientStatus(t *testing.T) {
 
 func TestClientGroups(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"proxies": map[string]any{
-				"Proxy": map[string]any{"type": "Selector", "now": "Node1", "all": []string{"Node1", "Node2"}},
-				"Auto":  map[string]any{"type": "URLTest", "now": "Node1", "all": []string{"Node1"}},
-				"Node1": map[string]any{"type": "Shadowsocks"},
-			},
-		})
+		_, _ = w.Write([]byte(`{"proxies":{"Proxy":{"type":"Selector","now":"Node1","all":["Node1","Node2"]},"Node1":{"type":"Shadowsocks"},"Auto":{"type":"URLTest","now":"Node1","all":["Node1"]},"Node2":{"type":"Trojan"}}}`))
 	}))
 	defer srv.Close()
 
@@ -51,15 +45,20 @@ func TestClientGroups(t *testing.T) {
 	if len(groups) != 2 {
 		t.Fatalf("expected 2 groups, got %d", len(groups))
 	}
-	// Groups are sorted by tag: Auto, Proxy.
-	if groups[0].Tag != "Auto" || groups[0].Selectable {
-		t.Fatalf("urltest group must not be selectable: %+v", groups[0])
+	if groups[0].Tag != "Proxy" || groups[1].Tag != "Auto" {
+		t.Fatalf("expected API order [Proxy Auto], got [%s %s]", groups[0].Tag, groups[1].Tag)
 	}
-	if groups[1].Tag != "Proxy" || groups[1].Selected != "Node1" || len(groups[1].Nodes) != 2 {
-		t.Fatalf("unexpected group: %+v", groups[1])
+	if groups[0].Selected != "Node1" || len(groups[0].Nodes) != 2 {
+		t.Fatalf("unexpected group: %+v", groups[0])
 	}
-	if !groups[1].Selectable {
-		t.Fatalf("selector group must be selectable: %+v", groups[1])
+	if !groups[0].Selectable {
+		t.Fatalf("selector group must be selectable: %+v", groups[0])
+	}
+	if groups[0].Nodes[0].Tag != "Node1" || groups[0].Nodes[1].Tag != "Node2" || groups[0].Nodes[1].Type != "Trojan" {
+		t.Fatalf("unexpected nodes: %+v", groups[0].Nodes)
+	}
+	if groups[1].Selectable {
+		t.Fatalf("urltest group must not be selectable: %+v", groups[1])
 	}
 }
 

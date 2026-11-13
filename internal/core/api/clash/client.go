@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 
@@ -98,13 +97,18 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 		return nil, err
 	}
 	var resp struct {
-		Proxies map[string]proxy `json:"proxies"`
+		Proxies proxyEntries `json:"proxies"`
 	}
 	if err := c.doJSON(req, &resp); err != nil {
 		return nil, err
 	}
+	proxies := make(map[string]proxy, len(resp.Proxies))
+	for _, entry := range resp.Proxies {
+		proxies[entry.name] = entry.value
+	}
 	var groups []api.Group
-	for name, p := range resp.Proxies {
+	for _, entry := range resp.Proxies {
+		name, p := entry.name, entry.value
 		if p.Type != "Selector" && p.Type != "URLTest" && p.Type != "Fallback" && p.Type != "LoadBalance" {
 			continue
 		}
@@ -126,7 +130,7 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 				continue
 			}
 			node := api.Node{Tag: n}
-			if leaf, ok := resp.Proxies[n]; ok {
+			if leaf, ok := proxies[n]; ok {
 				node.Type = leaf.Type
 				if len(leaf.History) > 0 {
 					last := leaf.History[len(leaf.History)-1]
@@ -140,12 +144,6 @@ func (c *Client) Groups(ctx context.Context) ([]api.Group, error) {
 		}
 		groups = append(groups, g)
 	}
-	// The Clash API returns proxies as a JSON object, so the order is
-	// unspecified; sort by tag to keep the group list stable for all
-	// consumers (GUI, CLI, future TUI).
-	sort.Slice(groups, func(i, j int) bool {
-		return strings.ToLower(groups[i].Tag) < strings.ToLower(groups[j].Tag)
-	})
 	return groups, nil
 }
 
@@ -362,6 +360,49 @@ type proxy struct {
 	Now     string    `json:"now"`
 	All     []string  `json:"all"`
 	History []history `json:"history"`
+}
+
+type proxyEntry struct {
+	name  string
+	value proxy
+}
+
+type proxyEntries []proxyEntry
+
+func (p *proxyEntries) UnmarshalJSON(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	if token == nil {
+		*p = nil
+		return nil
+	}
+	if token != json.Delim('{') {
+		return fmt.Errorf("expected proxies object")
+	}
+	var entries []proxyEntry
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		name, ok := token.(string)
+		if !ok {
+			return fmt.Errorf("expected proxy name")
+		}
+		var value proxy
+		if err := decoder.Decode(&value); err != nil {
+			return err
+		}
+		entries = append(entries, proxyEntry{name: name, value: value})
+	}
+	if _, err := decoder.Token(); err != nil {
+		return err
+	}
+	*p = entries
+	return nil
 }
 
 type history struct {

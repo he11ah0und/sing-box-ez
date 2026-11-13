@@ -57,6 +57,9 @@ func TestGroupsFromProtoSelectable(t *testing.T) {
 	if len(groups) != 2 {
 		t.Fatalf("expected 2 groups, got %d", len(groups))
 	}
+	if groups[0].Tag != "proxy" || groups[1].Tag != "auto" {
+		t.Fatalf("expected response order [proxy auto], got [%s %s]", groups[0].Tag, groups[1].Tag)
+	}
 	byTag := map[string]bool{}
 	for _, g := range groups {
 		byTag[g.Tag] = g.Selectable
