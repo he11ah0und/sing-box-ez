@@ -1,10 +1,10 @@
 {
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "GUI client for the sing-box proxy core",
   "homepage": "https://github.com/he11ah0und/sing-box-ez",
   "license": "GPL-3.0",
-  "url": "https://github.com/he11ah0und/sing-box-ez/releases/download/v0.1.5/sing-box-ez-amd64-windows-gcc-gui-scoop.exe",
-  "hash": "aa9217f2954044f6bc7336ee66403f37b9f73e2ef018db34a1eff89c00b15855",
+  "url": "https://github.com/he11ah0und/sing-box-ez/releases/download/v0.1.6/sing-box-ez-amd64-windows-gcc-gui-scoop.exe",
+  "hash": "8cb1a44c40d6f598ea1a58bae89b5d3ff0f3f30b9f2e7e5e4765472b6a76e95b",
   "bin": "sing-box-ez-amd64-windows-gcc-gui-scoop.exe",
   "shortcuts": [
     [
