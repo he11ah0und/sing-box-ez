@@ -69,6 +69,10 @@ main:
     p95: p95
   groups:
     empty: No outbound groups
+    reconnect_title: Reconnect connections?
+    reconnect_body: 'Reconnect {{count}} connection(s) using group {{group}}?'
+    reconnect_confirm: Reconnect
+    reconnect_toast: 'Reconnecting {{count}} connection(s) through {{group}}'
   connections:
     empty: No active connections
     inactive: inactive
@@ -258,6 +262,7 @@ settings:
   ui:
     show_logs: Show logs
     desktop_notifications: Desktop notifications
+    reconnect_on_group_change: Reconnect connections after group change
     theme_mode:
       label: Theme mode
       system: System-based

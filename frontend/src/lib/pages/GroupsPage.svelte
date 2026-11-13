@@ -1,17 +1,20 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { RefreshCw, ChevronDown, ChevronUp, Zap, Funnel } from '@lucide/svelte';
+  import { toast } from 'svelte-sonner';
   import { appState } from '../stores/appState.js';
-  import { useLocale } from '@he11ah0und/localengine-web';
+  import { useLocale, format } from '@he11ah0und/localengine-web';
 
   import Page from '../components/Page.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
   import * as Dialog from '$lib/components/ui/dialog/index.js';
+  import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
   import { Skeleton } from '$lib/components/ui/skeleton/index.js';
   import {
+    CloseAPIConnectionGroup,
     SelectAPINode,
     URLTestAPIGroup,
     SetAPIGroupFilter
@@ -23,8 +26,13 @@
   const L = useLocale([
     'tab.groups',
     'main.groups.empty',
+    'main.groups.reconnect_title',
+    'main.groups.reconnect_body',
+    'main.groups.reconnect_confirm',
+    'main.groups.reconnect_toast',
     'main.connections.search',
-    'main.connections.filter'
+    'main.connections.filter',
+    'common.cancel'
   ]);
 
   // Core API state arrives from the backend via api:state events; the page
@@ -35,6 +43,7 @@
   let expandedGroups = $state<Set<string>>(new Set());
   let testingGroups = $state<Set<string>>(new Set());
   let groupDelays = $state<Record<string, Record<string, number>>>({});
+  let reconnectRequest = $state<{ group: string; ids: string[] } | null>(null);
 
   // Group search is applied by the backend: the query is debounced into
   // SetAPIGroupFilter and the filtered list arrives with the next api:state
@@ -67,9 +76,39 @@
     })
   );
 
+  function affectedConnectionIDs(group: string): string[] {
+    const ids = $appState.api.connections
+      .filter((connection) =>
+        connection.chain?.includes(group) ||
+        ((!connection.chain || connection.chain.length === 0) && connection.outbound === group)
+      )
+      .map((connection) => connection.id);
+    return [...new Set(ids)];
+  }
+
   async function selectNode(group: string, node: string) {
+    if (apiGroups.find((item) => item.tag === group)?.selected === node) return;
     try {
       await SelectAPINode(group, node);
+      const ids = affectedConnectionIDs(group);
+      if (ids.length === 0) return;
+      if ($appState.settings['ui.reconnect_on_group_change'] === false) {
+        reconnectRequest = { group, ids };
+        return;
+      }
+      await CloseAPIConnectionGroup(ids);
+      toast.success(format(L.mainGroupsReconnect_toast, { group, count: ids.length }));
+    } catch {
+      // The backend already reported the failure with a toast.
+    }
+  }
+
+  async function confirmReconnect() {
+    const request = reconnectRequest;
+    if (!request) return;
+    try {
+      await CloseAPIConnectionGroup(request.ids);
+      reconnectRequest = null;
     } catch {
       // The backend already reported the failure with a toast.
     }
@@ -218,3 +257,21 @@
     />
   </Dialog.Content>
 </Dialog.Root>
+
+{#if reconnectRequest}
+  {@const request = reconnectRequest}
+  <AlertDialog.Root open={true} onOpenChange={(open) => { if (!open) reconnectRequest = null; }}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>{L.mainGroupsReconnect_title}</AlertDialog.Title>
+        <AlertDialog.Description>
+          {format(L.mainGroupsReconnect_body, { group: request.group, count: request.ids.length })}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel>{L.commonCancel}</AlertDialog.Cancel>
+        <Button onclick={() => void confirmReconnect()}>{L.mainGroupsReconnect_confirm}</Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}

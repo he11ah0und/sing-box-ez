@@ -69,6 +69,10 @@ main:
     p95: 95-й перцентиль
   groups:
     empty: Нет outbound-групп
+    reconnect_title: Переподключить соединения?
+    reconnect_body: 'Соединений для переподключения через группу {{group}}: {{count}}'
+    reconnect_confirm: Переподключить
+    reconnect_toast: 'Переподключение соединений через {{group}} ({{count}})'
   connections:
     empty: Нет активных соединений
     inactive: неактивно
@@ -258,6 +262,7 @@ settings:
   ui:
     show_logs: Показывать логи
     desktop_notifications: Уведомления на рабочий стол
+    reconnect_on_group_change: Переподключать соединения после смены группы
     theme_mode:
       label: Режим темы
       system: Системная

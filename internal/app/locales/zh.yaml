@@ -69,6 +69,10 @@ main:
     p95: 95 百分位
   groups:
     empty: 无出站分组
+    reconnect_title: 重新建立连接？
+    reconnect_body: '是否通过分组 {{group}} 重新连接 {{count}} 个连接？'
+    reconnect_confirm: 重新连接
+    reconnect_toast: '正在通过 {{group}} 重新连接 {{count}} 个连接'
   connections:
     empty: 无活动连接
     inactive: 非活动
@@ -258,6 +262,7 @@ settings:
   ui:
     show_logs: 显示日志
     desktop_notifications: 桌面通知
+    reconnect_on_group_change: 切换分组后重新连接活动连接
     theme_mode:
       label: 主题模式
       system: 跟随系统

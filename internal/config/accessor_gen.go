@@ -53,12 +53,13 @@ type LogAccessor struct {
 }
 
 type UIAccessor struct {
-	ShowLogs             *fwconfig.Cell
-	Language             *fwconfig.Cell
-	ConnectionsSort      *fwconfig.Cell
-	DesktopNotifications *fwconfig.Cell
-	Theme                *fwconfig.Cell
-	ThemeMode            *fwconfig.Cell
+	ShowLogs               *fwconfig.Cell
+	Language               *fwconfig.Cell
+	ConnectionsSort        *fwconfig.Cell
+	DesktopNotifications   *fwconfig.Cell
+	ReconnectOnGroupChange *fwconfig.Cell
+	Theme                  *fwconfig.Cell
+	ThemeMode              *fwconfig.Cell
 }
 
 type UpdatesAccessor struct {
@@ -120,12 +121,13 @@ func NewAccessor(sheet *fwconfig.Sheet) *Accessor {
 			Limit: sheet.MustGet("log", "limit"),
 		},
 		UI: &UIAccessor{
-			ShowLogs:             sheet.MustGet("ui", "show_logs"),
-			Language:             sheet.MustGet("ui", "language"),
-			ConnectionsSort:      sheet.MustGet("ui", "connections_sort"),
-			DesktopNotifications: sheet.MustGet("ui", "desktop_notifications"),
-			Theme:                sheet.MustGet("ui", "theme"),
-			ThemeMode:            sheet.MustGet("ui", "theme_mode"),
+			ShowLogs:               sheet.MustGet("ui", "show_logs"),
+			Language:               sheet.MustGet("ui", "language"),
+			ConnectionsSort:        sheet.MustGet("ui", "connections_sort"),
+			DesktopNotifications:   sheet.MustGet("ui", "desktop_notifications"),
+			ReconnectOnGroupChange: sheet.MustGet("ui", "reconnect_on_group_change"),
+			Theme:                  sheet.MustGet("ui", "theme"),
+			ThemeMode:              sheet.MustGet("ui", "theme_mode"),
 		},
 		Updates: &UpdatesAccessor{
 			AutoCheckSelf:                      sheet.MustGet("updates", "auto_check_self"),
