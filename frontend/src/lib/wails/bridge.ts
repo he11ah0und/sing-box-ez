@@ -283,6 +283,25 @@ export function initWailsEvents(): Promise<unknown> {
     }));
   });
 
+  Events.On('config:download_succeeded', (event: WailsEvent<{ name?: string }>) => {
+    const name = event.data?.name;
+    if (!name) return;
+    appState.update((s) => {
+      let configsUpdateFailed = s.configsUpdateFailed;
+      if (configsUpdateFailed) {
+        const failures = configsUpdateFailed.failures.filter((failure) => failure.name !== name);
+        configsUpdateFailed = failures.length > 0
+          ? { ...configsUpdateFailed, attempted: failures.length, failures }
+          : null;
+      }
+      return {
+        ...s,
+        configDownloadFailed: s.configDownloadFailed?.name === name ? null : s.configDownloadFailed,
+        configsUpdateFailed
+      };
+    });
+  });
+
   Events.On('updatecheck:failed', (event: WailsEvent<{ target?: string; kind?: string }>) => {
     const data = event.data ?? {};
     if (!data.target) return;

@@ -881,6 +881,9 @@ func (w *WailsApp) Run() error {
 				"kind": core.DownloadErrorKind(err),
 			})
 		}
+		w.app.Controller.OnConfigDownloadSucceeded = func(name string) {
+			bindings.emit("config:download_succeeded", map[string]string{"name": name})
+		}
 	}
 	ic.OnVersionChange = func(ver string) {
 		bindings.emit("core:version", map[string]string{"installed": ver})

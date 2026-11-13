@@ -157,3 +157,48 @@ func TestUpdateOutdatedConfigsNothingDue(t *testing.T) {
 		t.Fatalf("expected no report when nothing is due, got %+v", report)
 	}
 }
+
+func TestCheckAllConfigsStoppedLeavesDueWithoutReport(t *testing.T) {
+	ic := newFailureTestIC(t)
+	ic.backend.AddConfig(staleRemote("dead", "http://127.0.0.1:1/dead"))
+	reported := false
+	ic.OnConfigsUpdateFailed = func(ConfigsUpdateReport) { reported = true }
+
+	ic.checkAllConfigs()
+
+	if reported {
+		t.Fatal("a stopped core must not produce a background failure report")
+	}
+	if !ic.backend.GetConfigs()[0].ShouldUpdate() {
+		t.Fatal("the skipped profile must remain due")
+	}
+}
+
+func TestStatusCheckerRunningTransitionUpdatesDueConfigs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"outbounds":[]}`))
+	}))
+	defer srv.Close()
+
+	ic := newFailureTestIC(t)
+	ic.backend.AddConfig(staleRemote("sub", srv.URL))
+	markControllerRunning(ic.Controller)
+	updated := make(chan string, 1)
+	ic.Controller.OnConfigDownloadSucceeded = func(name string) { updated <- name }
+	t.Cleanup(func() {
+		ic.stopMu.Lock()
+		ic.stopped = true
+		ic.stopMu.Unlock()
+	})
+
+	go ic.statusChecker()
+
+	select {
+	case name := <-updated:
+		if name != "sub" {
+			t.Fatalf("updated profile %q, want sub", name)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("running transition did not schedule the due config pass")
+	}
+}

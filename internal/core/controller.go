@@ -81,6 +81,9 @@ type Controller struct {
 	// failure, not a user skip). The GUI offers a retry through the running
 	// core's proxy.
 	OnConfigDownloadFailed func(name string, err error)
+	// OnConfigDownloadSucceeded lets the GUI retire stale failure UI after the
+	// same profile is refreshed successfully by any update path.
+	OnConfigDownloadSucceeded func(name string)
 }
 
 // NewController creates a new controller and wires framework services.
@@ -334,6 +337,9 @@ func (c *Controller) refreshActiveConfig(ctx context.Context) error {
 	c.cfg.SetLastUpdateFor(active.Name, time.Now())
 	_ = c.cfg.Save()
 	c.terminal.TInfof("core.controller.config_update_finished")
+	if c.OnConfigDownloadSucceeded != nil {
+		c.OnConfigDownloadSucceeded(active.Name)
+	}
 	return nil
 }
 
@@ -486,8 +492,7 @@ func (c *Controller) DownloadCoreVersionContext(ctx context.Context, ver string,
 // when direct access to the subscription URL is blocked but the core itself
 // can reach it.
 func (c *Controller) DownloadConfigViaCoreProxy(name string) error {
-	addr := c.CoreProxyAddr()
-	if !c.manager.IsRunning() || addr == "" {
+	if !c.manager.IsRunning() {
 		return c.terminal.TErrorf("core.controller.no_core_proxy")
 	}
 	rec := c.cfg.GetConfigByName(name)
@@ -498,34 +503,45 @@ func (c *Controller) DownloadConfigViaCoreProxy(name string) error {
 	c.configUpdateMu.Lock()
 	defer c.configUpdateMu.Unlock()
 
-	// The core process is up, but the mixed inbound may still be binding its
-	// port; wait briefly for it to accept connections.
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		conn, derr := net.DialTimeout("tcp", addr, 500*time.Millisecond)
-		if derr == nil {
-			_ = conn.Close()
-			break
-		}
-		if time.Now().After(deadline) {
-			return c.terminal.TErrorf("core.controller.no_core_proxy")
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	client := fwnet.NewClientViaProxy(c.terminal, addr)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	data, err := c.manager.DownloadConfigForWith(ctx, name, rec.URL, client)
+	data, err := c.downloadConfigViaCoreProxy(name, rec.URL)
 	if err != nil {
-		// The network backend already logged the failure with context.
 		return err
 	}
 	c.saveConfigHash(name, data)
 	c.cfg.SetLastUpdateFor(name, time.Now())
 	_ = c.cfg.Save()
 	c.terminal.TInfof("core.controller.config_updated", name)
+	if c.OnConfigDownloadSucceeded != nil {
+		c.OnConfigDownloadSucceeded(name)
+	}
 	return nil
+}
+
+func (c *Controller) downloadConfigViaCoreProxy(name, url string) ([]byte, error) {
+	if !c.manager.IsRunning() {
+		return nil, c.terminal.TErrorf("core.controller.no_core_proxy")
+	}
+
+	// The core process is up, but the mixed inbound may still be binding its
+	// port; wait briefly for it to accept connections.
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		addr := c.CoreProxyAddr()
+		if addr != "" {
+			conn, derr := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+			if derr == nil {
+				_ = conn.Close()
+				client := fwnet.NewClientViaProxy(c.terminal, addr)
+				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+				defer cancel()
+				return c.manager.DownloadConfigForWith(ctx, name, url, client)
+			}
+		}
+		if time.Now().After(deadline) {
+			return nil, c.terminal.TErrorf("core.controller.no_core_proxy")
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 func (c *Controller) Restart() error {
@@ -915,17 +931,20 @@ func (c *Controller) HasCachedConfig(name string) bool {
 
 func (c *Controller) DownloadConfigFor(name, url string) error {
 	data, err := c.manager.DownloadConfigFor(context.Background(), name, url)
-	if err != nil && c.CoreProxyAddr() != "" {
+	if err != nil && c.manager.IsRunning() {
 		// Direct access failed (for example an internal-only domain that does
 		// not resolve outside the tunnel): retry through the running core's
 		// local proxy, and only report an error if that fails too.
 		c.terminal.TInfof("core.controller.config_download_via_proxy", err)
-		data, err = c.manager.DownloadConfigForWith(context.Background(), name, url, fwnet.NewClientViaProxy(c.terminal, c.CoreProxyAddr()))
+		data, err = c.downloadConfigViaCoreProxy(name, url)
 	}
 	if err != nil {
 		return err
 	}
 	c.saveConfigHash(name, data)
+	if c.OnConfigDownloadSucceeded != nil {
+		c.OnConfigDownloadSucceeded(name)
+	}
 	return nil
 }
 

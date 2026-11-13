@@ -2,8 +2,11 @@ package core
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -32,6 +35,10 @@ func newUpdateTestController(t *testing.T) *Controller {
 		manager:  NewManager(baseDir, fs.NewOS(baseDir), nil, log),
 		terminal: log.Root,
 	}
+}
+
+func markControllerRunning(c *Controller) {
+	c.manager.cmd = &exec.Cmd{Process: &os.Process{Pid: os.Getpid()}}
 }
 
 // A background update that finds the profile already refreshed (e.g. by the
@@ -166,5 +173,50 @@ func TestRefreshActiveConfigSkipDoesNotReport(t *testing.T) {
 	}
 	if hookCalled {
 		t.Fatal("a user skip must not trigger the download-failed hook")
+	}
+}
+
+func TestDownloadConfigForWaitsForCoreProxy(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve proxy address: %v", err)
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("release proxy address: %v", err)
+	}
+
+	c := newUpdateTestController(t)
+	markControllerRunning(c)
+	c.setProxyAddr(addr)
+	c.cfg.Profiles.AddConfig(config.ConfigRecord{Name: "sub", URL: "http://127.0.0.1:1/sub", Type: "remote"})
+
+	proxy := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"outbounds":[]}`))
+	})}
+	defer proxy.Close()
+	listenErr := make(chan error, 1)
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		delayed, err := net.Listen("tcp", addr)
+		if err != nil {
+			listenErr <- err
+			return
+		}
+		listenErr <- nil
+		_ = proxy.Serve(delayed)
+	}()
+
+	if err := c.DownloadConfigFor("sub", "http://127.0.0.1:1/sub"); err != nil {
+		t.Fatalf("DownloadConfigFor with delayed proxy: %v", err)
+	}
+	if err := <-listenErr; err != nil {
+		t.Fatalf("start delayed proxy: %v", err)
+	}
+	if !c.HasCachedConfig("sub") {
+		t.Fatal("expected the proxy-downloaded config to be cached")
+	}
+	if err := c.DownloadConfigViaCoreProxy("sub"); err != nil {
+		t.Fatalf("manual retry through ready proxy: %v", err)
 	}
 }

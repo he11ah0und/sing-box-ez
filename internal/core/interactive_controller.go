@@ -368,13 +368,6 @@ func (ic *InteractiveController) Close() {
 }
 
 func (ic *InteractiveController) configUpdateChecker() {
-	// Run an initial check right after startup so overdue configs are refreshed
-	// before the first interval elapses.
-	if ic.backend.Config().MustGet("updates", "auto_update_configs").Bool() ||
-		ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool() {
-		ic.checkAllConfigs()
-	}
-
 	for {
 		interval := time.Duration(ic.backend.Config().MustGet("updates", "auto_update_configs_interval_hours").Int()) * time.Hour
 		if interval <= 0 {
@@ -395,6 +388,9 @@ func (ic *InteractiveController) configUpdateChecker() {
 }
 
 func (ic *InteractiveController) checkAllConfigs() {
+	if !ic.backend.IsRunning() {
+		return
+	}
 	configs := ic.backend.GetConfigs()
 	if len(configs) == 0 {
 		return
@@ -533,6 +529,9 @@ func (ic *InteractiveController) statusChecker() {
 		running := ic.backend.IsRunning()
 		if running != lastRunning {
 			lastRunning = running
+			if running {
+				go ic.checkAllConfigs()
+			}
 			if ic.OnStatusChange != nil {
 				ic.OnStatusChange(running)
 			}
