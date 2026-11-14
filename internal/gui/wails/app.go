@@ -101,6 +101,9 @@ type Bindings struct {
 	// updateCancels holds the cancel funcs of in-flight downloads, keyed by
 	// updater target ("app" / "core"); CancelUpdate consumes them.
 	updateCancels map[string]context.CancelFunc
+
+	notifications           notificationRouter
+	updateNotificationDedup updateNotificationDedup
 }
 
 // ServiceName returns the service name used by Wails.
@@ -726,9 +729,9 @@ func (b *Bindings) setWindowVisible(visible bool) {
 	}
 }
 
-// notify emits a user-facing notification event with a localized title and body.
+// notify routes a background notification to the configured destination.
 func (b *Bindings) notify(title, body string) {
-	b.emit("notification", map[string]string{"title": title, "body": body})
+	b.notifications.notify(title, body)
 }
 
 // showDialog emits a modal dialog event for the frontend.
@@ -770,6 +773,18 @@ func (w *WailsApp) Run() error {
 		localeWildcards:    make(map[string]struct{}),
 		pendingStyleChecks: make(map[string]func(string)),
 		updateCancels:      make(map[string]context.CancelFunc),
+	}
+	bindings.notifications = notificationRouter{
+		enabled: func() bool {
+			return w.app.Controller.Config().MustGet("ui", "desktop_notifications").Bool()
+		},
+		system: tray.SystemNotification,
+		inApp: func(title, body string) {
+			bindings.emit("notification", map[string]string{"title": title, "body": body})
+		},
+		reportError: func(err error) {
+			w.app.Logger.Root.TErrorf("gui.system_notification_failed", err)
+		},
 	}
 
 	// Create the interactive controller up front so the tray and the WebSocket

@@ -355,6 +355,10 @@ about:
     confirm: Install update?
     installed: Update installed
     title: App update
+    app_notification_title: App update available
+    app_notification_body: 'Current version: {{current}}. Available version: {{version}}.'
+    core_notification_title: Core update available
+    core_notification_body: 'Current version: {{current}}. Available version: {{version}}.'
     latest: 'Latest:'
     up_to_date: Up to date
     downloading: Downloading…

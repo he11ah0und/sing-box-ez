@@ -289,6 +289,20 @@ func (b *Bindings) runUpdateChecks() {
 	b.checkCoreUpdateAvailable()
 }
 
+func (b *Bindings) notifyAppUpdate(current, latest string) {
+	b.notifyUpdate("app", current, latest,
+		b.t("about", "update", "app_notification_title"),
+		b.tf(localengine.Vars{"current": current, "version": latest},
+			"about", "update", "app_notification_body"))
+}
+
+func (b *Bindings) notifyCoreUpdate(current, latest string) {
+	b.notifyUpdate("core", current, latest,
+		b.t("about", "update", "core_notification_title"),
+		b.tf(localengine.Vars{"current": current, "version": latest},
+			"about", "update", "core_notification_body"))
+}
+
 func (b *Bindings) checkSelfUpdateAvailable() {
 	if b.ic == nil {
 		return
@@ -306,10 +320,7 @@ func (b *Bindings) checkSelfUpdateAvailable() {
 			return
 		}
 		if info.Outdated {
-			// Localized toast: the "Update to {{version}}" key carries the
-			// placeholder, which is substituted with the package version.
-			text := strings.Replace(b.t("about", "update", "available"), "{{version}}", info.Latest, 1)
-			b.toast("info", text, "")
+			b.notifyAppUpdate(info.Current, info.Latest)
 		}
 		return
 	}
@@ -320,10 +331,14 @@ func (b *Bindings) checkSelfUpdateAvailable() {
 		return
 	}
 	hasUpdate, isDevBuild := selfUpdateStatus(info)
+	result := toSelfUpdateInfo(info)
+	if hasUpdate {
+		b.notifyAppUpdate(result.Current, result.Latest)
+	}
 	if !hasUpdate && !isDevBuild {
 		return
 	}
-	b.emit("selfupdate:available", toSelfUpdateInfo(info))
+	b.emit("selfupdate:available", result)
 }
 
 func (b *Bindings) checkCoreUpdateAvailable() {
@@ -343,7 +358,11 @@ func (b *Bindings) checkCoreUpdateAvailable() {
 	}
 	current = normalizeCoreVersion(current)
 	latest = normalizeCoreVersion(latest)
-	if current == latest || latest == "" {
+	if current == latest {
+		b.updateNotificationDedup.clear("core")
+		return
+	}
+	if latest == "" {
 		return
 	}
 	b.emit("core:version", map[string]string{"latest": latest})
@@ -351,6 +370,7 @@ func (b *Bindings) checkCoreUpdateAvailable() {
 		"current": current,
 		"latest":  latest,
 	})
+	b.notifyCoreUpdate(current, latest)
 }
 
 // emitUpdateCheckFailed reports a failed update check to the frontend, which
