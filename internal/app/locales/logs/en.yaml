@@ -73,6 +73,7 @@ core:
     start_cancelled: "Start cancelled by user"
     stop_failed: "Failed to stop: %v"
     auto_updating_config: "Auto-updating config: %s"
+    config_update_scheduled: "Next config update check at %s (in %s)"
     active_config_updated_restarting: "Active config updated, restarting core..."
     auto_restart_skipped_start_in_flight: "Active config updated while a start is in flight, skipping auto-restart"
   log_override:

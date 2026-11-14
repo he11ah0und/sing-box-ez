@@ -367,23 +367,108 @@ func (ic *InteractiveController) Close() {
 	}
 }
 
-func (ic *InteractiveController) configUpdateChecker() {
-	for {
-		interval := time.Duration(ic.backend.Config().MustGet("updates", "auto_update_configs_interval_hours").Int()) * time.Hour
-		if interval <= 0 {
-			interval = time.Hour
-		}
+const configUpdateWakeEpsilon = time.Second
 
-		time.Sleep(interval)
+type configUpdateAttempt struct {
+	lastUpdate  config.Timestamp
+	attemptedAt time.Time
+}
+
+func nextConfigUpdateDelay(now time.Time, interval time.Duration, running, autoUpdate bool, configs []config.ConfigRecord, attempts map[string]configUpdateAttempt) time.Duration {
+	if interval <= 0 {
+		interval = time.Hour
+	}
+	delay := interval
+	if !running || !autoUpdate {
+		return delay
+	}
+
+	for i := range configs {
+		rec := &configs[i]
+		if rec.IsLocal() || !rec.IsAutoUpdate() {
+			continue
+		}
+		next := rec.NextUpdate()
+		if next.IsZero() {
+			next = now
+		}
+		if retryAt, ok := configUpdateRetryAt(rec, attempts, interval); ok {
+			next = retryAt
+		}
+		candidate := next.Sub(now) + configUpdateWakeEpsilon
+		if candidate < configUpdateWakeEpsilon {
+			candidate = configUpdateWakeEpsilon
+		}
+		if candidate < delay {
+			delay = candidate
+		}
+	}
+	return delay
+}
+
+func configUpdateRetryAt(rec *config.ConfigRecord, attempts map[string]configUpdateAttempt, interval time.Duration) (time.Time, bool) {
+	attempt, ok := attempts[rec.Name]
+	if !ok || !attempt.lastUpdate.Time.Equal(rec.LastUpdate.Time) {
+		return time.Time{}, false
+	}
+	return attempt.attemptedAt.Add(interval), true
+}
+
+func (ic *InteractiveController) configUpdateInterval() time.Duration {
+	interval := time.Duration(ic.backend.Config().MustGet("updates", "auto_update_configs_interval_hours").Int()) * time.Hour
+	if interval <= 0 {
+		return time.Hour
+	}
+	return interval
+}
+
+func (ic *InteractiveController) configUpdateChecker() {
+	var attempts map[string]configUpdateAttempt
+	for {
+		interval := ic.configUpdateInterval()
+		autoUpdate := ic.backend.Config().MustGet("updates", "auto_update_configs").Bool()
+		now := time.Now()
+		delay := nextConfigUpdateDelay(now, interval, ic.backend.IsRunning(), autoUpdate, ic.backend.GetConfigs(), attempts)
+		nextWake := now.Add(delay)
+		ic.backend.Terminal().TDebugf("core.interactive.config_update_scheduled", nextWake.Format(time.RFC3339), delay)
+
+		time.Sleep(delay)
 
 		if ic.isStopped() {
 			return
 		}
-		if !ic.backend.Config().MustGet("updates", "auto_update_configs").Bool() &&
-			!ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool() {
+		autoUpdate = ic.backend.Config().MustGet("updates", "auto_update_configs").Bool()
+		autoUpdateOnHashMismatch := ic.backend.Config().MustGet("updates", "auto_update_on_hash_mismatch").Bool()
+		if !autoUpdate && !autoUpdateOnHashMismatch {
+			attempts = nil
 			continue
 		}
-		ic.checkAllConfigs()
+		if !autoUpdate {
+			attempts = nil
+			ic.checkAllConfigs()
+			continue
+		}
+
+		interval = ic.configUpdateInterval()
+		now = time.Now()
+		configs := ic.backend.GetConfigs()
+		configsToCheck := make([]config.ConfigRecord, 0, len(configs))
+		nextAttempts := make(map[string]configUpdateAttempt)
+		if ic.backend.IsRunning() {
+			for i := range configs {
+				rec := &configs[i]
+				if retryAt, ok := configUpdateRetryAt(rec, attempts, interval); ok && now.Before(retryAt) {
+					nextAttempts[rec.Name] = attempts[rec.Name]
+					continue
+				}
+				configsToCheck = append(configsToCheck, *rec)
+				if !rec.IsLocal() && rec.IsAutoUpdate() && rec.ShouldUpdate() {
+					nextAttempts[rec.Name] = configUpdateAttempt{lastUpdate: rec.LastUpdate, attemptedAt: now}
+				}
+			}
+		}
+		ic.checkConfigUpdates(configsToCheck)
+		attempts = nextAttempts
 	}
 }
 
@@ -391,8 +476,11 @@ func (ic *InteractiveController) checkAllConfigs() {
 	if !ic.backend.IsRunning() {
 		return
 	}
-	configs := ic.backend.GetConfigs()
-	if len(configs) == 0 {
+	ic.checkConfigUpdates(ic.backend.GetConfigs())
+}
+
+func (ic *InteractiveController) checkConfigUpdates(configs []config.ConfigRecord) {
+	if !ic.backend.IsRunning() || len(configs) == 0 {
 		return
 	}
 
