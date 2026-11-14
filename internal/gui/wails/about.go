@@ -330,13 +330,10 @@ func (b *Bindings) checkSelfUpdateAvailable() {
 		b.emitUpdateCheckFailed("app", err)
 		return
 	}
-	hasUpdate, isDevBuild := selfUpdateStatus(info)
+	hasUpdate, _ := selfUpdateStatus(info)
 	result := toSelfUpdateInfo(info)
 	if hasUpdate {
 		b.notifyAppUpdate(result.Current, result.Latest)
-	}
-	if !hasUpdate && !isDevBuild {
-		return
 	}
 	b.emit("selfupdate:available", result)
 }
@@ -358,6 +355,9 @@ func (b *Bindings) checkCoreUpdateAvailable() {
 	}
 	current = normalizeCoreVersion(current)
 	latest = normalizeCoreVersion(latest)
+	if latest != "" {
+		b.emit("core:version", map[string]string{"latest": latest})
+	}
 	if current == latest {
 		b.updateNotificationDedup.clear("core")
 		return
@@ -365,7 +365,6 @@ func (b *Bindings) checkCoreUpdateAvailable() {
 	if latest == "" {
 		return
 	}
-	b.emit("core:version", map[string]string{"latest": latest})
 	b.emit("core:update_available", map[string]string{
 		"current": current,
 		"latest":  latest,

@@ -204,7 +204,7 @@
   // Pick up a background update check result delivered via selfupdate:available,
   // both on mount and if the event arrives while the page is open.
   $effect(() => {
-    if (!selfUpdate && $appState.selfUpdateInfo?.hasUpdate) {
+    if (!selfUpdate && $appState.selfUpdateInfo) {
       selfUpdate = $appState.selfUpdateInfo;
     }
   });
@@ -436,7 +436,6 @@
   <!-- App self-updater: channel picker, check, install, progress. -->
   <div class="space-y-4">
     <p class="text-sm text-muted-foreground">
-      {L.aboutUpdatersBackend}: {backendName(u.sourceBackend)} ·
       {L.aboutChannelLabel}{updateChannel?.name ?? ''} ({L.aboutChannelAuto})
     </p>
     <div class="flex items-center justify-between gap-2">
@@ -449,14 +448,19 @@
     {#if version?.isDev}
       <p class="text-sm text-primary">{L.aboutDev_buildLabel}</p>
     {/if}
+    <UpdateCard
+      label={`${L.aboutUpdatersBackend}: ${backendName(u.sourceBackend)}`}
+      current={selfUpdate?.current || version?.version || ''}
+      latest={selfUpdate?.latest || ''}
+      {checking}
+      currentLabel={L.coreInstalled}
+      latestLabel={L.coreLatest}
+      checkLabel={L.aboutBtnCheck_update}
+      updateTitle={L.aboutUpdateTitle}
+      closeLabel={L.commonCancel}
+      onCheck={checkUpdate}
+    />
     <div class="flex flex-wrap gap-3">
-      <Button
-        disabled={checking || installing}
-        onclick={checkUpdate}
-      >
-        <RefreshCw size={16} class={checking ? 'animate-spin' : ''} />
-        {L.aboutBtnCheck_update}
-      </Button>
       {#if selfUpdate?.hasUpdate}
         <AlertDialog.Root bind:open={showInstallConfirm}>
           <AlertDialog.Trigger>
@@ -492,10 +496,9 @@
 {/snippet}
 
 {#snippet externalUpdaterBody()}
-  <!-- Externally managed build (AUR, Scoop): the label comes from the build
-       channel, and version checks reuse the shared UpdateCard. -->
+  <!-- Externally managed builds check updates through the package channel, not the self-update backend. -->
   <UpdateCard
-    label={updateChannel?.name ?? ''}
+    label={`${L.aboutUpdatersBackend}: ${updateChannel?.name ?? ''}`}
     current={version?.version ?? ''}
     latest={externalInfo?.latest ?? ''}
     checking={checkingExternal}
